@@ -1,10 +1,13 @@
-import { useState, useMemo } from "react";
-import { ArrowRightLeft, Copy, Download, Eraser, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { ArrowRightLeft, Copy, Download, Eraser, History, Loader2, RotateCcw, Eye, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,13 +22,56 @@ interface Row {
   error?: string;
 }
 
+interface CampaignRow {
+  id: string;
+  name: string | null;
+  type: "verificacao" | "adicao";
+  status: string;
+  total: number;
+  processed: number;
+  valid_count: number;
+  invalid_count: number;
+  created_at: string;
+}
+
 export default function LidConverter() {
   const [input, setInput] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<"convert" | "history">("convert");
+
+  // history
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [filterType, setFilterType] = useState<"all" | "verificacao" | "adicao">("all");
+  const [openCampaign, setOpenCampaign] = useState<CampaignRow | null>(null);
+  const [openResults, setOpenResults] = useState<Row[]>([]);
+  const [openLoading, setOpenLoading] = useState(false);
+
+  const loadCampaigns = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("contact_processing_campaigns")
+        .select("id,name,type,status,total,processed,valid_count,invalid_count,created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setCampaigns((data || []) as CampaignRow[]);
+    } catch (err) {
+      console.error("[lid-converter] load campaigns", err);
+      toast.error("Falha ao carregar histórico");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "history") loadCampaigns();
+  }, [tab, loadCampaigns]);
 
   const handleConvert = async () => {
-    const lines = Array.from(
+    const allLines = Array.from(
       new Set(
         input
           .split(/[\n,;]+/)
@@ -34,32 +80,103 @@ export default function LidConverter() {
       ),
     );
 
-    if (lines.length === 0) {
+    if (allLines.length === 0) {
       toast.error("Cole ao menos um contato.");
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("resolve-contact", {
-        body: { inputs: lines },
+      // Skip já-validados (cache de campanhas anteriores) — busca números/jids/originals já marcados como válidos.
+      const { data: alreadyData } = await supabase
+        .from("contact_processing_results")
+        .select("original,number,jid,valid,detected_type")
+        .eq("valid", true)
+        .in("original", allLines);
+
+      const cached = new Map<string, Row>();
+      (alreadyData || []).forEach((r: any) => {
+        cached.set(String(r.original), {
+          original: String(r.original),
+          type: (r.detected_type as EntryType) ?? "number",
+          number: r.number ? String(r.number) : "—",
+          jid: r.jid ? String(r.jid) : "—",
+          valid: true,
+        });
       });
 
-      if (error) throw error;
+      const toResolve = allLines.filter((l) => !cached.has(l));
+      let resolvedRows: Row[] = [];
 
-      const results = Array.isArray(data?.results) ? data.results : [];
-      const mapped: Row[] = results.map((r: any) => ({
-        original: String(r?.original ?? ""),
-        type: (r?.type as EntryType) ?? "number",
-        number: r?.number ? String(r.number) : "—",
-        jid: r?.jid ? String(r.jid) : "—",
-        valid: !!r?.valid,
-        error: r?.error,
-      }));
+      if (toResolve.length > 0) {
+        const { data, error } = await supabase.functions.invoke("resolve-contact", {
+          body: { inputs: toResolve },
+        });
+        if (error) throw error;
+        const results = Array.isArray(data?.results) ? data.results : [];
+        resolvedRows = results.map((r: any) => ({
+          original: String(r?.original ?? ""),
+          type: (r?.type as EntryType) ?? "number",
+          number: r?.number ? String(r.number) : "—",
+          jid: r?.jid ? String(r.jid) : "—",
+          valid: !!r?.valid,
+          error: r?.error,
+        }));
+      }
 
-      setRows(mapped);
-      const validCount = mapped.filter((m) => m.valid).length;
-      toast.success(`${mapped.length} processados · ${validCount} válidos`);
+      // Mantém ordem original
+      const merged: Row[] = allLines.map((l) => cached.get(l) || resolvedRows.find((r) => r.original === l) || {
+        original: l, type: "number", number: "—", jid: "—", valid: false, error: "no_result",
+      });
+
+      setRows(merged);
+
+      // Salva campanha + resultados
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (uid) {
+        const validCount = merged.filter((m) => m.valid).length;
+        const { data: camp, error: campErr } = await supabase
+          .from("contact_processing_campaigns")
+          .insert({
+            user_id: uid,
+            type: "verificacao",
+            status: "completed",
+            total: merged.length,
+            processed: merged.length,
+            valid_count: validCount,
+            invalid_count: merged.length - validCount,
+            started_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+            name: `Conversão ${new Date().toLocaleString("pt-BR")}`,
+          })
+          .select("id")
+          .single();
+        if (!campErr && camp?.id) {
+          const payload = merged.map((r) => ({
+            campaign_id: camp.id,
+            user_id: uid,
+            original: r.original,
+            detected_type: r.type,
+            number: r.number === "—" ? null : r.number,
+            jid: r.jid === "—" ? null : r.jid,
+            valid: r.valid,
+            status: r.valid ? "valid" : "invalid",
+            error_message: r.error || null,
+          }));
+          if (payload.length > 0) {
+            await supabase.from("contact_processing_results").insert(payload);
+          }
+        }
+      }
+
+      const validCount = merged.filter((m) => m.valid).length;
+      const cachedCount = cached.size;
+      toast.success(
+        cachedCount > 0
+          ? `${merged.length} processados · ${validCount} válidos (${cachedCount} reaproveitados)`
+          : `${merged.length} processados · ${validCount} válidos`,
+      );
     } catch (err) {
       console.error("[lid-converter] convert error", err);
       toast.error(err instanceof Error ? err.message : "Falha ao processar contatos");
@@ -77,7 +194,6 @@ export default function LidConverter() {
     () => rows.filter((r) => r.valid && r.number !== "—").map((r) => r.number),
     [rows],
   );
-
   const validJids = useMemo(
     () => rows.filter((r) => r.valid && r.jid !== "—").map((r) => r.jid),
     [rows],
@@ -85,64 +201,40 @@ export default function LidConverter() {
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-      // Fallback
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; }
       const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
       const ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      return ok;
-    } catch {
-      return false;
-    }
+      document.body.removeChild(ta); return ok;
+    } catch { return false; }
   };
 
   const handleCopyValid = async () => {
-    if (validNumbers.length === 0) {
-      toast.error("Nenhum número válido para copiar.");
-      return;
-    }
+    if (validNumbers.length === 0) return toast.error("Nenhum número válido.");
     const ok = await copyToClipboard(validNumbers.join("\n"));
-    if (ok) toast.success(`${validNumbers.length} números copiados`);
-    else toast.error("Falha ao copiar para a área de transferência");
+    ok ? toast.success(`${validNumbers.length} números copiados`) : toast.error("Falha ao copiar");
+  };
+  const handleCopyValidJids = async () => {
+    if (validJids.length === 0) return toast.error("Nenhum JID válido.");
+    const ok = await copyToClipboard(validJids.join("\n"));
+    ok ? toast.success(`${validJids.length} JIDs copiados`) : toast.error("Falha ao copiar");
   };
 
-  const handleCopyValidJids = async () => {
-    if (validJids.length === 0) {
-      toast.error("Nenhum JID válido para copiar.");
-      return;
-    }
-    const ok = await copyToClipboard(validJids.join("\n"));
-    if (ok) toast.success(`${validJids.length} JIDs copiados`);
-    else toast.error("Falha ao copiar para a área de transferência");
+  const exportRowsToCsv = (data: Row[], filename: string) => {
+    const header = "original,tipo,numero,jid,status\n";
+    const body = data.map((r) =>
+      `"${r.original.replace(/"/g, '""')}","${r.type}","${r.number}","${r.jid}","${r.valid ? "Válido" : "Inválido"}"`,
+    ).join("\n");
+    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleExport = () => {
-    if (rows.length === 0) {
-      toast.error("Nada para exportar.");
-      return;
-    }
-    const header = "original,tipo,numero,jid,status\n";
-    const body = rows
-      .map(
-        (r) =>
-          `"${r.original.replace(/"/g, '""')}","${r.type}","${r.number}","${r.jid}","${r.valid ? "Válido" : "Inválido"}"`,
-      )
-      .join("\n");
-    const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `lid-converter-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (rows.length === 0) return toast.error("Nada para exportar.");
+    exportRowsToCsv(rows, `lid-converter-${Date.now()}.csv`);
     toast.success("Lista exportada");
   };
 
@@ -153,6 +245,53 @@ export default function LidConverter() {
     return { total, valid, invalid: total - valid, lid };
   }, [rows]);
 
+  const filteredCampaigns = useMemo(
+    () => filterType === "all" ? campaigns : campaigns.filter((c) => c.type === filterType),
+    [campaigns, filterType],
+  );
+
+  const openCampaignDetails = async (c: CampaignRow) => {
+    setOpenCampaign(c);
+    setOpenLoading(true);
+    setOpenResults([]);
+    try {
+      const { data, error } = await supabase
+        .from("contact_processing_results")
+        .select("original,detected_type,number,jid,valid,error_message")
+        .eq("campaign_id", c.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const mapped: Row[] = (data || []).map((r: any) => ({
+        original: String(r.original),
+        type: (r.detected_type as EntryType) ?? "number",
+        number: r.number ? String(r.number) : "—",
+        jid: r.jid ? String(r.jid) : "—",
+        valid: !!r.valid,
+        error: r.error_message || undefined,
+      }));
+      setOpenResults(mapped);
+    } catch (err) {
+      toast.error("Falha ao carregar resultados");
+    } finally {
+      setOpenLoading(false);
+    }
+  };
+
+  const handleReuseList = (results: Row[]) => {
+    const lines = results.map((r) => r.original).filter(Boolean);
+    setInput(lines.join("\n"));
+    setOpenCampaign(null);
+    setTab("convert");
+    toast.success(`${lines.length} contatos carregados na entrada`);
+  };
+
+  const handleCopyValidFromCampaign = async (results: Row[]) => {
+    const nums = results.filter((r) => r.valid && r.number !== "—").map((r) => r.number);
+    if (nums.length === 0) return toast.error("Nenhum número válido nesta campanha.");
+    const ok = await copyToClipboard(nums.join("\n"));
+    ok ? toast.success(`${nums.length} números copiados`) : toast.error("Falha ao copiar");
+  };
+
   return (
     <div className="space-y-6 p-4 sm:p-6 max-w-6xl mx-auto">
       <div className="flex items-start gap-3">
@@ -162,155 +301,276 @@ export default function LidConverter() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Conversor de @LID</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Cole uma lista de contatos (LID, JID ou número) e converta para o formato JID padrão do WhatsApp.
+            Converta LIDs, JIDs e números para o formato padrão do WhatsApp e mantenha histórico das listas processadas.
           </p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Entrada</CardTitle>
-          <CardDescription>
-            Um contato por linha. Aceita formatos: <code>5511999998888</code>, <code>5511999998888@s.whatsapp.net</code>,{" "}
-            <code>123456789@lid</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={`5511999998888\n5511988887777@s.whatsapp.net\n123456789@lid`}
-            rows={8}
-            className="font-mono text-sm"
-            disabled={loading}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleConvert} disabled={loading || !input.trim()}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-              {loading ? "Processando..." : "Converter"}
-            </Button>
-            <Button variant="outline" onClick={handleClear} disabled={loading || (!input && rows.length === 0)}>
-              <Eraser className="h-4 w-4" />
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="convert"><ArrowRightLeft className="h-4 w-4 mr-1" /> Converter</TabsTrigger>
+          <TabsTrigger value="history"><History className="h-4 w-4 mr-1" /> Histórico</TabsTrigger>
+        </TabsList>
 
-      {(loading || rows.length > 0) && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle className="text-base">Resultados</CardTitle>
-                <CardDescription>
-                  {loading ? "Resolvendo contatos via backend..." : "Resumo do processamento"}
-                </CardDescription>
+        <TabsContent value="convert" className="space-y-6 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Entrada</CardTitle>
+              <CardDescription>
+                Um contato por linha. Aceita: <code>5511999998888</code>, <code>5511999998888@s.whatsapp.net</code>,{" "}
+                <code>123456789@lid</code>. Contatos já validados anteriormente são reaproveitados automaticamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={`5511999998888\n5511988887777@s.whatsapp.net\n123456789@lid`}
+                rows={8}
+                className="font-mono text-sm"
+                disabled={loading}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleConvert} disabled={loading || !input.trim()}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
+                  {loading ? "Processando..." : "Converter"}
+                </Button>
+                <Button variant="outline" onClick={handleClear} disabled={loading || (!input && rows.length === 0)}>
+                  <Eraser className="h-4 w-4" />
+                  Limpar
+                </Button>
               </div>
-              {!loading && rows.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={handleCopyValid}>
-                    <Copy className="h-4 w-4" />
-                    Copiar números válidos ({validNumbers.length})
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleCopyValidJids}>
-                    <Copy className="h-4 w-4" />
-                    Copiar JIDs válidos ({validJids.length})
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExport}>
-                    <Download className="h-4 w-4" />
-                    Exportar CSV
-                  </Button>
+            </CardContent>
+          </Card>
+
+          {(loading || rows.length > 0) && (
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle className="text-base">Resultados</CardTitle>
+                    <CardDescription>
+                      {loading ? "Resolvendo contatos via backend..." : "Resumo do processamento"}
+                    </CardDescription>
+                  </div>
+                  {!loading && rows.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={handleCopyValid}>
+                        <Copy className="h-4 w-4" /> Copiar números válidos ({validNumbers.length})
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleCopyValidJids}>
+                        <Copy className="h-4 w-4" /> Copiar JIDs válidos ({validJids.length})
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleExport}>
+                        <Download className="h-4 w-4" /> Exportar CSV
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {!loading && rows.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+                    <StatBox label="Total" value={stats.total} />
+                    <StatBox label="Válidos" value={stats.valid} variant="emerald" />
+                    <StatBox label="Inválidos" value={stats.invalid} variant="destructive" />
+                    <StatBox label="LIDs" value={stats.lid} />
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    <span className="text-sm">Resolvendo via Uazapi...</span>
+                  </div>
+                ) : (
+                  <ResultsTable rows={rows} />
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-base">Histórico de Campanhas</CardTitle>
+                  <CardDescription>Visualize, filtre e reaproveite listas processadas anteriormente.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={filterType} onValueChange={(v) => setFilterType(v as any)}>
+                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os tipos</SelectItem>
+                      <SelectItem value="verificacao">Verificação</SelectItem>
+                      <SelectItem value="adicao">Adição</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {historyLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando histórico...
+                </div>
+              ) : filteredCampaigns.length === 0 ? (
+                <div className="text-center py-10 text-sm text-muted-foreground">
+                  Nenhuma campanha encontrada.
+                </div>
+              ) : (
+                <div className="rounded-lg border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead className="w-[120px]">Tipo</TableHead>
+                        <TableHead className="w-[100px]">Total</TableHead>
+                        <TableHead className="w-[100px]">Válidos</TableHead>
+                        <TableHead className="w-[100px]">Inválidos</TableHead>
+                        <TableHead className="w-[160px]">Data</TableHead>
+                        <TableHead className="w-[120px]">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCampaigns.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="text-sm">{c.name || "—"}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="capitalize">{c.type}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{c.total}</TableCell>
+                          <TableCell className="text-sm text-emerald-600 dark:text-emerald-400">{c.valid_count}</TableCell>
+                          <TableCell className="text-sm text-destructive">{c.invalid_count}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(c.created_at).toLocaleString("pt-BR")}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => openCampaignDetails(c)}>
+                              <Eye className="h-4 w-4" /> Abrir
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-            {!loading && rows.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-                <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total</div>
-                  <div className="text-lg font-semibold">{stats.total}</div>
-                </div>
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Válidos</div>
-                  <div className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{stats.valid}</div>
-                </div>
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-destructive">Inválidos</div>
-                  <div className="text-lg font-semibold text-destructive">{stats.invalid}</div>
-                </div>
-                <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">LIDs</div>
-                  <div className="text-lg font-semibold">{stats.lid}</div>
-                </div>
+      {/* Detalhes de Campanha */}
+      <Dialog open={!!openCampaign} onOpenChange={(o) => !o && setOpenCampaign(null)}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{openCampaign?.name || "Campanha"}</DialogTitle>
+            <DialogDescription>
+              {openCampaign && (
+                <>
+                  {openCampaign.total} contatos · {openCampaign.valid_count} válidos · {openCampaign.invalid_count} inválidos ·{" "}
+                  {new Date(openCampaign.created_at).toLocaleString("pt-BR")}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openLoading ? (
+            <div className="flex items-center justify-center py-10 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => handleReuseList(openResults)}>
+                  <RotateCcw className="h-4 w-4" /> Usar lista novamente
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleCopyValidFromCampaign(openResults)}>
+                  <Copy className="h-4 w-4" /> Copiar números válidos
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => exportRowsToCsv(openResults, `campanha-${openCampaign?.id}.csv`)}>
+                  <Download className="h-4 w-4" /> Exportar CSV
+                </Button>
               </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-12 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                <span className="text-sm">Resolvendo via Uazapi...</span>
-              </div>
-            ) : (
-              <div className="rounded-lg border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Original</TableHead>
-                      <TableHead className="w-[100px]">Tipo</TableHead>
-                      <TableHead>Número</TableHead>
-                      <TableHead>JID</TableHead>
-                      <TableHead className="w-[110px]">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r, i) => (
-                      <TableRow
-                        key={`${r.original}-${i}`}
-                        className={r.valid ? "bg-emerald-500/[0.04]" : "bg-destructive/[0.04]"}
-                      >
-                        <TableCell className="font-mono text-xs break-all max-w-[200px]">{r.original}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={r.type === "lid" ? "destructive" : "secondary"}
-                            className="text-[10px] uppercase"
-                          >
-                            {r.type === "number" ? "Número" : r.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{r.number}</TableCell>
-                        <TableCell className="font-mono text-xs break-all max-w-[220px]">{r.jid}</TableCell>
-                        <TableCell>
-                          {r.valid ? (
-                            <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/30">
-                              Válido
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-destructive border-destructive/40"
-                              title={r.error}
-                            >
-                              Inválido
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            {!loading && stats.lid > 0 && (
-              <p className="text-xs text-muted-foreground mt-3">
-                ⚠️ Identificadores <strong>@lid</strong> são resolvidos via Uazapi quando há uma instância conectada.
-                Se não houver, ficam marcados como inválidos.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <ResultsTable rows={openResults} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function StatBox({ label, value, variant }: { label: string; value: number; variant?: "emerald" | "destructive" }) {
+  const cls =
+    variant === "emerald"
+      ? "border-emerald-500/30 bg-emerald-500/10"
+      : variant === "destructive"
+        ? "border-destructive/30 bg-destructive/10"
+        : "bg-muted/30";
+  const labelCls =
+    variant === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : variant === "destructive"
+        ? "text-destructive"
+        : "text-muted-foreground";
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${cls}`}>
+      <div className={`text-[10px] uppercase tracking-wide ${labelCls}`}>{label}</div>
+      <div className={`text-lg font-semibold ${labelCls}`}>{value}</div>
+    </div>
+  );
+}
+
+function ResultsTable({ rows }: { rows: Row[] }) {
+  if (rows.length === 0) {
+    return <div className="text-sm text-muted-foreground text-center py-6">Sem resultados.</div>;
+  }
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Original</TableHead>
+            <TableHead className="w-[100px]">Tipo</TableHead>
+            <TableHead>Número</TableHead>
+            <TableHead>JID</TableHead>
+            <TableHead className="w-[110px]">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, i) => (
+            <TableRow
+              key={`${r.original}-${i}`}
+              className={r.valid ? "bg-emerald-500/[0.04]" : "bg-destructive/[0.04]"}
+            >
+              <TableCell className="font-mono text-xs break-all max-w-[200px]">{r.original}</TableCell>
+              <TableCell>
+                <Badge variant={r.type === "lid" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+                  {r.type === "number" ? "Número" : r.type}
+                </Badge>
+              </TableCell>
+              <TableCell className="font-mono text-xs">{r.number}</TableCell>
+              <TableCell className="font-mono text-xs break-all max-w-[220px]">{r.jid}</TableCell>
+              <TableCell>
+                {r.valid ? (
+                  <Badge className="bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/30">
+                    Válido
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-destructive border-destructive/40" title={r.error}>
+                    Inválido
+                  </Badge>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
