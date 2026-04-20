@@ -858,7 +858,10 @@ async function executeSessionTurn(
         message: `Comunitário: bloco ${fresh.id} msg ${newTotal}/${fresh.target_messages}`,
         meta: { session_id: fresh.id, pair_id: fresh.pair_id, mode: fresh.community_mode },
       });
-      await (db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false }) as any).catch(() => {});
+      {
+        const { error: budgetErr } = await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
+        if (budgetErr) logger.warn({ err: budgetErr.message, cycle_id: cycle.id }, "increment_warmup_budget failed (community)");
+      }
     }
   }
 
