@@ -609,6 +609,10 @@ interface AddResult {
   cooldownMs: number;
   strategyIndex?: number;
   canTryOtherStrategy?: boolean;
+  /** Raw API response body (truncated, for diagnostics on failure). */
+  rawResponse?: string;
+  /** HTTP status code of the last attempt, when known. */
+  httpStatus?: number;
   failureStatus?:
     | "rate_limited"
     | "api_temporary"
@@ -623,6 +627,20 @@ interface AddResult {
     | "timeout"
     | "unknown_failure"
     | "failed";
+}
+
+/**
+ * Strict privacy detector. We ONLY classify as a privacy restriction when the
+ * API explicitly says so (explicit privacy keyword in the body or detail).
+ * Generic failures — timeout, rate limit, "unknown error", connection drops —
+ * must NEVER be treated as privacy errors. HTTP 403 alone is also not enough,
+ * since several providers use 403 for unrelated permission issues (e.g. "not
+ * admin").
+ */
+function isExplicitPrivacyError(result: AddResult): boolean {
+  if (result.ok || result.alreadyExists) return false;
+  const haystack = `${result.detail || ""} ${result.rawResponse || ""}`.toLowerCase();
+  return /privacidade|saved contacts|contatos salvos|only allows.*contact|invite de contatos|only contacts can/.test(haystack);
 }
 
 function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
@@ -720,41 +738,49 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       .join(" ");
     const errorMsgLower = errorMsg.toLowerCase();
     const rawLower = raw.toLowerCase();
+    const rawSnippet = raw ? raw.slice(0, 800) : "";
+    const attach = (r: AddResult): AddResult => ({ ...r, rawResponse: rawSnippet, httpStatus: res.status });
 
     const gu = body?.groupUpdated || body?.data?.groupUpdated;
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
       if (errCode === 0 || errCode === 200 || errCode === 201) {
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
       if (errCode === 409) {
-        return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
       if (errCode === 403) {
-        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" };
+        // Only call it a privacy error if the message text actually says so;
+        // otherwise treat as a generic 403 (e.g. "not admin").
+        const looksLikePrivacy = /privacidade|saved contacts|contatos salvos|only allows.*contact|invite de contatos|only contacts can/.test(errorMsgLower || rawLower);
+        if (looksLikePrivacy) {
+          return attach({ ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" });
+        }
+        return attach(classifyFailure(errorMsgLower || rawLower, 403, idx));
       }
       if (errCode >= 400) {
-        return classifyFailure(errorMsgLower || rawLower, errCode, idx);
+        return attach(classifyFailure(errorMsgLower || rawLower, errCode, idx));
       }
-      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
     const groupObj = body?.group || body?.data?.group;
     if (groupObj && typeof groupObj === "object" && (groupObj.JID || groupObj.jid || groupObj.id)) {
       if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
     }
 
     if (errorMsgLower.includes("already") || errorMsgLower.includes("já") || errorMsgLower.includes("memberaddmode") || res.status === 409) {
-      return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
     if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
-      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
-    return classifyFailure(errorMsgLower || rawLower, res.status, idx);
+    return attach(classifyFailure(errorMsgLower || rawLower, res.status, idx));
   };
 
   // ── FAST PATH: If we have a cached winning strategy, try ONLY that first ──
@@ -1452,32 +1478,82 @@ async function runDeviceWorker(
 
         result = await withDeadline(doAdd());
 
-        // If add failed with the privacy error, force-save the contact once
-        // more and retry exactly one time. Privacy is a user-level restriction
-        // (not an instance failure) and must NOT break the worker.
-        const isPrivacyBlock = !result.ok
-          && !result.alreadyExists
-          && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
-        if (isPrivacyBlock) {
-          log.warn(`retry_after_privacy: ${phone} on group ${groupId.slice(0, 15)} — forcing contact save and retrying once.`);
+        // ── Privacy handling: STRICT detection.
+        // Only treat as privacy when the API explicitly says so. Generic
+        // failures (timeout, rate limit, "unknown error", connection drops)
+        // are NEVER classified as privacy here.
+        if (isExplicitPrivacyError(result)) {
+          log.warn(
+            `retry_after_privacy: phone=${phone} group=${groupId} instance_id=${deviceId} — forcing contact save and retrying once. body=${(result.rawResponse || "").slice(0, 200)}`,
+          );
           const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
           if (saved) {
             await sleep(randomBetween(800, 1500));
             result = await withDeadline(doAdd());
           }
-          const stillPrivacy = !result.ok
-            && !result.alreadyExists
-            && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
-          if (stillPrivacy) {
-            log.warn(`privacy_blocked_final: ${phone} on group ${groupId.slice(0, 15)} — marking as failed (user-level privacy).`);
+          if (isExplicitPrivacyError(result)) {
+            log.warn(
+              `privacy_blocked_final: phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.httpStatus ?? "?"} body=${(result.rawResponse || "").slice(0, 300)}`,
+            );
             result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
           }
+        }
+
+        // ── Generic-failure retry with exponential backoff (3s → 6s).
+        // Applies to non-privacy, non-success, non-permanent failures only.
+        // We retry up to 2 times. Privacy, "already in group", "blocked",
+        // "contact_not_found", "invalid_group", "confirmed_no_admin" and
+        // "unauthorized" are NOT retried here.
+        const NON_RETRY_STATUSES = new Set([
+          "blocked",
+          "contact_not_found",
+          "invalid_group",
+          "confirmed_no_admin",
+          "unauthorized",
+        ]);
+        const shouldRetryGeneric = (r: AddResult) =>
+          !r.ok
+          && !r.alreadyExists
+          && !isExplicitPrivacyError(r)
+          && !NON_RETRY_STATUSES.has(r.failureStatus || "");
+
+        const backoffSchedule = [3_000, 6_000];
+        for (let attempt = 0; attempt < backoffSchedule.length && shouldRetryGeneric(result); attempt++) {
+          const delay = backoffSchedule[attempt];
+          log.warn(
+            `add_generic_retry attempt=${attempt + 1}/${backoffSchedule.length} phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.failureStatus || "?"} http=${result.httpStatus ?? "?"} delay_ms=${delay} body=${(result.rawResponse || "").slice(0, 200)}`,
+          );
+          await sleep(delay);
+          try {
+            result = await withDeadline(doAdd());
+          } catch (retryErr: any) {
+            // Treat retry exceptions as transient unknown failure so the loop
+            // can decide whether to keep retrying (it won't, after 2 tries).
+            result = {
+              ok: false,
+              alreadyExists: false,
+              detail: `Falha durante retry: ${String(retryErr?.message || retryErr).slice(0, 120)}`,
+              retryable: true,
+              pauseCampaign: false,
+              cooldownMs: 0,
+              failureStatus: "unknown_failure",
+              canTryOtherStrategy: false,
+            };
+          }
+        }
+
+        // After all retries, if still failing for a non-privacy reason, log
+        // the full raw API response with diagnostic context.
+        if (!result.ok && !result.alreadyExists && !isExplicitPrivacyError(result)) {
+          log.warn(
+            `add_failed_final phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.failureStatus || "failed"} http=${result.httpStatus ?? "?"} detail="${(result.detail || "").slice(0, 160).replace(/"/g, "'")}" raw=${(result.rawResponse || "").slice(0, 500)}`,
+          );
         }
       } catch (timeoutErr: any) {
         // Catches per-contact deadline. We synthesize a failed AddResult so the
         // queue ALWAYS advances — the contact is marked failed and we move on.
         const msg = String(timeoutErr?.message || timeoutErr || "timeout");
-        log.warn(`per_contact_timeout: ${phone} on group ${groupId.slice(0, 15)} after ${PER_CONTACT_MAX_PROCESSING_MS}ms — auto-failing and continuing.`);
+        log.warn(`per_contact_timeout: phone=${phone} group=${groupId} instance_id=${deviceId} after ${PER_CONTACT_MAX_PROCESSING_MS}ms — auto-failing and continuing.`);
         result = {
           ok: false,
           alreadyExists: false,
