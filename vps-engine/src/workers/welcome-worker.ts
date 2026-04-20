@@ -7,6 +7,7 @@
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("welcome");
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -44,7 +45,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 }
 
 function buildHeaders(token: string): Record<string, string> {
-  return { token, Accept: "application/json", "Content-Type": "application/json", "Cache-Control": "no-cache" };
+  return buildUazapiHeaders(token, { json: true, context: "welcome-worker" });
 }
 
 function extractParticipantPhones(data: any): Set<string> {
@@ -108,7 +109,7 @@ async function fetchGroupParticipants(baseUrl: string, token: string, groupId: s
 
 async function uazapiRequest(baseUrl: string, token: string, endpoint: string, payload: any, method: "POST" | "GET" = "POST") {
   let url = `${baseUrl}${endpoint}`;
-  const headers: Record<string, string> = { token, Accept: "application/json" };
+  const headers: Record<string, string> = buildUazapiHeaders(token, { context: "welcome-worker" });
   let fetchOptions: RequestInit;
 
   if (method === "GET") {

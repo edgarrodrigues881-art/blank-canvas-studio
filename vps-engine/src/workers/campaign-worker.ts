@@ -9,6 +9,7 @@ import { createLogger } from "../core/logger";
 
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("campaign");
 
@@ -86,7 +87,7 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
 // ── UAZAPI Communication ──
 async function uazapiRequest(baseUrl: string, token: string, endpoint: string, payload: any, method: "POST" | "GET" = "POST") {
   let url = `${baseUrl}${endpoint}`;
-  const headers: Record<string, string> = { token, Accept: "application/json" };
+  const headers: Record<string, string> = buildUazapiHeaders(token, { context: "campaign-worker" });
   let fetchOptions: RequestInit;
 
   if (method === "GET") {
@@ -576,7 +577,7 @@ async function sendCampaignAlertToWa(sb: any, userId: string, campaignName: stri
     else if (status === "canceled") msg = `🚫 CAMPANHA CANCELADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     else if (status === "completed") msg = `📣 CAMPANHA FINALIZADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n📬 Entregues: ${s.delivered || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     if (!msg) return;
-    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, { method: "POST", headers: { token: dev.uazapi_token, Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ chatId: targetGroup, text: msg }) });
+    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, { method: "POST", headers: buildUazapiHeaders(dev.uazapi_token, { json: true, context: "campaign-worker" }), body: JSON.stringify({ chatId: targetGroup, text: msg }) });
     await res.text();
   } catch {}
 }

@@ -4,6 +4,7 @@
 
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
+import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
@@ -36,12 +37,7 @@ export async function validateUazapiCredentials(
     return { status: "invalid", reason: "missing_base_url", httpStatus: null };
   }
 
-  const headers = {
-    token: cleanApiToken,
-    Accept: "application/json",
-    "Cache-Control": "no-cache",
-    Pragma: "no-cache",
-  };
+  const headers = buildUazapiHeaders(cleanApiToken, { context: "validateUazapiCredentials" });
 
   const endpoints = [
     `${cleanBaseUrl}/instance/status?t=${Date.now()}`,
@@ -103,7 +99,7 @@ export async function uazapiRequest(
     throw new Error(`Circuit breaker OPEN for ${baseUrl.slice(0, 40)}… — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
   }
   let url = `${baseUrl}${endpoint}`;
-  const headers: Record<string, string> = { token, Accept: "application/json" };
+  const headers: Record<string, string> = buildUazapiHeaders(token, { context: `uazapiRequest:${endpoint}` });
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), config.apiTimeoutMs);
@@ -196,7 +192,7 @@ export async function uazapiSendText(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -239,7 +235,7 @@ export async function uazapiSendImage(
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
     body: JSON.stringify({ number, file: imageUrl, type: "image", caption: safeCaption }),
   });
   const raw = await res.text();
@@ -259,7 +255,7 @@ export async function uazapiSendSticker(
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
     body: JSON.stringify({ number, file: imageUrl, type: "sticker" }),
   });
   const raw = await res.text();
@@ -287,7 +283,7 @@ export async function uazapiSendAudio(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -320,7 +316,7 @@ export async function uazapiSendLocation(
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
@@ -350,7 +346,7 @@ export async function uazapiCheckPhone(
     try {
       const res = await fetch(ep.url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
         body: JSON.stringify(ep.body),
       });
       if (res.status === 405 || res.status === 404 || !res.ok) continue;
@@ -381,7 +377,7 @@ export async function fetchLiveGroups(baseUrl: string, token: string): Promise<a
     try {
       const res = await fetch(ep, {
         method: "GET",
-        headers: { token, Accept: "application/json", "Cache-Control": "no-cache" },
+        headers: buildUazapiHeaders(token, { context: "fetchLiveGroups" }),
       });
       if (!res.ok) continue;
       const raw = await res.text();

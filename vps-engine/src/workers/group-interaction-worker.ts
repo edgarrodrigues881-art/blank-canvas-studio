@@ -9,6 +9,7 @@ import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 import { extractInviteCode, type ResolvedGroup } from "../group-interaction/group-resolution";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("group-interaction");
 
@@ -326,7 +327,7 @@ async function uazapiSendText(baseUrl: string, token: string, number: string, te
     try {
       const res = await fetch(`${baseUrl}${attempt.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "group-interaction-worker" }),
         body: JSON.stringify(attempt.body),
       });
       const raw = await res.text();
@@ -343,7 +344,7 @@ async function uazapiSendText(baseUrl: string, token: string, number: string, te
 async function uazapiSendImage(baseUrl: string, token: string, number: string, imageUrl: string, caption: string) {
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "group-interaction-worker" }),
     body: JSON.stringify({ number, file: imageUrl, type: "image", caption }),
   });
   const raw = await res.text();
@@ -354,7 +355,7 @@ async function uazapiSendImage(baseUrl: string, token: string, number: string, i
 async function uazapiSendSticker(baseUrl: string, token: string, number: string, imageUrl: string) {
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "group-interaction-worker" }),
     body: JSON.stringify({ number, file: imageUrl, type: "sticker" }),
   });
   await res.text();
@@ -365,7 +366,7 @@ async function uazapiSendSticker(baseUrl: string, token: string, number: string,
 async function uazapiSendAudio(baseUrl: string, token: string, number: string, audioUrl: string) {
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+    headers: buildUazapiHeaders(token, { json: true, context: "group-interaction-worker" }),
     body: JSON.stringify({ number, file: audioUrl, type: "audio", ptt: true }),
   });
   await res.text();

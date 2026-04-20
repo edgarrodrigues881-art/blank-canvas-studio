@@ -8,6 +8,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("group-join");
 
@@ -39,7 +40,7 @@ function normalizeGroupLink(link: string): string {
 }
 
 async function tryJoin(baseUrl: string, token: string, inviteCode: string, groupLink: string): Promise<{ ok: boolean; status: number; body: any }> {
-  const headers = { token, Accept: "application/json", "Content-Type": "application/json" };
+  const headers = buildUazapiHeaders(token, { json: true, context: "group-join-worker" });
   const cleanLink = normalizeGroupLink(groupLink);
   const cleanCode = extractInviteCode(cleanLink) || inviteCode;
 

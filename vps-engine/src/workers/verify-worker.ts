@@ -6,6 +6,7 @@
 
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("verify");
 
@@ -51,7 +52,7 @@ async function checkBatchNumbers(baseUrl: string, token: string, phones: string[
   try {
     const res = await fetchWithTimeout(url, {
       method: "POST",
-      headers: { token, Accept: "application/json", "Content-Type": "application/json" },
+      headers: buildUazapiHeaders(token, { json: true, context: "verify-worker" }),
       body: JSON.stringify({ numbers: phones }),
     });
     const text = await res.text();

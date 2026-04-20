@@ -6,6 +6,7 @@
 
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("sync-devices");
 
@@ -115,7 +116,7 @@ export async function syncDevicesTick() {
       try {
         const res = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, {
           method: "GET",
-          headers: { token: device.uazapi_token, Accept: "application/json", "Cache-Control": "no-cache" },
+          headers: buildUazapiHeaders(device.uazapi_token, { context: "sync-devices-worker" }),
         }, 5000);
 
         if (!res.ok) { await res.text(); return; }
@@ -139,7 +140,7 @@ export async function syncDevicesTick() {
             try {
               const confirmRes = await fetchWithTimeout(`${baseUrl}/instance/status?t=${Date.now()}`, {
                 method: "GET",
-                headers: { token: device.uazapi_token, Accept: "application/json", "Cache-Control": "no-cache" },
+                headers: buildUazapiHeaders(device.uazapi_token, { context: "sync-devices-worker" }),
               }, 5000);
               if (!confirmRes.ok) {
                 // 502/5xx do provedor = blip, NÃO conta como desconexão

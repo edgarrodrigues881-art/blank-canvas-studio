@@ -1,3 +1,5 @@
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
+
 const DEFAULT_TIMEOUT_MS = 12_000;
 
 export type MassInjectTargetKind = "group" | "community_root" | "community_child" | "invalid";
@@ -13,14 +15,7 @@ export interface MassInjectTargetInfo {
 }
 
 function buildHeaders(token: string, includeJson = false): Record<string, string> {
-  const headers: Record<string, string> = {
-    token,
-    Accept: "application/json",
-    "Cache-Control": "no-cache",
-    Pragma: "no-cache",
-  };
-  if (includeJson) headers["Content-Type"] = "application/json";
-  return headers;
+  return buildUazapiHeaders(token, { json: includeJson, context: "mass-inject-target" });
 }
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {

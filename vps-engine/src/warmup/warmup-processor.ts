@@ -16,6 +16,7 @@ import {
   CONNECTED_STATUSES, INTERACTION_JOB_TYPES,
 } from "./warmup-rules";
 import { scheduleDayJobs, ensureJoinGroupJobs, ensureNextDailyResetJob } from "./warmup-scheduling";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("warmup-processor");
 
@@ -419,7 +420,7 @@ async function processJoinGroup(db: any, job: any, ctx: ProcessJobContext): Prom
 
   for (const ep of endpoints) {
     try {
-      const res = await fetch(ep.url, { method: ep.method as any, headers: { "Content-Type": "application/json", token, Accept: "application/json" }, ...(ep.body ? { body: ep.body } : {}) });
+      const res = await fetch(ep.url, { method: ep.method as any, headers: buildUazapiHeaders(token, { json: true, context: "warmup-processor" }), ...(ep.body ? { body: ep.body } : {}) });
       const raw = await res.text();
       if (res.ok) {
         try {

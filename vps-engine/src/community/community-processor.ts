@@ -6,6 +6,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { createLogger } from "../core/logger";
 import { getBrtHourMinute, getBrtDayOfWeek } from "../utils/brt";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("community");
 
@@ -125,7 +126,7 @@ async function sendText(baseUrl: string, token: string, number: string, text: st
       const timeout = setTimeout(() => controller.abort(), 25_000);
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "community-processor" }),
         body: JSON.stringify(at.body),
         signal: controller.signal,
       });
