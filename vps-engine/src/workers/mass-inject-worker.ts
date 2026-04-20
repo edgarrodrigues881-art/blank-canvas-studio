@@ -43,6 +43,18 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
 const deviceCriticalErrors = new Map<string, number>();
 const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
+// ── Per-contact attempt cap (bounded retry) ──
+// Each contact gets at most 2 attempts total (1 initial + 1 retry). The DB function
+// `claim_next_mass_inject_contact` enforces this by refusing to re-claim contacts
+// whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
+const MAX_CONTACT_ATTEMPTS = 2;
+
+// ── Consecutive add-failure circuit breaker (per worker) ──
+// If an instance produces this many consecutive add failures (any kind, not just
+// critical) we stop this worker so siblings can absorb the load and the campaign
+// is not stuck spinning on the same broken state.
+const MAX_CONSECUTIVE_ADD_FAILURES = 5;
+
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
 // ── Per-device connection state (persists across contacts) ──
@@ -183,6 +195,22 @@ function buildPhoneFingerprints(raw: string): string[] {
 
 function participantSetHasPhone(participants: Set<string>, phone: string) {
   return buildPhoneFingerprints(phone).some(fp => participants.has(fp));
+}
+
+/**
+ * Validates and normalizes a contact identifier into a usable WhatsApp JID.
+ * Returns null when the input is empty, malformed, a group id (@g.us),
+ * a community LID (@lid), a broadcast or a newsletter.
+ */
+function normalizeContactJid(raw: string): { phone: string; jid: string } | null {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return null;
+  if (value.includes("@g.us") || value.includes("@lid") || value.includes("@broadcast") || value.includes("@newsletter")) {
+    return null;
+  }
+  const digits = value.replace(/@.*/, "").replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return null;
+  return { phone: digits, jid: `${digits}@s.whatsapp.net` };
 }
 
 // ── Participant fetching (with in-memory cache) ──
@@ -920,6 +948,8 @@ async function runDeviceWorker(
   let batchAlready = 0;
   let batchFailed = 0;
   let batchSkipped = 0;
+  // Circuit breaker: stop this worker if it produces too many consecutive add failures.
+  let consecutiveAddFailures = 0;
 
   try {
     while (isRunningRef.value && !stopAllRef.value && batchProcessed < BATCH_SIZE) {
@@ -1036,7 +1066,7 @@ async function runDeviceWorker(
         continue;
       }
 
-      // 5. Claim next contact
+      // 5. Claim next contact (DB enforces MAX_CONTACT_ATTEMPTS — capped retries)
       const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
         p_campaign_id: campaignId,
         p_device_used: device.name || device.id,
@@ -1048,11 +1078,33 @@ async function runDeviceWorker(
         break;
       }
 
+      const currentAttempt = Number((contact as any).attempt_count || 1);
+      const isLastAttempt = currentAttempt >= MAX_CONTACT_ATTEMPTS;
+
+      // 5b. Validate JID BEFORE any API call. Invalid contacts are marked
+      //     immediately as failed and never re-claimed.
+      const normalized = normalizeContactJid(String(contact.phone || ""));
+      if (!normalized) {
+        await sb.from("mass_inject_contacts").update({
+          status: "failed",
+          error_message: "Contato inválido (sem JID válido) — ignorado.",
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+          attempt_count: MAX_CONTACT_ATTEMPTS, // never retry
+        } as any).eq("id", contact.id);
+        updateCountersLocal(counterState, "failed");
+        contactsSinceFlush++;
+        batchFailed++;
+        log.info(`Campaign ${campaignId.slice(0, 8)}: skipped invalid contact "${String(contact.phone || "").slice(0, 30)}"`);
+        await sleep(200);
+        continue;
+      }
+
       // processed_at will be set in the final status update below — skip redundant write here
 
       // 6. Skip own number (admin's device number — can't add yourself)
       const groupId = contact.target_group_id || freshCampaign.group_id;
-      const phone = String(contact.phone).replace(/@.*/, "");
+      const phone = normalized.phone;
       const deviceNumber = String(device.number || "").replace(/\D/g, "");
       const targetInfo = await getMassInjectTargetInfo(baseUrl, device.uazapi_token, groupId);
 
@@ -1174,6 +1226,7 @@ async function runDeviceWorker(
         recordDeviceApiSuccess(deviceId); // mark device as healthy
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
+        consecutiveAddFailures = 0;
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: result.detail, processed_at: nowIso(),
@@ -1183,6 +1236,7 @@ async function runDeviceWorker(
         rememberParticipantInCache(baseUrl, groupId, phone);
         deviceCriticalErrors.delete(deviceId); // reset on success
         recordDeviceApiSuccess(deviceId); // mark device as healthy
+        consecutiveAddFailures = 0;
       } else {
         // Classify retryable vs permanent failure
         isRateLimit = detailLower.includes("rate limit") || result.cooldownMs >= 30000;
@@ -1193,14 +1247,19 @@ async function runDeviceWorker(
           ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
           : "failed");
 
-        // Track API failures for connection state
+        // Track API failures for connection state — ONLY real connection issues
+        // ever influence device-disconnected status. A normal "add failed" must
+        // never poison the device state.
         if (isConnectionIssue || isTimeout) {
           const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
           if (shouldForceRecheck && isConnectionIssue) {
             // Connection issue confirmed by API failures — revert contact to pending (don't consume attempt)
             await sb.from("mass_inject_contacts").update({
-              status: "pending", error_message: `Aguardando reconexão: ${failureDetail}`, device_used: null,
-            }).eq("id", contact.id);
+              status: "pending",
+              error_message: `Aguardando reconexão: ${failureDetail}`,
+              device_used: null,
+              attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
+            } as any).eq("id", contact.id);
             failedDeviceIds.set(deviceId, Date.now());
             batchFailed++;
             // Don't count this as a campaign failure — device is the issue
@@ -1212,7 +1271,16 @@ async function runDeviceWorker(
           failStatus = "api_temporary";
           failureDetail = `Oscilação temporária: ${result.detail}`.trim();
         }
-        
+
+        // Enforce MAX_CONTACT_ATTEMPTS: if this was the last allowed try and the
+        // status is retryable-transient, downgrade to terminal "failed" so the
+        // DB never re-claims it. This guarantees we never loop on the same
+        // contact more than MAX_CONTACT_ATTEMPTS times.
+        if (isLastAttempt && TRANSIENT_FAILURE_STATUSES.has(failStatus)) {
+          failureDetail = `Limite de ${MAX_CONTACT_ATTEMPTS} tentativas atingido — ${failureDetail}`;
+          failStatus = "failed";
+        }
+
         await sb.from("mass_inject_contacts").update({
           status: failStatus, error_message: failureDetail, processed_at: nowIso(),
         }).eq("id", contact.id);
@@ -1251,6 +1319,22 @@ async function runDeviceWorker(
           deviceCriticalErrors.delete(deviceId); // reset critical counter on non-critical failure
         }
 
+        // ── Worker-level consecutive add-failure circuit breaker ──
+        // Any add failure (transient OR permanent) increments this counter.
+        // If it hits MAX_CONSECUTIVE_ADD_FAILURES we stop THIS worker; siblings
+        // continue. Device is NOT marked disconnected just because adds failed.
+        consecutiveAddFailures += 1;
+        if (consecutiveAddFailures >= MAX_CONSECUTIVE_ADD_FAILURES) {
+          const reason = `Worker pausado: ${consecutiveAddFailures} falhas consecutivas no device ${device.name || deviceId.slice(0, 8)}.`;
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+          await flushCounters(sb, campaignId, counterState);
+          await emitEvent(sb, campaignId, "device_worker_circuit_break", "warning", reason);
+          // Mark this device as temporarily unavailable so siblings absorb load.
+          // We do NOT touch deviceConnectionState — the device may still be online.
+          failedDeviceIds.set(deviceId, Date.now());
+          break;
+        }
+
         // If result says pauseCampaign (only for truly unrecoverable like no endpoint 405)
         if (result.pauseCampaign) {
           await flushCounters(sb, campaignId, counterState);
@@ -1270,6 +1354,8 @@ async function runDeviceWorker(
           await sleep(Math.min(result.cooldownMs, 3000));
         }
       }
+
+
 
       // 9. Apply delay — ONLY full delay for successful actions
       // Transient failures (connection, timeout, rate limit) use micro-delay to retry faster

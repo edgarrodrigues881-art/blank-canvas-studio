@@ -3671,6 +3671,7 @@ export type Database = {
       }
       mass_inject_contacts: {
         Row: {
+          attempt_count: number
           campaign_id: string
           created_at: string
           device_used: string | null
@@ -3683,6 +3684,7 @@ export type Database = {
           target_group_name: string | null
         }
         Insert: {
+          attempt_count?: number
           campaign_id: string
           created_at?: string
           device_used?: string | null
@@ -3695,6 +3697,7 @@ export type Database = {
           target_group_name?: string | null
         }
         Update: {
+          attempt_count?: number
           campaign_id?: string
           created_at?: string
           device_used?: string | null
@@ -6525,6 +6528,7 @@ export type Database = {
           p_processing_message?: string
         }
         Returns: {
+          attempt_count: number
           campaign_id: string
           created_at: string
           device_used: string | null
