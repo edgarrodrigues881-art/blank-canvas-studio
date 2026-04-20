@@ -21,6 +21,7 @@ const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
 const MAX_DEVICE_SEND_INTERVAL_MS = 6_000;
 const RETRYABLE_STATUSES = [
   "pending",
+  "retrying",
   "rate_limited",
   "api_temporary",
   "connection_unconfirmed",
@@ -33,8 +34,11 @@ const DISCONNECT_CONFIRM_THRESHOLD = 2; // Must fail N consecutive checks before
 const CONNECTED_DEVICE_STATUSES = new Set(["connected", "ready", "active", "authenticated", "open", "online"]);
 // Critical errors that COUNT toward auto-pause threshold (per-device)
 const CRITICAL_FAILURE_STATUSES = new Set(["confirmed_no_admin", "invalid_group", "unauthorized"]);
-// Transient errors that do NOT count toward pause — just skip and continue
+// Transient errors that do NOT count toward pause — just skip and continue.
+// `retrying` is included so the smart-retry persisted state is treated as transient
+// when the contact is re-claimed (and so per-attempt cap downgrade still works).
 const TRANSIENT_FAILURE_STATUSES = new Set([
+  "retrying",
   "rate_limited",
   "api_temporary",
   "connection_unconfirmed",
