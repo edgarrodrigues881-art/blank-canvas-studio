@@ -948,7 +948,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     heartbeatCounter++;
     if (heartbeatCounter % 10 === 0) {
       const { error: hbErr } = await sb.rpc("heartbeat_device_lock", { _campaign_id: campaignId });
-      if (hbErr) logger.warn({ err: hbErr.message, campaignId }, "heartbeat_device_lock failed");
+      if (hbErr) log.warn({ err: hbErr.message, campaignId }, "heartbeat_device_lock failed");
     }
 
     // 3. Get next contact
