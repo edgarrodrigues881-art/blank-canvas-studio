@@ -413,10 +413,28 @@ export default function LidConverter() {
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
                   {loading ? "Processando..." : "Converter"}
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading || importing}
+                >
+                  {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {importing ? "Importando..." : "Importar lista"}
+                </Button>
                 <Button variant="outline" onClick={handleClear} disabled={loading || (!input && rows.length === 0)}>
                   <Eraser className="h-4 w-4" />
                   Limpar
                 </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.csv,.xlsx,.xls,text/plain,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImportFile(f);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
