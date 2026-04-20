@@ -48,10 +48,18 @@ const deviceCriticalErrors = new Map<string, number>();
 const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
 
 // ── Per-contact attempt cap (bounded retry) ──
-// Each contact gets at most 2 attempts total (1 initial + 1 retry). The DB function
-// `claim_next_mass_inject_contact` enforces this by refusing to re-claim contacts
-// whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
-const MAX_CONTACT_ATTEMPTS = 2;
+// Each contact gets at most 3 attempts total (1 initial + up to 2 retries). The DB
+// function `claim_next_mass_inject_contact` enforces this by refusing to re-claim
+// contacts whose attempt_count has already reached MAX_CONTACT_ATTEMPTS.
+const MAX_CONTACT_ATTEMPTS = 3;
+
+// ── Exponential backoff per retry attempt (transient errors only) ──
+// attempt_count after failure: 1 → 5s, 2 → 15s, 3 → 30s
+function backoffMsForAttempt(attemptCount: number): number {
+  if (attemptCount <= 1) return 5_000;
+  if (attemptCount === 2) return 15_000;
+  return 30_000;
+}
 
 // ── Consecutive add-failure circuit breaker (per worker) ──
 // If an instance produces this many consecutive add failures (any kind, not just
