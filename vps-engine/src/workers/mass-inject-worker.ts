@@ -948,6 +948,8 @@ async function runDeviceWorker(
   let batchAlready = 0;
   let batchFailed = 0;
   let batchSkipped = 0;
+  // Circuit breaker: stop this worker if it produces too many consecutive add failures.
+  let consecutiveAddFailures = 0;
 
   try {
     while (isRunningRef.value && !stopAllRef.value && batchProcessed < BATCH_SIZE) {
