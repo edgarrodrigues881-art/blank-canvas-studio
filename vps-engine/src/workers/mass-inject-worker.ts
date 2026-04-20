@@ -1178,15 +1178,17 @@ async function runDeviceWorker(
         continue;
       }
 
-      // 5. Claim next contact (DB enforces MAX_CONTACT_ATTEMPTS — capped retries)
-      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact", {
+      // 5. Claim next contact from MY OWN per-instance queue (isolation).
+      //    Falls back to unassigned contacts if my queue is empty.
+      const { data: contact } = await sb.rpc("claim_next_mass_inject_contact_for_device", {
         p_campaign_id: campaignId,
+        p_device_id: deviceId,
         p_device_used: device.name || device.id,
         p_processing_message: "Processando...",
       });
 
       if (!contact?.id) {
-        // Queue empty for me — exit. The orchestrator finalizes once all workers done.
+        // My queue is empty — exit. The orchestrator finalizes once all workers done.
         break;
       }
 
