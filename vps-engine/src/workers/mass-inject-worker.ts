@@ -312,6 +312,18 @@ function rememberParticipantInCache(baseUrl: string, groupId: string, phone: str
   participantCache.set(cacheKey, cached);
 }
 
+async function getMassInjectTargetInfo(baseUrl: string, token: string, groupId: string): Promise<MassInjectTargetInfo> {
+  const cacheKey = `${baseUrl}::${groupId}`;
+  const cached = targetInfoCache.get(cacheKey);
+  if (cached && Date.now() - cached.checkedAt < TARGET_INFO_CACHE_TTL_MS) {
+    return cached.info;
+  }
+
+  const info = await inspectMassInjectTarget(baseUrl, token, groupId);
+  targetInfoCache.set(cacheKey, { info, checkedAt: Date.now() });
+  return info;
+}
+
 // ── Connection check with confirmation ──
 // Only marks as disconnected after DISCONNECT_CONFIRM_THRESHOLD consecutive negative results
 const deviceDisconnectStreak = new Map<string, number>(); // deviceId → consecutive disconnect count
@@ -602,6 +614,21 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
   }
 
   return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
+}
+
+async function addToCommunity(targetInfo: MassInjectTargetInfo): Promise<AddResult> {
+  return {
+    ok: false,
+    alreadyExists: false,
+    detail: targetInfo.kind === "community_root"
+      ? targetInfo.detail
+      : `Destino comunitário exige fluxo separado (${targetInfo.targetId}). Use grupo interno ou convite.`,
+    retryable: false,
+    pauseCampaign: false,
+    cooldownMs: 0,
+    canTryOtherStrategy: false,
+    failureStatus: "failed",
+  };
 }
 
 /** Check if the lowercase error message contains keywords that indicate a real failure even on 2xx */
