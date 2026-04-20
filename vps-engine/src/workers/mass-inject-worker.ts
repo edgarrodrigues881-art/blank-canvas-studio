@@ -198,17 +198,93 @@ function participantSetHasPhone(participants: Set<string>, phone: string) {
 }
 
 /**
- * Validates and normalizes a contact identifier into a usable WhatsApp JID.
- * Returns null when the input is empty, malformed, a group id (@g.us),
- * a community LID (@lid), a broadcast or a newsletter.
+ * In-memory cache for resolved LIDs → JID. Avoids re-calling /chat/info for
+ * the same LID across contacts in a campaign run.
+ * Value `null` means "already tried and failed" (negative cache).
  */
-function normalizeContactJid(raw: string): { phone: string; jid: string } | null {
-  const value = String(raw || "").trim().toLowerCase();
-  if (!value) return null;
-  if (value.includes("@g.us") || value.includes("@lid") || value.includes("@broadcast") || value.includes("@newsletter")) {
+const lidResolutionCache = new Map<string, { jid: string | null; at: number }>();
+const LID_CACHE_TTL_MS = 30 * 60_000;
+const LID_NEGATIVE_TTL_MS = 5 * 60_000;
+
+async function resolveLidToJid(baseUrl: string, token: string, lid: string): Promise<string | null> {
+  const key = `${baseUrl}::${lid.toLowerCase()}`;
+  const cached = lidResolutionCache.get(key);
+  if (cached) {
+    const ttl = cached.jid ? LID_CACHE_TTL_MS : LID_NEGATIVE_TTL_MS;
+    if (Date.now() - cached.at < ttl) return cached.jid;
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${baseUrl.replace(/\/+$/, "")}/chat/info`, {
+      method: "POST",
+      headers: buildHeaders(token, true),
+      body: JSON.stringify({ chatId: lid }),
+    }, 10_000);
+    const { body } = await readApiResponse(res);
+    if (!res.ok) {
+      lidResolutionCache.set(key, { jid: null, at: Date.now() });
+      return null;
+    }
+    const candidates = [
+      body?.jid, body?.id, body?.chat?.jid, body?.chat?.id,
+      body?.data?.jid, body?.data?.id, body?.contact?.jid,
+      body?.user?.jid, body?.wid, body?.phoneJid,
+    ].filter((v) => typeof v === "string");
+    let found = candidates.find((c: string) => c.includes("@s.whatsapp.net")) || null;
+    if (!found) {
+      const numCandidates = [body?.number, body?.phone, body?.contact?.number, body?.user?.number]
+        .filter((v) => typeof v === "string" && /\d/.test(v));
+      const num = numCandidates[0];
+      if (num) {
+        const digits = String(num).replace(/\D/g, "");
+        if (digits.length >= 10 && digits.length <= 15) found = `${digits}@s.whatsapp.net`;
+      }
+    }
+    lidResolutionCache.set(key, { jid: found || null, at: Date.now() });
+    return found || null;
+  } catch {
+    lidResolutionCache.set(key, { jid: null, at: Date.now() });
     return null;
   }
-  const digits = value.replace(/@.*/, "").replace(/\D/g, "");
+}
+
+/**
+ * Validates and normalizes a contact identifier. Accepts ONLY:
+ *   - plain phone numbers (10–15 digits, optional formatting)
+ *   - LIDs (xxx@lid) — resolved via UAZAPI /chat/info
+ *
+ * REJECTS any JID input (@s.whatsapp.net) — JIDs must never come from the user;
+ * they are produced internally from numbers or resolved from LIDs.
+ *
+ * Returns null when input is invalid, a group, broadcast, newsletter, an
+ * unresolved LID, or when the user passed a JID directly.
+ */
+async function normalizeContactJid(
+  raw: string,
+  baseUrl?: string,
+  token?: string,
+): Promise<{ phone: string; jid: string } | null> {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return null;
+
+  // Hard reject: JID inputs are not allowed.
+  if (value.includes("@s.whatsapp.net") || value.includes("@c.us")) return null;
+  // Hard reject: groups / broadcasts / newsletters.
+  if (value.includes("@g.us") || value.includes("@broadcast") || value.includes("@newsletter")) return null;
+
+  // LID → resolve via API
+  if (value.includes("@lid")) {
+    if (!baseUrl || !token) return null;
+    const resolvedJid = await resolveLidToJid(baseUrl, token, value);
+    if (!resolvedJid) return null;
+    const digits = resolvedJid.split("@")[0].replace(/\D/g, "");
+    if (digits.length < 10 || digits.length > 15) return null;
+    return { phone: digits, jid: `${digits}@s.whatsapp.net` };
+  }
+
+  // Plain number path
+  if (/[a-z]/i.test(value)) return null; // any letters in non-LID input → invalid
+  const digits = value.replace(/\D/g, "");
   if (digits.length < 10 || digits.length > 15) return null;
   return { phone: digits, jid: `${digits}@s.whatsapp.net` };
 }
@@ -1083,7 +1159,7 @@ async function runDeviceWorker(
 
       // 5b. Validate JID BEFORE any API call. Invalid contacts are marked
       //     immediately as failed and never re-claimed.
-      const normalized = normalizeContactJid(String(contact.phone || ""));
+      const normalized = await normalizeContactJid(String(contact.phone || ""), baseUrl, device.uazapi_token);
       if (!normalized) {
         await sb.from("mass_inject_contacts").update({
           status: "failed",
