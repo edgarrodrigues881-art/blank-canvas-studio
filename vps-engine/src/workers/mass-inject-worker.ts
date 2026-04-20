@@ -1337,43 +1337,22 @@ async function runDeviceWorker(
     }
   } catch (err: any) {
     const errMessage = String(err?.message || err || "Erro interno desconhecido");
-    log.error(`Campaign ${campaignId.slice(0, 8)} crashed`, {
+    log.error(`Campaign ${campaignId.slice(0, 8)} device ${myDeviceId.slice(0, 8)} worker crashed`, {
       error: errMessage,
       stack: err?.stack,
     });
 
+    // Reset any contacts this worker had in-flight back to pending
     try {
       await sb.from("mass_inject_contacts")
-        .update({
-          status: "pending",
-          error_message: "Reprocessando após falha interna do worker.",
-          device_used: null,
-        } as any)
+        .update({ status: "pending", error_message: "Reprocessando após falha do worker.", device_used: null } as any)
         .eq("campaign_id", campaignId)
+        .eq("device_used", myDeviceId)
         .eq("status", "processing");
+    } catch { /* non-critical */ }
 
-      await sb.from("mass_inject_campaigns").update({
-        status: "paused",
-        updated_at: nowIso(),
-        next_run_at: null,
-        pause_reason: `Erro interno no motor VPS: ${errMessage.substring(0, 180)}`,
-      }).eq("id", campaignId).in("status", ["queued", "processing"]);
-
-      await emitEvent(
-        sb,
-        campaignId,
-        "campaign_worker_crash",
-        "error",
-        `Erro interno no motor VPS: ${errMessage.substring(0, 220)}`,
-      );
-    } catch (recoveryErr: any) {
-      log.error(`Campaign ${campaignId.slice(0, 8)} crash recovery failed`, {
-        error: String(recoveryErr?.message || recoveryErr || "Erro na recuperação"),
-      });
-    }
-  } finally {
-    activeCampaignIds.delete(campaignId);
-    releaseGlobalSlot(slotLabel);
+    // Re-throw so orchestrator can decide whether to pause the whole campaign
+    throw err;
   }
 }
 
