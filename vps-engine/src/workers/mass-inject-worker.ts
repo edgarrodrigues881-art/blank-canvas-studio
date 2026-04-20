@@ -1307,8 +1307,8 @@ async function runDeviceWorker(
 
       if (result.ok) {
         await sb.from("mass_inject_contacts").update({
-          status: "completed", error_message: result.detail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: "completed", error_message: result.detail, processed_at: nowIso(), next_retry_at: null,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
@@ -1318,8 +1318,8 @@ async function runDeviceWorker(
         consecutiveAddFailures = 0;
       } else if (result.alreadyExists) {
         await sb.from("mass_inject_contacts").update({
-          status: "already_exists", error_message: result.detail, processed_at: nowIso(),
-        }).eq("id", contact.id);
+          status: "already_exists", error_message: result.detail, processed_at: nowIso(), next_retry_at: null,
+        } as any).eq("id", contact.id);
         updateCountersLocal(counterState, "already_exists");
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
