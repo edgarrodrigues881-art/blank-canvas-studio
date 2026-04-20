@@ -284,9 +284,8 @@ async function processJob(jobId: string) {
           processed: totalProcessed,
           valid_count: successCount,
           invalid_count: noWaCount + errorCount,
-          instances_used: deviceIds,
+          device_ids: deviceIds,
           completed_at: new Date().toISOString(),
-          source_job_id: jobId,
         } as any)
         .select("id")
         .single();
@@ -310,7 +309,8 @@ async function processJob(jobId: string) {
             jid: r.status === "success" ? `${r.phone}@s.whatsapp.net` : null,
             valid: r.status === "success",
             detected_type: "number",
-            detail: r.detail || null,
+            status: r.status,
+            error_message: r.status !== "success" ? (r.detail || null) : null,
           }));
           await db.from("contact_processing_results").insert(rows as any);
           if (chunk.length < 500) break;
