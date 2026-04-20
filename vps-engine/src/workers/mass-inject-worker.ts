@@ -519,23 +519,31 @@ async function isInstanceConnected(
   const result = await isDeviceConnected(baseUrl, token);
 
   if (result.connected === true) {
+    const wasDisconnected = state?.status === "disconnected";
     deviceConnectionState.set(deviceId, {
       status: "connected",
       lastCheckedAt: now,
       confirmedDisconnectedAt: null,
       consecutiveApiFailures: 0,
     });
+    if (wasDisconnected) {
+      log.info(`STATE CHANGE [recovered] device ${deviceId.slice(0, 8)} — health check OK, instance back online.`);
+    }
     return { connected: true, detail: result.detail, shouldSkipDevice: false };
   }
 
   if (result.connected === false) {
     const prevState = deviceConnectionState.get(deviceId);
+    const wasConnected = prevState?.status !== "disconnected";
     deviceConnectionState.set(deviceId, {
       status: "disconnected",
       lastCheckedAt: now,
       confirmedDisconnectedAt: prevState?.confirmedDisconnectedAt || now,
       consecutiveApiFailures: prevState?.consecutiveApiFailures || 0,
     });
+    if (wasConnected) {
+      log.warn(`STATE CHANGE [disconnected] device ${deviceId.slice(0, 8)} — reason: ${result.detail}`);
+    }
     return { connected: false, detail: result.detail, shouldSkipDevice: true };
   }
 
