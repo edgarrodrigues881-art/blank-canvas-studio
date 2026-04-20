@@ -8,6 +8,7 @@ import { createLogger } from "../core/logger";
 
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
+import { inspectMassInjectTarget, type MassInjectTargetInfo } from "./mass-inject-target-utils";
 
 const log = createLogger("mass-inject");
 
@@ -71,8 +72,10 @@ type ConnectionCheckResult = {
 
 const participantCache = new Map<string, ParticipantCacheEntry>();
 const endpointCache = new Map<string, number>();
+const targetInfoCache = new Map<string, { info: MassInjectTargetInfo; checkedAt: number }>();
 const PARTICIPANT_CACHE_TTL_MS = 30 * 60_000; // 30 min — trust cache heavily during a campaign
 const PARTICIPANT_FAILURE_CACHE_TTL_MS = 10 * 60_000; // 10 min — even failed lookups shouldn't retry often
+const TARGET_INFO_CACHE_TTL_MS = 10 * 60_000;
 const participantEndpointCache = new Map<string, number>(); // baseUrl → winning strategy index
 
 // ── Tracking ──
