@@ -47,24 +47,31 @@ export default function LidConverter() {
   const [tab, setTab] = useState<"convert" | "history">("convert");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Instâncias conectadas (obrigatório selecionar uma)
+  // Instâncias conectadas (obrigatório selecionar ao menos uma — suporta múltiplas em paralelo)
   const [devices, setDevices] = useState<Array<{ id: string; name: string | null; number: string | null; status: string | null }>>([]);
-  const [deviceId, setDeviceId] = useState<string>("");
+  const [deviceIds, setDeviceIds] = useState<string[]>([]);
+
+  // Progresso global do processamento paralelo
+  const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("devices")
-        .select("id,name,number,status,login_type")
+        .select("id,name,number,status,login_type,created_at")
         .neq("login_type", "report_wa")
         .order("created_at", { ascending: false });
       const list = (data || []).filter((d: any) =>
         ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(String(d.status || ""))
       );
       setDevices(list as any);
-      if (list.length === 1) setDeviceId(list[0].id);
+      if (list.length === 1) setDeviceIds([list[0].id]);
     })();
   }, []);
+
+  const toggleDevice = (id: string) => {
+    setDeviceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   // Autosave do textarea (debounced para performance com listas grandes)
   useEffect(() => {
