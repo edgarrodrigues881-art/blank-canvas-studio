@@ -921,6 +921,7 @@ async function runDeviceWorker(
   let batchFailed = 0;
   let batchSkipped = 0;
 
+  try {
     while (isRunningRef.value && !stopAllRef.value && batchProcessed < BATCH_SIZE) {
       // Clear stale device failures
       const now = Date.now();
