@@ -1012,6 +1012,40 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       const groupId = contact.target_group_id || freshCampaign.group_id;
       const phone = String(contact.phone).replace(/@.*/, "");
       const deviceNumber = String(device.number || "").replace(/\D/g, "");
+      const targetInfo = await getMassInjectTargetInfo(baseUrl, device.uazapi_token, groupId);
+
+      if (targetInfo.kind === "community_root") {
+        const result = await addToCommunity(targetInfo);
+        await sb.from("mass_inject_contacts").update({
+          status: result.failureStatus || "failed",
+          error_message: result.detail,
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+        }).eq("id", contact.id);
+        updateCountersLocal(counterState, result.failureStatus || "failed");
+        contactsSinceFlush++;
+        batchFailed++;
+        deviceCriticalErrors.delete(deviceId);
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: community root blocked target=${groupId} contact=${phone} detail=${result.detail}`);
+        await sleep(1000);
+        continue;
+      }
+
+      if (targetInfo.kind === "invalid") {
+        await sb.from("mass_inject_contacts").update({
+          status: "invalid_group",
+          error_message: targetInfo.detail,
+          processed_at: nowIso(),
+          device_used: device.name || device.id,
+        }).eq("id", contact.id);
+        updateCountersLocal(counterState, "invalid_group");
+        contactsSinceFlush++;
+        batchFailed++;
+        log.warn(`Campaign ${campaignId.slice(0, 8)}: invalid target blocked=${groupId} contact=${phone} detail=${targetInfo.detail}`);
+        await sleep(1000);
+        continue;
+      }
+
       if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
@@ -1073,7 +1107,9 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
       try {
-        result = await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        result = targetInfo.kind === "community_child"
+          ? await addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
+          : await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }
