@@ -99,7 +99,7 @@ export async function uazapiRequest(
     throw new Error(`Circuit breaker OPEN for ${baseUrl.slice(0, 40)}… — ${check.reason} (retry in ${Math.round(check.retryInMs / 1000)}s)`);
   }
   let url = `${baseUrl}${endpoint}`;
-  const headers: Record<string, string> = { token, Accept: "application/json" };
+  const headers: Record<string, string> = buildUazapiHeaders(token, { context: `uazapiRequest:${endpoint}` });
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), config.apiTimeoutMs);
