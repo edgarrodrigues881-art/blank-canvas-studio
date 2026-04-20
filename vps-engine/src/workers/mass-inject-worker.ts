@@ -1376,7 +1376,7 @@ async function runDeviceWorker(
         contactsSinceFlush++;
         batchFailed++;
         deviceCriticalErrors.delete(deviceId);
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: community root blocked target=${groupId} contact=${phone} detail=${result.detail}`);
+        log.warn(`add_skipped reason=community_root number=${phone} instance_id=${deviceId} group_id=${groupId} detail="${(result.detail || "").slice(0, 120)}"`);
         await sleep(1000);
         continue;
       }
@@ -1391,12 +1391,13 @@ async function runDeviceWorker(
         updateCountersLocal(counterState, "invalid_group");
         contactsSinceFlush++;
         batchFailed++;
-        log.warn(`Campaign ${campaignId.slice(0, 8)}: invalid target blocked=${groupId} contact=${phone} detail=${targetInfo.detail}`);
+        log.warn(`add_skipped reason=invalid_group number=${phone} instance_id=${deviceId} group_id=${groupId} detail="${(targetInfo.detail || "").slice(0, 120)}"`);
         await sleep(1000);
         continue;
       }
 
       if (deviceNumber && buildPhoneFingerprints(phone).some(fp => buildPhoneFingerprints(deviceNumber).some(dfp => dfp === fp))) {
+        log.info(`add_skipped reason=own_device_number number=${phone} instance_id=${deviceId} group_id=${groupId}`);
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Próprio número da instância (admin) — ignorado.", processed_at: nowIso(),
         }).eq("id", contact.id);
@@ -1427,6 +1428,7 @@ async function runDeviceWorker(
         : (useCachedCheck ? cachedParticipants! : null);
 
       if (participantSnapshot?.confirmed && participantSetHasPhone(participantSnapshot.participants, phone)) {
+        log.info(`add_skipped reason=already_in_group number=${phone} instance_id=${deviceId} group_id=${groupId}`);
         await sb.from("mass_inject_contacts").update({
           status: "already_exists", error_message: "Contato já participava do grupo.", processed_at: nowIso(),
         }).eq("id", contact.id);
