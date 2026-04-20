@@ -5,6 +5,7 @@
 
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("scheduled-msg");
 
@@ -38,7 +39,7 @@ async function sendTextMessage(
 
       const res = await fetch(`${baseUrl}${ep.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "scheduled-messages-worker" }),
         body: JSON.stringify(ep.body),
         signal: controller.signal,
       });

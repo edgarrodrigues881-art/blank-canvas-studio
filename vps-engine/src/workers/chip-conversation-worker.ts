@@ -7,6 +7,7 @@
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
+import { buildUazapiHeaders } from "../integrations/uazapi-headers";
 
 const log = createLogger("chip-conv");
 
@@ -55,7 +56,7 @@ async function sendTextMessage(baseUrl: string, token: string, number: string, t
     try {
       const res = await fetch(`${baseUrl}${ep.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "chip-conversation-worker" }),
         body: JSON.stringify(ep.body),
       });
       const raw = await res.text();
@@ -179,7 +180,7 @@ async function sendImage(baseUrl: string, token: string, number: string, imageUr
   try {
     const res = await fetch(`${baseUrl}/send/media`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      headers: buildUazapiHeaders(token, { json: true, context: "chip-conversation-worker" }),
       body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "image", caption }),
     });
     if (res.ok) return { ok: true };
@@ -193,7 +194,7 @@ async function sendSticker(baseUrl: string, token: string, number: string, image
   try {
     const res = await fetch(`${baseUrl}/send/media`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+      headers: buildUazapiHeaders(token, { json: true, context: "chip-conversation-worker" }),
       body: JSON.stringify({ number: cleanNum, file: imageUrl, type: "sticker" }),
     });
     if (res.ok) return { ok: true };
@@ -217,7 +218,7 @@ async function sendAudio(baseUrl: string, token: string, number: string, audioUr
     try {
       const res = await fetch(`${baseUrl}${at.path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", token, Accept: "application/json" },
+        headers: buildUazapiHeaders(token, { json: true, context: "chip-conversation-worker" }),
         body: JSON.stringify(at.body),
       });
       const raw = await res.text();
