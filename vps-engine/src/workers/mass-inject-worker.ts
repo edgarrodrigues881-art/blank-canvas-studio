@@ -908,6 +908,7 @@ async function runDeviceWorker(
   failedDeviceIds: Map<string, number>,
   stopAllRef: { value: boolean },
   isRunningRef: { value: boolean },
+  liveWorkersRef: { value: number },
 ) {
   const campaignId = campaign.id;
   let contactsSinceFlush = 0;
