@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { ArrowRightLeft, Copy, Download, Eraser, History, Loader2, RotateCcw, Eye, Filter } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { ArrowRightLeft, Copy, Download, Eraser, History, Loader2, RotateCcw, Eye, Filter, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
