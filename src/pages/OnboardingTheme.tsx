@@ -67,7 +67,7 @@ const OnboardingTheme = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-2 gap-3 sm:gap-6 w-full"
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full"
         >
           <ThemeCard
             label="Escuro"
