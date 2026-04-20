@@ -17,8 +17,12 @@ const API_TIMEOUT_MS = 25_000;
 
 // Minimum spacing between two sends on the SAME device (per-instance serial queue).
 // User-facing config (min_delay/max_delay) selects 3–6s by default; this is the hard floor.
-const MIN_DEVICE_SEND_INTERVAL_MS = 3_000;
-const MAX_DEVICE_SEND_INTERVAL_MS = 6_000;
+const MIN_DEVICE_SEND_INTERVAL_MS = 5_000;
+const MAX_DEVICE_SEND_INTERVAL_MS = 8_000;
+// Hard ceiling for a single add attempt — if the API hangs longer than this we
+// abandon the contact (mark as timeout/failed) and move on so the queue never
+// gets stuck on one row.
+const PER_CONTACT_MAX_PROCESSING_MS = 60_000;
 const RETRYABLE_STATUSES = [
   "pending",
   "retrying",
