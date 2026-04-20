@@ -35,13 +35,28 @@ interface CampaignRow {
   created_at: string;
 }
 
+const LID_INPUT_STORAGE_KEY = "lid-converter:input";
+
 export default function LidConverter() {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState<string>(() => {
+    try { return localStorage.getItem(LID_INPUT_STORAGE_KEY) ?? ""; } catch { return ""; }
+  });
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [tab, setTab] = useState<"convert" | "history">("convert");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Autosave do textarea (debounced para performance com listas grandes)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        if (input) localStorage.setItem(LID_INPUT_STORAGE_KEY, input);
+        else localStorage.removeItem(LID_INPUT_STORAGE_KEY);
+      } catch {}
+    }, 400);
+    return () => clearTimeout(t);
+  }, [input]);
 
   // history
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
