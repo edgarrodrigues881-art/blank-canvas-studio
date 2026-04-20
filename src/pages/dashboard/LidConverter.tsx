@@ -492,20 +492,40 @@ export default function LidConverter() {
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
-                  Instância <span className="text-destructive">*</span>
+                  Instâncias <span className="text-destructive">*</span>
+                  {deviceIds.length > 0 && (
+                    <span className="ml-2 text-foreground">
+                      {deviceIds.length} selecionada{deviceIds.length > 1 ? "s" : ""} · processamento paralelo
+                    </span>
+                  )}
                 </label>
-                <Select value={deviceId} onValueChange={setDeviceId} disabled={loading}>
-                  <SelectTrigger className="w-full sm:w-[320px]">
-                    <SelectValue placeholder={devices.length === 0 ? "Nenhuma instância conectada" : "Selecione uma instância"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {devices.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.name || "Instância"} {d.number ? `· ${d.number}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {devices.length === 0 ? (
+                  <div className="text-sm text-muted-foreground border rounded-md px-3 py-2">
+                    Nenhuma instância conectada
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 border rounded-md p-2 max-h-40 overflow-y-auto">
+                    {devices.map((d) => {
+                      const active = deviceIds.includes(d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          disabled={loading}
+                          onClick={() => toggleDevice(d.id)}
+                          className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background hover:bg-muted border-border"
+                          }`}
+                        >
+                          {d.name || "Instância"}
+                          {d.number ? ` · ${d.number}` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <Textarea
                 value={input}
@@ -515,8 +535,22 @@ export default function LidConverter() {
                 className="font-mono text-sm"
                 disabled={loading}
               />
+              {loading && progress.total > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Progresso global</span>
+                    <span>{progress.done} / {progress.total}</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${Math.min(100, (progress.done / Math.max(1, progress.total)) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                <Button onClick={handleConvert} disabled={loading || !input.trim() || !deviceId}>
+                <Button onClick={handleConvert} disabled={loading || !input.trim() || deviceIds.length === 0}>
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
                   {loading ? "Processando..." : "Converter"}
                 </Button>
