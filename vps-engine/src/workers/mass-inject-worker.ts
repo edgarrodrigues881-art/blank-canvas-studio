@@ -1453,7 +1453,7 @@ async function runDeviceWorker(
       if (!lockAcquired) {
         // Device is busy with a conflicting heavy operation — revert contact to pending and skip
         await sb.from("mass_inject_contacts").update({ status: "pending", error_message: "Instância ocupada — reagendado.", device_used: null }).eq("id", contact.id);
-        log.info(`Campaign ${campaignId.slice(0, 8)}: device ${device.name} busy — skipping contact ${phone}, will retry`);
+        log.info(`add_skipped reason=device_busy_lock number=${phone} instance_id=${deviceId} group_id=${groupId} — will retry`);
         await sleep(2000);
         continue;
       }
