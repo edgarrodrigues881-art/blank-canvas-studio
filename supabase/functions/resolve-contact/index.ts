@@ -34,14 +34,22 @@ function detectType(input: string): ResolvedType | null {
   return null;
 }
 
+/**
+ * Extrai o número do JID exatamente como retornado pelo WhatsApp.
+ * NÃO adiciona, remove ou formata dígitos — preserva o valor bruto.
+ */
 function jidToNumber(jid: string): string | null {
   if (!jid) return null;
-  const digits = onlyDigits(jid.split("@")[0]);
-  return digits || null;
+  const local = String(jid).split("@")[0] || "";
+  // Apenas remove caracteres não-dígito que porventura existam (ex.: ":" em device-jid)
+  // sem alterar o número em si (sem prefixos, sem 9º dígito, sem máscara).
+  const cleaned = local.replace(/\D/g, "");
+  return cleaned || null;
 }
 
 function numberToJid(num: string): string | null {
-  const digits = onlyDigits(num);
+  // Mantém o número exatamente como veio (somente filtra não-dígitos).
+  const digits = String(num || "").replace(/\D/g, "");
   if (!digits) return null;
   return `${digits}${PRIVATE_JID_SUFFIX}`;
 }
