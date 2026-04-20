@@ -11,7 +11,7 @@ import {
   FileText, BarChart3, UserPlus, ChevronRight, Globe,
   Clock, Pause, ArrowLeftRight, Settings2, Timer,
   StopCircle, AlertTriangle, TrendingUp, Plus, ArrowLeft,
-  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw, Activity, CheckCircle2
+  Eye, Info, WifiOff, Link2, Hash, AlertCircle, Download, RotateCcw, Activity
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
