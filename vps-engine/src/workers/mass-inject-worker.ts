@@ -197,6 +197,22 @@ function participantSetHasPhone(participants: Set<string>, phone: string) {
   return buildPhoneFingerprints(phone).some(fp => participants.has(fp));
 }
 
+/**
+ * Validates and normalizes a contact identifier into a usable WhatsApp JID.
+ * Returns null when the input is empty, malformed, a group id (@g.us),
+ * a community LID (@lid), a broadcast or a newsletter.
+ */
+function normalizeContactJid(raw: string): { phone: string; jid: string } | null {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return null;
+  if (value.includes("@g.us") || value.includes("@lid") || value.includes("@broadcast") || value.includes("@newsletter")) {
+    return null;
+  }
+  const digits = value.replace(/@.*/, "").replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) return null;
+  return { phone: digits, jid: `${digits}@s.whatsapp.net` };
+}
+
 // ── Participant fetching (with in-memory cache) ──
 function collectParticipants(value: any, participants: Set<string>) {
   if (!value) return;
