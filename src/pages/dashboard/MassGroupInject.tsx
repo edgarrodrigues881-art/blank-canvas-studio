@@ -1477,15 +1477,65 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
 
     setIsValidating(true);
     try {
-      // 2. Resolve LIDs / converte números → JID via backend (resolve-contact).
-      toast.info(`Resolvendo ${rawInputs.length} contato(s)...`);
-      const { data: resolveData, error: resolveError } = await supabase.functions.invoke("resolve-contact", {
-        body: { inputs: rawInputs, device_id: primaryDeviceId },
-      });
-      if (resolveError) throw resolveError;
+      // 2. Resolve LIDs / converte números → JID via backend (resolve-contact)
+      //    em LOTES ADAPTATIVOS — começa com 10, aumenta se estável, reduz se houver erros.
+      toast.info(`Resolvendo ${rawInputs.length} contato(s) em lotes...`);
 
-      const resolved: Array<{ original: string; type: string; jid: string | null; number: string | null; valid: boolean; error?: string }> =
-        Array.isArray(resolveData?.results) ? resolveData.results : [];
+      const uniqueInputs = Array.from(new Set(rawInputs));
+      const resolved: Array<{ original: string; type: string; jid: string | null; number: string | null; valid: boolean; error?: string }> = [];
+
+      let batchSize = 10;
+      const MIN_BATCH = 3;
+      const MAX_BATCH = 50;
+      let consecutiveStable = 0;
+      let cursor = 0;
+
+      while (cursor < uniqueInputs.length) {
+        const slice = uniqueInputs.slice(cursor, cursor + batchSize);
+        let batchOk = false;
+        let batchInvalidRate = 0;
+
+        try {
+          const { data: batchData, error: batchError } = await supabase.functions.invoke("resolve-contact", {
+            body: { inputs: slice, device_id: primaryDeviceId },
+          });
+          if (batchError) throw batchError;
+
+          const batchResults = Array.isArray(batchData?.results) ? batchData.results : [];
+          resolved.push(...batchResults);
+
+          const invalidsInBatch = batchResults.filter((r: any) => !r.valid).length;
+          batchInvalidRate = batchResults.length > 0 ? invalidsInBatch / batchResults.length : 0;
+          batchOk = true;
+        } catch (batchErr) {
+          // Falha total no lote → registra como inválido e segue
+          console.warn("[mass-inject] batch resolve failed:", batchErr);
+          slice.forEach((original) => {
+            resolved.push({ original, type: "number", jid: null, number: null, valid: false, error: "batch_failed" });
+          });
+          batchInvalidRate = 1;
+        }
+
+        cursor += slice.length;
+
+        // Adaptação: reduz se muitos erros, aumenta se estável
+        if (!batchOk || batchInvalidRate > 0.5) {
+          batchSize = Math.max(MIN_BATCH, Math.floor(batchSize / 2));
+          consecutiveStable = 0;
+        } else {
+          consecutiveStable++;
+          if (consecutiveStable >= 2 && batchSize < MAX_BATCH) {
+            batchSize = Math.min(MAX_BATCH, batchSize + 5);
+            consecutiveStable = 0;
+          }
+        }
+
+        // Intervalo entre lotes (2-5s) — só se ainda houver lotes
+        if (cursor < uniqueInputs.length) {
+          const delayMs = 2000 + Math.random() * 3000;
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+      }
 
       // 3. Filtra apenas os válidos e extrai o número (digits) para o validador.
       const validResolved = resolved.filter(r => r.valid && r.number);
