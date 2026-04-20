@@ -637,6 +637,64 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   ];
 }
 
+// ── Ensure contact is saved on the device's WhatsApp address book ──
+// WhatsApp privacy setting "only contacts" requires the inviter to have the
+// invitee saved as a contact. We try multiple UAZAPI contact-save endpoints
+// and ignore failures (best-effort).
+const contactSavedCache = new Map<string, number>(); // key: baseUrl::phone → timestamp
+const CONTACT_SAVED_TTL_MS = 6 * 60 * 60_000; // 6h
+
+async function ensureContactSaved(
+  baseUrl: string,
+  token: string,
+  phone: string,
+  opts: { force?: boolean } = {},
+): Promise<boolean> {
+  const p = phone.replace(/\D/g, "").replace(/@.*/, "");
+  if (!p) return false;
+  const key = `${baseUrl}::${p}`;
+  if (!opts.force) {
+    const at = contactSavedCache.get(key);
+    if (at && Date.now() - at < CONTACT_SAVED_TTL_MS) return true;
+  }
+
+  const placeholderName = `Lead ${p.slice(-4)}`;
+  const headers = buildHeaders(token, true);
+
+  const attempts: Array<{ method: "POST" | "PUT"; url: string; body: any }> = [
+    { method: "POST", url: `${baseUrl}/contact/add`, body: { number: p, name: placeholderName } },
+    { method: "POST", url: `${baseUrl}/contact/add`, body: { phone: p, name: placeholderName } },
+    { method: "POST", url: `${baseUrl}/contact/save`, body: { number: p, name: placeholderName } },
+    { method: "POST", url: `${baseUrl}/contacts`, body: { number: p, name: placeholderName } },
+    { method: "PUT", url: `${baseUrl}/contact`, body: { number: p, name: placeholderName } },
+    { method: "POST", url: `${baseUrl}/contact/upsert`, body: { number: p, name: placeholderName } },
+  ];
+
+  for (const a of attempts) {
+    try {
+      const res = await fetchWithTimeout(a.url, { method: a.method, headers, body: JSON.stringify(a.body) }, 10_000);
+      if (res.status === 405 || res.status === 404) continue;
+      // Treat any 2xx OR "already exists"-ish responses as saved.
+      if (res.ok) {
+        contactSavedCache.set(key, Date.now());
+        log.info(`contact_saved: ${p} via ${a.url.replace(baseUrl, "")}`);
+        return true;
+      }
+      // Some providers return 409/200-with-error for duplicates → also OK.
+      const raw = await res.text().catch(() => "");
+      if (/already|exist|dupli|salvo|saved/i.test(raw)) {
+        contactSavedCache.set(key, Date.now());
+        log.info(`contact_saved (already): ${p}`);
+        return true;
+      }
+    } catch {
+      // try next endpoint
+    }
+  }
+  // Best-effort: don't fail the pipeline if no endpoint worked.
+  return false;
+}
+
 async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string): Promise<AddResult> {
   const cacheKey = `${baseUrl}::${groupId}`;
   const cachedIdx = endpointCache.get(cacheKey);
@@ -1364,9 +1422,38 @@ async function runDeviceWorker(
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
       try {
-        result = targetInfo.kind === "community_child"
-          ? await addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
-          : await addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+        // Pre-step: ensure contact exists in device's address book to bypass
+        // the "only saved contacts can invite" privacy restriction.
+        await ensureContactSaved(baseUrl, device.uazapi_token, phone);
+        await sleep(randomBetween(500, 1500));
+
+        const doAdd = () => targetInfo.kind === "community_child"
+          ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
+          : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
+
+        result = await doAdd();
+
+        // If add failed with the privacy error, force-save the contact once
+        // more and retry exactly one time. Privacy is a user-level restriction
+        // (not an instance failure) and must NOT break the worker.
+        const isPrivacyBlock = !result.ok
+          && !result.alreadyExists
+          && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
+        if (isPrivacyBlock) {
+          log.warn(`retry_after_privacy: ${phone} on group ${groupId.slice(0, 15)} — forcing contact save and retrying once.`);
+          const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
+          if (saved) {
+            await sleep(randomBetween(800, 1500));
+            result = await doAdd();
+          }
+          const stillPrivacy = !result.ok
+            && !result.alreadyExists
+            && /privacidade|saved contacts|contatos salvos|only allows|invite de contatos/i.test(result.detail);
+          if (stillPrivacy) {
+            log.warn(`privacy_blocked_final: ${phone} on group ${groupId.slice(0, 15)} — marking as failed (user-level privacy).`);
+            result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
+          }
+        }
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }
