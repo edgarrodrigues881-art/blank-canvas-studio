@@ -899,19 +899,76 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
     );
   }
 
+  // ── Global progress aggregation ──
+  // Tracks: total processed, success, failed, retrying, processing.
   const derivedCounts = contacts.reduce((acc: any, contact: any) => {
     if (contact.status === "completed") acc.success++;
     if (contact.status === "already_exists") acc.already++;
     if (isFailureStatus(contact.status)) acc.failed++;
     if (ACTIVE_QUEUE_STATUSES.has(contact.status)) acc.pending++;
+    if (contact.status === "retrying" || contact.status === "rate_limited") acc.retrying++;
+    if (contact.status === "processing") acc.processing++;
     return acc;
-  }, { success: 0, already: 0, failed: 0, pending: 0 });
+  }, { success: 0, already: 0, failed: 0, pending: 0, retrying: 0, processing: 0 });
 
   const hasContactSnapshot = contacts.length > 0;
   const successCount = hasContactSnapshot ? derivedCounts.success : (campaign.success_count || 0);
   const alreadyCount = hasContactSnapshot ? derivedCounts.already : (campaign.already_count || 0);
   const failedCount = hasContactSnapshot ? derivedCounts.failed : (campaign.fail_count || 0);
   const pendingCount = hasContactSnapshot ? derivedCounts.pending : contacts.filter((c: any) => ACTIVE_QUEUE_STATUSES.has(c.status)).length;
+  const retryingCount = derivedCounts.retrying;
+  const processingCount = derivedCounts.processing;
+  const processedCount = successCount + alreadyCount + failedCount;
+
+  // ── Per-instance breakdown ──
+  // Pivots contacts by `device_used` so each instance shows its own
+  // queue size, currently-processing contact, and current action.
+  const perInstanceStats = useMemo(() => {
+    const map = new Map<string, {
+      device: string;
+      total: number;
+      success: number;
+      failed: number;
+      retrying: number;
+      pending: number;
+      processing: number;
+      currentContact: string | null;
+      currentAction: "sending" | "cooldown" | "retrying" | "idle";
+      lastUpdate: number;
+    }>();
+    for (const c of contacts as any[]) {
+      const key = c.device_used || "—";
+      let entry = map.get(key);
+      if (!entry) {
+        entry = { device: key, total: 0, success: 0, failed: 0, retrying: 0, pending: 0, processing: 0, currentContact: null, currentAction: "idle", lastUpdate: 0 };
+        map.set(key, entry);
+      }
+      entry.total++;
+      if (c.status === "completed" || c.status === "already_exists") entry.success++;
+      else if (isFailureStatus(c.status)) entry.failed++;
+      else if (c.status === "retrying" || c.status === "rate_limited") entry.retrying++;
+      else if (c.status === "processing") {
+        entry.processing++;
+        if (!entry.currentContact) {
+          entry.currentContact = c.phone;
+          entry.currentAction = "sending";
+        }
+      } else if (ACTIVE_QUEUE_STATUSES.has(c.status)) entry.pending++;
+      const ts = c.processed_at ? new Date(c.processed_at).getTime() : 0;
+      if (ts > entry.lastUpdate) entry.lastUpdate = ts;
+    }
+    // Refine current action when no contact is actively "processing"
+    for (const entry of map.values()) {
+      if (entry.currentAction === "idle") {
+        if (entry.retrying > 0) entry.currentAction = entry.retrying > 0 && entry.pending === 0 ? "cooldown" : "retrying";
+        else if (entry.pending > 0) entry.currentAction = "idle";
+      }
+    }
+    // Drop the "—" bucket if there are real instances
+    const arr = Array.from(map.values());
+    const realInstances = arr.filter(e => e.device !== "—");
+    return (realInstances.length > 0 ? realInstances : arr).sort((a, b) => b.total - a.total);
+  }, [contacts]);
 
   const canResume = (campaign.status === "paused" || campaign.status === "draft") && pendingCount > 0;
   const canPause = isRunning;
