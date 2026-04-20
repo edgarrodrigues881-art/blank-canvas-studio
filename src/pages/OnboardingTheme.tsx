@@ -38,7 +38,7 @@ const OnboardingTheme = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background text-foreground px-6 py-10 overflow-hidden relative transition-colors duration-300">
+    <div className="h-[100dvh] w-full flex items-center justify-center bg-background text-foreground px-4 py-4 sm:px-6 sm:py-10 overflow-hidden relative transition-colors duration-300">
       {/* Subtle ambient gradient */}
       <div className="pointer-events-none absolute -top-40 left-1/3 w-[600px] h-[600px] rounded-full bg-emerald-500/5 blur-[140px]" />
       <div className="pointer-events-none absolute -bottom-40 right-1/4 w-[500px] h-[500px] rounded-full bg-amber-500/5 blur-[140px]" />
@@ -53,12 +53,12 @@ const OnboardingTheme = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-center mb-12 sm:mb-16"
+          className="text-center mb-6 sm:mb-16"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
             Escolha seu estilo
           </h1>
-          <p className="mt-3 text-sm sm:text-base text-muted-foreground font-normal">
+          <p className="mt-2 sm:mt-3 text-xs sm:text-base text-muted-foreground font-normal">
             Você pode alterar isso depois nas configurações
           </p>
         </motion.div>
@@ -67,7 +67,7 @@ const OnboardingTheme = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6 w-full"
+          className="grid grid-cols-2 gap-3 sm:gap-6 w-full"
         >
           <ThemeCard
             label="Escuro"
@@ -88,7 +88,7 @@ const OnboardingTheme = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.4 }}
           onClick={handleContinue}
-          className="mt-12 sm:mt-14 px-10 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.5)] hover:opacity-95 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className="mt-8 sm:mt-14 px-10 py-3 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.5)] hover:opacity-95 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
           Continuar
         </motion.button>
