@@ -1425,7 +1425,22 @@ async function runDeviceWorker(
         continue;
       }
       let result: Awaited<ReturnType<typeof addToGroup>>;
+      const contactStartedAt = Date.now();
+      const startIso = new Date(contactStartedAt).toISOString();
       try {
+        // Per-contact hard timeout: never let a single attempt block the queue
+        // for more than PER_CONTACT_MAX_PROCESSING_MS. If the underlying API
+        // hangs, we abandon the contact as `timeout` and move on.
+        const withDeadline = <T>(p: Promise<T>): Promise<T> => Promise.race([
+          p,
+          new Promise<T>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`per_contact_timeout:${PER_CONTACT_MAX_PROCESSING_MS}ms`)),
+              PER_CONTACT_MAX_PROCESSING_MS,
+            ),
+          ),
+        ]);
+
         // Pre-step: ensure contact exists in device's address book to bypass
         // the "only saved contacts can invite" privacy restriction.
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
@@ -1435,7 +1450,7 @@ async function runDeviceWorker(
           ? addToGroup(baseUrl, device.uazapi_token, targetInfo.targetId, phone)
           : addToGroup(baseUrl, device.uazapi_token, groupId, phone);
 
-        result = await doAdd();
+        result = await withDeadline(doAdd());
 
         // If add failed with the privacy error, force-save the contact once
         // more and retry exactly one time. Privacy is a user-level restriction
@@ -1448,7 +1463,7 @@ async function runDeviceWorker(
           const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
           if (saved) {
             await sleep(randomBetween(800, 1500));
-            result = await doAdd();
+            result = await withDeadline(doAdd());
           }
           const stillPrivacy = !result.ok
             && !result.alreadyExists
@@ -1458,9 +1473,27 @@ async function runDeviceWorker(
             result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
           }
         }
+      } catch (timeoutErr: any) {
+        // Catches per-contact deadline. We synthesize a failed AddResult so the
+        // queue ALWAYS advances — the contact is marked failed and we move on.
+        const msg = String(timeoutErr?.message || timeoutErr || "timeout");
+        log.warn(`per_contact_timeout: ${phone} on group ${groupId.slice(0, 15)} after ${PER_CONTACT_MAX_PROCESSING_MS}ms — auto-failing and continuing.`);
+        result = {
+          ok: false,
+          alreadyExists: false,
+          detail: `Tempo máximo de processamento (${Math.round(PER_CONTACT_MAX_PROCESSING_MS / 1000)}s) excedido — contato abandonado. ${msg.slice(0, 80)}`,
+          retryable: false,
+          pauseCampaign: false,
+          cooldownMs: 0,
+          failureStatus: "timeout",
+          canTryOtherStrategy: false,
+        };
       } finally {
         DeviceLockManager.release(deviceId, actionLockId);
       }
+      const contactEndedAt = Date.now();
+      const endIso = new Date(contactEndedAt).toISOString();
+      const elapsedMs = contactEndedAt - contactStartedAt;
 
       // Pre-classify failure type (needed for delay logic below)
       const detailLower = result.detail.toLowerCase();
