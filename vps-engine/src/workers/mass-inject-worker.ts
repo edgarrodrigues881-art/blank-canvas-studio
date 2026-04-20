@@ -738,41 +738,49 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
       .join(" ");
     const errorMsgLower = errorMsg.toLowerCase();
     const rawLower = raw.toLowerCase();
+    const rawSnippet = raw ? raw.slice(0, 800) : "";
+    const attach = (r: AddResult): AddResult => ({ ...r, rawResponse: rawSnippet, httpStatus: res.status });
 
     const gu = body?.groupUpdated || body?.data?.groupUpdated;
     if (Array.isArray(gu) && gu.length > 0) {
       const errCode = Number(gu[0]?.Error ?? gu[0]?.error ?? -1);
       if (errCode === 0 || errCode === 200 || errCode === 201) {
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
       if (errCode === 409) {
-        return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
       if (errCode === 403) {
-        return { ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" };
+        // Only call it a privacy error if the message text actually says so;
+        // otherwise treat as a generic 403 (e.g. "not admin").
+        const looksLikePrivacy = /privacidade|saved contacts|contatos salvos|only allows.*contact|invite de contatos|only contacts can/.test(errorMsgLower || rawLower);
+        if (looksLikePrivacy) {
+          return attach({ ok: false, alreadyExists: false, detail: "Privacidade: só aceita convite de contatos salvos.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false, failureStatus: "failed" });
+        }
+        return attach(classifyFailure(errorMsgLower || rawLower, 403, idx));
       }
       if (errCode >= 400) {
-        return classifyFailure(errorMsgLower || rawLower, errCode, idx);
+        return attach(classifyFailure(errorMsgLower || rawLower, errCode, idx));
       }
-      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
     const groupObj = body?.group || body?.data?.group;
     if (groupObj && typeof groupObj === "object" && (groupObj.JID || groupObj.jid || groupObj.id)) {
       if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
-        return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+        return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
       }
     }
 
     if (errorMsgLower.includes("already") || errorMsgLower.includes("já") || errorMsgLower.includes("memberaddmode") || res.status === 409) {
-      return { ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: false, alreadyExists: true, detail: "Já no grupo.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
     if ((res.status === 200 || res.status === 201) && !hasExplicitFailure(errorMsgLower)) {
-      return { ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false };
+      return attach({ ok: true, alreadyExists: false, detail: "Adicionado com sucesso.", retryable: false, pauseCampaign: false, cooldownMs: 0, strategyIndex: idx, canTryOtherStrategy: false });
     }
 
-    return classifyFailure(errorMsgLower || rawLower, res.status, idx);
+    return attach(classifyFailure(errorMsgLower || rawLower, res.status, idx));
   };
 
   // ── FAST PATH: If we have a cached winning strategy, try ONLY that first ──
