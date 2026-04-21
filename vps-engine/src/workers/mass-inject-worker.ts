@@ -1622,6 +1622,7 @@ async function runDeviceWorker(
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
+        deviceRestrictionErrors.delete(deviceId);
         recordDeviceApiSuccess(deviceId); // mark device as healthy
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
@@ -1634,6 +1635,7 @@ async function runDeviceWorker(
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         deviceCriticalErrors.delete(deviceId); // reset on success
+        deviceRestrictionErrors.delete(deviceId);
         recordDeviceApiSuccess(deviceId); // mark device as healthy
         consecutiveAddFailures = 0;
       } else {
@@ -1737,6 +1739,26 @@ async function runDeviceWorker(
         // ── Per-device consecutive critical error tracking ──
         const isCriticalError = CRITICAL_FAILURE_STATUSES.has(failStatus);
         const isTransientError = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+        const isRestrictionError = failStatus === "blocked" || (failStatus === "failed" && /privacidade|contatos salvos|only allows|invite de contatos/i.test(failureDetail));
+
+        if (isRestrictionError) {
+          const restrictionCount = (deviceRestrictionErrors.get(deviceId) || 0) + 1;
+          deviceRestrictionErrors.set(deviceId, restrictionCount);
+
+          if (restrictionCount >= DEVICE_RESTRICTION_PAUSE_THRESHOLD) {
+            const reason = `Pausada para proteger a conta: ${restrictionCount} contatos seguidos rejeitados pelo WhatsApp (${failureDetail}).`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await flushCounters(sb, campaignId, counterState);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+            stopAllRef.value = true;
+            break;
+          }
+        } else if (!isTransientError) {
+          deviceRestrictionErrors.delete(deviceId);
+        }
 
         if (isCriticalError) {
           // Increment per-device critical error counter
