@@ -146,7 +146,7 @@ const HeroSection = () => {
 
           {/* RIGHT — Dashboard panel */}
           <div
-            className="relative w-full lg:h-[85vh] flex items-center justify-center lg:justify-start"
+            className="relative w-full lg:h-[90vh] flex items-center justify-start lg:overflow-visible"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Soft backdrop blur behind panel */}
@@ -178,12 +178,14 @@ const HeroSection = () => {
               }}
             />
 
-            {/* Panel wrapper — overflows to the right on desktop */}
+            {/* Panel wrapper — bigger and overflowing to the right */}
             <div
               ref={panelRef}
-              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard will-change-transform"
+              className="relative z-10 w-full lg:w-[180%] lg:max-w-none group/dashboard will-change-transform"
               style={{
                 transformStyle: "preserve-3d",
+                transformOrigin: "left center",
+                marginLeft: "8%",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
@@ -207,12 +209,12 @@ const HeroSection = () => {
                 }}
               />
 
-              {/* Left fade mask — panel emerges from the dark */}
+              {/* Strong left fade — panel dissolves into the dark */}
               <div
-                className="absolute inset-y-0 left-0 w-1/3 pointer-events-none z-30 rounded-l-xl"
+                className="absolute inset-y-0 left-0 w-1/2 pointer-events-none z-30"
                 style={{
                   background:
-                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.8) 40%, transparent 100%)",
+                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.95) 25%, rgba(2,6,23,0.7) 45%, rgba(2,6,23,0.3) 70%, transparent 100%)",
                 }}
               />
             </div>
