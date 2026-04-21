@@ -723,11 +723,25 @@ const Devices = () => {
       });
       return;
     }
-    // Compute starting index based on existing names
+    // Each bulk creation always starts numbering from 1, independent of existing instances.
+    // If a name collision occurs with existing devices, append a short suffix to avoid duplicates.
     muteAutoSync(5000 + totalCount * 2500);
-    const existingNums = devices.map(d => { const m = d.name.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; });
-    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
-    const startIdx = maxNum + 1;
+    const existingNames = new Set(devices.map(d => (d.name || "").trim()));
+    const startIdx = 1;
+    const collisionSuffix = (() => {
+      // Only compute a suffix if at least one of the planned names already exists
+      const wouldCollide = Array.from({ length: totalCount }, (_, k) => `${bulkPrefix} ${startIdx + k}`)
+        .some(n => existingNames.has(n));
+      if (!wouldCollide) return "";
+      // Find a short numeric suffix (2, 3, ...) that resolves all collisions
+      for (let s = 2; s < 1000; s++) {
+        const allFree = Array.from({ length: totalCount }, (_, k) => `${bulkPrefix} ${startIdx + k} (${s})`)
+          .every(n => !existingNames.has(n));
+        if (allFree) return ` (${s})`;
+      }
+      return ` (${Date.now().toString().slice(-4)})`;
+    })();
+    const formatName = (idx: number) => `${bulkPrefix} ${idx}${collisionSuffix}`;
 
     setBulkOpen(false);
 
@@ -747,7 +761,10 @@ const Devices = () => {
     let succeeded = 0;
     let failed = 0;
 
-    toast({ title: `Criando 1 de ${totalCount}...`, description: `${bulkPrefix} ${queue[0].idx}` });
+    const effectivePrefix = `${bulkPrefix}${collisionSuffix ? collisionSuffix : ""}`;
+    // Note: backend builds the name as `${prefix} ${idx}`, so passing the
+    // suffix inside the prefix keeps the displayed name and persisted name in sync.
+    toast({ title: `Criando 1 de ${totalCount}...`, description: formatName(queue[0].idx) });
 
     for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
@@ -755,7 +772,7 @@ const Devices = () => {
       const tempId = `temp-bulk-${Date.now()}-${i}`;
       const tempDevice: Device = {
         id: tempId,
-        name: `${bulkPrefix} ${item.idx}`,
+        name: formatName(item.idx),
         number: "",
         status: "Disconnected" as const,
         login_type: "qr",
@@ -773,7 +790,7 @@ const Devices = () => {
       try {
         await callManageDevices({
           action: "bulk-create",
-          prefix: bulkPrefix,
+          prefix: effectivePrefix,
           proxyIds: item.proxyId ? [item.proxyId] : [],
           noProxyCount: item.proxyId ? 0 : 1,
           startIndex: item.idx,
@@ -789,13 +806,13 @@ const Devices = () => {
           toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
           break;
         } else {
-          console.error(`[bulk-create] Falha ao criar "${bulkPrefix} ${item.idx}":`, msg);
+          console.error(`[bulk-create] Falha ao criar "${formatName(item.idx)}":`, msg);
         }
       }
 
       const next = i + 1;
       if (next < queue.length) {
-        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: `${bulkPrefix} ${queue[next].idx}` });
+        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: formatName(queue[next].idx) });
         await delay(2000);
       }
     }
