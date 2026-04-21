@@ -1363,6 +1363,16 @@ Deno.serve(async (req) => {
       const hasQrCode = connectionMode !== "code" && providerHasQrCode;
       const isDisconnected = effectiveCheck.status === "disconnected" && !providerHasQrCode && !pairingCode;
 
+      // ── EARLY-CONNECT signal ──
+      // Provider already returns owner/phone (>=10 digits) BEFORE reaching full "connected" status,
+      // typically while it is syncing chats/contacts after a QR scan. Surface this as `syncing`
+      // so the UI can transition to a success state instantly instead of waiting 20-30s.
+      const earlyOwnerDigits = getOwnerDigits(effectiveCheck.owner || check.owner || "");
+      const isSyncingAfterScan = !isConnected
+        && connectionMode !== "code"
+        && earlyOwnerDigits.length >= 10
+        && !providerHasQrCode;
+
       if (isConnected) {
         const dup = await checkDuplicatePhone(svc, user.id, deviceId, effectiveCheck.owner || "");
         if (dup.isDuplicate) {
@@ -1384,6 +1394,15 @@ Deno.serve(async (req) => {
         if (wasDisconnected && device?.login_type !== "report_wa") {
           notifyConnectionChange(svc, user.id, deviceName, fmt, effectiveCheck.profileName || "", true).catch(() => {});
         }
+      } else if (isSyncingAfterScan) {
+        // Mark device as Ready optimistically — the provider already has the owner number.
+        const fmt = formatBrPhone(effectiveCheck.owner || check.owner || "");
+        await svc.from("devices").update({
+          status: "Ready",
+          number: fmt,
+          profile_name: effectiveCheck.profileName || check.profileName || device?.profile_name || "",
+          updated_at: new Date().toISOString(),
+        }).eq("id", deviceId);
       } else if (pairingPending) {
         await svc.from("devices").update({
           status: "pairing",
@@ -1418,14 +1437,16 @@ Deno.serve(async (req) => {
 
       const responseStatus = isConnected
         ? "authenticated"
-        : connectionMode === "code"
-          ? (pairingCode ? "pairing" : (pairingPending ? "pairing_pending" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting")))
-          : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
+        : isSyncingAfterScan
+          ? "syncing"
+          : connectionMode === "code"
+            ? (pairingCode ? "pairing" : (pairingPending ? "pairing_pending" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting")))
+            : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
 
       return json({
         success: true,
         status: responseStatus,
-        phone: isConnected ? (effectiveCheck.owner || "") : "",
+        phone: (isConnected || isSyncingAfterScan) ? (effectiveCheck.owner || check.owner || "") : "",
         base64: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
         qr: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
         pairingCode: pairingCode || null,
