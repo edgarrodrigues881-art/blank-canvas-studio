@@ -208,6 +208,7 @@ const Devices = () => {
   const [pairingRefreshing, setPairingRefreshing] = useState(false);
   const pairingCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pairingPhoneRef = useRef<string>("");
+  const pairingRefreshLockRef = useRef<boolean>(false);
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
@@ -2903,26 +2904,50 @@ const Devices = () => {
               <motion.div key="code" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center gap-5">
                 {pairingCode ? (
                   <>
-                    <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg">
-                      <p className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground">{pairingCode}</p>
+                    <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg overflow-hidden">
+                      <AnimatePresence mode="wait">
+                        <motion.p
+                          key={pairingCode}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.25 }}
+                          className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground"
+                        >
+                          {pairingCode}
+                        </motion.p>
+                      </AnimatePresence>
                       <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                        <Lock className="w-4 h-4 text-primary-foreground" />
+                        {pairingRefreshing ? (
+                          <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
+                        ) : (
+                          <Lock className="w-4 h-4 text-primary-foreground" />
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 -mt-2">
-                      <p className="text-xs text-muted-foreground tabular-nums">
-                        {pairingRefreshing ? "Gerando novo código..." : `Novo código em ${pairingCountdown}s`}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs gap-1.5"
-                        disabled={pairingRefreshing}
-                        onClick={() => { setPairingCountdown(50); void regeneratePairingCode(); }}
-                      >
-                        <RefreshCw className={`w-3 h-3 ${pairingRefreshing ? "animate-spin" : ""}`} />
-                        Gerar novo
-                      </Button>
+                    <div className="w-64 space-y-2 -mt-1">
+                      {/* Barra de progresso suave do tempo restante */}
+                      <div className="h-1 w-full bg-muted/40 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary/70 transition-all duration-1000 ease-linear"
+                          style={{ width: `${Math.max(0, Math.min(100, (pairingCountdown / 50) * 100))}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {pairingRefreshing ? "Atualizando código..." : `Novo código em ${pairingCountdown}s`}
+                        </p>
+                        {/* Botão manual visível apenas como fallback discreto */}
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40"
+                          disabled={pairingRefreshing}
+                          onClick={() => { setPairingCountdown(50); void regeneratePairingCode(); }}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${pairingRefreshing ? "animate-spin" : ""}`} />
+                          Forçar
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : connectError ? (
