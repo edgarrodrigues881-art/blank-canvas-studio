@@ -144,9 +144,9 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* RIGHT — Dashboard panel */}
+          {/* RIGHT — Dashboard panel (floats freely on desktop) */}
           <div
-            className="relative w-full lg:h-[90vh] flex items-center justify-start lg:overflow-visible"
+            className="relative w-full mt-8 lg:mt-0 lg:absolute lg:top-1/2 lg:right-[-15%] lg:w-[70vw] lg:h-[85vh] lg:-translate-y-1/2 flex items-center justify-start"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Soft backdrop blur behind panel */}
@@ -178,14 +178,13 @@ const HeroSection = () => {
               }}
             />
 
-            {/* Panel wrapper — bigger and overflowing to the right */}
+            {/* Panel wrapper — fills the floating container */}
             <div
               ref={panelRef}
-              className="relative z-10 w-full lg:w-[180%] lg:max-w-none group/dashboard will-change-transform"
+              className="relative z-10 w-full lg:max-w-none group/dashboard will-change-transform"
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "left center",
-                marginLeft: "8%",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
