@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import dashboardPreview from "@/assets/dashboard-preview-landing.png";
-import heroCrmMockup from "@/assets/hero-crm-mockup.png";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -117,52 +116,7 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, ease: easeOut, delay: 0.1 }}
-            className="lg:col-span-6 relative w-full max-w-[420px] md:max-w-[600px] mx-auto lg:mx-0 lg:ml-auto"
-          >
-            <div className="relative" style={{ perspective: "1400px" }}>
-              {/* Soft ambient glow — blue/green premium */}
-              <div className="absolute -inset-16 bg-[radial-gradient(ellipse_at_50%_40%,rgba(99,102,241,0.16)_0%,transparent_65%)] blur-3xl pointer-events-none" />
-              <div className="absolute -inset-10 bg-[radial-gradient(ellipse_at_70%_50%,rgba(16,185,129,0.07)_0%,transparent_70%)] blur-2xl pointer-events-none" />
-              {/* Drop shadow plate */}
-              <div className="absolute -bottom-6 inset-x-12 h-20 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.55)_0%,transparent_70%)] blur-2xl pointer-events-none" />
-
-              {/* macOS window — no perspective transforms (keeps image pixel-perfect) */}
-              <div
-                className="relative rounded-[18px] overflow-hidden border border-white/[0.09] bg-[hsl(222,22%,7%)] shadow-[0_40px_100px_-25px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.04),0_0_60px_-20px_rgba(99,102,241,0.22),inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-              >
-                {/* macOS title bar */}
-                <div className="relative h-9 flex items-center px-4 border-b border-white/[0.05] bg-gradient-to-b from-[hsl(222,20%,11%)] to-[hsl(222,22%,8%)]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-[#ff5f57] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.25)]" />
-                    <span className="w-3 h-3 rounded-full bg-[#febc2e] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.25)]" />
-                    <span className="w-3 h-3 rounded-full bg-[#28c840] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.25)]" />
-                  </div>
-                  <span className="absolute left-1/2 -translate-x-1/2 text-[10px] text-white/40 font-medium tracking-wide">DG Contingência Pro — CRM</span>
-                </div>
-
-                {/* Real product screenshot — rendered at native resolution */}
-                <div className="relative bg-[hsl(222,22%,8%)]">
-                  <img
-                    src={heroCrmMockup}
-                    alt="Painel CRM DG Contingência Pro"
-                    width={1184}
-                    height={776}
-                    className="block w-full h-auto select-none"
-                    style={{ imageRendering: "auto" }}
-                    loading="eager"
-                    decoding="async"
-                    draggable={false}
-                  />
-                  {/* Very subtle reflection — does not blur content */}
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.025)_0%,rgba(255,255,255,0)_28%)]" />
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          <div className="hidden lg:block lg:col-span-6" aria-hidden="true" />
         </div>
       </div>
     </section>
