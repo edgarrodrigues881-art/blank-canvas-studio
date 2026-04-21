@@ -30,7 +30,7 @@ const HeroSection = () => {
       rx += (trx - rx) * 0.08;
       ry += (try_ - ry) * 0.08;
       tx += (ttx - tx) * 0.08;
-      el.style.transform = `perspective(1200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateX(${tx.toFixed(2)}px)`;
+      el.style.transform = `perspective(1200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateX(${tx.toFixed(2)}px) scale(1.3)`;
       raf = requestAnimationFrame(tick);
     };
 
@@ -185,6 +185,7 @@ const HeroSection = () => {
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "left center",
+                transform: "scale(1.3)",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
