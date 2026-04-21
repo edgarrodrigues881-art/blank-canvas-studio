@@ -1738,7 +1738,59 @@ const Devices = () => {
     setPollingInterval(interval);
   };
 
-  // Connect
+  // Auto-refresh do código de pareamento (expira em ~60s)
+  const regeneratePairingCode = async () => {
+    if (!connectingDevice) return;
+    const phone = pairingPhoneRef.current;
+    if (!phone) return;
+    const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
+    const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
+    const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
+    setPairingRefreshing(true);
+    try {
+      const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: phone, proxyConfig: pp, proxyId: proxyId || undefined });
+      if (result?.alreadyConnected) { setConnectStep("done"); return; }
+      const code = result?.pairingCode || result?.pairing_code;
+      if (code) {
+        setPairingCode(code);
+        setConnectError("");
+        setPairingCountdown(50);
+      }
+    } catch (err) {
+      console.warn("[pairing-refresh] failed", err);
+    } finally {
+      setPairingRefreshing(false);
+    }
+  };
+
+  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou
+  useEffect(() => {
+    if (pairingCountdownRef.current) {
+      clearInterval(pairingCountdownRef.current);
+      pairingCountdownRef.current = null;
+    }
+    if (connectStep !== "code" || !pairingCode) return;
+    setPairingCountdown(50);
+    pairingCountdownRef.current = setInterval(() => {
+      setPairingCountdown((prev) => {
+        if (prev <= 1) {
+          // dispara nova solicitação (não bloqueia o tick)
+          void regeneratePairingCode();
+          return 50;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (pairingCountdownRef.current) {
+        clearInterval(pairingCountdownRef.current);
+        pairingCountdownRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectStep, pairingCode]);
+
+
   const openConnect = async (device: Device) => {
     if (planState !== "active") {
       setPlanGateOpen(true);
