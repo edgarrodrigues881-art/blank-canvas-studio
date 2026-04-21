@@ -185,7 +185,7 @@ const HeroSection = () => {
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "left center",
-                transform: "scale(1.3)",
+                transform: "scale(1.6)",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
