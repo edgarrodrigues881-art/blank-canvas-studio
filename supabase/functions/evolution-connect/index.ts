@@ -1065,13 +1065,13 @@ Deno.serve(async (req) => {
 
       let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
 
-      // CRITICAL FIX: Poll for QR with aggressive early attempts (UAZAPI usually has QR ready in 1-3s)
-      // Schedule: 250ms, 500ms, 800ms, 1500ms, 2000ms, 2000ms = max 7s extra wait
+      // Fast path: only short poll budget (~1.5s). Client does its own polling on `status`
+      // for anything beyond — keeps backend response fast (target ≤3s total).
       if (!qr) {
-        const pollDelays = [250, 500, 800, 1500, 2000, 2000];
+        const pollDelays = [250, 500, 750];
         for (let attempt = 0; attempt < pollDelays.length && !qr; attempt++) {
           await new Promise(r => setTimeout(r, pollDelays[attempt]));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2500, retries: 0 });
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           const pollState = normalizeProviderConnectionState(poll.data);
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
@@ -1100,6 +1100,8 @@ Deno.serve(async (req) => {
           if (qr) break;
         }
       }
+
+      console.log(`[evolution-connect] connect_done device=${deviceId.substring(0, 8)} hasQR=${!!qr} totalMs=${Date.now() - tStart}`);
 
       return json({
         success: true,
