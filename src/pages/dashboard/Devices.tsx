@@ -715,49 +715,91 @@ const Devices = () => {
       });
       return;
     }
-    // Optimistic: add placeholder devices immediately
-    muteAutoSync(5000);
+    // Compute starting index based on existing names
+    muteAutoSync(5000 + totalCount * 2500);
     const existingNums = devices.map(d => { const m = d.name.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; });
     const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
     const startIdx = maxNum + 1;
-    const tempDevices: Device[] = Array.from({ length: totalCount }, (_, i) => ({
-      id: `temp-bulk-${Date.now()}-${i}`,
-      name: `${bulkPrefix} ${startIdx + i}`,
-      number: "",
-      status: "Disconnected" as const,
-      login_type: "qr",
-      proxy_id: proxyIds[i] || null,
-      profile_picture: null,
-      profile_name: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      has_api_config: false,
-    }));
-    queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-      old ? [...old, ...tempDevices] : tempDevices
-    );
-    toast({ title: `${totalCount} instância${totalCount !== 1 ? "s" : ""} criada${totalCount !== 1 ? "s" : ""}` });
+
     setBulkOpen(false);
 
-    // Fire API in background
-    try {
-      await callManageDevices({
-        action: "bulk-create",
-        prefix: bulkPrefix,
-        proxyIds,
-        noProxyCount,
-        startIndex: startIdx,
-      });
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
-    } catch (err: any) {
-      const msg = err?.message || "";
-      // Rollback temp devices
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
-      if (msg.includes("Limite") || msg.includes("LIMIT")) {
-        toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
-      } else {
-        toast({ title: "Erro ao criar instâncias", description: msg, variant: "destructive" });
+    const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+    // Build sequential queue: each item creates exactly ONE instance
+    type QueueItem = { proxyId: string | null; idx: number };
+    const queue: QueueItem[] = [];
+    let cursor = startIdx;
+    for (const pid of proxyIds) {
+      queue.push({ proxyId: pid, idx: cursor++ });
+    }
+    for (let i = 0; i < noProxyCount; i++) {
+      queue.push({ proxyId: null, idx: cursor++ });
+    }
+
+    let succeeded = 0;
+    let failed = 0;
+
+    toast({ title: `Criando 1 de ${totalCount}...`, description: `${bulkPrefix} ${queue[0].idx}` });
+
+    for (let i = 0; i < queue.length; i++) {
+      const item = queue[i];
+      // Optimistic placeholder appended at the end (preserves creation order)
+      const tempId = `temp-bulk-${Date.now()}-${i}`;
+      const tempDevice: Device = {
+        id: tempId,
+        name: `${bulkPrefix} ${item.idx}`,
+        number: "",
+        status: "Disconnected" as const,
+        login_type: "qr",
+        proxy_id: item.proxyId,
+        profile_picture: null,
+        profile_name: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        has_api_config: false,
+      };
+      queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+        old ? [...old, tempDevice] : [tempDevice]
+      );
+
+      try {
+        await callManageDevices({
+          action: "bulk-create",
+          prefix: bulkPrefix,
+          proxyIds: item.proxyId ? [item.proxyId] : [],
+          noProxyCount: item.proxyId ? 0 : 1,
+          startIndex: item.idx,
+        });
+        succeeded++;
+      } catch (err: any) {
+        failed++;
+        const msg = err?.message || "";
+        queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+          old ? old.filter(d => d.id !== tempId) : old
+        );
+        if (msg.includes("Limite") || msg.includes("LIMIT")) {
+          toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
+          break;
+        } else {
+          console.error(`[bulk-create] Falha ao criar "${bulkPrefix} ${item.idx}":`, msg);
+        }
       }
+
+      const next = i + 1;
+      if (next < queue.length) {
+        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: `${bulkPrefix} ${queue[next].idx}` });
+        await delay(2000);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["devices"] });
+    queryClient.invalidateQueries({ queryKey: ["proxies"] });
+    queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+
+    if (failed === 0) {
+      toast({ title: `${succeeded} instância${succeeded !== 1 ? "s" : ""} criada${succeeded !== 1 ? "s" : ""} com sucesso` });
+    } else {
+      toast({ title: "Concluído com falhas", description: `${succeeded} criada(s), ${failed} falharam`, variant: failed === totalCount ? "destructive" : "default" });
     }
   };
 
