@@ -657,9 +657,11 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
     // Strategy 2: PUT with query param
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
-    // Strategy 3: with @s.whatsapp.net suffix (fallback for strict APIs)
+    // Strategy 3: POST with full JID for stricter providers
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 4: legacy addParticipant endpoint
+    // Strategy 4: PUT with full JID for stricter providers
+    { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    // Strategy 5: legacy addParticipant endpoint
     { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
 }
@@ -812,7 +814,12 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
     }
   }
 
-  // ── DISCOVERY PATH: Try strategies in order, STOP on first non-405 response ──
+  // ── DISCOVERY PATH: Try strategies in order.
+  // IMPORTANT: do NOT stop on the first transient 5xx/timeout response, because
+  // different UAZAPI builds often expose multiple participant endpoints and only
+  // one of them actually performs the add. We only stop immediately when the
+  // result is definitive (success, already exists, or a permanent failure).
+  let lastTransientResult: AddResult | null = null;
   for (let i = 0; i < strategies.length; i++) {
     if (i === cachedIdx) continue; // Already tried above
     try {
@@ -821,19 +828,23 @@ async function addToGroup(baseUrl: string, token: string, groupId: string, phone
 
       const result = processResult(res, raw, body, idx);
 
-      // Any non-405 response means this endpoint exists — cache it and return
+      // Definitive result: cache this working endpoint shape and stop.
       if (!result.canTryOtherStrategy) {
         endpointCache.set(cacheKey, idx);
         return result;
       }
 
-      // Transient error but endpoint exists — cache it for next contacts, return the transient result
-      endpointCache.set(cacheKey, idx);
-      return result;
-    } catch (e: any) {
-      // Network/timeout error — don't cache, try next strategy
+      // Transient result (5xx / timeout / connection wobble): keep the last one,
+      // but continue discovery because another strategy may succeed.
+      lastTransientResult = result;
+    } catch {
+      // Network/timeout error — keep trying the remaining strategies.
       continue;
     }
+  }
+
+  if (lastTransientResult) {
+    return lastTransientResult;
   }
 
   return { ok: false, alreadyExists: false, detail: "Nenhum endpoint encontrado (405).", retryable: false, pauseCampaign: true, cooldownMs: 0, canTryOtherStrategy: false, failureStatus: "failed" };
