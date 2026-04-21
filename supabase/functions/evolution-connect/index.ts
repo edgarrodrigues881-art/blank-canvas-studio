@@ -1138,7 +1138,27 @@ Deno.serve(async (req) => {
         return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
-      // Disconnect if needed
+      // ── PAIRING-IN-PROGRESS GUARD ──
+      // If the provider is already mid-handshake (transitional/connecting) AFTER the user typed the code,
+      // do NOT disconnect — that would kill the live session. Just return the latest known code/status.
+      const ownerDigitsNow = String(currentCheck.owner || "").replace(/\D/g, "");
+      const providerInHandshake =
+        currentCheck.status === "transitional" ||
+        ["connecting", "pairing", "syncing", "loading"].includes(String(currentCheck.rawStatus || "").toLowerCase()) ||
+        ownerDigitsNow.length >= 10;
+      const devicePairingActive = String(device?.status || "").toLowerCase() === "pairing";
+
+      if (providerInHandshake && devicePairingActive) {
+        console.log(`[requestPairingCode] handshake_in_progress device=${deviceId} status=${currentCheck.rawStatus || currentCheck.status} owner=${ownerDigitsNow.length >= 10 ? "yes" : "no"} — skipping disconnect`);
+        const existingCode = currentCheck.pairingCode || null;
+        if (existingCode) {
+          return json({ success: true, pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
+        }
+        // No code surfaced but handshake is happening — let the client keep polling
+        return json({ success: true, pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
+      }
+
+      // Disconnect if needed (only when NOT mid-handshake)
       if (currentCheck.status === "transitional" || currentCheck.status === "unknown") {
         await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
         await new Promise(r => setTimeout(r, 1000));
