@@ -1698,6 +1698,16 @@ const Devices = () => {
         }
 
         const apiStatus = result?.status;
+
+        // CODE MODE: when provider reports the user typed the code (status moves to connecting/pairing),
+        // flip UI to "Verificando código..." so the user gets immediate feedback.
+        if (connectionMode === "code" && pairingCode && apiStatus && apiStatus !== "authenticated") {
+          const verifyingSignals = ["connecting", "pairing", "syncing", "loading"];
+          if (verifyingSignals.includes(String(apiStatus).toLowerCase())) {
+            setConnectStep((prev) => (prev === "code" ? "connecting" : prev));
+          }
+        }
+
         // Status polling check
         if (apiStatus === "authenticated") {
           clearInterval(interval);
@@ -1713,12 +1723,17 @@ const Devices = () => {
               profile_name: profileName || d.profile_name,
             } : d) : old
           );
-          // Mark dialog as done
+          // Mark dialog as done and auto-close after a short delay so user sees the success state
           setConnectStep("done");
           setQrLoadingStage("idle");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
           queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+          setTimeout(() => {
+            setConnectOpen(false);
+            setConnectStep("choose");
+            resumeKeepAlive();
+          }, 1800);
           // Sync in background for full data refresh
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
