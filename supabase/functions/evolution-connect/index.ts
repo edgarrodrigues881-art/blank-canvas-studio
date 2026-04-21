@@ -1217,19 +1217,23 @@ Deno.serve(async (req) => {
       const fsmState = mapToFsmState({
         mode: "qr",
         hasQr: !!qr,
-        rawStatus: qr ? "waiting" : "loading",
+        rawStatus: qr ? "waiting" : "qr",
         providerState: "transitional",
       });
       logFsmTransition(deviceId, "idle", fsmState, "connect");
 
-      return json({
+      const connectResponse = {
         success: true,
         state: fsmState,
         base64: qr || null,
         qr: qr || null,
+        pairingCode: null,
+        pairing_code: null,
         status: qr ? "connecting" : "waiting",
         instanceToken,
-      });
+      };
+      logFsmResponse(deviceId, "connect", connectResponse);
+      return json(connectResponse);
     }
 
     // ════════════════════════════════════════════════════════════════════
