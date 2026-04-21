@@ -2591,8 +2591,12 @@ const Devices = () => {
                     <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4" style={{ animation: "qrPulse 2s ease-in-out infinite" }}>
                       <QrCode className="w-8 h-8 text-primary" />
                     </div>
-                    <p className="text-sm font-semibold text-foreground">Gerando QR Code...</p>
-                    <p className="text-xs text-muted-foreground/50 mt-1">Aguarde alguns segundos</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {qrLoadingStage === "init" ? "Inicializando sessão..." : qrLoadingStage === "connecting" ? "Conectando ao WhatsApp..." : "Gerando QR Code..."}
+                    </p>
+                    <p className="text-xs text-muted-foreground/50 mt-1">
+                      {qrLoadingStage === "init" ? "Preparando instância" : "Aguarde alguns segundos"}
+                    </p>
                   </div>
 
                   {/* Error state */}
