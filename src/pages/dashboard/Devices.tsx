@@ -1790,9 +1790,12 @@ const Devices = () => {
       return;
     }
     setConnectStep(method);
+    setQrLoadingStage("init");
+    const tClick = Date.now();
+    console.log(`[connect-perf] click→step=${method} t0=${tClick}`);
 
     try {
-      // Build proxy config: use newly selected proxy; do NOT fallback to old proxy when user chose "none"
+      // Build proxy config
       const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
       const proxyPayload = selectedProxyData ? {
         host: selectedProxyData.host,
@@ -1802,20 +1805,49 @@ const Devices = () => {
         type: selectedProxyData.type,
       } : undefined;
 
-      let connectResult: any;
-
+      // Wait briefly for prewarm result (max 500ms) so we can pass skipReset hint when safe.
+      let skipReset = false;
+      try {
+        const prewarmRes = await Promise.race([
+          prewarmPromiseRef.current,
+          new Promise(resolve => setTimeout(() => resolve(null), 500)),
+        ]);
+        const provStatus = String((prewarmRes as any)?.status || "").toLowerCase();
+        // Clean states where reset is unnecessary
+        if (provStatus === "disconnected" || provStatus === "close" || provStatus === "" || provStatus === "unknown") {
+          skipReset = true;
+        }
+        console.log(`[connect-perf] prewarm wait done status="${provStatus}" skipReset=${skipReset}`);
+      } catch { /* noop */ }
+      prewarmPromiseRef.current = null;
       prefetchQrPromiseRef.current = null;
-      connectResult = await callApi({
+
+      setQrLoadingStage("generating");
+
+      // Fire connect request — DO NOT block UI for full duration; start polling in parallel.
+      const tReq = Date.now();
+      console.log(`[connect-perf] request_start dt_from_click=${tReq - tClick}ms`);
+      const connectPromise = callApi({
         action: "connect",
         deviceId: connectingDevice.id,
         proxyConfig: proxyPayload,
         proxyId: proxyId || undefined,
-        forceReconnect: true,
+        skipReset,
+        // forceReconnect kept off when skipReset to honor backend optimization
+        forceReconnect: !skipReset,
       });
+
+      // Kick off polling immediately — first source to deliver a QR wins.
+      startPolling(connectingDevice.id, proxyId, "qr");
+
+      const connectResult = await connectPromise;
+      console.log(`[connect-perf] connect_response dt_from_click=${Date.now() - tClick}ms hasQR=${!!(connectResult?.base64 || connectResult?.qr)}`);
 
       // Check for any error returned by the edge function
       if (connectResult?.error) {
+        stopPolling();
         setConnectError(connectResult.error);
+        setQrLoadingStage("idle");
         if (connectResult?.code === "PROXY_FAILED" || connectResult?.code === "DUPLICATE_PHONE") {
           setConnectStep("proxy");
         }
@@ -1825,6 +1857,7 @@ const Devices = () => {
       }
 
       if (connectResult.alreadyConnected) {
+        stopPolling();
         queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
           old ? old.map(d => d.id === connectingDevice.id ? {
             ...d,
@@ -1834,39 +1867,24 @@ const Devices = () => {
         );
         queryClient.invalidateQueries({ queryKey: ["devices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+        setQrLoadingStage("idle");
         setConnectStep("done");
         setConnectOpen(false); resumeKeepAlive();
         return;
       }
 
-      let b64 = connectResult.base64 || connectResult.qr;
-
-      // Auto-retry: se o QR não veio na primeira resposta, tenta buscar via status até 4x
-      if (!b64) {
-        for (let retry = 0; retry < 4 && !b64; retry++) {
-          await new Promise(r => setTimeout(r, 600));
-          const statusResult = await callApi({ action: "status", deviceId: connectingDevice.id });
-          if (statusResult?.alreadyConnected || statusResult?.status === "authenticated") {
-            queryClient.invalidateQueries({ queryKey: ["devices"] });
-            setConnectStep("done");
-            setConnectOpen(false); resumeKeepAlive();
-            return;
-          }
-          b64 = statusResult?.qrcode || statusResult?.base64 || statusResult?.qr;
-        }
-      }
-
-      if (b64) {
+      const b64 = connectResult.base64 || connectResult.qr;
+      if (b64 && !qrCodeBase64) {
         setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
-      } else {
-        throw new Error("QR Code não retornado. Tente novamente.");
+        setQrLoadingStage("connecting");
+        console.log(`[connect-perf] qr_displayed_via_connect dt_from_click=${Date.now() - tClick}ms`);
       }
-
-      // Start polling for connection status
-      startPolling(connectingDevice.id, proxyId, "qr");
+      // If no QR yet, polling (already running) will pick it up — no extra retry loop here.
     } catch (err: any) {
       console.error("Connect error:", err);
       setConnectError(err?.message || "Erro ao conectar");
+      setQrLoadingStage("idle");
+      stopPolling();
       toast({ title: "Erro ao gerar QR Code", description: err?.message, variant: "destructive" });
     }
   };
