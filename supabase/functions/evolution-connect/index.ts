@@ -131,22 +131,37 @@ export function mapToFsmState(ctx: FsmContext): FsmState {
 
   const raw = String(rawStatus).toLowerCase();
 
-  // Connected: provider confirms + owner present
-  if (providerState === "connected" && ownerDigits >= 10) return "connected";
-  if (raw === "connected" || raw === "authenticated" || raw === "ready" || raw === "open" || raw === "active") {
-    if (ownerDigits >= 10) return "connected";
+  // ── CONNECTED (final): requires explicit final confirmation from provider ──
+  // Only "connected"/"ready"/"active" raw status WITH owner digits count as final.
+  // "open" and "authenticated" are NEVER final — they are still part of the handshake.
+  if (providerState === "connected" && ownerDigits >= 10 &&
+      (raw === "connected" || raw === "ready" || raw === "active" || raw === "")) {
+    return "connected";
+  }
+  if ((raw === "connected" || raw === "ready" || raw === "active") && ownerDigits >= 10) {
+    return "connected";
+  }
+
+  // ── SYNCING: handshake authenticated, finalizing sync ──
+  // "authenticated" explicitly maps to syncing (per spec).
+  if (raw === "authenticated" || raw === "syncing" || raw === "loading_chats" || raw === "loading_history") {
+    return "syncing";
+  }
+  // Owner detected but provider hasn't issued final "connected" yet → still syncing
+  if (ownerDigits >= 10 && providerState !== "disconnected" &&
+      raw !== "open" && raw !== "connecting") {
     return "syncing";
   }
 
-  // Syncing: owner detected but not yet fully connected
-  if (ownerDigits >= 10 && providerState !== "disconnected") return "syncing";
-  if (raw === "syncing" || raw === "loading_chats" || raw === "loading_history") return "syncing";
-
-  // Connecting: mid-handshake
-  if (handshakeInProgress) return "connecting";
-  if (raw === "connecting" || raw === "loading" || raw === "initializing" || raw === "starting") {
+  // ── CONNECTING: mid-handshake, NOT yet success ──
+  // Per spec: "open" and "connecting" are part of the handshake, never final.
+  if (raw === "open" || raw === "connecting" || raw === "loading" ||
+      raw === "initializing" || raw === "starting") {
     return "connecting";
   }
+  if (handshakeInProgress) return "connecting";
+  // Owner detected with raw=open/connecting → still connecting (QR scanned, handshake started)
+  if (ownerDigits >= 10) return "connecting";
 
   // Pairing code shown to user
   if (mode === "pairing" && hasPairingCode) return "pairing_code";
@@ -214,6 +229,9 @@ function logFsmResponse(
   console.log(
     `[fsm-response] [${instanceId.substring(0, 8)}] action=${action} state=${payload.state || "?"} status=${payload.status || "?"} qr=${qrPreview} pairingCode=${codePreview} handshake=${!!payload.handshakeInProgress}`,
   );
+  if (payload.state === "connecting" || payload.state === "syncing" || payload.state === "connected") {
+    console.log(`[${instanceId.substring(0, 8)}] ${payload.state}`);
+  }
 }
 
 type ProviderStatusCheck = {
