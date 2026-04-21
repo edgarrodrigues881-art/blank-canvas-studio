@@ -101,7 +101,7 @@ const Hero = () => {
         <img
           src={heroInstancesPanel}
           alt=""
-          className="absolute top-1/2 left-[68%] -translate-x-[35%] -translate-y-[48%] h-[170%] w-auto max-w-none select-none"
+          className="absolute top-1/2 right-0 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain object-right select-none"
           draggable={false}
         />
         {/* Left dark gradient — stronger fade following the crop */}
