@@ -761,7 +761,10 @@ const Devices = () => {
     let succeeded = 0;
     let failed = 0;
 
-    toast({ title: `Criando 1 de ${totalCount}...`, description: `${bulkPrefix} ${queue[0].idx}` });
+    const effectivePrefix = `${bulkPrefix}${collisionSuffix ? collisionSuffix : ""}`;
+    // Note: backend builds the name as `${prefix} ${idx}`, so passing the
+    // suffix inside the prefix keeps the displayed name and persisted name in sync.
+    toast({ title: `Criando 1 de ${totalCount}...`, description: formatName(queue[0].idx) });
 
     for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
@@ -769,7 +772,7 @@ const Devices = () => {
       const tempId = `temp-bulk-${Date.now()}-${i}`;
       const tempDevice: Device = {
         id: tempId,
-        name: `${bulkPrefix} ${item.idx}`,
+        name: formatName(item.idx),
         number: "",
         status: "Disconnected" as const,
         login_type: "qr",
@@ -787,7 +790,7 @@ const Devices = () => {
       try {
         await callManageDevices({
           action: "bulk-create",
-          prefix: bulkPrefix,
+          prefix: effectivePrefix,
           proxyIds: item.proxyId ? [item.proxyId] : [],
           noProxyCount: item.proxyId ? 0 : 1,
           startIndex: item.idx,
@@ -803,13 +806,13 @@ const Devices = () => {
           toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
           break;
         } else {
-          console.error(`[bulk-create] Falha ao criar "${bulkPrefix} ${item.idx}":`, msg);
+          console.error(`[bulk-create] Falha ao criar "${formatName(item.idx)}":`, msg);
         }
       }
 
       const next = i + 1;
       if (next < queue.length) {
-        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: `${bulkPrefix} ${queue[next].idx}` });
+        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: formatName(queue[next].idx) });
         await delay(2000);
       }
     }
