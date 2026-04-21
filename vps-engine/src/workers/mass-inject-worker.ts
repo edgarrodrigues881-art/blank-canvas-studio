@@ -657,9 +657,11 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
     // Strategy 2: PUT with query param
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
-    // Strategy 3: with @s.whatsapp.net suffix (fallback for strict APIs)
+    // Strategy 3: POST with full JID for stricter providers
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 4: legacy addParticipant endpoint
+    // Strategy 4: PUT with full JID for stricter providers
+    { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
+    // Strategy 5: legacy addParticipant endpoint
     { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
 }
