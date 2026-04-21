@@ -144,81 +144,8 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* RIGHT — Dashboard panel (floats freely on desktop) */}
-          <div
-            className="relative w-full mt-8 lg:mt-0 lg:absolute lg:top-[7.5vh] lg:right-[-15%] lg:w-[70vw] lg:h-[85vh] flex items-center justify-start"
-            style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
-          >
-            {/* Soft backdrop blur behind panel */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: "rgba(2,6,23,0.4)",
-                filter: "blur(80px)",
-              }}
-            />
-
-            {/* Green ambient glow */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(7,193,96,0.18) 0%, transparent 65%)",
-                filter: "blur(60px)",
-              }}
-            />
-
-            {/* Blue/violet edge glow (right side light) */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(ellipse at 85% 50%, rgba(99,102,241,0.20) 0%, transparent 55%)",
-                filter: "blur(70px)",
-              }}
-            />
-
-            {/* Panel wrapper — fills the floating container */}
-            <div
-              ref={panelRef}
-              className="relative z-10 w-full lg:max-w-none group/dashboard will-change-transform"
-              style={{
-                transformStyle: "preserve-3d",
-                transformOrigin: "left center",
-                transform: "scale(1.6)",
-                filter:
-                  "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
-              }}
-            >
-              <DashboardMockup />
-
-              {/* Top glass highlight */}
-              <div
-                className="absolute inset-x-0 top-0 h-px pointer-events-none z-20"
-                style={{
-                  background:
-                    "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)",
-                }}
-              />
-              <div
-                className="absolute inset-x-0 top-0 h-24 pointer-events-none z-20 rounded-t-xl"
-                style={{
-                  background:
-                    "linear-gradient(to bottom, rgba(255,255,255,0.07) 0%, transparent 100%)",
-                  mixBlendMode: "overlay",
-                }}
-              />
-
-              {/* Strong left fade — panel dissolves into the dark */}
-              <div
-                className="absolute inset-y-0 left-0 w-1/2 pointer-events-none z-30"
-                style={{
-                  background:
-                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.95) 25%, rgba(2,6,23,0.7) 45%, rgba(2,6,23,0.3) 70%, transparent 100%)",
-                }}
-              />
-            </div>
-          </div>
+          {/* RIGHT — empty space (panel removed) */}
+          <div className="hidden lg:block" />
         </div>
       </div>
 
