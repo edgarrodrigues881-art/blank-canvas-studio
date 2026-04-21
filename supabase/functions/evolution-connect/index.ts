@@ -1319,7 +1319,9 @@ Deno.serve(async (req) => {
         const fmt = pairingAttempt.connectedPhone ? formatBrPhone(pairingAttempt.connectedPhone) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
         logFsmTransition(deviceId, "connecting", "connected", "requestPairingCode");
-        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
+        const r = { success: true, state: "connected" as const, alreadyConnected: true, phone: fmt, qr: null, base64: null, pairingCode: null, pairing_code: null, status: "authenticated" };
+        logFsmResponse(deviceId, "requestPairingCode/connected", r);
+        return json(r);
       }
 
       const latestCheck = pairingAttempt.latestCheck || await checkStatus(5000, phoneNumber);
@@ -1327,18 +1329,24 @@ Deno.serve(async (req) => {
 
       if (latestPairingCode) {
         logFsmTransition(deviceId, "idle", "pairing_code", "requestPairingCode");
-        return json({ success: true, state: "pairing_code", pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
+        const r = { success: true, state: "pairing_code" as const, pairingCode: latestPairingCode, pairing_code: latestPairingCode, qr: null, base64: null, status: "pairing" };
+        logFsmResponse(deviceId, "requestPairingCode", r);
+        return json(r);
       }
 
       logFsmTransition(deviceId, "idle", "connecting", "requestPairingCode/pending");
-      return json({
+      const pendingResp = {
         success: true,
-        state: "connecting",
+        state: "connecting" as const,
         pairingCode: null,
         pairing_code: null,
+        qr: null,
+        base64: null,
         status: "pairing_pending",
         message: "Código ainda está sendo gerado.",
-      });
+      };
+      logFsmResponse(deviceId, "requestPairingCode/pending", pendingResp);
+      return json(pendingResp);
     }
 
     // ════════════════════════════════════════════════════════════════════
