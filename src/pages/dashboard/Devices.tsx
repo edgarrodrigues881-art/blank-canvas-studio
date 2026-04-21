@@ -2752,6 +2752,7 @@ const Devices = () => {
                 setConnectStep("code");
                 setPairingCode("");
                 setConnectError("");
+                pairingPhoneRef.current = rawDigits;
                 try {
                   const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
                   const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: proxyId || undefined });
