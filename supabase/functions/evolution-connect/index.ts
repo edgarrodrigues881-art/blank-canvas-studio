@@ -172,12 +172,43 @@ function logFsmTransition(instanceId: string, from: FsmState | string, to: FsmSt
   console.log(`[fsm] [${instanceId.substring(0, 8)}] ${from} → ${to} (action=${action})`);
 }
 
+/**
+ * Enforces consistency between FSM `state` and required data fields.
+ * - waiting_scan REQUIRES qr → otherwise downgrades to generating_qr
+ * - pairing_code REQUIRES pairingCode → otherwise downgrades to connecting (handshake) or generating_qr
+ * Logs every inconsistency that gets corrected.
+ * Mutates and returns the same payload object.
+ */
+function enforceFsmDataConsistency<T extends { state?: string; qr?: string | null; base64?: string | null; pairingCode?: string | null; pairing_code?: string | null; handshakeInProgress?: boolean }>(
+  instanceId: string,
+  action: string,
+  payload: T,
+): T {
+  const id = instanceId.substring(0, 8);
+  if (payload.state === "waiting_scan" && !payload.qr && !payload.base64) {
+    console.warn(`[fsm-guard] [${id}] action=${action} INCONSISTENT state=waiting_scan but qr=null → downgrading to generating_qr`);
+    payload.state = "generating_qr";
+  }
+  if (payload.state === "pairing_code" && !payload.pairingCode && !payload.pairing_code) {
+    if (payload.handshakeInProgress) {
+      console.warn(`[fsm-guard] [${id}] action=${action} INCONSISTENT state=pairing_code but pairingCode=null (handshake active) → downgrading to connecting`);
+      payload.state = "connecting";
+    } else {
+      console.warn(`[fsm-guard] [${id}] action=${action} INCONSISTENT state=pairing_code but pairingCode=null → downgrading to generating_qr`);
+      payload.state = "generating_qr";
+    }
+  }
+  return payload;
+}
+
 /** Logs the full FSM response payload (state + qr/pairingCode) for debugging. */
 function logFsmResponse(
   instanceId: string,
   action: string,
-  payload: { state?: string; qr?: string | null; pairingCode?: string | null; handshakeInProgress?: boolean; status?: string },
+  payload: { state?: string; qr?: string | null; base64?: string | null; pairingCode?: string | null; pairing_code?: string | null; handshakeInProgress?: boolean; status?: string },
 ) {
+  // Enforce consistency BEFORE logging so logs reflect what is actually returned.
+  enforceFsmDataConsistency(instanceId, action, payload as any);
   const qrPreview = payload.qr ? `${String(payload.qr).slice(0, 24)}…(${String(payload.qr).length})` : "none";
   const codePreview = payload.pairingCode ? String(payload.pairingCode) : "none";
   console.log(
