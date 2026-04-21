@@ -101,7 +101,7 @@ const Hero = () => {
         <img
           src={heroCrmScreenshot}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover object-right select-none"
+          className="absolute top-1/2 right-0 -translate-y-1/2 h-[85%] w-auto max-w-[70%] object-contain object-right select-none"
           draggable={false}
         />
         {/* Left dark gradient — fades image behind text/CTA */}
