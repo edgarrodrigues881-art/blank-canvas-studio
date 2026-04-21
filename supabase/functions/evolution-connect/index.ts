@@ -1606,7 +1606,7 @@ Deno.serve(async (req) => {
       });
       logFsmTransition(deviceId, String(device?.status || "idle"), fsmState, "status");
 
-      return json({
+      const statusResponse = {
         success: true,
         state: fsmState,
         status: responseStatus,
@@ -1618,7 +1618,9 @@ Deno.serve(async (req) => {
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
         handshakeInProgress: getOwnerDigits(effectiveCheck.owner || "").length >= 10 && !isConnected,
-      });
+      };
+      logFsmResponse(deviceId, "status", statusResponse);
+      return json(statusResponse);
     }
 
     // ════════════════════════════════════════════════════════════════════
