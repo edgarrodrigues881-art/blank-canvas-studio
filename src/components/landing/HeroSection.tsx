@@ -83,7 +83,7 @@ const HeroSection = () => {
         }}
       />
       <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 lg:px-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 lg:gap-8 items-center lg:min-h-[85vh] relative">
           {/* LEFT — Content */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
             {/* Announcement badge */}
@@ -144,9 +144,9 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* RIGHT — Dashboard panel */}
+          {/* RIGHT — Dashboard panel (floats freely on desktop) */}
           <div
-            className="relative w-full lg:h-[90vh] flex items-center justify-start lg:overflow-visible"
+            className="relative w-full mt-8 lg:mt-0 lg:absolute lg:top-[7.5vh] lg:right-[-15%] lg:w-[70vw] lg:h-[85vh] flex items-center justify-start"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Soft backdrop blur behind panel */}
@@ -178,14 +178,13 @@ const HeroSection = () => {
               }}
             />
 
-            {/* Panel wrapper — bigger and overflowing to the right */}
+            {/* Panel wrapper — fills the floating container */}
             <div
               ref={panelRef}
-              className="relative z-10 w-full lg:w-[180%] lg:max-w-none group/dashboard will-change-transform"
+              className="relative z-10 w-full lg:max-w-none group/dashboard will-change-transform"
               style={{
                 transformStyle: "preserve-3d",
                 transformOrigin: "left center",
-                marginLeft: "8%",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
