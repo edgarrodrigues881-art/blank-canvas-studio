@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import dashboardPreview from "@/assets/dashboard-preview.png";
+import DashboardMockup from "./DashboardMockup";
 
 const HeroSection = () => {
   const navigate = useNavigate();
