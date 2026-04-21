@@ -43,11 +43,16 @@ const DashboardMockup = () => {
   // Scroll progress: 0 when component enters bottom of viewport, 1 when it exits top
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ["start end", "end start"],
+    offset: ["start 90%", "end 10%"],
   });
 
   // Smooth the scroll progress for buttery animations
   const progress = useSpring(scrollYProgress, { stiffness: 80, damping: 20, mass: 0.4 });
+
+  // Debug: observe scroll progress in console
+  useMotionValueEvent(scrollYProgress, "change", (v) => {
+    if (typeof window !== "undefined") console.log("[DashboardMockup] scrollYProgress:", v.toFixed(3));
+  });
 
   return (
     <div
