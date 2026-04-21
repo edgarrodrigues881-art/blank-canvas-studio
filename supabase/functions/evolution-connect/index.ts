@@ -897,7 +897,9 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
+      const tStart = Date.now();
       const preCheck = await checkStatus(3000);
+      const tPre = Date.now() - tStart;
       // Recoverable disconnect reasons that need a clean session reset before generating a fresh QR/code.
       // Without this, the provider keeps a stale session and the new QR expires immediately ("QR Code timeout" loop).
       const lastDisconnectReason = String(
@@ -913,16 +915,20 @@ Deno.serve(async (req) => {
       // If the device was previously stuck in loading/pairing in our DB, the user is retrying — force a clean reset.
       const currentDeviceStatus = String(device?.status || "").toLowerCase().trim();
       const wasStuckConnecting = currentDeviceStatus === "loading" || currentDeviceStatus === "pairing";
-      const needsReset = isConfirmedConnected(preCheck)
+      // Only reset when there is real dirty state. Ignore blanket forceReconnect when provider is already clean
+      // (status=disconnected, no qr, no owner) — saves 3-5s on the common "fresh instance" case.
+      const providerIsDirty = isConfirmedConnected(preCheck)
         || !!preCheck.qrcode
-        || body.forceReconnect
+        || !!preCheck.owner
         || recoverableDisconnect
         || wasStuckConnecting;
-      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect} lastDisconnectReason="${lastDisconnectReason}" wasStuckConnecting=${wasStuckConnecting}`);
+      const needsReset = body.skipReset ? false : providerIsDirty;
+      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} dirty=${providerIsDirty} forceReconnect=${!!body.forceReconnect} skipReset=${!!body.skipReset} lastDisconnectReason="${lastDisconnectReason}" wasStuckConnecting=${wasStuckConnecting} preCheckMs=${tPre}`);
       
       if (needsReset) {
+        const tReset = Date.now();
         const clearedState = await clearProviderSessionForQr(true);
-        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}"`);
+        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}" resetMs=${Date.now() - tReset}`);
       }
       await svc.from("devices").update({
         number: null,
@@ -1059,13 +1065,13 @@ Deno.serve(async (req) => {
 
       let qr = connState.qrcode || connInst.qrcode || connectRes.data?.qrcode;
 
-      // CRITICAL FIX: Poll for QR with aggressive early attempts (UAZAPI usually has QR ready in 1-3s)
-      // Schedule: 250ms, 500ms, 800ms, 1500ms, 2000ms, 2000ms = max 7s extra wait
+      // Fast path: only short poll budget (~1.5s). Client does its own polling on `status`
+      // for anything beyond — keeps backend response fast (target ≤3s total).
       if (!qr) {
-        const pollDelays = [250, 500, 800, 1500, 2000, 2000];
+        const pollDelays = [250, 500, 750];
         for (let attempt = 0; attempt < pollDelays.length && !qr; attempt++) {
           await new Promise(r => setTimeout(r, pollDelays[attempt]));
-          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2500, retries: 0 });
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2000, retries: 0 });
           const pi = poll.data?.instance || poll.data || {};
           const pollState = normalizeProviderConnectionState(poll.data);
           qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
@@ -1094,6 +1100,8 @@ Deno.serve(async (req) => {
           if (qr) break;
         }
       }
+
+      console.log(`[evolution-connect] connect_done device=${deviceId.substring(0, 8)} hasQR=${!!qr} totalMs=${Date.now() - tStart}`);
 
       return json({
         success: true,
@@ -1424,6 +1432,86 @@ Deno.serve(async (req) => {
         pairing_code: pairingCode || null,
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // ── prewarm — ensure token is assigned + provider session is up
+    // (no QR generation, no reset). Called by client when modal opens.
+    // ════════════════════════════════════════════════════════════════════
+    if (action === "prewarm") {
+      const tStart = Date.now();
+      // Assign token if missing — same lazy logic as connect, minus reset/QR
+      if (!instanceToken) {
+        if (isReportDevice) {
+          const { data: prof } = await svc.from("profiles")
+            .select("whatsapp_monitor_token").eq("id", user.id).maybeSingle();
+          if (prof?.whatsapp_monitor_token) {
+            await svc.from("devices").update({
+              uazapi_token: prof.whatsapp_monitor_token, uazapi_base_url: BASE_URL,
+            }).eq("id", deviceId);
+            instanceToken = prof.whatsapp_monitor_token;
+            instanceUrl = BASE_URL;
+          }
+        }
+        if (!instanceToken) {
+          let poolToken: any = null;
+          for (const st of ["available", "blocked"]) {
+            const { data } = await svc.from("user_api_tokens")
+              .select("id, token")
+              .eq("user_id", user.id).eq("status", st).is("device_id", null)
+              .limit(1).maybeSingle();
+            if (data) { poolToken = data; break; }
+          }
+          if (poolToken) {
+            await Promise.all([
+              svc.from("user_api_tokens").update({
+                device_id: deviceId, status: "in_use", assigned_at: new Date().toISOString(),
+              }).eq("id", poolToken.id),
+              svc.from("devices").update({
+                uazapi_token: poolToken.token, uazapi_base_url: BASE_URL,
+              }).eq("id", deviceId),
+            ]);
+            instanceToken = poolToken.token;
+            instanceUrl = BASE_URL;
+          }
+        }
+        if (!instanceToken && BASE_URL && ADMIN_TOKEN) {
+          const { data: prof } = await svc.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+          const clientLabel = (prof?.full_name || user.email || "cliente").replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 20);
+          const { count: tokenCount } = await svc.from("user_api_tokens")
+            .select("id", { count: "exact", head: true }).eq("user_id", user.id);
+          const instName = `${clientLabel}_${(tokenCount ?? 0) + 1}`;
+          const createResult = await adminCreateInstance(BASE_URL, ADMIN_TOKEN, instName);
+          if (createResult.ok && createResult.token) {
+            await svc.from("user_api_tokens").insert({
+              user_id: user.id, token: createResult.token, admin_id: user.id,
+              device_id: deviceId, status: "in_use", healthy: true,
+              label: instName, assigned_at: new Date().toISOString(),
+              last_checked_at: new Date().toISOString(),
+            });
+            await svc.from("devices").update({
+              uazapi_token: createResult.token, uazapi_base_url: BASE_URL,
+            }).eq("id", deviceId);
+            instanceToken = createResult.token;
+            instanceUrl = BASE_URL;
+          }
+        }
+      }
+
+      if (!instanceToken) {
+        return json({ success: false, warm: false, error: "no_token" });
+      }
+
+      // Lightweight status ping — no reset, no logout
+      const ping = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 2500, retries: 0 });
+      const pingState = normalizeProviderConnectionState(ping.data);
+      console.log(`[evolution-connect] prewarm device=${deviceId.substring(0, 8)} status="${pingState.rawStatus || pingState.state}" ms=${Date.now() - tStart}`);
+      return json({
+        success: true,
+        warm: true,
+        status: pingState.rawStatus || pingState.state || "unknown",
+        hasToken: true,
       });
     }
 
