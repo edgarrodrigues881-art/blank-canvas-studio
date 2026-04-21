@@ -1200,8 +1200,18 @@ Deno.serve(async (req) => {
 
       console.log(`[evolution-connect] connect_done device=${deviceId.substring(0, 8)} hasQR=${!!qr} totalMs=${Date.now() - tStart}`);
 
+      // ── FSM ──
+      const fsmState = mapToFsmState({
+        mode: "qr",
+        hasQr: !!qr,
+        rawStatus: qr ? "waiting" : "loading",
+        providerState: "transitional",
+      });
+      logFsmTransition(deviceId, "idle", fsmState, "connect");
+
       return json({
         success: true,
+        state: fsmState,
         base64: qr || null,
         qr: qr || null,
         status: qr ? "connecting" : "waiting",
