@@ -429,64 +429,29 @@ const CRMDashboard = () => {
       {/* Funnel + Chart side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Funnel */}
-        <div className="lg:col-span-5 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
-          <h2 className="text-base font-bold text-foreground mb-4">Funil de Vendas</h2>
-          <div className="space-y-2">
-            {pipeline.map((s) => (
-              <FunnelItem key={s.name} name={s.name} value={s.value}
-                maxVal={pipeline[0].value || 1} color={s.color}
-                isActive={s.name === activeFunnelStage} />
-            ))}
+        <AnimateOnView animation="slide-up" className="lg:col-span-5">
+          <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm h-full">
+            <h2 className="text-base font-bold text-foreground mb-4">Funil de Vendas</h2>
+            <div className="space-y-2">
+              {pipeline.map((s) => (
+                <FunnelItem key={s.name} name={s.name} value={s.value}
+                  maxVal={pipeline[0].value || 1} color={s.color}
+                  isActive={s.name === activeFunnelStage} />
+              ))}
+            </div>
           </div>
-        </div>
+        </AnimateOnView>
 
         {/* Chart */}
-        <div className="lg:col-span-7 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-base font-bold text-foreground">Novos Leads</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
-          </div>
-          <div className="text-right flex items-center gap-3">
-            <div className={cn(
-              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold",
-              isPositiveWeek
-                ? "bg-blue-500/10 text-blue-500"
-                : "bg-red-500/10 text-red-500"
-            )}>
-              {isPositiveWeek ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              {m.weekTotal > 0 ? `+${m.weekTotal}` : m.weekTotal}
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-foreground">{m.weekTotal}</p>
-              <p className="text-xs text-muted-foreground">esta semana</p>
-            </div>
-          </div>
-        </div>
-        {isLoading ? (
-          <Skeleton className="h-[220px] w-full rounded-xl" />
-        ) : (
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={m.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
-                    <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
-                <YAxis axisLine={false} tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
-                <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        </div>
+        <AnimateOnView animation="slide-up" delay={1} className="lg:col-span-7">
+          <ChartCard
+            isLoading={isLoading}
+            isPositiveWeek={isPositiveWeek}
+            weekTotal={m.weekTotal}
+            dailyChart={m.dailyChart}
+            chartColor={chartColor}
+          />
+        </AnimateOnView>
       </div>
 
     </div>
