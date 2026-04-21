@@ -101,7 +101,7 @@ const Hero = () => {
         <img
           src={heroCrmScreenshot}
           alt=""
-          className="absolute top-1/2 left-[42%] -translate-y-[48%] h-[150%] w-auto max-w-none object-left select-none"
+          className="absolute top-1/2 left-[68%] -translate-x-[35%] -translate-y-[48%] h-[170%] w-auto max-w-none select-none"
           draggable={false}
         />
         {/* Left dark gradient — stronger fade following the crop */}
