@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import dashboardPreview from "@/assets/dashboard-preview-landing.png";
+import heroCrmScreenshot from "@/assets/hero-crm-screenshot.png";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -88,8 +89,34 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-24 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden">
-      <div className="max-w-[1320px] mx-auto relative z-10">
+    <section className="relative pt-24 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden min-h-[100vh] flex items-center">
+      {/* Background screenshot — ~100% width */}
+      <motion.div
+        initial={{ opacity: 0, scale: 1.02 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.8, ease: easeOut }}
+        className="absolute inset-0 z-0 pointer-events-none"
+        aria-hidden="true"
+      >
+        <img
+          src={heroCrmScreenshot}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-right select-none"
+          draggable={false}
+        />
+        {/* Left dark gradient — fades image behind text/CTA */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to right, hsl(222,22%,5%) 0%, hsl(222,22%,5%) 30%, hsla(222,22%,5%,0.85) 50%, hsla(222,22%,5%,0.4) 70%, transparent 100%)",
+          }}
+        />
+        {/* Bottom subtle fade for section transition */}
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[hsl(222,22%,5%)]" />
+      </motion.div>
+
+      <div className="max-w-[1320px] mx-auto relative z-10 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-center lg:text-left">
             <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-5 md:mb-7">
