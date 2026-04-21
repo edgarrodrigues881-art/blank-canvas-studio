@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import dashboardPreview from "@/assets/dashboard-preview.png";
+import DashboardMockup from "./DashboardMockup";
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -82,16 +82,7 @@ const HeroSection = () => {
         />
 
         <div className="relative z-10 group/dashboard" style={{ perspective: "1200px" }}>
-          <img
-            src={dashboardPreview}
-            alt="Dashboard preview - painel de controle DG Contingência"
-            className="w-full h-auto rounded-lg shadow-2xl border border-white/[0.08] transition-transform duration-500 ease-out group-hover/dashboard:!transform-none"
-            loading="eager"
-            style={{
-              transform: "rotateX(8deg) rotateY(-2deg) scale(0.97)",
-              transformOrigin: "center bottom",
-            }}
-          />
+          <DashboardMockup />
         </div>
       </div>
 
