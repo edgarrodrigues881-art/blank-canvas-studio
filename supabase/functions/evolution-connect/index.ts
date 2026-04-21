@@ -1577,8 +1577,20 @@ Deno.serve(async (req) => {
             ? (pairingCode ? "pairing" : (pairingPending ? "pairing_pending" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting")))
             : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
 
+      // ── FSM mapping ──
+      const fsmState = mapToFsmState({
+        mode: connectionMode === "code" ? "pairing" : "qr",
+        hasQr: hasQrCode,
+        hasPairingCode: !!pairingCode,
+        ownerDigits: getOwnerDigits(effectiveCheck.owner || check.owner || "").length,
+        rawStatus: responseStatus,
+        providerState: effectiveCheck.status as any,
+      });
+      logFsmTransition(deviceId, String(device?.status || "idle"), fsmState, "status");
+
       return json({
         success: true,
+        state: fsmState,
         status: responseStatus,
         phone: (isConnected || isSyncingAfterScan) ? (effectiveCheck.owner || check.owner || "") : "",
         base64: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
@@ -1587,6 +1599,7 @@ Deno.serve(async (req) => {
         pairing_code: pairingCode || null,
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
+        handshakeInProgress: getOwnerDigits(effectiveCheck.owner || "").length >= 10 && !isConnected,
       });
     }
 
