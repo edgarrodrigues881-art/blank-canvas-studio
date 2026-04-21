@@ -30,6 +30,9 @@ import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import AnimateOnView from "@/components/AnimateOnView";
+import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
+import { useAnimateOnView } from "@/hooks/useAnimateOnView";
 
 /* ── Hero Stat Card (large) ── */
 function HeroCard({
@@ -61,7 +64,9 @@ function HeroCard({
           <Skeleton className="h-10 w-24 bg-white/20" />
         ) : (
           <>
-            <p className="text-4xl font-extrabold text-white tracking-tight leading-none">{value}</p>
+            <p className="text-4xl font-extrabold text-white tracking-tight leading-none">
+              {typeof value === "number" ? <AnimatedCounter value={value} duration={1200} /> : value}
+            </p>
             {sub && (
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="w-3.5 h-3.5 text-white/90" />
@@ -106,7 +111,9 @@ function StatCard({
         </>
       ) : (
         <>
-          <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none">{value}</p>
+          <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none">
+            {typeof value === "number" ? <AnimatedCounter value={value} duration={1200} /> : value}
+          </p>
           {sub && (
             <div className="flex items-center gap-1 mt-2">
               <TrendingUp className="w-3 h-3 text-emerald-500" />
@@ -163,18 +170,26 @@ function FunnelItem({ name, value, maxVal, color, isActive }: {
   name: string; value: number; maxVal: number; color: string; isActive: boolean;
 }) {
   const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
+  const { ref, className: animClass } = useAnimateOnView({ animation: "fade-in" });
+  const isVisible = animClass !== "aov-hidden";
   return (
-    <div className={cn(
+    <div ref={ref} className={cn(
       "flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300",
       isActive ? "bg-muted/40 shadow-sm scale-[1.02]" : "hover:bg-muted/20"
     )}>
       <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: color }} />
       <span className="text-xs text-muted-foreground w-24 shrink-0 truncate font-medium">{name}</span>
       <div className="flex-1 h-3 bg-muted/25 rounded-full overflow-hidden shadow-inner">
-        <div className="h-full rounded-full transition-all duration-1000 ease-out"
-          style={{ width: `${Math.max(pct, 6)}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }} />
+        <div className="h-full rounded-full transition-all duration-1200 ease-out"
+          style={{
+            width: isVisible ? `${Math.max(pct, 6)}%` : "0%",
+            background: `linear-gradient(90deg, ${color}, ${color}dd)`,
+            transitionDuration: "1200ms",
+          }} />
       </div>
-      <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">{value}</span>
+      <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">
+        {isVisible ? <AnimatedCounter value={value} duration={1000} /> : 0}
+      </span>
     </div>
   );
 }
@@ -195,6 +210,66 @@ const ChartTooltip = ({ active, payload, label }: any) => {
     </div>
   );
 };
+
+/* ── Animated Chart Card (re-animates bars when entering viewport) ── */
+function ChartCard({
+  isLoading, isPositiveWeek, weekTotal, dailyChart, chartColor,
+}: {
+  isLoading: boolean; isPositiveWeek: boolean; weekTotal: number;
+  dailyChart: Array<{ day: string; leads: number }>; chartColor: string;
+}) {
+  const { ref, className: animClass } = useAnimateOnView({ animation: "fade-in", threshold: 0.2 });
+  const isVisible = animClass !== "aov-hidden";
+  return (
+    <div ref={ref} className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm h-full">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-base font-bold text-foreground">Novos Leads</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
+        </div>
+        <div className="text-right flex items-center gap-3">
+          <div className={cn(
+            "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold",
+            isPositiveWeek ? "bg-blue-500/10 text-blue-500" : "bg-red-500/10 text-red-500"
+          )}>
+            {isPositiveWeek ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            {weekTotal > 0 ? `+` : ""}<AnimatedCounter value={weekTotal} duration={1200} />
+          </div>
+          <div>
+            <p className="text-2xl font-extrabold text-foreground">
+              <AnimatedCounter value={weekTotal} duration={1200} />
+            </p>
+            <p className="text-xs text-muted-foreground">esta semana</p>
+          </div>
+        </div>
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-[220px] w-full rounded-xl" />
+      ) : (
+        <div className="h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={isVisible ? dailyChart : dailyChart.map(d => ({ ...d, leads: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
+              <YAxis axisLine={false} tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
+              <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40}
+                isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════ */
 /* ══  MAIN COMPONENT  ════════════════════ */
@@ -365,103 +440,78 @@ const CRMDashboard = () => {
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Dashboard CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
-      </div>
+      <AnimateOnView animation="slide-up">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Dashboard CRM</h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
+        </div>
+      </AnimateOnView>
 
       {/* Stats Grid — hero + 3 smaller */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <HeroCard
-          label="Total de Leads"
-          value={m.total}
-          sub={`+${m.weekTotal} esta semana`}
-          icon={Users}
-          gradient="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 shadow-lg shadow-blue-500/25"
-          isLoading={isLoading}
-          onClick={() => navigate("/dashboard/leads")}
-        />
-        <StatCard label="Conversas Ativas" value={m.responded}
-          sub={`${m.responded} em andamento`}
-          icon={MessageSquareMore}
-          iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
-          borderAccent="border-emerald-500/30 hover:border-emerald-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
-        <StatCard label="Oportunidades" value={m.interested}
-          sub={`${m.interested} qualificados`}
-          icon={Sparkles}
-          iconBg="bg-purple-500/15" iconColor="text-purple-500"
-          borderAccent="border-purple-500/30 hover:border-purple-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
-        <StatCard label="Fechados" value={m.closed}
-          sub={`${m.closed} negócios`}
-          icon={CheckCircle2}
-          iconBg="bg-amber-500/15" iconColor="text-amber-500"
-          borderAccent="border-amber-500/30 hover:border-amber-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/crm-reports")} />
+        <AnimateOnView animation="slide-up" delay={1}>
+          <HeroCard
+            label="Total de Leads"
+            value={m.total}
+            sub={`+${m.weekTotal} esta semana`}
+            icon={Users}
+            gradient="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 shadow-lg shadow-blue-500/25"
+            isLoading={isLoading}
+            onClick={() => navigate("/dashboard/leads")}
+          />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={2}>
+          <StatCard label="Conversas Ativas" value={m.responded}
+            sub={`${m.responded} em andamento`}
+            icon={MessageSquareMore}
+            iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
+            borderAccent="border-emerald-500/30 hover:border-emerald-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={3}>
+          <StatCard label="Oportunidades" value={m.interested}
+            sub={`${m.interested} qualificados`}
+            icon={Sparkles}
+            iconBg="bg-purple-500/15" iconColor="text-purple-500"
+            borderAccent="border-purple-500/30 hover:border-purple-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={4}>
+          <StatCard label="Fechados" value={m.closed}
+            sub={`${m.closed} negócios`}
+            icon={CheckCircle2}
+            iconBg="bg-amber-500/15" iconColor="text-amber-500"
+            borderAccent="border-amber-500/30 hover:border-amber-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/crm-reports")} />
+        </AnimateOnView>
       </div>
 
       {/* Funnel + Chart side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Funnel */}
-        <div className="lg:col-span-5 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
-          <h2 className="text-base font-bold text-foreground mb-4">Funil de Vendas</h2>
-          <div className="space-y-2">
-            {pipeline.map((s) => (
-              <FunnelItem key={s.name} name={s.name} value={s.value}
-                maxVal={pipeline[0].value || 1} color={s.color}
-                isActive={s.name === activeFunnelStage} />
-            ))}
+        <AnimateOnView animation="slide-up" className="lg:col-span-5">
+          <div className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm h-full">
+            <h2 className="text-base font-bold text-foreground mb-4">Funil de Vendas</h2>
+            <div className="space-y-2">
+              {pipeline.map((s) => (
+                <FunnelItem key={s.name} name={s.name} value={s.value}
+                  maxVal={pipeline[0].value || 1} color={s.color}
+                  isActive={s.name === activeFunnelStage} />
+              ))}
+            </div>
           </div>
-        </div>
+        </AnimateOnView>
 
         {/* Chart */}
-        <div className="lg:col-span-7 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-base font-bold text-foreground">Novos Leads</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
-          </div>
-          <div className="text-right flex items-center gap-3">
-            <div className={cn(
-              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold",
-              isPositiveWeek
-                ? "bg-blue-500/10 text-blue-500"
-                : "bg-red-500/10 text-red-500"
-            )}>
-              {isPositiveWeek ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              {m.weekTotal > 0 ? `+${m.weekTotal}` : m.weekTotal}
-            </div>
-            <div>
-              <p className="text-2xl font-extrabold text-foreground">{m.weekTotal}</p>
-              <p className="text-xs text-muted-foreground">esta semana</p>
-            </div>
-          </div>
-        </div>
-        {isLoading ? (
-          <Skeleton className="h-[220px] w-full rounded-xl" />
-        ) : (
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={m.dailyChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
-                    <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
-                <XAxis dataKey="day" axisLine={false} tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
-                <YAxis axisLine={false} tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
-                <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        </div>
+        <AnimateOnView animation="slide-up" delay={1} className="lg:col-span-7">
+          <ChartCard
+            isLoading={isLoading}
+            isPositiveWeek={isPositiveWeek}
+            weekTotal={m.weekTotal}
+            dailyChart={m.dailyChart}
+            chartColor={chartColor}
+          />
+        </AnimateOnView>
       </div>
 
     </div>
