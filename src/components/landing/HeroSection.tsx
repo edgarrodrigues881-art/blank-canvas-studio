@@ -144,9 +144,10 @@ const HeroSection = () => {
 
             {/* Panel wrapper — overflows to the right on desktop */}
             <div
-              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard"
+              ref={panelRef}
+              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard will-change-transform"
               style={{
-                perspective: "1400px",
+                transformStyle: "preserve-3d",
                 filter:
                   "drop-shadow(0 40px 80px rgba(0,0,0,0.55)) drop-shadow(0 0 60px rgba(99,102,241,0.15))",
               }}
