@@ -203,6 +203,11 @@ const Devices = () => {
   const prefetchQrPromiseRef = useRef<Promise<any> | null>(null);
   const prewarmPromiseRef = useRef<Promise<any> | null>(null);
   const [qrLoadingStage, setQrLoadingStage] = useState<"idle" | "init" | "generating" | "connecting">("idle");
+  // Auto-refresh do código de pareamento (expira em ~60s no WhatsApp)
+  const [pairingCountdown, setPairingCountdown] = useState(50);
+  const [pairingRefreshing, setPairingRefreshing] = useState(false);
+  const pairingCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pairingPhoneRef = useRef<string>("");
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
@@ -1733,7 +1738,59 @@ const Devices = () => {
     setPollingInterval(interval);
   };
 
-  // Connect
+  // Auto-refresh do código de pareamento (expira em ~60s)
+  const regeneratePairingCode = async () => {
+    if (!connectingDevice) return;
+    const phone = pairingPhoneRef.current;
+    if (!phone) return;
+    const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
+    const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
+    const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
+    setPairingRefreshing(true);
+    try {
+      const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: phone, proxyConfig: pp, proxyId: proxyId || undefined });
+      if (result?.alreadyConnected) { setConnectStep("done"); return; }
+      const code = result?.pairingCode || result?.pairing_code;
+      if (code) {
+        setPairingCode(code);
+        setConnectError("");
+        setPairingCountdown(50);
+      }
+    } catch (err) {
+      console.warn("[pairing-refresh] failed", err);
+    } finally {
+      setPairingRefreshing(false);
+    }
+  };
+
+  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou
+  useEffect(() => {
+    if (pairingCountdownRef.current) {
+      clearInterval(pairingCountdownRef.current);
+      pairingCountdownRef.current = null;
+    }
+    if (connectStep !== "code" || !pairingCode) return;
+    setPairingCountdown(50);
+    pairingCountdownRef.current = setInterval(() => {
+      setPairingCountdown((prev) => {
+        if (prev <= 1) {
+          // dispara nova solicitação (não bloqueia o tick)
+          void regeneratePairingCode();
+          return 50;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (pairingCountdownRef.current) {
+        clearInterval(pairingCountdownRef.current);
+        pairingCountdownRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectStep, pairingCode]);
+
+
   const openConnect = async (device: Device) => {
     if (planState !== "active") {
       setPlanGateOpen(true);
@@ -2695,6 +2752,7 @@ const Devices = () => {
                 setConnectStep("code");
                 setPairingCode("");
                 setConnectError("");
+                pairingPhoneRef.current = rawDigits;
                 try {
                   const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
                   const result = await callApi({ action: "requestPairingCode", deviceId: connectingDevice.id, phoneNumber: rawDigits, proxyConfig: pp, proxyId: proxyId || undefined });
@@ -2792,12 +2850,29 @@ const Devices = () => {
             {connectStep === "code" && (
               <motion.div key="code" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center gap-5">
                 {pairingCode ? (
-                  <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg">
-                    <p className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground">{pairingCode}</p>
-                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                      <Lock className="w-4 h-4 text-primary-foreground" />
+                  <>
+                    <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg">
+                      <p className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground">{pairingCode}</p>
+                      <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                        <Lock className="w-4 h-4 text-primary-foreground" />
+                      </div>
                     </div>
-                  </div>
+                    <div className="flex items-center gap-3 -mt-2">
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {pairingRefreshing ? "Gerando novo código..." : `Novo código em ${pairingCountdown}s`}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs gap-1.5"
+                        disabled={pairingRefreshing}
+                        onClick={() => { setPairingCountdown(50); void regeneratePairingCode(); }}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${pairingRefreshing ? "animate-spin" : ""}`} />
+                        Gerar novo
+                      </Button>
+                    </div>
+                  </>
                 ) : connectError ? (
                   <div className="px-8 py-5 rounded-2xl bg-destructive/5 border-2 border-destructive/20">
                     <p className="text-sm text-destructive text-center">{connectError}</p>
