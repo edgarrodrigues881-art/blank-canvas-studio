@@ -201,6 +201,8 @@ const Devices = () => {
   const qrCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingConnectDeviceNameRef = useRef<string | null>(null);
   const prefetchQrPromiseRef = useRef<Promise<any> | null>(null);
+  const prewarmPromiseRef = useRef<Promise<any> | null>(null);
+  const [qrLoadingStage, setQrLoadingStage] = useState<"idle" | "init" | "generating" | "connecting">("idle");
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
