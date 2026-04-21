@@ -75,6 +75,103 @@ async function uazapi(
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ════════════════════════════════════════════════════════════════════════
+// ── UNIFIED STATE MACHINE ──
+// Canonical states the frontend MUST react to.
+// Backend always returns one of these in `state`. Legacy `status` field
+// is preserved for backwards compatibility but should be considered
+// deprecated.
+// ════════════════════════════════════════════════════════════════════════
+export type FsmState =
+  | "idle"
+  | "generating_qr"
+  | "waiting_scan"
+  | "pairing_code"
+  | "connecting"
+  | "syncing"
+  | "connected"
+  | "failed";
+
+interface FsmContext {
+  mode?: "qr" | "pairing";
+  hasQr?: boolean;
+  hasPairingCode?: boolean;
+  ownerDigits?: number;
+  rawStatus?: string;
+  providerState?: "connected" | "disconnected" | "transitional" | "unknown";
+  handshakeInProgress?: boolean;
+  isFailed?: boolean;
+}
+
+/**
+ * Canonical mapper from any provider/legacy status to the unified FSM.
+ * Rules (priority order):
+ *   1. failed → only when explicitly flagged
+ *   2. connected → provider says connected AND owner detected
+ *   3. syncing → owner detected but provider not yet "connected"
+ *   4. connecting → mid-handshake (provider transitional + owner OR pairing)
+ *   5. pairing_code → mode=pairing, has code
+ *   6. waiting_scan → mode=qr, has QR rendered
+ *   7. generating_qr → mode=qr, no QR yet but transitional
+ *   8. idle → fallback
+ */
+export function mapToFsmState(ctx: FsmContext): FsmState {
+  const {
+    mode,
+    hasQr = false,
+    hasPairingCode = false,
+    ownerDigits = 0,
+    rawStatus = "",
+    providerState = "unknown",
+    handshakeInProgress = false,
+    isFailed = false,
+  } = ctx;
+
+  if (isFailed) return "failed";
+
+  const raw = String(rawStatus).toLowerCase();
+
+  // Connected: provider confirms + owner present
+  if (providerState === "connected" && ownerDigits >= 10) return "connected";
+  if (raw === "connected" || raw === "authenticated" || raw === "ready" || raw === "open" || raw === "active") {
+    if (ownerDigits >= 10) return "connected";
+    return "syncing";
+  }
+
+  // Syncing: owner detected but not yet fully connected
+  if (ownerDigits >= 10 && providerState !== "disconnected") return "syncing";
+  if (raw === "syncing" || raw === "loading_chats" || raw === "loading_history") return "syncing";
+
+  // Connecting: mid-handshake
+  if (handshakeInProgress) return "connecting";
+  if (raw === "connecting" || raw === "loading" || raw === "initializing" || raw === "starting") {
+    return "connecting";
+  }
+
+  // Pairing code shown to user
+  if (mode === "pairing" && hasPairingCode) return "pairing_code";
+  if (raw === "pairing" || raw === "pairing_pending") {
+    return hasPairingCode ? "pairing_code" : "connecting";
+  }
+
+  // QR flow
+  if (mode === "qr" && hasQr) return "waiting_scan";
+  if (raw === "qr" || raw === "qrcode" || raw === "waiting") {
+    return hasQr ? "waiting_scan" : "generating_qr";
+  }
+
+  if (mode === "qr") return "generating_qr";
+  if (mode === "pairing") return "connecting";
+
+  return "idle";
+}
+
+/** Logs FSM state transitions for observability. */
+function logFsmTransition(instanceId: string, from: FsmState | string, to: FsmState, action: string) {
+  if (from === to) return;
+  console.log(`[fsm] [${instanceId.substring(0, 8)}] ${from} → ${to} (action=${action})`);
+}
+
 type ProviderStatusCheck = {
   valid: boolean;
   status: string;
@@ -1103,8 +1200,18 @@ Deno.serve(async (req) => {
 
       console.log(`[evolution-connect] connect_done device=${deviceId.substring(0, 8)} hasQR=${!!qr} totalMs=${Date.now() - tStart}`);
 
+      // ── FSM ──
+      const fsmState = mapToFsmState({
+        mode: "qr",
+        hasQr: !!qr,
+        rawStatus: qr ? "waiting" : "loading",
+        providerState: "transitional",
+      });
+      logFsmTransition(deviceId, "idle", fsmState, "connect");
+
       return json({
         success: true,
+        state: fsmState,
         base64: qr || null,
         qr: qr || null,
         status: qr ? "connecting" : "waiting",
@@ -1135,7 +1242,8 @@ Deno.serve(async (req) => {
       if (currentCheck.status === "connected" && currentCheck.owner) {
         const fmt = currentCheck.owner ? formatBrPhone(currentCheck.owner) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+        logFsmTransition(deviceId, "idle", "connected", "requestPairingCode");
+        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       // ── PAIRING-IN-PROGRESS GUARD ──
@@ -1152,10 +1260,12 @@ Deno.serve(async (req) => {
         console.log(`[requestPairingCode] handshake_in_progress device=${deviceId} status=${currentCheck.rawStatus || currentCheck.status} owner=${ownerDigitsNow.length >= 10 ? "yes" : "no"} — skipping disconnect`);
         const existingCode = currentCheck.pairingCode || null;
         if (existingCode) {
-          return json({ success: true, pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
+          logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake");
+          return json({ success: true, state: "connecting", pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
         }
         // No code surfaced but handshake is happening — let the client keep polling
-        return json({ success: true, pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
+        logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake_pending");
+        return json({ success: true, state: "connecting", pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
       }
 
       // Disconnect if needed (only when NOT mid-handshake)
@@ -1187,18 +1297,22 @@ Deno.serve(async (req) => {
       if (pairingAttempt.connectedPhone) {
         const fmt = pairingAttempt.connectedPhone ? formatBrPhone(pairingAttempt.connectedPhone) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+        logFsmTransition(deviceId, "connecting", "connected", "requestPairingCode");
+        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       const latestCheck = pairingAttempt.latestCheck || await checkStatus(5000, phoneNumber);
       const latestPairingCode = pairingAttempt.pairingCode || latestCheck.pairingCode || null;
 
       if (latestPairingCode) {
-        return json({ success: true, pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
+        logFsmTransition(deviceId, "idle", "pairing_code", "requestPairingCode");
+        return json({ success: true, state: "pairing_code", pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
       }
 
+      logFsmTransition(deviceId, "idle", "connecting", "requestPairingCode/pending");
       return json({
         success: true,
+        state: "connecting",
         pairingCode: null,
         pairing_code: null,
         status: "pairing_pending",
@@ -1264,7 +1378,8 @@ Deno.serve(async (req) => {
       if (!qr) {
         await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
-      return json({ success: true, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
+      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "loading" });
+      return json({ success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1463,8 +1578,20 @@ Deno.serve(async (req) => {
             ? (pairingCode ? "pairing" : (pairingPending ? "pairing_pending" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting")))
             : (hasQrCode ? "connecting" : (effectiveCheck.rawStatus || effectiveCheck.status || "waiting"));
 
+      // ── FSM mapping ──
+      const fsmState = mapToFsmState({
+        mode: connectionMode === "code" ? "pairing" : "qr",
+        hasQr: hasQrCode,
+        hasPairingCode: !!pairingCode,
+        ownerDigits: getOwnerDigits(effectiveCheck.owner || check.owner || "").length,
+        rawStatus: responseStatus,
+        providerState: effectiveCheck.status as any,
+      });
+      logFsmTransition(deviceId, String(device?.status || "idle"), fsmState, "status");
+
       return json({
         success: true,
+        state: fsmState,
         status: responseStatus,
         phone: (isConnected || isSyncingAfterScan) ? (effectiveCheck.owner || check.owner || "") : "",
         base64: connectionMode === "code" ? null : (effectiveCheck.qrcode || check.qrcode || null),
@@ -1473,6 +1600,7 @@ Deno.serve(async (req) => {
         pairing_code: pairingCode || null,
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
+        handshakeInProgress: getOwnerDigits(effectiveCheck.owner || "").length >= 10 && !isConnected,
       });
     }
 
