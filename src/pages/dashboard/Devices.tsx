@@ -1808,6 +1808,7 @@ const Devices = () => {
 
   // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou.
   // Dispara nova geração com 7s de margem para que o novo código apareça ANTES do antigo expirar.
+  // CRÍTICO: pausa quando o handshake já começou (step "connecting") para não derrubar a sessão.
   useEffect(() => {
     if (pairingCountdownRef.current) {
       clearInterval(pairingCountdownRef.current);
