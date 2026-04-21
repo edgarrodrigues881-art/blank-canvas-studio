@@ -1735,8 +1735,21 @@ const Devices = () => {
     setConnectError("");
     setConnectMethod("qr");
     setSelectedProxy(device.proxy_id || "none");
+    setQrLoadingStage("idle");
     stopPolling();
     pauseKeepAlive();
+
+    // PRE-WARM: kick off token assignment + provider session ping in background
+    // so by the time user confirms proxy, the heavy lifting is already done.
+    prewarmPromiseRef.current = callApi({ action: "prewarm", deviceId: device.id })
+      .then((res) => {
+        console.log(`[connect-perf] prewarm done for ${device.id.substring(0, 8)}`, res);
+        return res;
+      })
+      .catch((err) => {
+        console.warn(`[connect-perf] prewarm failed (non-blocking):`, err?.message);
+        return null;
+      });
 
     // Skip method chooser — open directly on proxy/connect step with QR as default
     setConnectStep("proxy");
