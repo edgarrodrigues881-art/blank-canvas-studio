@@ -2925,8 +2925,18 @@ const Devices = () => {
 
             {connectStep === "connecting" && (
               <motion.div key="connecting" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.25 }} className="flex flex-col items-center gap-4 py-10">
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                <p className="text-sm font-medium text-muted-foreground">Conectando...</p>
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                    <Key className="w-3 h-3 text-primary-foreground" />
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Verificando código...</p>
+                  <p className="text-xs text-muted-foreground">Aguardando confirmação do WhatsApp</p>
+                </div>
               </motion.div>
             )}
 
