@@ -101,6 +101,17 @@ async function closeCommunityPairs(db: any, pairIds: string[]): Promise<number> 
   return pairIds.length;
 }
 
+async function refreshInstanceGroupsForCycle(db: any, ctx: ProcessJobContext, cycleId: string): Promise<any[]> {
+  const { data } = await db
+    .from("warmup_instance_groups")
+    .select("id, group_id, group_jid, device_id, cycle_id, join_status, group_name, invite_link")
+    .eq("cycle_id", cycleId);
+
+  const groups = data || [];
+  ctx.instanceGroupsMap[cycleId] = groups;
+  return groups;
+}
+
 async function getActivePairCount(db: any, deviceId: string): Promise<number> {
   const { count: a } = await db.from("community_pairs").select("id", { count: "exact", head: true }).eq("instance_id_a", deviceId).eq("status", "active");
   const { count: b } = await db.from("community_pairs").select("id", { count: "exact", head: true }).eq("instance_id_b", deviceId).eq("status", "active");
@@ -439,9 +450,17 @@ async function processJoinGroup(db: any, job: any, ctx: ProcessJobContext): Prom
     const updateData: any = { join_status: "joined", joined_at: new Date().toISOString() };
     if (joinJid) updateData.group_jid = joinJid;
     if (record) await db.from("warmup_instance_groups").update(updateData).eq("id", record.id);
+    if (record) {
+      record.join_status = "joined";
+      record.joined_at = updateData.joined_at;
+      if (joinJid) record.group_jid = joinJid;
+    } else {
+      await refreshInstanceGroupsForCycle(db, ctx, job.cycle_id);
+    }
     bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "group_joined", message: `Entrou no grupo ${groupName}${joinJid ? ` (JID: ${joinJid})` : ""}` });
   } else {
     if (record) await db.from("warmup_instance_groups").update({ join_status: "failed" }).eq("id", record.id);
+    if (record) record.join_status = "failed";
     throw new Error(`Falha ao entrar no grupo ${groupName}`);
   }
   return true;
@@ -453,6 +472,11 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
 
   let allIGs = ctx.instanceGroupsMap[job.cycle_id] || [];
   let joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
+
+  if (joinedGroups.length === 0) {
+    allIGs = await refreshInstanceGroupsForCycle(db, ctx, job.cycle_id);
+    joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
+  }
 
   // Auto-sync only for groups that already have an explicit saved JID in the allowlist
   if (joinedGroups.length === 0 && allIGs.length > 0) {
@@ -491,6 +515,26 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     if (resolved.length > 0) {
       resolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
       const chosen = resolved[0];
+      groupJid = chosen.jid;
+      const grpRef = ctx.groupsMap[chosen.target.group_id];
+      groupName = grpRef?.name || chosen.target.group_name || "Grupo";
+    }
+  }
+
+  if (!groupJid && joinedGroups.length > 0) {
+    allIGs = await refreshInstanceGroupsForCycle(db, ctx, job.cycle_id);
+    joinedGroups = allIGs.filter((ig: any) => ig.join_status === "joined" && ig.device_id === job.device_id);
+    const refreshedResolved = joinedGroups
+      .filter((target: any) => typeof target.group_jid === "string" && target.group_jid.includes("@g.us"))
+      .map((target: any) => ({
+        target,
+        jid: target.group_jid,
+        count: 0,
+      }));
+
+    if (refreshedResolved.length > 0) {
+      refreshedResolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
+      const chosen = refreshedResolved[0];
       groupJid = chosen.jid;
       const grpRef = ctx.groupsMap[chosen.target.group_id];
       groupName = grpRef?.name || chosen.target.group_name || "Grupo";
