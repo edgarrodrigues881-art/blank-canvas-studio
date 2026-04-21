@@ -209,12 +209,12 @@ const HeroSection = () => {
                 }}
               />
 
-              {/* Left fade mask — panel emerges from the dark */}
+              {/* Strong left fade — panel dissolves into the dark */}
               <div
-                className="absolute inset-y-0 left-0 w-1/3 pointer-events-none z-30 rounded-l-xl"
+                className="absolute inset-y-0 left-0 w-1/2 pointer-events-none z-30"
                 style={{
                   background:
-                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.8) 40%, transparent 100%)",
+                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.95) 25%, rgba(2,6,23,0.7) 45%, rgba(2,6,23,0.3) 70%, transparent 100%)",
                 }}
               />
             </div>
