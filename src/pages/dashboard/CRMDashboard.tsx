@@ -211,6 +211,66 @@ const ChartTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+/* ── Animated Chart Card (re-animates bars when entering viewport) ── */
+function ChartCard({
+  isLoading, isPositiveWeek, weekTotal, dailyChart, chartColor,
+}: {
+  isLoading: boolean; isPositiveWeek: boolean; weekTotal: number;
+  dailyChart: Array<{ day: string; leads: number }>; chartColor: string;
+}) {
+  const { ref, className: animClass } = useAnimateOnView({ animation: "fade-in", threshold: 0.2 });
+  const isVisible = animClass !== "aov-hidden";
+  return (
+    <div ref={ref} className="rounded-2xl border border-border/40 bg-card p-6 shadow-sm h-full">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-base font-bold text-foreground">Novos Leads</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Últimos 7 dias</p>
+        </div>
+        <div className="text-right flex items-center gap-3">
+          <div className={cn(
+            "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold",
+            isPositiveWeek ? "bg-blue-500/10 text-blue-500" : "bg-red-500/10 text-red-500"
+          )}>
+            {isPositiveWeek ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            {weekTotal > 0 ? `+` : ""}<AnimatedCounter value={weekTotal} duration={1200} />
+          </div>
+          <div>
+            <p className="text-2xl font-extrabold text-foreground">
+              <AnimatedCounter value={weekTotal} duration={1200} />
+            </p>
+            <p className="text-xs text-muted-foreground">esta semana</p>
+          </div>
+        </div>
+      </div>
+      {isLoading ? (
+        <Skeleton className="h-[220px] w-full rounded-xl" />
+      ) : (
+        <div className="h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={isVisible ? dailyChart : dailyChart.map(d => ({ ...d, leads: 0 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="crmBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={chartColor} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
+              <XAxis dataKey="day" axisLine={false} tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontWeight: 500 }} />
+              <YAxis axisLine={false} tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }} />
+              <Bar dataKey="leads" fill="url(#crmBarGrad)" radius={[6, 6, 0, 0]} maxBarSize={40}
+                isAnimationActive={true} animationDuration={1200} animationEasing="ease-out" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════ */
 /* ══  MAIN COMPONENT  ════════════════════ */
 /* ══════════════════════════════════════════ */
