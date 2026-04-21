@@ -73,7 +73,7 @@ const HeroSection = () => {
           {/* RIGHT — Dashboard panel */}
           <div
             className="relative w-full lg:h-[85vh] flex items-center justify-center lg:justify-start"
-            style={{ animation: "slideUp 0.8s ease-out 0.4s both" }}
+            style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Green glow */}
             <div
@@ -102,9 +102,9 @@ const HeroSection = () => {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(40px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes panelEnter {
+          0%   { opacity: 0; transform: translateX(120px) scale(0.92); }
+          100% { opacity: 1; transform: translateX(0) scale(1); }
         }
       `}</style>
     </section>
