@@ -610,6 +610,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
                   {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
+                  {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
                   {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
                 </SidebarMenu>
               </SidebarGroupContent>
