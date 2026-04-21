@@ -1297,18 +1297,22 @@ Deno.serve(async (req) => {
       if (pairingAttempt.connectedPhone) {
         const fmt = pairingAttempt.connectedPhone ? formatBrPhone(pairingAttempt.connectedPhone) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+        logFsmTransition(deviceId, "connecting", "connected", "requestPairingCode");
+        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       const latestCheck = pairingAttempt.latestCheck || await checkStatus(5000, phoneNumber);
       const latestPairingCode = pairingAttempt.pairingCode || latestCheck.pairingCode || null;
 
       if (latestPairingCode) {
-        return json({ success: true, pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
+        logFsmTransition(deviceId, "idle", "pairing_code", "requestPairingCode");
+        return json({ success: true, state: "pairing_code", pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
       }
 
+      logFsmTransition(deviceId, "idle", "connecting", "requestPairingCode/pending");
       return json({
         success: true,
+        state: "connecting",
         pairingCode: null,
         pairing_code: null,
         status: "pairing_pending",
