@@ -172,6 +172,19 @@ function logFsmTransition(instanceId: string, from: FsmState | string, to: FsmSt
   console.log(`[fsm] [${instanceId.substring(0, 8)}] ${from} → ${to} (action=${action})`);
 }
 
+/** Logs the full FSM response payload (state + qr/pairingCode) for debugging. */
+function logFsmResponse(
+  instanceId: string,
+  action: string,
+  payload: { state?: string; qr?: string | null; pairingCode?: string | null; handshakeInProgress?: boolean; status?: string },
+) {
+  const qrPreview = payload.qr ? `${String(payload.qr).slice(0, 24)}…(${String(payload.qr).length})` : "none";
+  const codePreview = payload.pairingCode ? String(payload.pairingCode) : "none";
+  console.log(
+    `[fsm-response] [${instanceId.substring(0, 8)}] action=${action} state=${payload.state || "?"} status=${payload.status || "?"} qr=${qrPreview} pairingCode=${codePreview} handshake=${!!payload.handshakeInProgress}`,
+  );
+}
+
 type ProviderStatusCheck = {
   valid: boolean;
   status: string;
