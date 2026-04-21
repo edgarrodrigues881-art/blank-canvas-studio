@@ -170,18 +170,26 @@ function FunnelItem({ name, value, maxVal, color, isActive }: {
   name: string; value: number; maxVal: number; color: string; isActive: boolean;
 }) {
   const pct = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
+  const { ref, className: animClass } = useAnimateOnView({ animation: "fade-in" });
+  const isVisible = animClass !== "aov-hidden";
   return (
-    <div className={cn(
+    <div ref={ref} className={cn(
       "flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300",
       isActive ? "bg-muted/40 shadow-sm scale-[1.02]" : "hover:bg-muted/20"
     )}>
       <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: color }} />
       <span className="text-xs text-muted-foreground w-24 shrink-0 truncate font-medium">{name}</span>
       <div className="flex-1 h-3 bg-muted/25 rounded-full overflow-hidden shadow-inner">
-        <div className="h-full rounded-full transition-all duration-1000 ease-out"
-          style={{ width: `${Math.max(pct, 6)}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }} />
+        <div className="h-full rounded-full transition-all duration-1200 ease-out"
+          style={{
+            width: isVisible ? `${Math.max(pct, 6)}%` : "0%",
+            background: `linear-gradient(90deg, ${color}, ${color}dd)`,
+            transitionDuration: "1200ms",
+          }} />
       </div>
-      <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">{value}</span>
+      <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">
+        {isVisible ? <AnimatedCounter value={value} duration={1000} /> : 0}
+      </span>
     </div>
   );
 }
