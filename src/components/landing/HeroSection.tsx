@@ -83,7 +83,7 @@ const HeroSection = () => {
         }}
       />
       <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 lg:px-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 lg:gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 lg:gap-8 items-center lg:min-h-[85vh]">
           {/* LEFT — Content */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
             {/* Announcement badge */}
