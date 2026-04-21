@@ -30,7 +30,7 @@ const HeroSection = () => {
       rx += (trx - rx) * 0.08;
       ry += (try_ - ry) * 0.08;
       tx += (ttx - tx) * 0.08;
-      el.style.transform = `perspective(1200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateX(${tx.toFixed(2)}px) scale(1.3)`;
+      el.style.transform = `perspective(1200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateX(${tx.toFixed(2)}px) scale(1.6)`;
       raf = requestAnimationFrame(tick);
     };
 
