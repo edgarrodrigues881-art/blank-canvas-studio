@@ -1371,7 +1371,9 @@ Deno.serve(async (req) => {
 
       if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
       if ((statusCheck.status === "transitional" || statusCheck.rawStatus === "connecting") && statusCheck.qrcode) {
-        return json({ success: true, base64: statusCheck.qrcode, qr: statusCheck.qrcode, status: "connecting" });
+        const r = { success: true, state: "waiting_scan" as const, base64: statusCheck.qrcode, qr: statusCheck.qrcode, pairingCode: null, pairing_code: null, status: "connecting" };
+        logFsmResponse(deviceId, "refreshQr/existing", r);
+        return json(r);
       }
 
       // Request new QR with retry
@@ -1399,7 +1401,7 @@ Deno.serve(async (req) => {
             profilePicUrl: pollState.profilePicUrl || "",
           });
           if (stability.confirmed) {
-            return json({ success: true, alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
+            return json({ success: true, state: "connected", alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
           }
         }
       }
@@ -1407,8 +1409,10 @@ Deno.serve(async (req) => {
       if (!qr) {
         await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
-      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "loading" });
-      return json({ success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
+      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "qr" });
+      const refreshResp = { success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, pairingCode: null, pairing_code: null, status: qr ? "connecting" : "waiting" };
+      logFsmResponse(deviceId, "refreshQr", refreshResp);
+      return json(refreshResp);
     }
 
     // ════════════════════════════════════════════════════════════════════
