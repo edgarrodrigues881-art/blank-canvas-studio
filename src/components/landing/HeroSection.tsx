@@ -185,7 +185,7 @@ const HeroSection = () => {
               style={{
                 transformStyle: "preserve-3d",
                 filter:
-                  "drop-shadow(0 40px 80px rgba(0,0,0,0.55)) drop-shadow(0 0 60px rgba(99,102,241,0.15))",
+                  "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
             >
               <DashboardMockup />
