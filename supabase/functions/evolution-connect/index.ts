@@ -172,6 +172,19 @@ function logFsmTransition(instanceId: string, from: FsmState | string, to: FsmSt
   console.log(`[fsm] [${instanceId.substring(0, 8)}] ${from} → ${to} (action=${action})`);
 }
 
+/** Logs the full FSM response payload (state + qr/pairingCode) for debugging. */
+function logFsmResponse(
+  instanceId: string,
+  action: string,
+  payload: { state?: string; qr?: string | null; pairingCode?: string | null; handshakeInProgress?: boolean; status?: string },
+) {
+  const qrPreview = payload.qr ? `${String(payload.qr).slice(0, 24)}…(${String(payload.qr).length})` : "none";
+  const codePreview = payload.pairingCode ? String(payload.pairingCode) : "none";
+  console.log(
+    `[fsm-response] [${instanceId.substring(0, 8)}] action=${action} state=${payload.state || "?"} status=${payload.status || "?"} qr=${qrPreview} pairingCode=${codePreview} handshake=${!!payload.handshakeInProgress}`,
+  );
+}
+
 type ProviderStatusCheck = {
   valid: boolean;
   status: string;
@@ -1204,19 +1217,23 @@ Deno.serve(async (req) => {
       const fsmState = mapToFsmState({
         mode: "qr",
         hasQr: !!qr,
-        rawStatus: qr ? "waiting" : "loading",
+        rawStatus: qr ? "waiting" : "qr",
         providerState: "transitional",
       });
       logFsmTransition(deviceId, "idle", fsmState, "connect");
 
-      return json({
+      const connectResponse = {
         success: true,
         state: fsmState,
         base64: qr || null,
         qr: qr || null,
+        pairingCode: null,
+        pairing_code: null,
         status: qr ? "connecting" : "waiting",
         instanceToken,
-      });
+      };
+      logFsmResponse(deviceId, "connect", connectResponse);
+      return json(connectResponse);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1261,11 +1278,15 @@ Deno.serve(async (req) => {
         const existingCode = currentCheck.pairingCode || null;
         if (existingCode) {
           logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake");
-          return json({ success: true, state: "connecting", pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
+          const r = { success: true, state: "connecting" as const, pairingCode: existingCode, pairing_code: existingCode, qr: null, base64: null, status: "pairing", handshakeInProgress: true };
+          logFsmResponse(deviceId, "requestPairingCode/handshake", r);
+          return json(r);
         }
         // No code surfaced but handshake is happening — let the client keep polling
         logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake_pending");
-        return json({ success: true, state: "connecting", pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
+        const r2 = { success: true, state: "connecting" as const, pairingCode: null, pairing_code: null, qr: null, base64: null, status: "pairing_pending", handshakeInProgress: true };
+        logFsmResponse(deviceId, "requestPairingCode/handshake_pending", r2);
+        return json(r2);
       }
 
       // Disconnect if needed (only when NOT mid-handshake)
@@ -1298,7 +1319,9 @@ Deno.serve(async (req) => {
         const fmt = pairingAttempt.connectedPhone ? formatBrPhone(pairingAttempt.connectedPhone) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
         logFsmTransition(deviceId, "connecting", "connected", "requestPairingCode");
-        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
+        const r = { success: true, state: "connected" as const, alreadyConnected: true, phone: fmt, qr: null, base64: null, pairingCode: null, pairing_code: null, status: "authenticated" };
+        logFsmResponse(deviceId, "requestPairingCode/connected", r);
+        return json(r);
       }
 
       const latestCheck = pairingAttempt.latestCheck || await checkStatus(5000, phoneNumber);
@@ -1306,18 +1329,24 @@ Deno.serve(async (req) => {
 
       if (latestPairingCode) {
         logFsmTransition(deviceId, "idle", "pairing_code", "requestPairingCode");
-        return json({ success: true, state: "pairing_code", pairingCode: latestPairingCode, pairing_code: latestPairingCode, status: "pairing" });
+        const r = { success: true, state: "pairing_code" as const, pairingCode: latestPairingCode, pairing_code: latestPairingCode, qr: null, base64: null, status: "pairing" };
+        logFsmResponse(deviceId, "requestPairingCode", r);
+        return json(r);
       }
 
       logFsmTransition(deviceId, "idle", "connecting", "requestPairingCode/pending");
-      return json({
+      const pendingResp = {
         success: true,
-        state: "connecting",
+        state: "connecting" as const,
         pairingCode: null,
         pairing_code: null,
+        qr: null,
+        base64: null,
         status: "pairing_pending",
         message: "Código ainda está sendo gerado.",
-      });
+      };
+      logFsmResponse(deviceId, "requestPairingCode/pending", pendingResp);
+      return json(pendingResp);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1342,7 +1371,9 @@ Deno.serve(async (req) => {
 
       if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
       if ((statusCheck.status === "transitional" || statusCheck.rawStatus === "connecting") && statusCheck.qrcode) {
-        return json({ success: true, base64: statusCheck.qrcode, qr: statusCheck.qrcode, status: "connecting" });
+        const r = { success: true, state: "waiting_scan" as const, base64: statusCheck.qrcode, qr: statusCheck.qrcode, pairingCode: null, pairing_code: null, status: "connecting" };
+        logFsmResponse(deviceId, "refreshQr/existing", r);
+        return json(r);
       }
 
       // Request new QR with retry
@@ -1370,7 +1401,7 @@ Deno.serve(async (req) => {
             profilePicUrl: pollState.profilePicUrl || "",
           });
           if (stability.confirmed) {
-            return json({ success: true, alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
+            return json({ success: true, state: "connected", alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
           }
         }
       }
@@ -1378,8 +1409,10 @@ Deno.serve(async (req) => {
       if (!qr) {
         await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
-      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "loading" });
-      return json({ success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
+      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "qr" });
+      const refreshResp = { success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, pairingCode: null, pairing_code: null, status: qr ? "connecting" : "waiting" };
+      logFsmResponse(deviceId, "refreshQr", refreshResp);
+      return json(refreshResp);
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1589,7 +1622,7 @@ Deno.serve(async (req) => {
       });
       logFsmTransition(deviceId, String(device?.status || "idle"), fsmState, "status");
 
-      return json({
+      const statusResponse = {
         success: true,
         state: fsmState,
         status: responseStatus,
@@ -1601,7 +1634,9 @@ Deno.serve(async (req) => {
         profileName: effectiveCheck.profileName || check.profileName || "",
         profilePicUrl: effectiveCheck.profilePicUrl || check.profilePicUrl || "",
         handshakeInProgress: getOwnerDigits(effectiveCheck.owner || "").length >= 10 && !isConnected,
-      });
+      };
+      logFsmResponse(deviceId, "status", statusResponse);
+      return json(statusResponse);
     }
 
     // ════════════════════════════════════════════════════════════════════
