@@ -389,33 +389,41 @@ const CRMDashboard = () => {
 
       {/* Stats Grid — hero + 3 smaller */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <HeroCard
-          label="Total de Leads"
-          value={m.total}
-          sub={`+${m.weekTotal} esta semana`}
-          icon={Users}
-          gradient="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 shadow-lg shadow-blue-500/25"
-          isLoading={isLoading}
-          onClick={() => navigate("/dashboard/leads")}
-        />
-        <StatCard label="Conversas Ativas" value={m.responded}
-          sub={`${m.responded} em andamento`}
-          icon={MessageSquareMore}
-          iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
-          borderAccent="border-emerald-500/30 hover:border-emerald-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
-        <StatCard label="Oportunidades" value={m.interested}
-          sub={`${m.interested} qualificados`}
-          icon={Sparkles}
-          iconBg="bg-purple-500/15" iconColor="text-purple-500"
-          borderAccent="border-purple-500/30 hover:border-purple-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
-        <StatCard label="Fechados" value={m.closed}
-          sub={`${m.closed} negócios`}
-          icon={CheckCircle2}
-          iconBg="bg-amber-500/15" iconColor="text-amber-500"
-          borderAccent="border-amber-500/30 hover:border-amber-500/60"
-          isLoading={isLoading} onClick={() => navigate("/dashboard/crm-reports")} />
+        <AnimateOnView animation="slide-up" delay={1}>
+          <HeroCard
+            label="Total de Leads"
+            value={m.total}
+            sub={`+${m.weekTotal} esta semana`}
+            icon={Users}
+            gradient="bg-gradient-to-br from-blue-600 via-blue-500 to-blue-700 shadow-lg shadow-blue-500/25"
+            isLoading={isLoading}
+            onClick={() => navigate("/dashboard/leads")}
+          />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={2}>
+          <StatCard label="Conversas Ativas" value={m.responded}
+            sub={`${m.responded} em andamento`}
+            icon={MessageSquareMore}
+            iconBg="bg-emerald-500/15" iconColor="text-emerald-500"
+            borderAccent="border-emerald-500/30 hover:border-emerald-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/conversations")} />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={3}>
+          <StatCard label="Oportunidades" value={m.interested}
+            sub={`${m.interested} qualificados`}
+            icon={Sparkles}
+            iconBg="bg-purple-500/15" iconColor="text-purple-500"
+            borderAccent="border-purple-500/30 hover:border-purple-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/pipeline")} />
+        </AnimateOnView>
+        <AnimateOnView animation="slide-up" delay={4}>
+          <StatCard label="Fechados" value={m.closed}
+            sub={`${m.closed} negócios`}
+            icon={CheckCircle2}
+            iconBg="bg-amber-500/15" iconColor="text-amber-500"
+            borderAccent="border-amber-500/30 hover:border-amber-500/60"
+            isLoading={isLoading} onClick={() => navigate("/dashboard/crm-reports")} />
+        </AnimateOnView>
       </div>
 
       {/* Funnel + Chart side by side */}
