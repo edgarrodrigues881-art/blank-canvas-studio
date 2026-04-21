@@ -897,7 +897,9 @@ Deno.serve(async (req) => {
       let tokenAttempt = 0;
       let connectRes: any = null;
 
+      const tStart = Date.now();
       const preCheck = await checkStatus(3000);
+      const tPre = Date.now() - tStart;
       // Recoverable disconnect reasons that need a clean session reset before generating a fresh QR/code.
       // Without this, the provider keeps a stale session and the new QR expires immediately ("QR Code timeout" loop).
       const lastDisconnectReason = String(
@@ -913,16 +915,20 @@ Deno.serve(async (req) => {
       // If the device was previously stuck in loading/pairing in our DB, the user is retrying — force a clean reset.
       const currentDeviceStatus = String(device?.status || "").toLowerCase().trim();
       const wasStuckConnecting = currentDeviceStatus === "loading" || currentDeviceStatus === "pairing";
-      const needsReset = isConfirmedConnected(preCheck)
+      // Only reset when there is real dirty state. Ignore blanket forceReconnect when provider is already clean
+      // (status=disconnected, no qr, no owner) — saves 3-5s on the common "fresh instance" case.
+      const providerIsDirty = isConfirmedConnected(preCheck)
         || !!preCheck.qrcode
-        || body.forceReconnect
+        || !!preCheck.owner
         || recoverableDisconnect
         || wasStuckConnecting;
-      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} forceReconnect=${!!body.forceReconnect} lastDisconnectReason="${lastDisconnectReason}" wasStuckConnecting=${wasStuckConnecting}`);
+      const needsReset = body.skipReset ? false : providerIsDirty;
+      console.log(`[evolution-connect] qr-pre: status="${preCheck.rawStatus || preCheck.status}" needsReset=${needsReset} dirty=${providerIsDirty} forceReconnect=${!!body.forceReconnect} skipReset=${!!body.skipReset} lastDisconnectReason="${lastDisconnectReason}" wasStuckConnecting=${wasStuckConnecting} preCheckMs=${tPre}`);
       
       if (needsReset) {
+        const tReset = Date.now();
         const clearedState = await clearProviderSessionForQr(true);
-        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}"`);
+        console.log(`[evolution-connect] qr-after-reset: status="${clearedState.rawStatus || clearedState.status}" resetMs=${Date.now() - tReset}`);
       }
       await svc.from("devices").update({
         number: null,
