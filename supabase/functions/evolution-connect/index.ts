@@ -75,6 +75,103 @@ async function uazapi(
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ════════════════════════════════════════════════════════════════════════
+// ── UNIFIED STATE MACHINE ──
+// Canonical states the frontend MUST react to.
+// Backend always returns one of these in `state`. Legacy `status` field
+// is preserved for backwards compatibility but should be considered
+// deprecated.
+// ════════════════════════════════════════════════════════════════════════
+export type FsmState =
+  | "idle"
+  | "generating_qr"
+  | "waiting_scan"
+  | "pairing_code"
+  | "connecting"
+  | "syncing"
+  | "connected"
+  | "failed";
+
+interface FsmContext {
+  mode?: "qr" | "pairing";
+  hasQr?: boolean;
+  hasPairingCode?: boolean;
+  ownerDigits?: number;
+  rawStatus?: string;
+  providerState?: "connected" | "disconnected" | "transitional" | "unknown";
+  handshakeInProgress?: boolean;
+  isFailed?: boolean;
+}
+
+/**
+ * Canonical mapper from any provider/legacy status to the unified FSM.
+ * Rules (priority order):
+ *   1. failed → only when explicitly flagged
+ *   2. connected → provider says connected AND owner detected
+ *   3. syncing → owner detected but provider not yet "connected"
+ *   4. connecting → mid-handshake (provider transitional + owner OR pairing)
+ *   5. pairing_code → mode=pairing, has code
+ *   6. waiting_scan → mode=qr, has QR rendered
+ *   7. generating_qr → mode=qr, no QR yet but transitional
+ *   8. idle → fallback
+ */
+export function mapToFsmState(ctx: FsmContext): FsmState {
+  const {
+    mode,
+    hasQr = false,
+    hasPairingCode = false,
+    ownerDigits = 0,
+    rawStatus = "",
+    providerState = "unknown",
+    handshakeInProgress = false,
+    isFailed = false,
+  } = ctx;
+
+  if (isFailed) return "failed";
+
+  const raw = String(rawStatus).toLowerCase();
+
+  // Connected: provider confirms + owner present
+  if (providerState === "connected" && ownerDigits >= 10) return "connected";
+  if (raw === "connected" || raw === "authenticated" || raw === "ready" || raw === "open" || raw === "active") {
+    if (ownerDigits >= 10) return "connected";
+    return "syncing";
+  }
+
+  // Syncing: owner detected but not yet fully connected
+  if (ownerDigits >= 10 && providerState !== "disconnected") return "syncing";
+  if (raw === "syncing" || raw === "loading_chats" || raw === "loading_history") return "syncing";
+
+  // Connecting: mid-handshake
+  if (handshakeInProgress) return "connecting";
+  if (raw === "connecting" || raw === "loading" || raw === "initializing" || raw === "starting") {
+    return "connecting";
+  }
+
+  // Pairing code shown to user
+  if (mode === "pairing" && hasPairingCode) return "pairing_code";
+  if (raw === "pairing" || raw === "pairing_pending") {
+    return hasPairingCode ? "pairing_code" : "connecting";
+  }
+
+  // QR flow
+  if (mode === "qr" && hasQr) return "waiting_scan";
+  if (raw === "qr" || raw === "qrcode" || raw === "waiting") {
+    return hasQr ? "waiting_scan" : "generating_qr";
+  }
+
+  if (mode === "qr") return "generating_qr";
+  if (mode === "pairing") return "connecting";
+
+  return "idle";
+}
+
+/** Logs FSM state transitions for observability. */
+function logFsmTransition(instanceId: string, from: FsmState | string, to: FsmState, action: string) {
+  if (from === to) return;
+  console.log(`[fsm] [${instanceId.substring(0, 8)}] ${from} → ${to} (action=${action})`);
+}
+
 type ProviderStatusCheck = {
   valid: boolean;
   status: string;
