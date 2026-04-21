@@ -1698,6 +1698,16 @@ const Devices = () => {
         }
 
         const apiStatus = result?.status;
+
+        // CODE MODE: when provider reports the user typed the code (status moves to connecting/pairing),
+        // flip UI to "Verificando código..." so the user gets immediate feedback.
+        if (connectionMode === "code" && pairingCode && apiStatus && apiStatus !== "authenticated") {
+          const verifyingSignals = ["connecting", "pairing", "syncing", "loading"];
+          if (verifyingSignals.includes(String(apiStatus).toLowerCase())) {
+            setConnectStep((prev) => (prev === "code" ? "connecting" : prev));
+          }
+        }
+
         // Status polling check
         if (apiStatus === "authenticated") {
           clearInterval(interval);
@@ -1713,12 +1723,17 @@ const Devices = () => {
               profile_name: profileName || d.profile_name,
             } : d) : old
           );
-          // Mark dialog as done
+          // Mark dialog as done and auto-close after a short delay so user sees the success state
           setConnectStep("done");
           setQrLoadingStage("idle");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
           queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
+          setTimeout(() => {
+            setConnectOpen(false);
+            setConnectStep("choose");
+            resumeKeepAlive();
+          }, 1800);
           // Sync in background for full data refresh
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
@@ -2910,8 +2925,18 @@ const Devices = () => {
 
             {connectStep === "connecting" && (
               <motion.div key="connecting" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.25 }} className="flex flex-col items-center gap-4 py-10">
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                <p className="text-sm font-medium text-muted-foreground">Conectando...</p>
+                <div className="relative">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                    <Key className="w-3 h-3 text-primary-foreground" />
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Verificando código...</p>
+                  <p className="text-xs text-muted-foreground">Aguardando confirmação do WhatsApp</p>
+                </div>
               </motion.div>
             )}
 
@@ -2923,6 +2948,7 @@ const Devices = () => {
                 <div className="text-center">
                   <p className="text-lg font-bold text-foreground">Conectado com sucesso!</p>
                   <p className="text-sm text-muted-foreground mt-1">Sua instância está pronta para uso</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-2">Fechando automaticamente...</p>
                 </div>
                 <Button className="h-10 px-8" onClick={() => { stopPolling(); setConnectStep("choose"); setConnectOpen(false); resumeKeepAlive(); }}>Fechar</Button>
               </motion.div>
