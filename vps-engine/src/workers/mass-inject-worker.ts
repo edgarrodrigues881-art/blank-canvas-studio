@@ -54,6 +54,8 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
 // Per-device consecutive critical error counter
 const deviceCriticalErrors = new Map<string, number>();
 const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
+const deviceRestrictionErrors = new Map<string, number>();
+const DEVICE_RESTRICTION_PAUSE_THRESHOLD = 3; // protect accounts when WhatsApp starts rejecting sequential adds
 
 // ── Per-contact attempt cap (bounded retry) ──
 // Each contact gets at most 3 attempts total (1 initial + up to 2 retries). The DB
@@ -1293,9 +1295,26 @@ async function runDeviceWorker(
 
       if (!connResult.connected) {
         if (connResult.shouldSkipDevice) {
-          // MY device confirmed disconnected — reassign my queue to siblings, then exit.
           failedDeviceIds.set(deviceId, Date.now());
-          await reassignMyQueueToSiblings(sb, campaignId, deviceId, parseDeviceIds(freshCampaign.device_ids), failedDeviceIds);
+          const campaignDeviceIds = parseDeviceIds(freshCampaign.device_ids);
+          const aliveSiblingIds = campaignDeviceIds.filter((id) => id !== deviceId && !failedDeviceIds.has(id));
+
+          if (aliveSiblingIds.length === 0) {
+            const reason = `Instância ${device.name || deviceId.slice(0, 8)} desconectada. Reconecte a conta antes de retomar a campanha.`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await flushCounters(sb, campaignId, counterState);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused",
+              updated_at: nowIso(),
+              next_run_at: null,
+              pause_reason: reason,
+            }).eq("id", campaignId).in("status", ["queued", "processing"]);
+            await emitEvent(sb, campaignId, "campaign_auto_paused_disconnect", "warning", reason);
+            stopAllRef.value = true;
+            break;
+          }
+
+          await reassignMyQueueToSiblings(sb, campaignId, deviceId, campaignDeviceIds, failedDeviceIds);
           log.info(`Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} disconnected — releasing worker (queue reassigned)`);
           break;
         }
@@ -1603,6 +1622,7 @@ async function runDeviceWorker(
         updateCountersLocal(counterState, "completed");
         contactsSinceFlush++;
         deviceCriticalErrors.delete(deviceId); // reset on success
+        deviceRestrictionErrors.delete(deviceId);
         recordDeviceApiSuccess(deviceId); // mark device as healthy
         rememberParticipantInCache(baseUrl, groupId, phone);
         batchAdded++;
@@ -1615,6 +1635,7 @@ async function runDeviceWorker(
         contactsSinceFlush++;
         rememberParticipantInCache(baseUrl, groupId, phone);
         deviceCriticalErrors.delete(deviceId); // reset on success
+        deviceRestrictionErrors.delete(deviceId);
         recordDeviceApiSuccess(deviceId); // mark device as healthy
         consecutiveAddFailures = 0;
       } else {
@@ -1718,6 +1739,26 @@ async function runDeviceWorker(
         // ── Per-device consecutive critical error tracking ──
         const isCriticalError = CRITICAL_FAILURE_STATUSES.has(failStatus);
         const isTransientError = TRANSIENT_FAILURE_STATUSES.has(failStatus);
+        const isRestrictionError = failStatus === "blocked" || (failStatus === "failed" && /privacidade|contatos salvos|only allows|invite de contatos/i.test(failureDetail));
+
+        if (isRestrictionError) {
+          const restrictionCount = (deviceRestrictionErrors.get(deviceId) || 0) + 1;
+          deviceRestrictionErrors.set(deviceId, restrictionCount);
+
+          if (restrictionCount >= DEVICE_RESTRICTION_PAUSE_THRESHOLD) {
+            const reason = `Pausada para proteger a conta: ${restrictionCount} contatos seguidos rejeitados pelo WhatsApp (${failureDetail}).`;
+            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
+            await flushCounters(sb, campaignId, counterState);
+            await sb.from("mass_inject_campaigns").update({
+              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
+            }).eq("id", campaignId);
+            await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
+            stopAllRef.value = true;
+            break;
+          }
+        } else if (!isTransientError) {
+          deviceRestrictionErrors.delete(deviceId);
+        }
 
         if (isCriticalError) {
           // Increment per-device critical error counter
