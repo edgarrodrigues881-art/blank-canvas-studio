@@ -1736,8 +1736,8 @@ const Devices = () => {
     stopPolling();
     pauseKeepAlive();
 
-    // Always open on the method chooser first
-    setConnectStep("choose");
+    // Skip method chooser — open directly on proxy/connect step with QR as default
+    setConnectStep("proxy");
     setConnectOpen(true);
   };
 
