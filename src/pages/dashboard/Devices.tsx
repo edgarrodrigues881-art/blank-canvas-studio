@@ -1760,11 +1760,18 @@ const Devices = () => {
     setPollingInterval(interval);
   };
 
-  // Auto-refresh do código de pareamento (expira em ~60s)
-  const regeneratePairingCode = async () => {
+  // Auto-refresh do código de pareamento (expira em ~60s no WhatsApp).
+  // Estratégia: dispara ANTES de zerar (com 7s de margem) e usa lock anti-concorrência
+  // + retry automático com backoff para nunca exigir clique do usuário.
+  const regeneratePairingCode = async (opts: { silent?: boolean; attempt?: number } = {}) => {
     if (!connectingDevice) return;
     const phone = pairingPhoneRef.current;
     if (!phone) return;
+    // Lock: evita múltiplas requisições simultâneas (auto-tick + clique manual + retry)
+    if (pairingRefreshLockRef.current) return;
+    pairingRefreshLockRef.current = true;
+
+    const attempt = opts.attempt ?? 1;
     const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
     const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
     const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
@@ -1777,15 +1784,29 @@ const Devices = () => {
         setPairingCode(code);
         setConnectError("");
         setPairingCountdown(50);
+      } else if (attempt < 3) {
+        // Sem código retornado: tenta de novo após backoff curto
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: attempt + 1 }); }, 2000 * attempt);
       }
     } catch (err) {
-      console.warn("[pairing-refresh] failed", err);
+      console.warn(`[pairing-refresh] attempt ${attempt} failed`, err);
+      // Auto-retry: 3 tentativas com backoff antes de mostrar erro
+      if (attempt < 3) {
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: attempt + 1 }); }, 2000 * attempt);
+      } else if (!opts.silent) {
+        setConnectError("Não foi possível atualizar o código. Tentando novamente...");
+        // Último recurso: agenda nova tentativa daqui 8s
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: 1 }); }, 8000);
+      }
     } finally {
       setPairingRefreshing(false);
+      // Libera o lock no próximo tick para permitir novos refreshes
+      setTimeout(() => { pairingRefreshLockRef.current = false; }, 300);
     }
   };
 
-  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou
+  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou.
+  // Dispara nova geração com 7s de margem para que o novo código apareça ANTES do antigo expirar.
   useEffect(() => {
     if (pairingCountdownRef.current) {
       clearInterval(pairingCountdownRef.current);
@@ -1793,11 +1814,20 @@ const Devices = () => {
     }
     if (connectStep !== "code" || !pairingCode) return;
     setPairingCountdown(50);
+    let triggeredThisCycle = false;
     pairingCountdownRef.current = setInterval(() => {
       setPairingCountdown((prev) => {
+        // Pré-disparo aos 7s restantes — gera o novo código antecipadamente
+        if (prev === 7 && !triggeredThisCycle) {
+          triggeredThisCycle = true;
+          void regeneratePairingCode({ silent: true });
+        }
         if (prev <= 1) {
-          // dispara nova solicitação (não bloqueia o tick)
-          void regeneratePairingCode();
+          triggeredThisCycle = false;
+          // Fallback: se a geração antecipada falhou, dispara de novo
+          if (!pairingRefreshLockRef.current) {
+            void regeneratePairingCode({ silent: true });
+          }
           return 50;
         }
         return prev - 1;
