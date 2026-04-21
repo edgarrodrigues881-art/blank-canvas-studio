@@ -1708,13 +1708,20 @@ const Devices = () => {
           }
         }
 
-        // Status polling check
-        if (apiStatus === "authenticated") {
+        // ── EARLY SUCCESS: provider already returned the owner phone (QR was scanned),
+        // even though full "connected" handshake hasn't finalized (sync still running).
+        // Treat as success now and let sync finish in background.
+        const earlySuccess =
+          apiStatus === "authenticated" ||
+          apiStatus === "syncing" ||
+          (connectionMode === "qr" && result?.phone && String(result.phone).replace(/\D/g, "").length >= 10);
+
+        if (earlySuccess) {
           clearInterval(interval);
           setPollingInterval(null);
-          // Optimistic cache update: immediately mark device as Ready so UI shows "Desconectar"
           const phone = result?.phone || "";
           const profileName = result?.profileName || "";
+          // Optimistic cache update: immediately mark device as Ready so UI shows "Desconectar"
           queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
             old ? old.map(d => d.id === deviceId ? {
               ...d,
@@ -1733,7 +1740,7 @@ const Devices = () => {
             setConnectOpen(false);
             setConnectStep("choose");
             resumeKeepAlive();
-          }, 1800);
+          }, 1500);
           // Sync in background for full data refresh
           try {
             if (session?.access_token || (await supabase.auth.getSession()).data.session?.access_token) {
@@ -1749,7 +1756,7 @@ const Devices = () => {
       } finally {
         inFlight = false;
       }
-    }, 1000);
+    }, 700);
     setPollingInterval(interval);
   };
 
