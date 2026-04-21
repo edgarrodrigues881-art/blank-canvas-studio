@@ -30,6 +30,9 @@ import { format, subDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import AnimateOnView from "@/components/AnimateOnView";
+import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
+import { useAnimateOnView } from "@/hooks/useAnimateOnView";
 
 /* ── Hero Stat Card (large) ── */
 function HeroCard({
