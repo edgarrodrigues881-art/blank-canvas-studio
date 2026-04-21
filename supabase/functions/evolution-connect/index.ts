@@ -1260,10 +1260,12 @@ Deno.serve(async (req) => {
         console.log(`[requestPairingCode] handshake_in_progress device=${deviceId} status=${currentCheck.rawStatus || currentCheck.status} owner=${ownerDigitsNow.length >= 10 ? "yes" : "no"} — skipping disconnect`);
         const existingCode = currentCheck.pairingCode || null;
         if (existingCode) {
-          return json({ success: true, pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
+          logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake");
+          return json({ success: true, state: "connecting", pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
         }
         // No code surfaced but handshake is happening — let the client keep polling
-        return json({ success: true, pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
+        logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake_pending");
+        return json({ success: true, state: "connecting", pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
       }
 
       // Disconnect if needed (only when NOT mid-handshake)
