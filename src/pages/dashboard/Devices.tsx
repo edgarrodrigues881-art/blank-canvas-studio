@@ -2948,6 +2948,7 @@ const Devices = () => {
                 <div className="text-center">
                   <p className="text-lg font-bold text-foreground">Conectado com sucesso!</p>
                   <p className="text-sm text-muted-foreground mt-1">Sua instância está pronta para uso</p>
+                  <p className="text-[11px] text-muted-foreground/70 mt-2">Fechando automaticamente...</p>
                 </div>
                 <Button className="h-10 px-8" onClick={() => { stopPolling(); setConnectStep("choose"); setConnectOpen(false); resumeKeepAlive(); }}>Fechar</Button>
               </motion.div>
