@@ -1,10 +1,48 @@
 import { useNavigate } from "react-router-dom";
+import { useRef, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DashboardMockup from "./DashboardMockup";
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    if (window.matchMedia("(hover: none)").matches) return;
+
+    let rx = 0, ry = 0, tx = 0;
+    let trx = 0, try_ = 0, ttx = 0;
+    let raf = 0;
+
+    const onMove = (e: MouseEvent) => {
+      const dx = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+      const dy = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+      try_ = Math.max(-1, Math.min(1, dx)) * 3.5;
+      trx = -Math.max(-1, Math.min(1, dy)) * 2.5;
+      ttx = Math.max(-1, Math.min(1, dx)) * 4;
+    };
+    const onLeave = () => { trx = 0; try_ = 0; ttx = 0; };
+
+    const tick = () => {
+      rx += (trx - rx) * 0.08;
+      ry += (try_ - ry) * 0.08;
+      tx += (ttx - tx) * 0.08;
+      el.style.transform = `perspective(1200px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateX(${tx.toFixed(2)}px)`;
+      raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   return (
     <section className="relative min-h-screen w-full flex items-center pt-24 pb-12 overflow-x-hidden">
@@ -106,9 +144,10 @@ const HeroSection = () => {
 
             {/* Panel wrapper — overflows to the right on desktop */}
             <div
-              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard"
+              ref={panelRef}
+              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard will-change-transform"
               style={{
-                perspective: "1400px",
+                transformStyle: "preserve-3d",
                 filter:
                   "drop-shadow(0 40px 80px rgba(0,0,0,0.55)) drop-shadow(0 0 60px rgba(99,102,241,0.15))",
               }}
