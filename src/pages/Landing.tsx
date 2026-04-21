@@ -101,15 +101,15 @@ const Hero = () => {
         <img
           src={heroCrmScreenshot}
           alt=""
-          className="absolute top-1/2 right-0 -translate-y-1/2 h-[85%] w-auto max-w-[70%] object-contain object-right select-none"
+          className="absolute top-1/2 left-[42%] -translate-y-[48%] h-[150%] w-auto max-w-none object-left select-none"
           draggable={false}
         />
-        {/* Left dark gradient — fades image behind text/CTA */}
+        {/* Left dark gradient — stronger fade following the crop */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(to right, hsl(222,22%,5%) 0%, hsl(222,22%,5%) 30%, hsla(222,22%,5%,0.85) 50%, hsla(222,22%,5%,0.4) 70%, transparent 100%)",
+              "linear-gradient(to right, hsl(222,22%,5%) 0%, hsl(222,22%,5%) 38%, hsla(222,22%,5%,0.92) 52%, hsla(222,22%,5%,0.55) 68%, hsla(222,22%,5%,0.15) 85%, transparent 100%)",
           }}
         />
         {/* Bottom subtle fade for section transition */}
