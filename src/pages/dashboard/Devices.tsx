@@ -208,6 +208,7 @@ const Devices = () => {
   const [pairingRefreshing, setPairingRefreshing] = useState(false);
   const pairingCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pairingPhoneRef = useRef<string>("");
+  const pairingRefreshLockRef = useRef<boolean>(false);
 
   // Fetch devices from database
   const { data: devices = [], isLoading: devicesLoading, isError: devicesError } = useQuery({
@@ -1760,11 +1761,18 @@ const Devices = () => {
     setPollingInterval(interval);
   };
 
-  // Auto-refresh do código de pareamento (expira em ~60s)
-  const regeneratePairingCode = async () => {
+  // Auto-refresh do código de pareamento (expira em ~60s no WhatsApp).
+  // Estratégia: dispara ANTES de zerar (com 7s de margem) e usa lock anti-concorrência
+  // + retry automático com backoff para nunca exigir clique do usuário.
+  const regeneratePairingCode = async (opts: { silent?: boolean; attempt?: number } = {}) => {
     if (!connectingDevice) return;
     const phone = pairingPhoneRef.current;
     if (!phone) return;
+    // Lock: evita múltiplas requisições simultâneas (auto-tick + clique manual + retry)
+    if (pairingRefreshLockRef.current) return;
+    pairingRefreshLockRef.current = true;
+
+    const attempt = opts.attempt ?? 1;
     const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
     const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
     const pp = selectedProxyData ? { host: selectedProxyData.host, port: selectedProxyData.port, username: selectedProxyData.username, password: selectedProxyData.password, type: selectedProxyData.type } : undefined;
@@ -1777,15 +1785,29 @@ const Devices = () => {
         setPairingCode(code);
         setConnectError("");
         setPairingCountdown(50);
+      } else if (attempt < 3) {
+        // Sem código retornado: tenta de novo após backoff curto
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: attempt + 1 }); }, 2000 * attempt);
       }
     } catch (err) {
-      console.warn("[pairing-refresh] failed", err);
+      console.warn(`[pairing-refresh] attempt ${attempt} failed`, err);
+      // Auto-retry: 3 tentativas com backoff antes de mostrar erro
+      if (attempt < 3) {
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: attempt + 1 }); }, 2000 * attempt);
+      } else if (!opts.silent) {
+        setConnectError("Não foi possível atualizar o código. Tentando novamente...");
+        // Último recurso: agenda nova tentativa daqui 8s
+        setTimeout(() => { void regeneratePairingCode({ silent: true, attempt: 1 }); }, 8000);
+      }
     } finally {
       setPairingRefreshing(false);
+      // Libera o lock no próximo tick para permitir novos refreshes
+      setTimeout(() => { pairingRefreshLockRef.current = false; }, 300);
     }
   };
 
-  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou
+  // Countdown + auto-refresh enquanto o modal está em "code" e ainda não conectou.
+  // Dispara nova geração com 7s de margem para que o novo código apareça ANTES do antigo expirar.
   useEffect(() => {
     if (pairingCountdownRef.current) {
       clearInterval(pairingCountdownRef.current);
@@ -1793,11 +1815,20 @@ const Devices = () => {
     }
     if (connectStep !== "code" || !pairingCode) return;
     setPairingCountdown(50);
+    let triggeredThisCycle = false;
     pairingCountdownRef.current = setInterval(() => {
       setPairingCountdown((prev) => {
+        // Pré-disparo aos 7s restantes — gera o novo código antecipadamente
+        if (prev === 7 && !triggeredThisCycle) {
+          triggeredThisCycle = true;
+          void regeneratePairingCode({ silent: true });
+        }
         if (prev <= 1) {
-          // dispara nova solicitação (não bloqueia o tick)
-          void regeneratePairingCode();
+          triggeredThisCycle = false;
+          // Fallback: se a geração antecipada falhou, dispara de novo
+          if (!pairingRefreshLockRef.current) {
+            void regeneratePairingCode({ silent: true });
+          }
           return 50;
         }
         return prev - 1;
@@ -2873,26 +2904,50 @@ const Devices = () => {
               <motion.div key="code" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center gap-5">
                 {pairingCode ? (
                   <>
-                    <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg">
-                      <p className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground">{pairingCode}</p>
+                    <div className="relative px-10 py-6 rounded-2xl bg-card/50 shadow-lg overflow-hidden">
+                      <AnimatePresence mode="wait">
+                        <motion.p
+                          key={pairingCode}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.25 }}
+                          className="text-3xl font-mono font-bold tracking-[0.5em] text-foreground"
+                        >
+                          {pairingCode}
+                        </motion.p>
+                      </AnimatePresence>
                       <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                        <Lock className="w-4 h-4 text-primary-foreground" />
+                        {pairingRefreshing ? (
+                          <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
+                        ) : (
+                          <Lock className="w-4 h-4 text-primary-foreground" />
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 -mt-2">
-                      <p className="text-xs text-muted-foreground tabular-nums">
-                        {pairingRefreshing ? "Gerando novo código..." : `Novo código em ${pairingCountdown}s`}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs gap-1.5"
-                        disabled={pairingRefreshing}
-                        onClick={() => { setPairingCountdown(50); void regeneratePairingCode(); }}
-                      >
-                        <RefreshCw className={`w-3 h-3 ${pairingRefreshing ? "animate-spin" : ""}`} />
-                        Gerar novo
-                      </Button>
+                    <div className="w-64 space-y-2 -mt-1">
+                      {/* Barra de progresso suave do tempo restante */}
+                      <div className="h-1 w-full bg-muted/40 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary/70 transition-all duration-1000 ease-linear"
+                          style={{ width: `${Math.max(0, Math.min(100, (pairingCountdown / 50) * 100))}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {pairingRefreshing ? "Atualizando código..." : `Novo código em ${pairingCountdown}s`}
+                        </p>
+                        {/* Botão manual visível apenas como fallback discreto */}
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground/60 hover:text-foreground transition-colors inline-flex items-center gap-1 disabled:opacity-40"
+                          disabled={pairingRefreshing}
+                          onClick={() => { setPairingCountdown(50); void regeneratePairingCode(); }}
+                        >
+                          <RefreshCw className={`w-3 h-3 ${pairingRefreshing ? "animate-spin" : ""}`} />
+                          Forçar
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : connectError ? (
