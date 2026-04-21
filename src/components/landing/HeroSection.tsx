@@ -146,7 +146,7 @@ const HeroSection = () => {
 
           {/* RIGHT — Dashboard panel */}
           <div
-            className="relative w-full lg:h-[85vh] flex items-center justify-center lg:justify-start"
+            className="relative w-full lg:h-[90vh] flex items-center justify-start lg:overflow-visible"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Soft backdrop blur behind panel */}
