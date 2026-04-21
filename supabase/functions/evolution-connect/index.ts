@@ -1378,7 +1378,8 @@ Deno.serve(async (req) => {
       if (!qr) {
         await svc.from("devices").update({ status: "Loading", updated_at: new Date().toISOString() }).eq("id", deviceId);
       }
-      return json({ success: true, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
+      const fsmRefresh = mapToFsmState({ mode: "qr", hasQr: !!qr, rawStatus: qr ? "waiting" : "loading" });
+      return json({ success: true, state: fsmRefresh, base64: qr || null, qr: qr || null, status: qr ? "connecting" : "waiting" });
     }
 
     // ════════════════════════════════════════════════════════════════════
