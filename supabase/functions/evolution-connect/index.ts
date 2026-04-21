@@ -229,6 +229,9 @@ function logFsmResponse(
   console.log(
     `[fsm-response] [${instanceId.substring(0, 8)}] action=${action} state=${payload.state || "?"} status=${payload.status || "?"} qr=${qrPreview} pairingCode=${codePreview} handshake=${!!payload.handshakeInProgress}`,
   );
+  if (payload.state === "connecting" || payload.state === "syncing" || payload.state === "connected") {
+    console.log(`[${instanceId.substring(0, 8)}] ${payload.state}`);
+  }
 }
 
 type ProviderStatusCheck = {
