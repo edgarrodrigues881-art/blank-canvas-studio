@@ -380,10 +380,12 @@ const CRMDashboard = () => {
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Dashboard CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
-      </div>
+      <AnimateOnView animation="slide-up">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">Dashboard CRM</h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral do seu pipeline de vendas</p>
+        </div>
+      </AnimateOnView>
 
       {/* Stats Grid — hero + 3 smaller */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
