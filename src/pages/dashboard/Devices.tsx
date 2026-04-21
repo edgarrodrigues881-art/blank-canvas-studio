@@ -1656,6 +1656,7 @@ const Devices = () => {
   const startPolling = (deviceId: string, _proxyId: string | null, connectionMode: "qr" | "code" = "qr", phoneNumber?: string) => {
     stopPolling();
     let inFlight = false;
+    const tStart = Date.now();
     const interval = setInterval(async () => {
       if (inFlight) return;
       inFlight = true;
@@ -1677,6 +1678,20 @@ const Devices = () => {
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           return;
         }
+
+        // QR delivered via polling — show it ASAP, before connect call returns
+        if (connectionMode === "qr") {
+          const polledQr = result?.base64 || result?.qr;
+          if (polledQr) {
+            setQrCodeBase64((prev) => {
+              if (prev) return prev;
+              console.log(`[connect-perf] qr_displayed_via_poll dt_from_poll_start=${Date.now() - tStart}ms`);
+              return polledQr.startsWith("data:") ? polledQr : `data:image/png;base64,${polledQr}`;
+            });
+            setQrLoadingStage((s) => (s === "connecting" ? s : "connecting"));
+          }
+        }
+
         const apiStatus = result?.status;
         // Status polling check
         if (apiStatus === "authenticated") {
@@ -1695,6 +1710,7 @@ const Devices = () => {
           );
           // Mark dialog as done
           setConnectStep("done");
+          setQrLoadingStage("idle");
           queryClient.invalidateQueries({ queryKey: ["devices"] });
           queryClient.invalidateQueries({ queryKey: ["proxies"] });
           queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
@@ -1713,7 +1729,7 @@ const Devices = () => {
       } finally {
         inFlight = false;
       }
-    }, 1200);
+    }, 1000);
     setPollingInterval(interval);
   };
 
