@@ -102,9 +102,9 @@ const HeroSection = () => {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(40px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes panelEnter {
+          0%   { opacity: 0; transform: translateX(120px) scale(0.92); }
+          100% { opacity: 1; transform: translateX(0) scale(1); }
         }
       `}</style>
     </section>
