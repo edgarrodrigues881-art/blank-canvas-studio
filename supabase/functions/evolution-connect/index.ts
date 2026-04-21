@@ -1278,11 +1278,15 @@ Deno.serve(async (req) => {
         const existingCode = currentCheck.pairingCode || null;
         if (existingCode) {
           logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake");
-          return json({ success: true, state: "connecting", pairingCode: existingCode, pairing_code: existingCode, status: "pairing", handshakeInProgress: true });
+          const r = { success: true, state: "connecting" as const, pairingCode: existingCode, pairing_code: existingCode, qr: null, base64: null, status: "pairing", handshakeInProgress: true };
+          logFsmResponse(deviceId, "requestPairingCode/handshake", r);
+          return json(r);
         }
         // No code surfaced but handshake is happening — let the client keep polling
         logFsmTransition(deviceId, "pairing_code", "connecting", "requestPairingCode/handshake_pending");
-        return json({ success: true, state: "connecting", pairingCode: null, pairing_code: null, status: "pairing_pending", handshakeInProgress: true });
+        const r2 = { success: true, state: "connecting" as const, pairingCode: null, pairing_code: null, qr: null, base64: null, status: "pairing_pending", handshakeInProgress: true };
+        logFsmResponse(deviceId, "requestPairingCode/handshake_pending", r2);
+        return json(r2);
       }
 
       // Disconnect if needed (only when NOT mid-handshake)
