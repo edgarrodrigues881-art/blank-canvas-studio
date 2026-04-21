@@ -75,7 +75,16 @@ const HeroSection = () => {
             className="relative w-full lg:h-[85vh] flex items-center justify-center lg:justify-start"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
-            {/* Green glow */}
+            {/* Soft backdrop blur behind panel */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: "rgba(2,6,23,0.4)",
+                filter: "blur(80px)",
+              }}
+            />
+
+            {/* Green ambient glow */}
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -85,12 +94,52 @@ const HeroSection = () => {
               }}
             />
 
-            {/* Panel — overflows to the right on desktop */}
+            {/* Blue/violet edge glow (right side light) */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(ellipse at 85% 50%, rgba(99,102,241,0.20) 0%, transparent 55%)",
+                filter: "blur(70px)",
+              }}
+            />
+
+            {/* Panel wrapper — overflows to the right on desktop */}
             <div
               className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard"
-              style={{ perspective: "1400px" }}
+              style={{
+                perspective: "1400px",
+                filter:
+                  "drop-shadow(0 40px 80px rgba(0,0,0,0.55)) drop-shadow(0 0 60px rgba(99,102,241,0.15))",
+              }}
             >
               <DashboardMockup />
+
+              {/* Top glass highlight */}
+              <div
+                className="absolute inset-x-0 top-0 h-px pointer-events-none z-20"
+                style={{
+                  background:
+                    "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%)",
+                }}
+              />
+              <div
+                className="absolute inset-x-0 top-0 h-24 pointer-events-none z-20 rounded-t-xl"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, rgba(255,255,255,0.07) 0%, transparent 100%)",
+                  mixBlendMode: "overlay",
+                }}
+              />
+
+              {/* Left fade mask — panel emerges from the dark */}
+              <div
+                className="absolute inset-y-0 left-0 w-1/3 pointer-events-none z-30 rounded-l-xl"
+                style={{
+                  background:
+                    "linear-gradient(to right, #020617 0%, rgba(2,6,23,0.8) 40%, transparent 100%)",
+                }}
+              />
             </div>
           </div>
         </div>
