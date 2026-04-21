@@ -723,11 +723,25 @@ const Devices = () => {
       });
       return;
     }
-    // Compute starting index based on existing names
+    // Each bulk creation always starts numbering from 1, independent of existing instances.
+    // If a name collision occurs with existing devices, append a short suffix to avoid duplicates.
     muteAutoSync(5000 + totalCount * 2500);
-    const existingNums = devices.map(d => { const m = d.name.match(/(\d+)/); return m ? parseInt(m[1], 10) : 0; });
-    const maxNum = existingNums.length > 0 ? Math.max(...existingNums) : 0;
-    const startIdx = maxNum + 1;
+    const existingNames = new Set(devices.map(d => (d.name || "").trim()));
+    const startIdx = 1;
+    const collisionSuffix = (() => {
+      // Only compute a suffix if at least one of the planned names already exists
+      const wouldCollide = Array.from({ length: totalCount }, (_, k) => `${bulkPrefix} ${startIdx + k}`)
+        .some(n => existingNames.has(n));
+      if (!wouldCollide) return "";
+      // Find a short numeric suffix (2, 3, ...) that resolves all collisions
+      for (let s = 2; s < 1000; s++) {
+        const allFree = Array.from({ length: totalCount }, (_, k) => `${bulkPrefix} ${startIdx + k} (${s})`)
+          .every(n => !existingNames.has(n));
+        if (allFree) return ` (${s})`;
+      }
+      return ` (${Date.now().toString().slice(-4)})`;
+    })();
+    const formatName = (idx: number) => `${bulkPrefix} ${idx}${collisionSuffix}`;
 
     setBulkOpen(false);
 
