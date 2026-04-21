@@ -1242,7 +1242,8 @@ Deno.serve(async (req) => {
       if (currentCheck.status === "connected" && currentCheck.owner) {
         const fmt = currentCheck.owner ? formatBrPhone(currentCheck.owner) : "";
         await svc.from("devices").update({ status: "Ready", number: fmt, updated_at: new Date().toISOString() }).eq("id", deviceId);
-        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+        logFsmTransition(deviceId, "idle", "connected", "requestPairingCode");
+        return json({ success: true, state: "connected", alreadyConnected: true, phone: fmt, status: "authenticated" });
       }
 
       // ── PAIRING-IN-PROGRESS GUARD ──
