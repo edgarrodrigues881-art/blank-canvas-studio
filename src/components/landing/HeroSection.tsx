@@ -178,12 +178,14 @@ const HeroSection = () => {
               }}
             />
 
-            {/* Panel wrapper — overflows to the right on desktop */}
+            {/* Panel wrapper — bigger and overflowing to the right */}
             <div
               ref={panelRef}
-              className="relative z-10 w-full lg:w-[135%] lg:max-w-none group/dashboard will-change-transform"
+              className="relative z-10 w-full lg:w-[180%] lg:max-w-none group/dashboard will-change-transform"
               style={{
                 transformStyle: "preserve-3d",
+                transformOrigin: "left center",
+                marginLeft: "8%",
                 filter:
                   "drop-shadow(0 50px 100px rgba(0,0,0,0.65)) drop-shadow(0 0 80px rgba(99,102,241,0.22)) brightness(1.05)",
               }}
