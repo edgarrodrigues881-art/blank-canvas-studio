@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
-import dashboardPreview from "@/assets/dashboard-preview-landing.png";
 import heroCrmScreenshot from "@/assets/hero-crm-screenshot.png";
+import heroInstancesPanel from "@/assets/hero-instances-panel.png";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -99,7 +99,7 @@ const Hero = () => {
         aria-hidden="true"
       >
         <img
-          src={heroCrmScreenshot}
+          src={heroInstancesPanel}
           alt=""
           className="absolute top-1/2 left-[68%] -translate-x-[35%] -translate-y-[48%] h-[170%] w-auto max-w-none select-none"
           draggable={false}
@@ -280,7 +280,7 @@ const UseCase = () => (
             <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
             <span className="ml-3 text-[10px] text-white/25 font-medium tracking-wide">Painel de instâncias</span>
           </div>
-          <img src={dashboardPreview} alt="Painel" className="w-full h-auto block opacity-80" loading="lazy" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
+          <img src={heroCrmScreenshot} alt="Painel" className="w-full h-auto block opacity-80" loading="lazy" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
         </div>
       </motion.div>
     </div>
