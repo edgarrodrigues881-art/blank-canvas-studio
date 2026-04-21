@@ -64,7 +64,9 @@ function HeroCard({
           <Skeleton className="h-10 w-24 bg-white/20" />
         ) : (
           <>
-            <p className="text-4xl font-extrabold text-white tracking-tight leading-none">{value}</p>
+            <p className="text-4xl font-extrabold text-white tracking-tight leading-none">
+              {typeof value === "number" ? <AnimatedCounter value={value} duration={1200} /> : value}
+            </p>
             {sub && (
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="w-3.5 h-3.5 text-white/90" />
