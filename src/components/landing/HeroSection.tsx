@@ -46,7 +46,43 @@ const HeroSection = () => {
 
   return (
     <section className="relative min-h-screen w-full flex items-center pt-24 pb-12 overflow-x-hidden">
-      <div className="w-full max-w-[1400px] mx-auto px-6 lg:px-10">
+      {/* Section vignette — darker edges */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          background:
+            "radial-gradient(ellipse at 50% 50%, transparent 0%, transparent 50%, rgba(0,0,0,0.55) 100%)",
+        }}
+      />
+      {/* Big halo behind the panel */}
+      <div
+        className="absolute pointer-events-none z-0"
+        style={{
+          top: "50%",
+          left: "75%",
+          width: "1100px",
+          height: "1100px",
+          transform: "translate(-50%, -50%)",
+          background:
+            "radial-gradient(circle, rgba(99,102,241,0.20) 0%, rgba(59,130,246,0.10) 30%, transparent 65%)",
+          filter: "blur(40px)",
+        }}
+      />
+      {/* Secondary diffuse halo */}
+      <div
+        className="absolute pointer-events-none z-0"
+        style={{
+          top: "50%",
+          left: "78%",
+          width: "1500px",
+          height: "1500px",
+          transform: "translate(-50%, -50%)",
+          background:
+            "radial-gradient(circle, rgba(7,193,96,0.08) 0%, transparent 60%)",
+          filter: "blur(80px)",
+        }}
+      />
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 lg:px-10">
         <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-12 lg:gap-8 items-center">
           {/* LEFT — Content */}
           <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
