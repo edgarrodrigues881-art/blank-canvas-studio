@@ -1699,20 +1699,31 @@ const Devices = () => {
         }
 
         const apiStatus = result?.status;
+        // ── UNIFIED FSM STATE (preferred) ──
+        // Backend returns canonical state: idle | generating_qr | waiting_scan |
+        // pairing_code | connecting | syncing | connected | failed.
+        // Falls back to legacy `status` field for backwards compatibility.
+        const fsmState: string = String(result?.state || "").toLowerCase();
 
-        // CODE MODE: when provider reports the user typed the code (status moves to connecting/pairing),
+        // CODE MODE: when provider reports the user typed the code (state moves to connecting/syncing),
         // flip UI to "Verificando código..." so the user gets immediate feedback.
-        if (connectionMode === "code" && pairingCode && apiStatus && apiStatus !== "authenticated") {
-          const verifyingSignals = ["connecting", "pairing", "syncing", "loading"];
-          if (verifyingSignals.includes(String(apiStatus).toLowerCase())) {
+        if (connectionMode === "code" && pairingCode) {
+          const verifyingFsm = ["connecting", "syncing"];
+          const verifyingLegacy = ["connecting", "pairing", "syncing", "loading"];
+          const isVerifying =
+            (fsmState && verifyingFsm.includes(fsmState)) ||
+            (apiStatus && apiStatus !== "authenticated" && verifyingLegacy.includes(String(apiStatus).toLowerCase()));
+          if (isVerifying) {
             setConnectStep((prev) => (prev === "code" ? "connecting" : prev));
           }
         }
 
-        // ── EARLY SUCCESS: provider already returned the owner phone (QR was scanned),
-        // even though full "connected" handshake hasn't finalized (sync still running).
-        // Treat as success now and let sync finish in background.
+        // ── EARLY SUCCESS: FSM=connected/syncing, OR provider already returned owner phone
+        // even though full "connected" handshake hasn't finalized. Treat as success now and
+        // let sync finish in background.
         const earlySuccess =
+          fsmState === "connected" ||
+          fsmState === "syncing" ||
           apiStatus === "authenticated" ||
           apiStatus === "syncing" ||
           (connectionMode === "qr" && result?.phone && String(result.phone).replace(/\D/g, "").length >= 10);
