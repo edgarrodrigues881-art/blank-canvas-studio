@@ -146,7 +146,7 @@ const HeroSection = () => {
 
           {/* RIGHT — Dashboard panel (floats freely on desktop) */}
           <div
-            className="relative w-full mt-8 lg:mt-0 lg:absolute lg:top-1/2 lg:right-[-15%] lg:w-[70vw] lg:h-[85vh] lg:-translate-y-1/2 flex items-center justify-start"
+            className="relative w-full mt-8 lg:mt-0 lg:absolute lg:top-[7.5vh] lg:right-[-15%] lg:w-[70vw] lg:h-[85vh] flex items-center justify-start"
             style={{ animation: "panelEnter 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both" }}
           >
             {/* Soft backdrop blur behind panel */}
