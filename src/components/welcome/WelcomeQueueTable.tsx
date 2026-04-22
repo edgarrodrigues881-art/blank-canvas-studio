@@ -158,6 +158,17 @@ export function WelcomeQueueTable({ automationId, maxRetries = 3 }: { automation
           </Table>
         </ScrollArea>
       </CardContent>
+
+      <WelcomeEditQueueDialog
+        open={!!editItem}
+        onClose={() => setEditItem(null)}
+        item={editItem}
+      />
+      <WelcomeQueueItemLogs
+        open={!!logsItem}
+        onClose={() => setLogsItem(null)}
+        item={logsItem}
+      />
     </Card>
   );
 }
