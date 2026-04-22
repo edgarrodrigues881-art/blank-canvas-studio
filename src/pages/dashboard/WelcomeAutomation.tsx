@@ -348,15 +348,20 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   </h3>
                   <span className="text-[11px] text-muted-foreground">Escolha como sua mensagem será exibida</span>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {WELCOME_TYPE_OPTIONS.map(opt => {
-                    const active = payload.message_type === opt.value;
+                    const currentMode = getUiModeFromPayload(payload);
+                    const active = currentMode === opt.value;
                     const Icon = opt.icon;
                     return (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setPayload(p => ({ ...p, message_type: opt.value as WelcomeMessageType }))}
+                        onClick={() => setPayload(p => {
+                          if (opt.value === "carousel") return { ...p, message_type: "carousel" };
+                          const derived = deriveBackendMessageType({ ...p, message_type: "text" });
+                          return { ...p, message_type: derived };
+                        })}
                         className={`group relative rounded-2xl border-2 p-4 text-left transition-all overflow-hidden ${
                           active
                             ? "border-primary bg-gradient-to-br from-primary/10 to-primary/[0.02] shadow-lg shadow-primary/10 -translate-y-0.5"
