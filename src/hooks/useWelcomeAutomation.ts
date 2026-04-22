@@ -214,6 +214,13 @@ export function useCreateWelcomeAutomation() {
       name: string;
       monitoring_device_id: string;
       message_content: string;
+      message_type?: string;
+      buttons?: any[];
+      carousel_cards?: any[];
+      media_url?: string;
+      media_caption?: string;
+      min_delay_seconds?: number;
+      max_delay_seconds?: number;
       group_ids: { group_id: string; group_name: string }[];
       sender_device_ids: string[];
       settings?: Partial<WelcomeAutomation>;
@@ -227,6 +234,13 @@ export function useCreateWelcomeAutomation() {
           name: input.name,
           monitoring_device_id: input.monitoring_device_id,
           message_content: input.message_content,
+          message_type: input.message_type ?? "text",
+          buttons: input.buttons ?? [],
+          carousel_cards: input.carousel_cards ?? [],
+          ...(input.media_url ? { media_url: input.media_url } : {}),
+          ...(input.media_caption ? { media_caption: input.media_caption } : {}),
+          ...(input.min_delay_seconds != null ? { min_delay_seconds: input.min_delay_seconds } : {}),
+          ...(input.max_delay_seconds != null ? { max_delay_seconds: input.max_delay_seconds } : {}),
           ...(input.settings || {}),
         } as any)
         .select()
