@@ -535,7 +535,7 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <WelcomeMessageEditor value={localMessage} onChange={setLocalMessage} />
+              <WelcomeMessageBuilder value={msgPayload} onChange={patch => setMsgPayload(p => ({ ...p, ...patch }))} />
               <div className="flex justify-end">
                 <Button onClick={saveMessage} disabled={update.isPending} className="gap-2">
                   {update.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
