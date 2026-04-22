@@ -6,6 +6,8 @@ import { Check } from "lucide-react";
 
 type ThemeChoice = "dark" | "light";
 
+const THEME_CHOSEN_KEY = "dg_theme_chosen";
+
 const OnboardingTheme = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -14,6 +16,15 @@ const OnboardingTheme = () => {
   const [selected, setSelected] = useState<ThemeChoice>(
     (resolvedTheme as ThemeChoice) || "dark"
   );
+
+  // Skip the onboarding entirely if the user already chose a theme on this browser
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(THEME_CHOSEN_KEY) === "1") {
+        navigate(redirectTo, { replace: true });
+      }
+    } catch {}
+  }, [navigate, redirectTo]);
 
   useEffect(() => {
     if (resolvedTheme === "light" || resolvedTheme === "dark") {
@@ -34,6 +45,9 @@ const OnboardingTheme = () => {
   };
 
   const handleContinue = () => {
+    try {
+      localStorage.setItem(THEME_CHOSEN_KEY, "1");
+    } catch {}
     navigate(redirectTo, { replace: true });
   };
 
