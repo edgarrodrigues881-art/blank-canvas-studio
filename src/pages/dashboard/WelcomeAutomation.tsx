@@ -291,6 +291,27 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
   const sendersValid = senderIds.length > 0;
   const groupsValid = selectedGroups.length > 0;
 
+  // ── Stepper state ──
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  useEffect(() => { if (!open) setStep(1); }, [open]);
+
+  const step1Valid = name.trim().length > 0 && !!monitoringId && groupsValid;
+  const step2Valid = (() => {
+    const t = deriveBackendMessageType(payload);
+    if (t === "carousel") return payload.carousel_cards.length > 0;
+    return payload.message_content.trim().length > 0 || payload.media_url.trim().length > 0;
+  })();
+  const step3Valid = sendersValid;
+
+  const steps = [
+    { n: 1 as const, title: "Configuração", desc: "Nome, grupos e monitor", icon: SettingsIcon, valid: step1Valid },
+    { n: 2 as const, title: "Mensagem", desc: "Construa o conteúdo", icon: MessageSquare, valid: step2Valid },
+    { n: 3 as const, title: "Envio", desc: "Delays e remetentes", icon: Send, valid: step3Valid },
+  ];
+
+  const goNext = () => setStep(s => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
+  const goBack = () => setStep(s => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[1440px] w-[97vw] h-[95vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
