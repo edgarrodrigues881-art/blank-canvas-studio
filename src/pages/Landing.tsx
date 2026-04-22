@@ -99,7 +99,7 @@ const Hero = () => {
         aria-hidden="true"
       >
         <img
-          src={heroInstancesPanel}
+          src={heroCrmScreenshot}
           alt=""
           className="absolute top-1/2 right-0 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain object-right select-none"
           draggable={false}
