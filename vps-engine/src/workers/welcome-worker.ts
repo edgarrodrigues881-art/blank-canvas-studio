@@ -426,6 +426,15 @@ async function monitorPhase() {
             continue;
           }
 
+          // ── Compute scheduled send time (send_at) ──
+          // Cada item nasce com horário definido baseado em min/max_delay_seconds da automação.
+          // O processPhase só envia quando send_at <= now(), eliminando dependência de sleep como controle principal.
+          const minDelay = Math.max(0, automation.min_delay_seconds ?? 30);
+          const maxDelay = Math.max(minDelay, automation.max_delay_seconds ?? 60);
+          const delaySeconds = randomBetween(minDelay, maxDelay);
+          const detectedAt = new Date();
+          const sendAt = new Date(detectedAt.getTime() + delaySeconds * 1000);
+
           const { error: insertErr } = await db.from("welcome_queue").insert({
             automation_id: automation.id,
             user_id: automation.user_id,
@@ -434,8 +443,9 @@ async function monitorPhase() {
             group_name: group.group_name,
             status: "pending",
             dedupe_hash: dedupeHash,
-            detected_at: nowIso(),
-          });
+            detected_at: detectedAt.toISOString(),
+            send_at: sendAt.toISOString(),
+          } as any);
 
           if (insertErr) {
             if (String(insertErr.message).includes("unique") || String(insertErr.code) === "23505") {
