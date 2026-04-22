@@ -12,6 +12,7 @@ import logo from "@/assets/logo-new.png";
 import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel.png";
 import HeroDataViz from "@/components/landing/HeroDataViz";
+import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -99,10 +100,10 @@ const Hero = () => {
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
             <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-6 md:mb-7 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" style={{ animationDuration: "2.4s" }} />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
               </span>
-              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
+              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+{HERO_METRICS.messagesToday.value} mensagens enviadas hoje</span>
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7 [text-wrap:balance]">
@@ -176,8 +177,8 @@ const Hero = () => {
               {/* KPI row */}
               <div className="relative grid grid-cols-2 gap-2.5 mb-4">
                 {[
-                  { label: "Mensagens hoje", value: "12.847", trend: "+18%" },
-                  { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
+                  { label: "Mensagens hoje", ...HERO_METRICS.messagesToday },
+                  { label: "Taxa de entrega", ...HERO_METRICS.deliveryRate },
                 ].map((s, i) => (
                   <div key={s.label} className="rounded-lg border border-emerald-400/15 bg-white/[0.02] px-3 py-2.5">
                     <div className="flex items-center justify-between mb-0.5">
@@ -188,8 +189,8 @@ const Hero = () => {
                       <span className="text-[17px] font-semibold text-white tabular-nums tracking-tight">{s.value}</span>
                       <motion.span
                         className="w-1 h-1 rounded-full bg-emerald-400"
-                        animate={{ opacity: [1, 0.3, 1] }}
-                        transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                        animate={{ opacity: [0.9, 0.35, 0.9] }}
+                        transition={{ duration: 2.8, repeat: Infinity, delay: i * 0.5, ease: "easeInOut" }}
                       />
                     </div>
                   </div>
@@ -200,19 +201,19 @@ const Hero = () => {
               <div className="relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ 18%</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ {HERO_METRICS.messagesToday.trend.replace("+", "")}</span>
                 </div>
                 <div className="flex items-end gap-1 h-[68px]">
-                  {[42, 68, 56, 81, 64, 88, 72, 92, 60, 78, 48, 70].map((v, i) => (
+                  {HERO_BAR_SERIES.map((v, i) => (
                     <motion.div
                       key={i}
                       initial={{ height: 0 }}
-                      animate={{ height: [`${v}%`, `${Math.max(20, v - 12)}%`, `${v}%`] }}
+                      animate={{ height: [`${v}%`, `${Math.max(25, v - 6)}%`, `${v}%`] }}
                       transition={{
-                        height: { duration: 3 + (i % 3), repeat: Infinity, delay: i * 0.08, ease: "easeInOut" },
+                        height: { duration: 5 + (i % 3), repeat: Infinity, delay: i * 0.12, ease: "easeInOut" },
                       }}
-                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
-                      style={{ boxShadow: "0 0 8px rgba(16,185,129,0.4)" }}
+                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/70 via-emerald-500/85 to-emerald-300/95"
+                      style={{ boxShadow: "0 0 6px rgba(16,185,129,0.28)" }}
                     />
                   ))}
                 </div>

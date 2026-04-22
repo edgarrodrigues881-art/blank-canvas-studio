@@ -1,27 +1,24 @@
 import { motion } from "framer-motion";
+import { HERO_METRICS, HERO_BAR_SERIES, HERO_SPARKLINE } from "./heroMetrics";
 
 /**
  * Animated "live data" visualization for the Hero background.
  * Pure SVG/CSS — no dependencies. Emerald green (matches logo).
  */
 const HeroDataViz = () => {
-  // Bar chart values (pulse subtly)
-  const bars = [42, 78, 56, 91, 64, 88, 72, 95, 60, 83, 48, 76];
+  const bars = HERO_BAR_SERIES;
+  const sparkline = HERO_SPARKLINE;
 
-  // Sparkline path
-  const sparkline = "M0,80 L40,72 L80,58 L120,64 L160,42 L200,48 L240,28 L280,36 L320,18 L360,24 L400,10";
-
-  // Stat counters
   const stats = [
-    { label: "Mensagens enviadas hoje", value: "12.847", trend: "+18%" },
-    { label: "Chips ativos", value: "47", trend: "+3" },
-    { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
+    { label: "Mensagens enviadas hoje", ...HERO_METRICS.messagesToday },
+    { label: "Chips ativos", ...HERO_METRICS.activeChips },
+    { label: "Taxa de entrega", ...HERO_METRICS.deliveryRate },
   ];
 
   // Emerald palette (matches DG logo green)
-  const GREEN = "rgb(16,185,129)";      // emerald-500
-  const GREEN_BRIGHT = "rgb(52,211,153)"; // emerald-400
-  const GREEN_DEEP = "rgb(5,150,105)";   // emerald-600
+  const GREEN = "rgb(16,185,129)";
+  const GREEN_BRIGHT = "rgb(52,211,153)";
+
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none hidden lg:block" aria-hidden="true">
@@ -60,8 +57,8 @@ const HeroDataViz = () => {
                 <span className="text-[22px] font-semibold text-white tracking-tight tabular-nums">{s.value}</span>
                 <motion.span
                   className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                  animate={{ opacity: [1, 0.3, 1] }}
-                  transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                  animate={{ opacity: [0.9, 0.35, 0.9] }}
+                  transition={{ duration: 2.8, repeat: Infinity, delay: i * 0.45, ease: "easeInOut" }}
                 />
               </div>
             </motion.div>
@@ -79,7 +76,8 @@ const HeroDataViz = () => {
             <div>
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</div>
               <div className="text-[18px] font-semibold text-white tabular-nums mt-0.5">
-                12.847 <span className="text-emerald-400 text-[12px] font-medium">↑ 18%</span>
+                {HERO_METRICS.messagesToday.value}{" "}
+                <span className="text-emerald-400 text-[12px] font-medium">↑ {HERO_METRICS.messagesToday.trend.replace("+", "")}</span>
               </div>
             </div>
             <div className="flex gap-1">
@@ -94,19 +92,19 @@ const HeroDataViz = () => {
                 key={i}
                 initial={{ height: 0 }}
                 animate={{
-                  height: [`${v}%`, `${Math.max(20, v - 15)}%`, `${v}%`],
+                  height: [`${v}%`, `${Math.max(25, v - 8)}%`, `${v}%`],
                 }}
                 transition={{
                   height: {
-                    duration: 3 + (i % 3),
+                    duration: 5 + (i % 3),
                     repeat: Infinity,
-                    delay: i * 0.1,
+                    delay: i * 0.15,
                     ease: "easeInOut",
                   },
                 }}
-                className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
+                className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/70 via-emerald-500/85 to-emerald-300/95"
                 style={{
-                  boxShadow: "0 0 12px rgba(16,185,129,0.45)",
+                  boxShadow: "0 0 10px rgba(16,185,129,0.3)",
                 }}
               />
             ))}
@@ -122,7 +120,7 @@ const HeroDataViz = () => {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Taxa de entrega</span>
-            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">98,4%</span>
+            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">{HERO_METRICS.deliveryRate.value}</span>
           </div>
           <svg viewBox="0 0 400 100" className="w-full h-[90px]" preserveAspectRatio="none">
             <defs>
@@ -155,8 +153,8 @@ const HeroDataViz = () => {
               cy="10"
               r="4"
               fill={GREEN_BRIGHT}
-              animate={{ opacity: [1, 0.3, 1], r: [4, 6, 4] }}
-              transition={{ duration: 1.6, repeat: Infinity }}
+              animate={{ opacity: [0.95, 0.4, 0.95], r: [3.5, 5, 3.5] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
             />
           </svg>
         </motion.div>
