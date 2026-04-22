@@ -57,8 +57,8 @@ const HeroDataViz = () => {
                 <span className="text-[22px] font-semibold text-white tracking-tight tabular-nums">{s.value}</span>
                 <motion.span
                   className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                  animate={{ opacity: [1, 0.3, 1] }}
-                  transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                  animate={{ opacity: [0.9, 0.35, 0.9] }}
+                  transition={{ duration: 2.8, repeat: Infinity, delay: i * 0.45, ease: "easeInOut" }}
                 />
               </div>
             </motion.div>
