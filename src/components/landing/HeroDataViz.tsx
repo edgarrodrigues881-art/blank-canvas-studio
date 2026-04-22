@@ -153,8 +153,8 @@ const HeroDataViz = () => {
               cy="10"
               r="4"
               fill={GREEN_BRIGHT}
-              animate={{ opacity: [1, 0.3, 1], r: [4, 6, 4] }}
-              transition={{ duration: 1.6, repeat: Infinity }}
+              animate={{ opacity: [0.95, 0.4, 0.95], r: [3.5, 5, 3.5] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
             />
           </svg>
         </motion.div>
