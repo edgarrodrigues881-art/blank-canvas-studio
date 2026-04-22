@@ -126,7 +126,8 @@ function clampDelay(value: number, min = 1, max = 1800) {
 // ────────────────────────────────────────────────────────────
 // WhatsApp Preview
 // ────────────────────────────────────────────────────────────
-function WhatsAppPreview({ payload }: { payload: WelcomeMessagePayload }) {
+export function WelcomeWhatsAppPreview({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) { return <WhatsAppPreviewInner payload={payload} height={height} />; }
+function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) {
   const isDark = document.documentElement.classList.contains("dark");
   const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
   const bubbleBg = isDark ? "#005c4b" : "#DCF8C6";
