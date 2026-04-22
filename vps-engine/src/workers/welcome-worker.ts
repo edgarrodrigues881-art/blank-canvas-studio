@@ -337,6 +337,61 @@ function isWithinSendWindow(startHour: string, endHour: string): boolean {
 }
 
 // ══════════════════════════════════════════════════════════
+// Error classification + retry/backoff
+// ══════════════════════════════════════════════════════════
+//
+// TEMPORÁRIO  → vale retry com backoff progressivo (timeout, 5xx, rate-limit, rede)
+// PERMANENTE  → marcar failed definitivo (número inválido, bloqueado, formato errado)
+// UNKNOWN     → tratar como temporário (mais conservador) mas com cap de retries
+
+type ErrorClass = "temporary" | "permanent" | "unknown";
+
+interface ClassifiedError {
+  class: ErrorClass;
+  reason: string;        // motivo curto para logs
+  shouldRetry: boolean;
+}
+
+const PERMANENT_PATTERNS: Array<{ rx: RegExp; reason: string }> = [
+  { rx: /not.*registered|not.*on.*whatsapp|n[ãa]o.*existe|invalid.*number|n[úu]mero.*inv[áa]lido/i, reason: "número não registrado no WhatsApp" },
+  { rx: /blocked|bloqueado|banned|banido/i, reason: "destinatário bloqueou/baniu" },
+  { rx: /forbidden|unauthorized|403|401/i, reason: "sem permissão (403/401)" },
+  { rx: /invalid.*format|malformed|bad.*request|400/i, reason: "payload/número malformado" },
+  { rx: /not.*found|404/i, reason: "recurso não encontrado (404)" },
+];
+
+const TEMPORARY_PATTERNS: Array<{ rx: RegExp; reason: string }> = [
+  { rx: /timeout|timed?\s*out|esgotad/i, reason: "timeout na API" },
+  { rx: /econnreset|econnrefused|enetunreach|etimedout|socket\s*hang|fetch\s*failed/i, reason: "falha de rede" },
+  { rx: /rate.?limit|too.*many.*requests|429/i, reason: "rate limit (429)" },
+  { rx: /5\d{2}|server.*error|internal.*error|bad.*gateway|service.*unavailable|gateway.*timeout/i, reason: "API indisponível (5xx)" },
+  { rx: /disconnect|desconect|not.*connected|sess(ion|ão).*(closed|encerrad)/i, reason: "instância desconectada" },
+];
+
+function classifyError(detail: string): ClassifiedError {
+  const text = String(detail || "").trim();
+  if (!text) return { class: "unknown", reason: "erro desconhecido", shouldRetry: true };
+
+  for (const p of PERMANENT_PATTERNS) {
+    if (p.rx.test(text)) return { class: "permanent", reason: p.reason, shouldRetry: false };
+  }
+  for (const p of TEMPORARY_PATTERNS) {
+    if (p.rx.test(text)) return { class: "temporary", reason: p.reason, shouldRetry: true };
+  }
+  return { class: "unknown", reason: "não classificado", shouldRetry: true };
+}
+
+// Backoff progressivo: send_at = now + (attempts * BACKOFF_BASE_SECONDS), com jitter
+const BACKOFF_BASE_SECONDS = 60;       // 60s, 120s, 180s...
+const BACKOFF_MAX_SECONDS = 30 * 60;   // teto de 30 min
+
+function computeBackoffSendAt(attempts: number): string {
+  const base = Math.min(attempts * BACKOFF_BASE_SECONDS, BACKOFF_MAX_SECONDS);
+  const jitter = Math.floor(Math.random() * 15); // 0–15s
+  return new Date(Date.now() + (base + jitter) * 1000).toISOString();
+}
+
+// ══════════════════════════════════════════════════════════
 // Smart sender selection — limites reais + cooldown
 // ══════════════════════════════════════════════════════════
 //
@@ -685,6 +740,7 @@ async function processPhase() {
       .eq("automation_id", automation.id)
       .eq("status", "pending")
       .or(`send_at.lte.${nowTs},send_at.is.null`)
+      .order("priority", { ascending: false })
       .order("send_at", { ascending: true, nullsFirst: true })
       .order("detected_at", { ascending: true })
       .limit(10);
@@ -830,13 +886,14 @@ async function processPhase() {
         ? buildCarouselCardsWithVars(automationCarousel, vars)
         : [];
 
-      // Check max retries
+      // Pre-send guard: defensivo — normalmente max_retries é tratado no pós-envio (retry inteligente)
       if (item.attempts >= automation.max_retries) {
         await db.from("welcome_queue").update({
           status: "failed",
-          error_reason: `Excedeu ${automation.max_retries} tentativas`,
+          error_reason: `[max_retries] Excedeu ${automation.max_retries} tentativas`,
           processed_at: nowIso(),
         } as any).eq("id", item.id);
+        log.warn(`Discarded item ${item.id.slice(0, 8)} — pre-send guard (attempts=${item.attempts}/${automation.max_retries})`);
         continue;
       }
 
@@ -851,15 +908,49 @@ async function processPhase() {
         finalCarousel,
       );
 
+      // ── Classificação de erro + retry inteligente ──
+      const newAttempts = item.attempts + 1;
+      const errClass: ClassifiedError = result.ok
+        ? { class: "temporary", reason: "ok", shouldRetry: false }
+        : classifyError(result.detail);
+
+      let nextStatus: "sent" | "failed" | "pending";
+      let nextSendAt: string | null = item.send_at ?? null;
+      let errorReason: string | null = null;
+      let dispositionLog: string;
+
+      if (result.ok) {
+        nextStatus = "sent";
+        dispositionLog = "ok";
+      } else if (errClass.class === "permanent") {
+        // Erro permanente → falha definitiva, sem retry
+        nextStatus = "failed";
+        errorReason = `[permanent:${errClass.reason}] ${result.detail}`;
+        dispositionLog = `discarded_permanent (${errClass.reason})`;
+      } else if (newAttempts >= automation.max_retries) {
+        // Esgotou tentativas em erro temporário/desconhecido
+        nextStatus = "failed";
+        errorReason = `[${errClass.class}:max_retries] ${result.detail}`;
+        dispositionLog = `discarded_max_retries (${newAttempts}/${automation.max_retries})`;
+      } else {
+        // Retry com backoff progressivo
+        nextStatus = "pending";
+        nextSendAt = computeBackoffSendAt(newAttempts);
+        errorReason = `[${errClass.class}:retry] ${result.detail}`;
+        const waitS = Math.round((new Date(nextSendAt).getTime() - Date.now()) / 1000);
+        dispositionLog = `retry_${errClass.class} in ${waitS}s (attempt ${newAttempts}/${automation.max_retries}, ${errClass.reason})`;
+      }
+
       // Update queue item
       await db.from("welcome_queue").update({
-        status: result.ok ? "sent" : "failed",
-        attempts: item.attempts + 1,
-        processed_at: nowIso(),
+        status: nextStatus,
+        attempts: newAttempts,
+        processed_at: nextStatus === "pending" ? null : nowIso(),
         sender_device_id: sender.id,
-        error_reason: result.ok ? null : result.detail,
+        error_reason: errorReason,
         message_used: finalMessage,
         locked_at: null,
+        send_at: nextSendAt,
       } as any).eq("id", item.id);
 
       // Log message
@@ -868,7 +959,12 @@ async function processPhase() {
         sender_device_id: sender.id,
         message_text: finalMessage,
         result: result.ok ? "sent" : "failed",
-        external_response: { detail: result.detail },
+        external_response: {
+          detail: result.detail,
+          error_class: errClass.class,
+          classified_reason: errClass.reason,
+          disposition: dispositionLog,
+        },
       }).then(() => {}, () => {});
 
       // Compute timing metrics for observability
@@ -879,20 +975,30 @@ async function processPhase() {
       const driftSeconds = Math.round((actualSendMs - plannedSendMs) / 1000);
 
       // Log event
+      const eventType = result.ok
+        ? "message_sent"
+        : nextStatus === "pending" ? "message_retry" : "message_failed";
+      const eventLevel = result.ok ? "info" : nextStatus === "pending" ? "warn" : "error";
       await db.from("welcome_events").insert({
         automation_id: automation.id,
         user_id: automation.user_id,
-        event_type: result.ok ? "message_sent" : "message_failed",
-        level: result.ok ? "info" : "error",
+        event_type: eventType,
+        level: eventLevel,
         message: result.ok
           ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name} (esperou ${waitedSeconds}s, drift ${driftSeconds >= 0 ? "+" : ""}${driftSeconds}s)`
-          : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
+          : `Falha ao enviar para ${item.participant_phone}: ${result.detail} → ${dispositionLog}`,
         reference_id: item.id,
         payload_json: {
           phone: item.participant_phone,
           sender: sender.id,
           messageType,
           result: result.detail,
+          error_class: errClass.class,
+          classified_reason: errClass.reason,
+          disposition: dispositionLog,
+          attempts: newAttempts,
+          max_retries: automation.max_retries,
+          next_send_at: nextSendAt,
           planned_send_at: item.send_at,
           actual_sent_at: new Date(actualSendMs).toISOString(),
           waited_seconds: waitedSeconds,
@@ -900,7 +1006,7 @@ async function processPhase() {
         },
       }).then(() => {}, () => {});
 
-      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${result.detail}`);
+      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${dispositionLog} | ${result.detail}`);
 
       sentThisCycle++;
 
