@@ -12,6 +12,7 @@ import logo from "@/assets/logo-new.png";
 import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel.png";
 import HeroDataViz from "@/components/landing/HeroDataViz";
+import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
