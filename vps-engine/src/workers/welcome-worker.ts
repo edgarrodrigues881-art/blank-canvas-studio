@@ -625,6 +625,13 @@ async function processPhase() {
         external_response: { detail: result.detail },
       }).then(() => {}, () => {});
 
+      // Compute timing metrics for observability
+      const detectedAtMs = item.detected_at ? new Date(item.detected_at).getTime() : Date.now();
+      const plannedSendMs = item.send_at ? new Date(item.send_at).getTime() : detectedAtMs;
+      const actualSendMs = Date.now();
+      const waitedSeconds = Math.round((actualSendMs - detectedAtMs) / 1000);
+      const driftSeconds = Math.round((actualSendMs - plannedSendMs) / 1000);
+
       // Log event
       await db.from("welcome_events").insert({
         automation_id: automation.id,
@@ -632,21 +639,30 @@ async function processPhase() {
         event_type: result.ok ? "message_sent" : "message_failed",
         level: result.ok ? "info" : "error",
         message: result.ok
-          ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name}`
+          ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name} (esperou ${waitedSeconds}s, drift ${driftSeconds >= 0 ? "+" : ""}${driftSeconds}s)`
           : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
         reference_id: item.id,
-        payload_json: { phone: item.participant_phone, sender: sender.id, messageType, result: result.detail },
+        payload_json: {
+          phone: item.participant_phone,
+          sender: sender.id,
+          messageType,
+          result: result.detail,
+          planned_send_at: item.send_at,
+          actual_sent_at: new Date(actualSendMs).toISOString(),
+          waited_seconds: waitedSeconds,
+          drift_seconds: driftSeconds,
+        },
       }).then(() => {}, () => {});
 
-      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name}: ${result.detail}`);
+      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${result.detail}`);
 
       sentThisCycle++;
 
-      // Apply delay
-      const minD = automation.min_delay_seconds ?? 30;
-      const maxD = Math.max(automation.max_delay_seconds ?? 60, minD);
-      const delayMs = randomBetween(minD * 1000, maxD * 1000);
-      if (delayMs > 0) await sleep(delayMs);
+      // ── Technical guard delay ──
+      // O controle principal de tempo é o send_at (definido no monitorPhase).
+      // Aqui aplicamos apenas um pequeno espaçamento (500ms) para evitar burst em uma mesma
+      // instância quando vários itens vencem ao mesmo tempo. NÃO é o delay de aquecimento.
+      await sleep(500);
 
       // Check if automation was paused/stopped while processing
       const { data: freshAutomation } = await db
