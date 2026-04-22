@@ -90,42 +90,42 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-20 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden lg:min-h-[100vh] flex items-center">
+    <section className="relative pt-24 md:pt-32 pb-14 md:pb-32 px-5 md:px-6 overflow-hidden lg:min-h-[100vh] flex items-center">
       {/* Background — animated data visualization (desktop) */}
       <HeroDataViz />
 
       <div className="max-w-[1320px] mx-auto relative z-10 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-6 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-5 md:mb-7 px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/5 backdrop-blur-sm">
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-6 md:mb-7 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
               </span>
-              <span className="text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
+              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
             </motion.div>
 
-            <motion.h1 variants={fadeUp} className="text-[2.5rem] sm:text-[3rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-4 md:mb-7">
+            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7">
               Pare de perder números no{" "}
               <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent">WhatsApp.</span>{" "}
               <span className="text-white/55">Escale com controle total.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mb-7 md:mb-9 leading-[1.5] md:leading-[1.55]">
+            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mb-8 md:mb-9 leading-[1.55]">
               Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
             </motion.p>
 
-            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 md:gap-3">
-              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
+            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[15px] md:text-[14px] font-semibold px-7 h-[52px] md:h-12 rounded-[12px] md:rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
                 Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="w-full sm:w-auto bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-12 rounded-[10px]">
+              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="w-full sm:w-auto bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-[52px] md:h-12 rounded-[12px] md:rounded-[10px]">
                 Ver como funciona →
               </Button>
             </motion.div>
 
-            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-5 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
+            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-6 md:mt-5 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70 flex-shrink-0" />
               Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
           </motion.div>
