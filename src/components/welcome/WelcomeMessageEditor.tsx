@@ -653,31 +653,33 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
   return (
     <div className="space-y-4">
       {/* Type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {TYPE_OPTIONS.map(opt => {
-          const active = value.message_type === opt.value;
-          const Icon = opt.icon;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setType(opt.value)}
-              className={`group relative rounded-xl border p-3 text-left transition-all ${
-                active
-                  ? "border-primary bg-primary/10 shadow-sm"
-                  : "border-border/50 bg-muted/10 hover:border-border hover:bg-muted/20"
-              }`}
-            >
-              <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
-              <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-foreground/80"}`}>{opt.label}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
-              {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />}
-            </button>
-          );
-        })}
-      </div>
+      {!hideTypeSelector && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {TYPE_OPTIONS.map(opt => {
+            const active = value.message_type === opt.value;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setType(opt.value)}
+                className={`group relative rounded-xl border p-3 text-left transition-all ${
+                  active
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border/50 bg-muted/10 hover:border-border hover:bg-muted/20"
+                }`}
+              >
+                <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-foreground/80"}`}>{opt.label}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
+      <div className={hidePreview ? "" : "grid lg:grid-cols-[3fr_2fr] gap-5"}>
         {/* Editor side */}
         <div className="space-y-3 min-w-0">
           {/* Toolbar (text-related types) */}
