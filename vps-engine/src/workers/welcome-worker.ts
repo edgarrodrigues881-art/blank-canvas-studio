@@ -454,15 +454,15 @@ async function monitorPhase() {
               log.error(`Failed to enqueue: ${phone}`, insertErr);
             }
           } else {
-            log.info(`Enqueued: ${phone} → group ${group.group_name || group.group_id.slice(0, 12)}`);
+            log.info(`Enqueued: ${phone} → group ${group.group_name || group.group_id.slice(0, 12)} | send_at=${sendAt.toISOString()} (delay=${delaySeconds}s)`);
 
             await db.from("welcome_events").insert({
               automation_id: automation.id,
               user_id: automation.user_id,
                event_type: "participant_detected",
                level: "info",
-               message: `Novo participante detectado: ${phone}`,
-               payload_json: { phone, group_id: group.group_id },
+               message: `Novo participante detectado: ${phone} (envio agendado para +${delaySeconds}s)`,
+               payload_json: { phone, group_id: group.group_id, send_at: sendAt.toISOString(), delay_seconds: delaySeconds },
              }).then(() => {}, () => {});
           }
         }
