@@ -517,11 +517,11 @@ async function processPhase() {
       .limit(10);
     if (!pendingItems?.length) continue;
 
-    // Load sender device credentials
+    // Load sender device credentials (incluindo last_api_call_at para ranking)
     const senderIds = senders.map((s: any) => s.device_id);
     const { data: senderDevices } = await db
       .from("devices")
-      .select("id, uazapi_token, uazapi_base_url, status, name, number")
+      .select("id, uazapi_token, uazapi_base_url, status, name, number, last_api_call_at")
       .in("id", senderIds);
     if (!senderDevices?.length) continue;
 
@@ -530,6 +530,37 @@ async function processPhase() {
       ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status)
     );
     if (!activeSenders.length) continue;
+
+    // ── Métricas de uso/falhas (janela: hoje em BRT + sub-janela 60min) ──
+    // Estrutura preparada pra futuros limites: max_per_account, daily cap por device.
+    const sinceWindow60m = new Date(Date.now() - 60 * 60_000).toISOString();
+    const startOfDayBRT = (() => {
+      const now = new Date();
+      // BRT = UTC-3 → meia-noite BRT em UTC = 03:00 do mesmo dia UTC (ou dia anterior se utc<3)
+      const brtNow = new Date(now.getTime() - 3 * 3600_000);
+      const brtMidnight = new Date(Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate(), 0, 0, 0));
+      return new Date(brtMidnight.getTime() + 3 * 3600_000).toISOString();
+    })();
+
+    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number }>();
+    for (const did of activeSenders.map(s => s.id)) {
+      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0 });
+    }
+    const { data: recentLogs } = await db
+      .from("welcome_message_logs")
+      .select("sender_device_id, result, created_at")
+      .in("sender_device_id", activeSenders.map(s => s.id))
+      .gte("created_at", startOfDayBRT);
+
+    for (const lg of (recentLogs || [])) {
+      const st = senderStats.get(lg.sender_device_id);
+      if (!st) continue;
+      st.sentToday += 1;
+      if (lg.created_at >= sinceWindow60m) {
+        if (lg.result === "sent") st.sentRecent += 1;
+        else st.failedRecent += 1;
+      }
+    }
 
     // Acquire device locks for all sender devices
     const lockedSenderIds: string[] = [];
@@ -554,7 +585,9 @@ async function processPhase() {
     const automationButtons = Array.isArray(automation.buttons) ? automation.buttons : [];
     const automationCarousel = Array.isArray(automation.carousel_cards) ? automation.carousel_cards : [];
 
-    let senderIdx = 0;
+    // Uso por sender DURANTE este ciclo — distribui carga mesmo entre devices "iguais"
+    const cycleUsage = new Map<string, number>();
+    for (const s of availableSenders) cycleUsage.set(s.id, 0);
     let sentThisCycle = 0;
 
     for (const item of pendingItems) {
@@ -566,9 +599,21 @@ async function processPhase() {
         .eq("status", "pending");
       if (lockErr) continue;
 
-      // Pick sender (round-robin) — each person gets ONE message from ONE sender
-      const sender = availableSenders[senderIdx % availableSenders.length];
-      senderIdx++;
+      // ── Select best sender (smart strategy + send-slot claim via RPC) ──
+      const selected = await selectBestSender(
+        db, availableSenders, senderStats, cycleUsage, automation.id,
+      );
+      if (!selected) {
+        // Nenhum sender pôde claim send-slot agora — devolve item pra fila
+        await db.from("welcome_queue")
+          .update({ status: "pending", locked_at: null } as any)
+          .eq("id", item.id);
+        log.info(`No sender slot available for item ${item.id.slice(0, 8)} — re-queued`);
+        continue;
+      }
+      const { sender, reason, waitedMs } = selected;
+      cycleUsage.set(sender.id, (cycleUsage.get(sender.id) || 0) + 1);
+      log.info(`Sender chosen: ${sender.name} [${sender.id.slice(0, 8)}] — ${reason}${waitedMs > 0 ? ` (waited ${waitedMs}ms for slot)` : ""}`);
 
       // Build message with variables
       const messageTemplate = automation.message_content || "Olá! Seja bem-vindo(a)!";
