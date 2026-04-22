@@ -337,6 +337,61 @@ function isWithinSendWindow(startHour: string, endHour: string): boolean {
 }
 
 // ══════════════════════════════════════════════════════════
+// Error classification + retry/backoff
+// ══════════════════════════════════════════════════════════
+//
+// TEMPORÁRIO  → vale retry com backoff progressivo (timeout, 5xx, rate-limit, rede)
+// PERMANENTE  → marcar failed definitivo (número inválido, bloqueado, formato errado)
+// UNKNOWN     → tratar como temporário (mais conservador) mas com cap de retries
+
+type ErrorClass = "temporary" | "permanent" | "unknown";
+
+interface ClassifiedError {
+  class: ErrorClass;
+  reason: string;        // motivo curto para logs
+  shouldRetry: boolean;
+}
+
+const PERMANENT_PATTERNS: Array<{ rx: RegExp; reason: string }> = [
+  { rx: /not.*registered|not.*on.*whatsapp|n[ãa]o.*existe|invalid.*number|n[úu]mero.*inv[áa]lido/i, reason: "número não registrado no WhatsApp" },
+  { rx: /blocked|bloqueado|banned|banido/i, reason: "destinatário bloqueou/baniu" },
+  { rx: /forbidden|unauthorized|403|401/i, reason: "sem permissão (403/401)" },
+  { rx: /invalid.*format|malformed|bad.*request|400/i, reason: "payload/número malformado" },
+  { rx: /not.*found|404/i, reason: "recurso não encontrado (404)" },
+];
+
+const TEMPORARY_PATTERNS: Array<{ rx: RegExp; reason: string }> = [
+  { rx: /timeout|timed?\s*out|esgotad/i, reason: "timeout na API" },
+  { rx: /econnreset|econnrefused|enetunreach|etimedout|socket\s*hang|fetch\s*failed/i, reason: "falha de rede" },
+  { rx: /rate.?limit|too.*many.*requests|429/i, reason: "rate limit (429)" },
+  { rx: /5\d{2}|server.*error|internal.*error|bad.*gateway|service.*unavailable|gateway.*timeout/i, reason: "API indisponível (5xx)" },
+  { rx: /disconnect|desconect|not.*connected|sess(ion|ão).*(closed|encerrad)/i, reason: "instância desconectada" },
+];
+
+function classifyError(detail: string): ClassifiedError {
+  const text = String(detail || "").trim();
+  if (!text) return { class: "unknown", reason: "erro desconhecido", shouldRetry: true };
+
+  for (const p of PERMANENT_PATTERNS) {
+    if (p.rx.test(text)) return { class: "permanent", reason: p.reason, shouldRetry: false };
+  }
+  for (const p of TEMPORARY_PATTERNS) {
+    if (p.rx.test(text)) return { class: "temporary", reason: p.reason, shouldRetry: true };
+  }
+  return { class: "unknown", reason: "não classificado", shouldRetry: true };
+}
+
+// Backoff progressivo: send_at = now + (attempts * BACKOFF_BASE_SECONDS), com jitter
+const BACKOFF_BASE_SECONDS = 60;       // 60s, 120s, 180s...
+const BACKOFF_MAX_SECONDS = 30 * 60;   // teto de 30 min
+
+function computeBackoffSendAt(attempts: number): string {
+  const base = Math.min(attempts * BACKOFF_BASE_SECONDS, BACKOFF_MAX_SECONDS);
+  const jitter = Math.floor(Math.random() * 15); // 0–15s
+  return new Date(Date.now() + (base + jitter) * 1000).toISOString();
+}
+
+// ══════════════════════════════════════════════════════════
 // Smart sender selection — limites reais + cooldown
 // ══════════════════════════════════════════════════════════
 //
