@@ -828,9 +828,11 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
         </div>
 
         {/* Preview */}
-        <div className="min-w-0">
-          <WhatsAppPreview payload={value} />
-        </div>
+        {!hidePreview && (
+          <div className="min-w-0">
+            <WhatsAppPreview payload={value} />
+          </div>
+        )}
       </div>
     </div>
   );
