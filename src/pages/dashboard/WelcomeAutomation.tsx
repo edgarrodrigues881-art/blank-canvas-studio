@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload, type WelcomeMessageType } from "@/components/welcome/WelcomeMessageEditor";
+import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, getUiModeFromPayload, deriveBackendMessageType, type WelcomeMessagePayload, type WelcomeMessageType, type WelcomeUiMode } from "@/components/welcome/WelcomeMessageEditor";
 import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
 import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
