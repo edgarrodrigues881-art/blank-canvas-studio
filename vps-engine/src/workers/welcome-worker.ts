@@ -740,6 +740,7 @@ async function processPhase() {
       .eq("automation_id", automation.id)
       .eq("status", "pending")
       .or(`send_at.lte.${nowTs},send_at.is.null`)
+      .order("priority", { ascending: false })
       .order("send_at", { ascending: true, nullsFirst: true })
       .order("detected_at", { ascending: true })
       .limit(10);
