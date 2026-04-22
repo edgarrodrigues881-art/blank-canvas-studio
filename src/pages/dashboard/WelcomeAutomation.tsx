@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { WelcomeMessageBuilder, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload } from "@/components/welcome/WelcomeMessageEditor";
+import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload, type WelcomeMessageType } from "@/components/welcome/WelcomeMessageEditor";
 import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
 import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
@@ -33,6 +33,7 @@ import { WelcomeSystemInfo } from "@/components/welcome/WelcomeSystemInfo";
 import {
   Heart, Plus, Smartphone, Users, Send, Loader2, Trash2, ArrowLeft,
   Play, Pause, MessageSquare, Settings as SettingsIcon, Search, Check,
+  UserPlus, ArrowRight, Sparkles, Shield, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
