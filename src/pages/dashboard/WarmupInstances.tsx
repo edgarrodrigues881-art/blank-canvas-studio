@@ -1228,7 +1228,11 @@ const WarmupInstances = () => {
   const handleWarningOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowWarning(false);
-      if (!agreedResponsibility) navigate("/dashboard");
+      if (agreedResponsibility) {
+        try { localStorage.setItem(WARNING_DISMISS_KEY, "true"); } catch {}
+      } else {
+        navigate("/dashboard");
+      }
     }
   }, [agreedResponsibility, navigate]);
 
