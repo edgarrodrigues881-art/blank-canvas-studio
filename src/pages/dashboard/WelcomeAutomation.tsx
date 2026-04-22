@@ -254,28 +254,29 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
     if (!selectedGroups.length) return toast.error("Selecione pelo menos 1 grupo");
     if (!senderIds.length) return toast.error("Selecione pelo menos 1 remetente para enviar no PV");
 
-    if (payload.message_type === "media" && !payload.media_url.trim()) {
-      return toast.error("Informe a URL da mídia");
-    }
-    if (payload.message_type === "carousel" && payload.carousel_cards.length === 0) {
+    const finalType = deriveBackendMessageType(payload);
+
+    if (finalType === "carousel" && payload.carousel_cards.length === 0) {
       return toast.error("Adicione ao menos 1 card ao carrossel");
     }
-    if (payload.message_type === "buttons" && payload.buttons.length === 0) {
-      return toast.error("Adicione ao menos 1 botão");
+    if (finalType !== "carousel" && !payload.message_content.trim() && !payload.media_url.trim()) {
+      return toast.error("Escreva uma mensagem ou adicione uma mídia");
     }
-    if (payload.message_type !== "media" && !payload.message_content.trim()) {
-      return toast.error("Escreva a mensagem de boas-vindas");
+    // If a button slot is open but empty, block (composable rule: button needs label)
+    if (finalType === "buttons" && payload.buttons.some(b => !b.text.trim())) {
+      return toast.error("Preencha o texto de todos os botões ou remova-os");
     }
 
     const created = await create.mutateAsync({
       name: name.trim(),
       monitoring_device_id: monitoringId,
-      message_content: payload.message_type === "media" ? payload.media_caption : payload.message_content,
-      message_type: payload.message_type,
+      // When the message has media, the text becomes the caption; otherwise it's the body.
+      message_content: finalType === "media" ? (payload.message_content || payload.media_caption) : payload.message_content,
+      message_type: finalType,
       buttons: payload.buttons,
       carousel_cards: payload.carousel_cards,
       media_url: payload.media_url,
-      media_caption: payload.media_caption,
+      media_caption: finalType === "media" ? (payload.message_content || payload.media_caption) : payload.media_caption,
       min_delay_seconds: payload.min_delay_seconds,
       max_delay_seconds: payload.max_delay_seconds,
       group_ids: selectedGroups,
