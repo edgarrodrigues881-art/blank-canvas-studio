@@ -649,18 +649,20 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const isActive = automation.status === "active";
 
-  const saveMessage = () =>
-    update.mutateAsync({
+  const saveMessage = () => {
+    const finalType = deriveBackendMessageType(msgPayload);
+    return update.mutateAsync({
       id,
-      message_type: msgPayload.message_type,
-      message_content: msgPayload.message_type === "media" ? msgPayload.media_caption : msgPayload.message_content,
+      message_type: finalType,
+      message_content: finalType === "media" ? (msgPayload.message_content || msgPayload.media_caption) : msgPayload.message_content,
       buttons: msgPayload.buttons,
       carousel_cards: msgPayload.carousel_cards,
       media_url: msgPayload.media_url,
-      media_caption: msgPayload.media_caption,
+      media_caption: finalType === "media" ? (msgPayload.message_content || msgPayload.media_caption) : msgPayload.media_caption,
       min_delay_seconds: msgPayload.min_delay_seconds,
       max_delay_seconds: Math.max(msgPayload.max_delay_seconds, msgPayload.min_delay_seconds),
     } as any).then(() => toast.success("Mensagem atualizada!"));
+  };
 
   const saveSchedule = () => update.mutateAsync({
     id,
