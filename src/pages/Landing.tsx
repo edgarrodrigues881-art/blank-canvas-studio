@@ -97,8 +97,17 @@ const Hero = () => {
       <div className="max-w-[1320px] mx-auto relative z-10 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-6 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-5 md:mb-7 px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/5 backdrop-blur-sm">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              </span>
+              <span className="text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
+            </motion.div>
+
             <motion.h1 variants={fadeUp} className="text-[2.5rem] sm:text-[3rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-4 md:mb-7">
-              Pare de perder números no WhatsApp.{" "}
+              Pare de perder números no{" "}
+              <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent">WhatsApp.</span>{" "}
               <span className="text-white/55">Escale com controle total.</span>
             </motion.h1>
 
