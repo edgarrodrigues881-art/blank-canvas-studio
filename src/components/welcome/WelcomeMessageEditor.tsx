@@ -141,145 +141,308 @@ function clampDelay(value: number, min = 1, max = 1800) {
 // WhatsApp Preview
 // ────────────────────────────────────────────────────────────
 export function WelcomeWhatsAppPreview({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) { return <WhatsAppPreviewInner payload={payload} height={height} />; }
-function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) {
-  const isDark = document.documentElement.classList.contains("dark");
-  const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
-  const bubbleBg = isDark ? "#005c4b" : "#DCF8C6";
-  const bubbleColor = isDark ? "#ffffff" : "#111b21";
-  const cardBg = isDark ? "#1f2c33" : "#ffffff";
-  const btnColor = isDark ? "#53bdeb" : "#027eb5";
-  const subColor = isDark ? "#aebac1" : "#667781";
 
-  const renderedText = renderVars(payload.message_content, varClass);
+// Photorealistic iPhone Pro mockup with WhatsApp Dark Mode
+function WhatsAppPreviewInner({ payload, height = 580 }: { payload: WelcomeMessagePayload; height?: number }) {
+  // WhatsApp Dark palette (real values)
+  const waBg = "#0b141a";
+  const waHeader = "#1f2c34";
+  const waBubbleSent = "#005c4b";
+  const waBubbleRecv = "#1f2c34";
+  const waText = "#e9edef";
+  const waSubtext = "#8696a0";
+  const waLink = "#53bdeb";
+  const waInputBg = "#2a3942";
+  const varClass = "text-emerald-300";
+
+  const renderedText = renderVars(payload.message_content || "", varClass);
   const buttons = payload.buttons || [];
   const cards = payload.carousel_cards || [];
   const mediaKind = payload.media_url ? detectMediaKind(payload.media_url) : null;
 
+  // Computed proportional sizing
+  const screenH = height;
+  const screenW = Math.round(height * 0.485); // iPhone Pro ratio ~ 19.5:9
+  const radius = Math.round(screenW * 0.16);
+
   return (
-    <div
-      className="rounded-2xl border border-border/30 flex flex-col overflow-hidden"
-      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD", height }}
-    >
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border/20 shrink-0">
-        <div className="w-2 h-2 rounded-full bg-emerald-400" />
-        <span className={`text-[10px] font-medium uppercase tracking-wider ${isDark ? "text-muted-foreground" : "text-gray-500"}`}>Preview WhatsApp</span>
-        <Badge variant="outline" className="ml-auto text-[9px] px-1.5 py-0 h-4 font-mono uppercase">
-          {payload.message_type}
-        </Badge>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex justify-end">
-          <div className="max-w-[90%] space-y-1">
+    <div className="relative mx-auto select-none" style={{ width: screenW + 22 }}>
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute inset-0 -m-6 rounded-[3rem] bg-gradient-to-b from-emerald-500/10 via-pink-500/5 to-transparent blur-3xl" />
 
-            {/* Composable bubble for non-carousel: media + text + buttons can coexist */}
-            {payload.message_type !== "carousel" && (
-              <div className="rounded-xl rounded-tr-sm overflow-hidden shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
-                {/* Media block (top) */}
-                {payload.media_url && (
-                  <>
-                    {mediaKind === "image" && (
-                      <img src={payload.media_url} alt="" className="w-full max-h-[200px] object-cover" onError={e => (e.currentTarget.style.display = "none")} />
-                    )}
-                    {mediaKind === "video" && (
-                      <div className="relative h-[180px] bg-black/40 flex items-center justify-center">
-                        <video src={payload.media_url} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
-                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {mediaKind === "audio" && (
-                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
-                        <FileAudio className="w-5 h-5" style={{ color: bubbleColor }} />
-                        <span className="text-xs" style={{ color: bubbleColor }}>Áudio anexado</span>
-                      </div>
-                    )}
-                    {mediaKind === "document" && (
-                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
-                        <FileText className="w-5 h-5" style={{ color: bubbleColor }} />
-                        <span className="text-xs truncate" style={{ color: bubbleColor }}>{payload.media_url.split("/").pop()}</span>
-                      </div>
-                    )}
-                  </>
-                )}
+      {/* ── iPhone Pro chassis (titanium) ── */}
+      <div
+        className="relative mx-auto"
+        style={{
+          width: screenW + 22,
+          height: screenH + 22,
+          borderRadius: radius + 11,
+          background:
+            "linear-gradient(135deg, #4a4a4d 0%, #2a2a2d 25%, #1a1a1d 50%, #2a2a2d 75%, #3a3a3d 100%)",
+          boxShadow:
+            "0 30px 70px -20px rgba(0,0,0,0.7), 0 10px 30px -10px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 0 rgba(255,255,255,0.15)",
+        }}
+      >
+        {/* Side buttons */}
+        <div className="absolute -left-[3px] top-[16%] w-[3px] h-[6%] rounded-l-md" style={{ background: "linear-gradient(to right, #0a0a0c, #2a2a2d)" }} />
+        <div className="absolute -left-[3px] top-[26%] w-[3px] h-[10%] rounded-l-md" style={{ background: "linear-gradient(to right, #0a0a0c, #2a2a2d)" }} />
+        <div className="absolute -left-[3px] top-[40%] w-[3px] h-[10%] rounded-l-md" style={{ background: "linear-gradient(to right, #0a0a0c, #2a2a2d)" }} />
+        <div className="absolute -right-[3px] top-[24%] w-[3px] h-[14%] rounded-r-md" style={{ background: "linear-gradient(to left, #0a0a0c, #2a2a2d)" }} />
 
-                {/* Text/caption */}
-                <div className="px-3 py-2 text-sm leading-relaxed">
-                  {payload.message_content ? (
-                    <span dangerouslySetInnerHTML={{ __html: renderedText }} />
-                  ) : (
-                    <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
-                  )}
-                  <div className="flex items-center justify-end gap-1 mt-1">
-                    <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
-                    <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
-                      <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                      <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                    </svg>
+        {/* Bezel inner ring */}
+        <div
+          className="absolute inset-[8px] overflow-hidden"
+          style={{
+            borderRadius: radius + 3,
+            background: "#000",
+            boxShadow: "inset 0 0 0 2px rgba(0,0,0,0.6)",
+          }}
+        >
+          {/* ── Screen ── */}
+          <div
+            className="relative w-full h-full overflow-hidden"
+            style={{ borderRadius: radius - 4, background: waBg }}
+          >
+            {/* Subtle screen reflection */}
+            <div className="pointer-events-none absolute inset-0 z-30" style={{ background: "linear-gradient(115deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 22%, rgba(255,255,255,0) 78%, rgba(255,255,255,0.04) 100%)" }} />
+
+            {/* iOS Status Bar */}
+            <div className="relative z-20 flex items-center justify-between px-6 pt-2 pb-1 text-white" style={{ height: 28 }}>
+              <span className="text-[11px] font-semibold tabular-nums tracking-tight">14:30</span>
+              <div className="flex items-center gap-1">
+                {/* Signal */}
+                <svg viewBox="0 0 18 12" className="w-[15px] h-[10px]" fill="white">
+                  <rect x="0" y="8" width="3" height="4" rx="0.5" />
+                  <rect x="5" y="5" width="3" height="7" rx="0.5" />
+                  <rect x="10" y="2" width="3" height="10" rx="0.5" />
+                  <rect x="15" y="0" width="3" height="12" rx="0.5" opacity="0.4" />
+                </svg>
+                {/* Wifi */}
+                <svg viewBox="0 0 16 12" className="w-[14px] h-[11px]" fill="white">
+                  <path d="M8 11.5a1 1 0 100-2 1 1 0 000 2zm-3.5-3l1 1a3.5 3.5 0 015 0l1-1a4.9 4.9 0 00-7 0zM2 6l1 1a7 7 0 0110 0l1-1a8.4 8.4 0 00-12 0z" />
+                </svg>
+                {/* Battery */}
+                <div className="flex items-center ml-0.5">
+                  <div className="relative" style={{ width: 22, height: 11, border: "1px solid rgba(255,255,255,0.5)", borderRadius: 3 }}>
+                    <div className="absolute top-[1px] left-[1px] bottom-[1px] bg-white rounded-[1.5px]" style={{ width: "78%" }} />
                   </div>
+                  <div className="ml-[1px] w-[1.5px] h-[5px] rounded-r bg-white/50" />
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Inline buttons (composable, after main bubble) */}
-            {payload.message_type !== "carousel" && buttons.length > 0 && (
-              <div className="space-y-1">
-                {buttons.map((btn, i) => (
-                  <div key={btn.id} className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm flex items-center justify-center gap-1.5" style={{ backgroundColor: cardBg, color: btnColor }}>
-                    {btn.type === "url" && <Link2 className="w-3.5 h-3.5" />}
-                    {btn.type === "phone" && <Phone className="w-3.5 h-3.5" />}
-                    {btn.type === "reply" && <MessageCircle className="w-3.5 h-3.5" />}
-                    {btn.text || `Botão ${i + 1}`}
-                  </div>
-                ))}
+            {/* Dynamic Island */}
+            <div className="absolute top-[7px] left-1/2 -translate-x-1/2 z-40 rounded-full bg-black" style={{ width: Math.round(screenW * 0.32), height: 24 }}>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-zinc-800" />
+            </div>
+
+            {/* WhatsApp Header */}
+            <div className="relative z-10 flex items-center gap-2.5 px-3 py-2 shadow-md" style={{ background: waHeader, color: waText }}>
+              <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="currentColor">
+                <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z" />
+              </svg>
+              <div className="relative shrink-0">
+                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}>
+                  GV
+                </div>
               </div>
-            )}
+              <div className="flex-1 min-w-0 leading-tight">
+                <p className="text-[13px] font-semibold truncate" style={{ color: waText }}>Grupo VIP</p>
+                <p className="text-[10px] truncate" style={{ color: waSubtext }}>online</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0" style={{ color: waText }}>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="currentColor">
+                  <path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z" />
+                </svg>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="currentColor">
+                  <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z" />
+                </svg>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="currentColor">
+                  <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+                </svg>
+              </div>
+            </div>
 
-            {/* Carousel preview */}
-            {payload.message_type === "carousel" && cards.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 pt-1 -mx-1 px-1" style={{ scrollSnapType: "x mandatory" }}>
-                {cards.map((card, i) => (
-                  <div key={card.id} className="rounded-xl overflow-hidden shadow-sm shrink-0 w-[200px] flex flex-col" style={{ backgroundColor: cardBg, scrollSnapAlign: "start" }}>
-                    {card.image_url ? (
-                      <div className="h-[110px] bg-muted/30 flex items-center justify-center overflow-hidden">
-                        <img src={card.image_url} alt="" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = "none")} />
-                      </div>
-                    ) : (
-                      <div className="h-[70px] flex items-center justify-center" style={{ backgroundColor: isDark ? "#2a3942" : "#e8e8e8" }}>
-                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="p-2 flex-1">
-                      <p className="text-xs font-semibold truncate" style={{ color: bubbleColor }}>{card.title || `Card ${i + 1}`}</p>
-                      {card.description && (
-                        <p className="text-[10px] mt-0.5 line-clamp-3" style={{ color: subColor }}>
-                          {card.description}
-                        </p>
+            {/* Chat area with WhatsApp doodle wallpaper */}
+            <div
+              className="relative flex-1 overflow-y-auto px-3 py-3"
+              style={{
+                height: `calc(100% - 28px - 48px - 56px)`,
+                backgroundColor: waBg,
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><g fill='%23182229' fill-opacity='0.5'><circle cx='30' cy='30' r='2'/><circle cx='60' cy='80' r='1.5'/><circle cx='110' cy='40' r='2'/><circle cx='160' cy='90' r='1.5'/><circle cx='40' cy='150' r='1.5'/><circle cx='130' cy='160' r='2'/><circle cx='180' cy='30' r='1.5'/><circle cx='90' cy='110' r='2'/><path d='M20 60 L26 66 L20 72 Z' opacity='0.6'/><path d='M150 130 L156 136 L150 142 Z' opacity='0.6'/><path d='M75 25 L81 31 L75 37 Z' opacity='0.6'/></g></svg>")`,
+                backgroundSize: "240px 240px",
+              }}
+            >
+              {/* Date pill */}
+              <div className="flex justify-center mb-3">
+                <div className="px-2.5 py-0.5 rounded-md text-[9.5px] font-medium shadow-sm" style={{ background: waHeader, color: waSubtext }}>
+                  HOJE
+                </div>
+              </div>
+
+              {/* Sent messages */}
+              <div className="flex justify-end">
+                <div className="max-w-[85%] space-y-1">
+
+                  {/* Composable bubble for non-carousel */}
+                  {payload.message_type !== "carousel" && (
+                    <div
+                      className="relative rounded-lg shadow-sm overflow-hidden"
+                      style={{ background: waBubbleSent, color: waText }}
+                    >
+                      {/* Tail */}
+                      <svg className="absolute -right-[7px] top-0" width="8" height="13" viewBox="0 0 8 13">
+                        <path d="M0 0 L8 0 L0 13 Z" fill={waBubbleSent} />
+                      </svg>
+
+                      {/* Media */}
+                      {payload.media_url && (
+                        <div className="p-1 pb-0">
+                          {mediaKind === "image" && (
+                            <img src={payload.media_url} alt="" className="w-full max-h-[180px] object-cover rounded-md" onError={e => (e.currentTarget.style.display = "none")} />
+                          )}
+                          {mediaKind === "video" && (
+                            <div className="relative h-[160px] rounded-md overflow-hidden bg-black/40 flex items-center justify-center">
+                              <video src={payload.media_url} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-10 h-10 rounded-full bg-black/55 flex items-center justify-center backdrop-blur-sm">
+                                  <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {mediaKind === "audio" && (
+                            <div className="px-2 py-2 flex items-center gap-2 rounded-md" style={{ background: "rgba(0,0,0,0.18)" }}>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: waLink }}>
+                                <Play className="w-3 h-3 text-white fill-white ml-0.5" />
+                              </div>
+                              <div className="flex-1 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }}>
+                                <div className="h-full w-1/3 rounded-full" style={{ background: waLink }} />
+                              </div>
+                              <span className="text-[10px]" style={{ color: waSubtext }}>0:24</span>
+                            </div>
+                          )}
+                          {mediaKind === "document" && (
+                            <div className="px-2 py-2 flex items-center gap-2 rounded-md" style={{ background: "rgba(0,0,0,0.18)" }}>
+                              <FileText className="w-5 h-5" style={{ color: waText }} />
+                              <span className="text-[11px] truncate" style={{ color: waText }}>{payload.media_url.split("/").pop()}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
-                    </div>
-                    {card.buttons.length > 0 && (
-                      <div className="border-t" style={{ borderColor: isDark ? "#2a3942" : "#e8e8e8" }}>
-                        {card.buttons.map((btn, bi) => (
-                          <div key={btn.id} className="px-2 py-1.5 text-center text-[10px] font-medium border-b last:border-b-0" style={{ color: btnColor, borderColor: isDark ? "#2a3942" : "#e8e8e8" }}>
-                            {btn.text || `Botão ${bi + 1}`}
-                          </div>
-                        ))}
+
+                      {/* Text */}
+                      <div className="px-2.5 py-1.5 pb-1">
+                        <div className="text-[13.5px] leading-snug whitespace-pre-wrap break-words" style={{ color: waText }}>
+                          {payload.message_content ? (
+                            <span dangerouslySetInnerHTML={{ __html: renderedText }} />
+                          ) : (
+                            <span style={{ color: "rgba(233,237,239,0.45)", fontStyle: "italic" }}>Digite uma mensagem...</span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-end gap-1 mt-0.5 -mb-0.5">
+                          <span className="text-[10px]" style={{ color: "rgba(233,237,239,0.55)" }}>14:30</span>
+                          <svg viewBox="0 0 16 11" className="w-[15px] h-[11px]" fill="#53bdeb">
+                            <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                            <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                          </svg>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  )}
+
+                  {/* Inline buttons */}
+                  {payload.message_type !== "carousel" && buttons.length > 0 && (
+                    <div className="space-y-[2px] mt-1">
+                      {buttons.map((btn, i) => (
+                        <div
+                          key={btn.id}
+                          className="rounded-md px-3 py-2 text-center text-[12.5px] font-medium shadow-sm flex items-center justify-center gap-1.5"
+                          style={{ background: waHeader, color: waLink }}
+                        >
+                          {btn.type === "url" && <Link2 className="w-3 h-3" />}
+                          {btn.type === "phone" && <Phone className="w-3 h-3" />}
+                          {btn.type === "reply" && <MessageCircle className="w-3 h-3" />}
+                          {btn.text || `Botão ${i + 1}`}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Carousel */}
+                  {payload.message_type === "carousel" && cards.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollSnapType: "x mandatory" }}>
+                      {cards.map((card, i) => (
+                        <div
+                          key={card.id}
+                          className="rounded-lg overflow-hidden shadow-sm shrink-0 flex flex-col"
+                          style={{ background: waBubbleSent, scrollSnapAlign: "start", width: 170 }}
+                        >
+                          {card.image_url ? (
+                            <div className="h-[100px] overflow-hidden">
+                              <img src={card.image_url} alt="" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = "none")} />
+                            </div>
+                          ) : (
+                            <div className="h-[70px] flex items-center justify-center" style={{ background: waInputBg }}>
+                              <ImageIcon className="w-5 h-5" style={{ color: waSubtext }} />
+                            </div>
+                          )}
+                          <div className="p-2 flex-1">
+                            <p className="text-[11.5px] font-semibold truncate" style={{ color: waText }}>{card.title || `Card ${i + 1}`}</p>
+                            {card.description && (
+                              <p className="text-[10px] mt-0.5 line-clamp-3" style={{ color: "rgba(233,237,239,0.7)" }}>
+                                {card.description}
+                              </p>
+                            )}
+                          </div>
+                          {card.buttons.length > 0 && (
+                            <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                              {card.buttons.map((btn, bi) => (
+                                <div key={btn.id} className="px-2 py-1.5 text-center text-[10.5px] font-medium border-b last:border-b-0" style={{ color: waLink, borderColor: "rgba(255,255,255,0.08)" }}>
+                                  {btn.text || `Botão ${bi + 1}`}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {payload.message_type === "carousel" && cards.length === 0 && (
+                    <p className="text-[10px] italic text-right" style={{ color: "rgba(233,237,239,0.5)" }}>Adicione cards →</p>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
 
-            {payload.message_type === "carousel" && cards.length === 0 && (
-              <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Adicione cards ao lado →</p>
-            )}
-
+            {/* Input bar */}
+            <div className="absolute bottom-0 left-0 right-0 z-20 px-2 pb-2 pt-1.5 flex items-center gap-1.5" style={{ background: waBg }}>
+              <div className="flex-1 flex items-center gap-1.5 rounded-full px-3 py-1.5" style={{ background: waInputBg }}>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0" fill={waSubtext}>
+                  <path d="M9.153 11.603c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962zm-3.204 1.362c-.026-.307-.131 5.218 6.063 5.551 6.066-.25 6.066-5.551 6.066-5.551-6.078 1.416-12.129 0-12.129 0zm11.363 1.108s-.669 1.959-5.051 1.959c-3.505 0-5.388-1.164-5.607-1.959 0 0 5.912 1.055 10.658 0zM11.804 1.011C5.609 1.011.978 6.033.978 12.228s4.826 10.761 11.021 10.761S23.02 18.423 23.02 12.228c.001-6.195-5.021-11.217-11.216-11.217zM12 21.354c-5.273 0-9.381-3.886-9.381-9.159s3.942-9.548 9.215-9.548 9.548 4.275 9.548 9.548c-.001 5.272-4.109 9.159-9.382 9.159zm3.108-9.751c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962z" />
+                </svg>
+                <span className="flex-1 text-[12.5px]" style={{ color: waSubtext }}>Mensagem</span>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0" fill={waSubtext}>
+                  <path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 003.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.959.958 2.423 1.053 3.263.215l5.511-5.512c.18-.18.245-.41.171-.584-.073-.176-.272-.274-.514-.274h-.001c-.139 0-.272.057-.346.149L9.847 15.144c-.508.504-1.422.405-1.95-.123-.281-.282-.439-.633-.445-.992-.005-.295.097-.55.286-.739l7.915-7.917c.73-.73 2.156-.586 3.176.434.541.541.852 1.232.901 1.998.045.531-.165 1.077-.591 1.502l-9.547 9.549a3.97 3.97 0 01-2.829 1.171 3.975 3.975 0 01-2.83-1.173 3.973 3.973 0 01-1.172-2.828c0-1.071.415-2.076 1.172-2.83l7.209-7.211c.157-.157.264-.579.028-.814-.137-.137-.21-.385-.385-.385h-.001c-.139 0-.225.058-.317.151l-7.21 7.211a5.61 5.61 0 00-1.642 3.99z" />
+                </svg>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0" fill={waSubtext}>
+                  <path d="M9 16h6c.55 0 1-.45 1-1V9h1.59c.89 0 1.34-1.08.71-1.71L12.71 2.71a.9959.9959 0 00-1.41 0L5.71 7.29C5.08 7.92 5.52 9 6.41 9H8v6c0 .55.45 1 1 1z" />
+                </svg>
+              </div>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#00a884" }}>
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="white">
+                  <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z" />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <p className="text-center text-[10px] text-muted-foreground mt-4 font-medium tracking-wide uppercase">
+        iPhone 16 Pro · WhatsApp
+      </p>
     </div>
   );
 }
