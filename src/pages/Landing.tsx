@@ -280,7 +280,7 @@ const UseCase = () => (
             <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
             <span className="ml-3 text-[10px] text-white/25 font-medium tracking-wide">Painel de instâncias</span>
           </div>
-          <img src={heroCrmScreenshot} alt="Painel" className="w-full h-auto block opacity-80" loading="lazy" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
+          <img src={heroInstancesPanel} alt="Painel" className="w-full h-auto block opacity-80" loading="lazy" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
         </div>
       </motion.div>
     </div>
