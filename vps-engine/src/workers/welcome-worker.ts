@@ -886,13 +886,14 @@ async function processPhase() {
         ? buildCarouselCardsWithVars(automationCarousel, vars)
         : [];
 
-      // Check max retries
+      // Pre-send guard: defensivo — normalmente max_retries é tratado no pós-envio (retry inteligente)
       if (item.attempts >= automation.max_retries) {
         await db.from("welcome_queue").update({
           status: "failed",
-          error_reason: `Excedeu ${automation.max_retries} tentativas`,
+          error_reason: `[max_retries] Excedeu ${automation.max_retries} tentativas`,
           processed_at: nowIso(),
         } as any).eq("id", item.id);
+        log.warn(`Discarded item ${item.id.slice(0, 8)} — pre-send guard (attempts=${item.attempts}/${automation.max_retries})`);
         continue;
       }
 
