@@ -8,10 +8,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge, STATUS_MAP } from "./WelcomeStatusBadge";
 import { WelcomeSmartHint } from "./WelcomeSmartStatus";
-import { useWelcomeQueue, useUpdateQueueItem } from "@/hooks/useWelcomeAutomation";
-import { toast } from "sonner";
+import { WelcomeQueueRowActions } from "./WelcomeQueueRowActions";
+import { WelcomeEditQueueDialog } from "./WelcomeEditQueueDialog";
+import { WelcomeQueueItemLogs } from "./WelcomeQueueItemLogs";
+import { useWelcomeQueue, type WelcomeQueueItem } from "@/hooks/useWelcomeAutomation";
 import { format } from "date-fns";
-import { Search, Download, RotateCcw, XCircle, ListChecks, Flame } from "lucide-react";
+import { Search, Download, ListChecks, Flame } from "lucide-react";
 
 export function WelcomeQueueTable({ automationId, maxRetries = 3 }: { automationId: string; maxRetries?: number }) {
   const { data: queue } = useWelcomeQueue(automationId);
