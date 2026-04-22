@@ -117,11 +117,34 @@ const Hero = () => {
             </motion.p>
 
             <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[15px] md:text-[14px] font-semibold px-7 h-[52px] md:h-12 rounded-[12px] md:rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
-                Começar agora <ArrowRight className="w-4 h-4" />
+              <Button
+                size="lg"
+                onClick={() => navigate("/auth?mode=signup")}
+                className="group w-full sm:w-auto h-[52px] md:h-[50px] px-7 rounded-[12px] gap-2
+                  bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500
+                  text-emerald-950 text-[15px] md:text-[14.5px] font-semibold tracking-tight
+                  shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_8px_24px_-6px_rgba(16,185,129,0.55)]
+                  hover:shadow-[0_1px_0_0_rgba(255,255,255,0.3)_inset,0_14px_32px_-6px_rgba(16,185,129,0.7)]
+                  hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98]
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(222,22%,5%)]
+                  transition-all duration-200"
+              >
+                Começar agora
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Button>
-              <Button size="lg" variant="ghost" onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })} className="w-full sm:w-auto bg-transparent text-white/70 hover:text-white hover:bg-white/[0.04] text-[14px] font-medium px-4 h-[52px] md:h-12 rounded-[12px] md:rounded-[10px]">
-                Ver como funciona →
+              <Button
+                size="lg"
+                variant="ghost"
+                onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })}
+                className="group w-full sm:w-auto h-[52px] md:h-[50px] px-5 rounded-[12px] gap-1.5
+                  bg-white/[0.03] hover:bg-white/[0.07]
+                  border border-white/10 hover:border-white/20
+                  text-white/80 hover:text-white text-[14.5px] font-medium
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(222,22%,5%)]
+                  transition-all duration-200"
+              >
+                Ver como funciona
+                <ArrowRight className="w-4 h-4 opacity-60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
               </Button>
             </motion.div>
 
