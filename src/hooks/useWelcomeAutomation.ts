@@ -318,3 +318,120 @@ export function useUpdateQueueItem() {
     },
   });
 }
+
+/**
+ * Generic patch for a queue item — supports any user-controlled field
+ * (status, priority, send_at, attempts, error_reason).
+ * Uses optimistic update for fluid UX, falls back to refetch on error.
+ */
+export function usePatchQueueItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Partial<WelcomeQueueItem> }) => {
+      const { error } = await supabase
+        .from("welcome_queue")
+        .update(patch as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, patch }) => {
+      // Optimistic update across all welcome-queue caches
+      const snapshots: Array<[any, any]> = [];
+      const queries = qc.getQueriesData<WelcomeQueueItem[]>({ queryKey: ["welcome-queue"] });
+      for (const [key, data] of queries) {
+        if (!data) continue;
+        snapshots.push([key, data]);
+        qc.setQueryData<WelcomeQueueItem[]>(key, data.map(item =>
+          item.id === id ? { ...item, ...patch } as WelcomeQueueItem : item
+        ));
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback
+      ctx?.snapshots?.forEach(([key, data]) => qc.setQueryData(key, data));
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["welcome-queue"] });
+    },
+  });
+}
+
+/**
+ * Force a queue item to be sent immediately:
+ * - status = pending
+ * - send_at = now (so worker picks it up on next tick)
+ * - locked_at = null
+ * - keep attempts intact (counts as a retry, not a fresh send)
+ */
+export function useForceSendQueueItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("welcome_queue")
+        .update({
+          status: "pending",
+          send_at: new Date().toISOString(),
+          locked_at: null,
+          error_reason: null,
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["welcome-queue"] });
+    },
+  });
+}
+
+/**
+ * Resend an item from scratch:
+ * - status = pending
+ * - attempts = 0
+ * - clears error_reason and processed_at
+ * - schedules send_at = now
+ */
+export function useResendQueueItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("welcome_queue")
+        .update({
+          status: "pending",
+          attempts: 0,
+          error_reason: null,
+          processed_at: null,
+          locked_at: null,
+          send_at: new Date().toISOString(),
+        } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["welcome-queue"] });
+    },
+  });
+}
+
+/**
+ * Logs related to a single queue item — joins welcome_message_logs by queue_id.
+ */
+export function useQueueItemLogs(queueId: string | undefined) {
+  return useQuery({
+    queryKey: ["welcome-queue-item-logs", queueId],
+    queryFn: async () => {
+      if (!queueId) return [];
+      const { data, error } = await supabase
+        .from("welcome_message_logs")
+        .select("*")
+        .eq("queue_id", queueId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data || []) as unknown as WelcomeMessageLog[];
+    },
+    enabled: !!queueId,
+  });
+}
