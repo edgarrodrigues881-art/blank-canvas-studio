@@ -177,8 +177,8 @@ const Hero = () => {
               {/* KPI row */}
               <div className="relative grid grid-cols-2 gap-2.5 mb-4">
                 {[
-                  { label: "Mensagens hoje", value: "12.847", trend: "+18%" },
-                  { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
+                  { label: "Mensagens hoje", ...HERO_METRICS.messagesToday },
+                  { label: "Taxa de entrega", ...HERO_METRICS.deliveryRate },
                 ].map((s, i) => (
                   <div key={s.label} className="rounded-lg border border-emerald-400/15 bg-white/[0.02] px-3 py-2.5">
                     <div className="flex items-center justify-between mb-0.5">
@@ -189,8 +189,8 @@ const Hero = () => {
                       <span className="text-[17px] font-semibold text-white tabular-nums tracking-tight">{s.value}</span>
                       <motion.span
                         className="w-1 h-1 rounded-full bg-emerald-400"
-                        animate={{ opacity: [1, 0.3, 1] }}
-                        transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                        animate={{ opacity: [0.9, 0.35, 0.9] }}
+                        transition={{ duration: 2.8, repeat: Infinity, delay: i * 0.5, ease: "easeInOut" }}
                       />
                     </div>
                   </div>
@@ -201,19 +201,19 @@ const Hero = () => {
               <div className="relative">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ 18%</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ {HERO_METRICS.messagesToday.trend.replace("+", "")}</span>
                 </div>
                 <div className="flex items-end gap-1 h-[68px]">
-                  {[42, 68, 56, 81, 64, 88, 72, 92, 60, 78, 48, 70].map((v, i) => (
+                  {HERO_BAR_SERIES.map((v, i) => (
                     <motion.div
                       key={i}
                       initial={{ height: 0 }}
-                      animate={{ height: [`${v}%`, `${Math.max(20, v - 12)}%`, `${v}%`] }}
+                      animate={{ height: [`${v}%`, `${Math.max(25, v - 6)}%`, `${v}%`] }}
                       transition={{
-                        height: { duration: 3 + (i % 3), repeat: Infinity, delay: i * 0.08, ease: "easeInOut" },
+                        height: { duration: 5 + (i % 3), repeat: Infinity, delay: i * 0.12, ease: "easeInOut" },
                       }}
-                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
-                      style={{ boxShadow: "0 0 8px rgba(16,185,129,0.4)" }}
+                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/70 via-emerald-500/85 to-emerald-300/95"
+                      style={{ boxShadow: "0 0 6px rgba(16,185,129,0.28)" }}
                     />
                   ))}
                 </div>
