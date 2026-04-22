@@ -80,12 +80,13 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-const TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; icon: any }[] = [
-  { value: "text", label: "Texto", desc: "Mensagem simples", icon: Type },
-  { value: "buttons", label: "Texto + Botões", desc: "CTA interativo", icon: MousePointerClick },
-  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards", icon: Images },
-  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", icon: ImageIcon },
+export const WELCOME_TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; tag: string; icon: any }[] = [
+  { value: "text", label: "Texto", desc: "Mensagem simples e direta", tag: "Simples", icon: Type },
+  { value: "buttons", label: "Botões", desc: "CTAs interativos clicáveis", tag: "Interativo", icon: MousePointerClick },
+  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais", tag: "Alta conversão", icon: Images },
+  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", tag: "Visual", icon: ImageIcon },
 ];
+const TYPE_OPTIONS = WELCOME_TYPE_OPTIONS;
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -125,7 +126,8 @@ function clampDelay(value: number, min = 1, max = 1800) {
 // ────────────────────────────────────────────────────────────
 // WhatsApp Preview
 // ────────────────────────────────────────────────────────────
-function WhatsAppPreview({ payload }: { payload: WelcomeMessagePayload }) {
+export function WelcomeWhatsAppPreview({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) { return <WhatsAppPreviewInner payload={payload} height={height} />; }
+function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessagePayload; height?: number }) {
   const isDark = document.documentElement.classList.contains("dark");
   const varClass = isDark ? "text-emerald-400" : "text-emerald-600";
   const bubbleBg = isDark ? "#005c4b" : "#DCF8C6";
@@ -141,8 +143,8 @@ function WhatsAppPreview({ payload }: { payload: WelcomeMessagePayload }) {
 
   return (
     <div
-      className="rounded-2xl border border-border/30 flex flex-col h-[460px] overflow-hidden"
-      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD" }}
+      className="rounded-2xl border border-border/30 flex flex-col overflow-hidden"
+      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD", height }}
     >
       <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border/20 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -558,9 +560,13 @@ interface Props {
   onChange: (patch: Partial<WelcomeMessagePayload>) => void;
   /** Hide the delay section if the parent already exposes it elsewhere */
   hideDelay?: boolean;
+  /** Hide the type selector grid (parent renders it) */
+  hideTypeSelector?: boolean;
+  /** Hide the inline WhatsApp preview (parent renders it elsewhere) */
+  hidePreview?: boolean;
 }
 
-export function WelcomeMessageBuilder({ value, onChange, hideDelay }: Props) {
+export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSelector, hidePreview }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
   const { data: carouselTemplates } = useCarouselTemplates();
@@ -648,31 +654,33 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay }: Props) {
   return (
     <div className="space-y-4">
       {/* Type selector */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {TYPE_OPTIONS.map(opt => {
-          const active = value.message_type === opt.value;
-          const Icon = opt.icon;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setType(opt.value)}
-              className={`group relative rounded-xl border p-3 text-left transition-all ${
-                active
-                  ? "border-primary bg-primary/10 shadow-sm"
-                  : "border-border/50 bg-muted/10 hover:border-border hover:bg-muted/20"
-              }`}
-            >
-              <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
-              <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-foreground/80"}`}>{opt.label}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
-              {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />}
-            </button>
-          );
-        })}
-      </div>
+      {!hideTypeSelector && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {TYPE_OPTIONS.map(opt => {
+            const active = value.message_type === opt.value;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setType(opt.value)}
+                className={`group relative rounded-xl border p-3 text-left transition-all ${
+                  active
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border/50 bg-muted/10 hover:border-border hover:bg-muted/20"
+                }`}
+              >
+                <Icon className={`w-4 h-4 mb-1.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                <p className={`text-xs font-semibold ${active ? "text-foreground" : "text-foreground/80"}`}>{opt.label}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                {active && <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
+      <div className={hidePreview ? "" : "grid lg:grid-cols-[3fr_2fr] gap-5"}>
         {/* Editor side */}
         <div className="space-y-3 min-w-0">
           {/* Toolbar (text-related types) */}
@@ -821,9 +829,11 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay }: Props) {
         </div>
 
         {/* Preview */}
-        <div className="min-w-0">
-          <WhatsAppPreview payload={value} />
-        </div>
+        {!hidePreview && (
+          <div className="min-w-0">
+            <WhatsAppPreviewInner payload={value} />
+          </div>
+        )}
       </div>
     </div>
   );

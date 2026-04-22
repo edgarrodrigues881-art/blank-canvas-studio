@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { WelcomeMessageBuilder, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload } from "@/components/welcome/WelcomeMessageEditor";
+import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload, type WelcomeMessageType } from "@/components/welcome/WelcomeMessageEditor";
 import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
 import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
@@ -33,6 +33,7 @@ import { WelcomeSystemInfo } from "@/components/welcome/WelcomeSystemInfo";
 import {
   Heart, Plus, Smartphone, Users, Send, Loader2, Trash2, ArrowLeft,
   Play, Pause, MessageSquare, Settings as SettingsIcon, Search, Check,
+  UserPlus, ArrowRight, Sparkles, Shield, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -291,55 +292,170 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1200px] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0 bg-background">
-        {/* ── Header ── */}
-        <DialogHeader className="px-6 py-4 border-b border-border/40 shrink-0">
-          <DialogTitle className="flex items-center gap-3 text-base font-semibold">
-            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <Heart className="w-4 h-4 text-pink-500" />
+      <DialogContent className="max-w-[1400px] w-[97vw] h-[94vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/50">
+
+        {/* ═══════ HEADER — strong identity ═══════ */}
+        <DialogHeader className="px-8 pt-6 pb-5 border-b border-border/40 shrink-0 bg-gradient-to-br from-pink-500/[0.04] via-transparent to-transparent">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20 shrink-0">
+              <Heart className="w-5 h-5 text-white fill-white/20" />
             </div>
-            <div className="flex flex-col">
-              <span>Nova automação de Boas-vindas</span>
-              <span className="text-[11px] font-normal text-muted-foreground">Configure a mensagem que será enviada para novos membros do grupo</span>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-[22px] font-bold text-foreground leading-tight tracking-tight">
+                Criar automação de boas-vindas
+              </DialogTitle>
+              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+                Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
+              </p>
+
+              {/* Flow concept */}
+              <div className="flex items-center gap-2 mt-4 flex-wrap">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                    <UserPlus className="w-3 h-3 text-emerald-500" />
+                  </div>
+                  <span className="text-[11px] font-medium text-foreground">Alguém entra no grupo</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60" />
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm">
+                  <div className="w-5 h-5 rounded-full bg-pink-500/15 flex items-center justify-center">
+                    <Send className="w-3 h-3 text-pink-500" />
+                  </div>
+                  <span className="text-[11px] font-medium text-foreground">Recebe mensagem no privado</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-auto">
+                  <Shield className="w-3 h-3 text-emerald-500" />
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
+                </div>
+              </div>
             </div>
-          </DialogTitle>
+          </div>
         </DialogHeader>
 
-        {/* ── Body: 2-column layout ── */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-0 overflow-hidden">
+        {/* ═══════ BODY ═══════ */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
 
-          {/* ═══ LEFT: Builder (main focus) ═══ */}
-          <div className="min-w-0 overflow-y-auto px-8 py-6 border-r border-border/40">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 rounded-full bg-primary" />
-                <h3 className="text-sm font-semibold uppercase tracking-wider">Mensagem de boas-vindas</h3>
-              </div>
-              <WelcomeMessageBuilder value={payload} onChange={patch => setPayload(p => ({ ...p, ...patch }))} />
+          {/* ═══ LEFT — Builder protagonist + preview ═══ */}
+          <div className="min-w-0 overflow-y-auto bg-gradient-to-b from-muted/[0.15] to-transparent">
+            <div className="px-8 py-7 space-y-7 max-w-[1000px] mx-auto">
+
+              {/* === Section 1: Type — premium cards === */}
+              <section className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    01 · Tipo de mensagem
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground">Escolha como sua mensagem será exibida</span>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  {WELCOME_TYPE_OPTIONS.map(opt => {
+                    const active = payload.message_type === opt.value;
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setPayload(p => ({ ...p, message_type: opt.value as WelcomeMessageType }))}
+                        className={`group relative rounded-2xl border-2 p-4 text-left transition-all overflow-hidden ${
+                          active
+                            ? "border-primary bg-gradient-to-br from-primary/10 to-primary/[0.02] shadow-lg shadow-primary/10 -translate-y-0.5"
+                            : "border-border/50 bg-card hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md"
+                        }`}
+                      >
+                        {active && (
+                          <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+                          </div>
+                        )}
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${
+                          active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        }`}>
+                          <Icon className="w-5 h-5" strokeWidth={2} />
+                        </div>
+                        <p className="text-sm font-bold text-foreground leading-tight">{opt.label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{opt.desc}</p>
+                        <div className={`inline-flex items-center gap-1 mt-2.5 px-2 py-0.5 rounded-md text-[9px] font-semibold uppercase tracking-wider ${
+                          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                        }`}>
+                          <Sparkles className="w-2.5 h-2.5" />
+                          {opt.tag}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* === Section 2: Builder + Preview side by side === */}
+              <section className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    02 · Construa sua mensagem
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-amber-500" /> Pré-visualização ao vivo
+                  </span>
+                </div>
+                <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
+                  {/* Builder */}
+                  <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
+                    <WelcomeMessageBuilder
+                      value={payload}
+                      onChange={patch => setPayload(p => ({ ...p, ...patch }))}
+                      hideTypeSelector
+                      hidePreview
+                    />
+                  </div>
+
+                  {/* Phone preview */}
+                  <div className="lg:sticky lg:top-0">
+                    <div className="relative mx-auto w-full max-w-[300px]">
+                      {/* Phone frame */}
+                      <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/30 overflow-hidden">
+                        {/* Notch */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/85 rounded-b-2xl z-10" />
+                        {/* Screen */}
+                        <div className="bg-background overflow-hidden">
+                          <WelcomeWhatsAppPreview payload={payload} height={520} />
+                        </div>
+                      </div>
+                      <p className="text-center text-[10px] text-muted-foreground mt-3 font-medium">
+                        Como aparecerá no WhatsApp
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
 
-          {/* ═══ RIGHT: Settings sidebar ═══ */}
-          <div className="min-w-0 overflow-y-auto bg-muted/20 px-5 py-6 space-y-5">
+          {/* ═══ RIGHT — Compact secondary sidebar ═══ */}
+          <div className="min-w-0 overflow-y-auto bg-card/40 border-l border-border/40 px-5 py-7 space-y-5">
 
-            {/* Name */}
-            <div className="space-y-2">
-              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome da automação</Label>
-              <Input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Ex: Boas-vindas VIP"
-                className="h-10 bg-background"
-              />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-3">
+                Configurações
+              </p>
+
+              {/* Name */}
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-medium text-foreground/80">Nome</Label>
+                <Input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Ex: Boas-vindas VIP"
+                  className="h-9 bg-background"
+                />
+              </div>
             </div>
 
             {/* Monitor */}
-            <div className="space-y-2">
-              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Smartphone className="w-3 h-3" /> Dispositivo monitor
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium text-foreground/80 flex items-center gap-1.5">
+                <Smartphone className="w-3 h-3" /> Monitor
               </Label>
               <Select value={monitoringId} onValueChange={setMonitoringId}>
-                <SelectTrigger className="h-10 bg-background"><SelectValue placeholder="Selecione um dispositivo" /></SelectTrigger>
+                <SelectTrigger className="h-9 bg-background"><SelectValue placeholder="Dispositivo nos grupos" /></SelectTrigger>
                 <SelectContent>
                   {(devices || []).map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}{d.number ? ` · ${d.number}` : ""}</SelectItem>
@@ -347,16 +463,16 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground leading-relaxed">
-                Instância que está dentro dos grupos para detectar novos membros.
+                Detecta novos membros nos grupos.
               </p>
             </div>
 
             {/* Groups (collapsible) */}
             {monitoringId && (
               <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!groupsValid}>
-                <summary className="flex items-center gap-2 px-3 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
                   <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold flex-1">Grupos monitorados</span>
+                  <span className="text-xs font-medium flex-1">Grupos</span>
                   <Badge variant={groupsValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
                     {selectedGroups.length}
                   </Badge>
@@ -372,7 +488,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                       className="pl-8 h-8 text-xs"
                     />
                   </div>
-                  <div className="max-h-48 overflow-y-auto rounded-lg bg-muted/20">
+                  <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
                     {loadingGroups ? (
                       <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
                     ) : !filteredGroups.length ? (
@@ -403,16 +519,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
             {/* Senders (collapsible) */}
             <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!sendersValid}>
-              <summary className="flex items-center gap-2 px-3 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors">
+              <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
                 <Send className="w-3.5 h-3.5 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold">Remetentes</p>
-                  {sendersValid && (
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {senderIds.length} dispositivo{senderIds.length !== 1 ? "s" : ""} selecionado{senderIds.length !== 1 ? "s" : ""}
-                    </p>
-                  )}
-                </div>
+                <span className="text-xs font-medium flex-1">Remetentes</span>
                 <Badge variant={sendersValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
                   {senderIds.length}
                 </Badge>
@@ -420,9 +529,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </summary>
               <div className="border-t border-border/30 p-2 space-y-2">
                 <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                  Dispositivos que enviarão a mensagem no privado, em rodízio.
+                  Enviam no privado em rodízio.
                 </p>
-                <div className="max-h-48 overflow-y-auto rounded-lg bg-muted/20">
+                <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
                   {!devices?.length ? (
                     <p className="text-[11px] text-muted-foreground p-4 text-center">Nenhum dispositivo disponível.</p>
                   ) : (
@@ -449,9 +558,11 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </div>
             </details>
 
-            {/* Status summary */}
-            <div className="rounded-xl border border-border/40 bg-background p-3 space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Resumo</p>
+            {/* Summary card */}
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> Resumo
+              </p>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Tipo</span>
@@ -459,24 +570,28 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Delay</span>
-                  <span className="font-mono">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                  <span className="font-mono text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
                 </div>
                 {monitorDevice && (
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">Monitor</span>
-                    <span className="truncate max-w-[160px] text-right">{monitorDevice.name}</span>
+                    <span className="truncate max-w-[160px] text-right text-foreground">{monitorDevice.name}</span>
                   </div>
                 )}
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Grupos · Remetentes</span>
+                  <span className="font-mono text-foreground">{selectedGroups.length} · {senderIds.length}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <DialogFooter className="border-t border-border/40 px-6 py-3 shrink-0 bg-muted/10">
+        {/* ═══════ FOOTER ═══════ */}
+        <DialogFooter className="border-t border-border/40 px-8 py-4 shrink-0 bg-background gap-2">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2 min-w-[140px]">
-            {create.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2 min-w-[180px] h-10 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-lg shadow-pink-500/20">
+            {create.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             Criar automação
           </Button>
         </DialogFooter>
