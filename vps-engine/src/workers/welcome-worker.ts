@@ -336,7 +336,148 @@ function isWithinSendWindow(startHour: string, endHour: string): boolean {
   return brtMinutes >= startMin && brtMinutes <= endMin;
 }
 
-// ── PHASE 1: Monitor groups for new participants ──
+// ══════════════════════════════════════════════════════════
+// Smart sender selection
+// ══════════════════════════════════════════════════════════
+//
+// Estratégia (ordem de prioridade):
+//   1. Menor uso DURANTE o ciclo atual (cycleUsage) — distribui pressão
+//   2. Menor número de envios HOJE (sentToday)        — balanceamento diário
+//   3. Menos falhas recentes (failedRecent, 60min)    — penaliza instáveis
+//   4. last_api_call_at mais antigo                   — respeita "esfriamento"
+//
+// Após ranquear, tenta `claim_device_send_slot` (RPC do Postgres) que serializa
+// chamadas no mesmo device com intervalo mínimo. Se a espera devolvida for
+// excessiva (> SLOT_MAX_WAIT_MS), pula pro próximo candidato.
+//
+// Fallback: se nenhum passar nos critérios refinados, devolve o primeiro
+// disponível que conseguiu claim — garante que sempre tenta enviar.
+//
+// Estrutura preparada pra plugar futuros caps:
+//   - max_per_account: comparar sentToday >= cap → remover do pool
+//   - max_per_minute:  comparar sentRecent >= cap → remover do pool
+// (basta filtrar `pool` antes do sort)
+
+const SLOT_MIN_INTERVAL_MS = 4000;   // intervalo mínimo entre envios no mesmo device
+const SLOT_MAX_WAIT_MS = 1500;       // se RPC pedir mais que isso, pula pro próximo
+
+interface SenderDevice {
+  id: string;
+  name: string;
+  uazapi_token: string | null;
+  uazapi_base_url: string | null;
+  status: string;
+  number: string | null;
+  last_api_call_at: string | null;
+}
+
+interface SenderStats {
+  sentRecent: number;   // últimos 60min
+  failedRecent: number; // últimos 60min
+  sentToday: number;    // BRT hoje
+}
+
+interface SelectedSender {
+  sender: SenderDevice;
+  reason: string;
+  waitedMs: number;
+}
+
+async function selectBestSender(
+  db: any,
+  pool: SenderDevice[],
+  stats: Map<string, SenderStats>,
+  cycleUsage: Map<string, number>,
+  automationId: string,
+): Promise<SelectedSender | null> {
+  if (pool.length === 0) return null;
+
+  // ── Score & sort (lower = better) ──
+  const scored = pool.map(d => {
+    const s = stats.get(d.id) || { sentRecent: 0, failedRecent: 0, sentToday: 0 };
+    const cycle = cycleUsage.get(d.id) || 0;
+    const lastCallAge = d.last_api_call_at
+      ? Date.now() - new Date(d.last_api_call_at).getTime()
+      : Number.MAX_SAFE_INTEGER;
+
+    // Score composto: cada componente em escala compatível
+    // - cycleUsage tem peso máximo (separar load no ciclo atual)
+    // - sentToday balanceia ao longo do dia
+    // - failedRecent penaliza instáveis (peso forte: x10)
+    // - lastCallAge: subtrai (mais antigo = melhor)
+    const score =
+      cycle * 1000 +
+      s.sentToday * 10 +
+      s.failedRecent * 100 +
+      s.sentRecent * 5 -
+      Math.min(lastCallAge / 1000, 600); // cap em 10min para não dominar
+
+    return { d, s, cycle, lastCallAge, score };
+  }).sort((a, b) => a.score - b.score);
+
+  // ── Tenta claim do send-slot em ordem de prioridade ──
+  for (const candidate of scored) {
+    const { d, s, cycle, lastCallAge } = candidate;
+
+    // Tenta reservar slot via RPC (atualiza devices.last_api_call_at com FOR UPDATE)
+    let waitMs = 0;
+    try {
+      const { data: rpcResult, error: rpcErr } = await db.rpc("claim_device_send_slot", {
+        p_device_id: d.id,
+        p_min_interval_ms: SLOT_MIN_INTERVAL_MS,
+      });
+      if (rpcErr) {
+        log.warn(`claim_device_send_slot error for ${d.name}: ${rpcErr.message} — trying anyway`);
+        waitMs = 0;
+      } else {
+        waitMs = Number(rpcResult ?? 0);
+      }
+    } catch (err: any) {
+      log.warn(`claim_device_send_slot threw for ${d.name}: ${err.message} — trying anyway`);
+      waitMs = 0;
+    }
+
+    if (waitMs < 0) {
+      // device não encontrado pelo RPC — pula
+      continue;
+    }
+    if (waitMs > SLOT_MAX_WAIT_MS) {
+      log.info(`Slot busy on ${d.name} [${d.id.slice(0, 8)}] — needs ${waitMs}ms, trying next`);
+      continue;
+    }
+
+    // Se precisar esperar pouco (<= SLOT_MAX_WAIT_MS), aguarda
+    if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+
+    // Monta motivo da escolha (audit trail)
+    const ageStr = lastCallAge === Number.MAX_SAFE_INTEGER
+      ? "nunca usado"
+      : `${Math.round(lastCallAge / 1000)}s atrás`;
+    const reason =
+      `cycle=${cycle} today=${s.sentToday} recent=${s.sentRecent} ` +
+      `fail60m=${s.failedRecent} lastCall=${ageStr}`;
+
+    return { sender: d, reason, waitedMs: waitMs };
+  }
+
+  // ── Fallback: nenhum passou no slot — pega o primeiro do ranking sem claim ──
+  // (acontece se TODOS estão dentro do intervalo mínimo; garante que algo é enviado)
+  const fallback = scored[0];
+  if (fallback) {
+    log.warn(`All senders busy on slot — fallback to ${fallback.d.name} [${fallback.d.id.slice(0, 8)}]`);
+    return {
+      sender: fallback.d,
+      reason: `FALLBACK (todos com slot ocupado) — cycle=${fallback.cycle} today=${fallback.s.sentToday}`,
+      waitedMs: 0,
+    };
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════
+// PHASE 1: Monitor groups for new participants
+// ══════════════════════════════════════════════════════════
+
 async function monitorPhase() {
   const db = getDb();
 
@@ -517,11 +658,11 @@ async function processPhase() {
       .limit(10);
     if (!pendingItems?.length) continue;
 
-    // Load sender device credentials
+    // Load sender device credentials (incluindo last_api_call_at para ranking)
     const senderIds = senders.map((s: any) => s.device_id);
     const { data: senderDevices } = await db
       .from("devices")
-      .select("id, uazapi_token, uazapi_base_url, status, name, number")
+      .select("id, uazapi_token, uazapi_base_url, status, name, number, last_api_call_at")
       .in("id", senderIds);
     if (!senderDevices?.length) continue;
 
@@ -530,6 +671,37 @@ async function processPhase() {
       ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status)
     );
     if (!activeSenders.length) continue;
+
+    // ── Métricas de uso/falhas (janela: hoje em BRT + sub-janela 60min) ──
+    // Estrutura preparada pra futuros limites: max_per_account, daily cap por device.
+    const sinceWindow60m = new Date(Date.now() - 60 * 60_000).toISOString();
+    const startOfDayBRT = (() => {
+      const now = new Date();
+      // BRT = UTC-3 → meia-noite BRT em UTC = 03:00 do mesmo dia UTC (ou dia anterior se utc<3)
+      const brtNow = new Date(now.getTime() - 3 * 3600_000);
+      const brtMidnight = new Date(Date.UTC(brtNow.getUTCFullYear(), brtNow.getUTCMonth(), brtNow.getUTCDate(), 0, 0, 0));
+      return new Date(brtMidnight.getTime() + 3 * 3600_000).toISOString();
+    })();
+
+    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number }>();
+    for (const did of activeSenders.map(s => s.id)) {
+      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0 });
+    }
+    const { data: recentLogs } = await db
+      .from("welcome_message_logs")
+      .select("sender_device_id, result, created_at")
+      .in("sender_device_id", activeSenders.map(s => s.id))
+      .gte("created_at", startOfDayBRT);
+
+    for (const lg of (recentLogs || [])) {
+      const st = senderStats.get(lg.sender_device_id);
+      if (!st) continue;
+      st.sentToday += 1;
+      if (lg.created_at >= sinceWindow60m) {
+        if (lg.result === "sent") st.sentRecent += 1;
+        else st.failedRecent += 1;
+      }
+    }
 
     // Acquire device locks for all sender devices
     const lockedSenderIds: string[] = [];
@@ -554,7 +726,9 @@ async function processPhase() {
     const automationButtons = Array.isArray(automation.buttons) ? automation.buttons : [];
     const automationCarousel = Array.isArray(automation.carousel_cards) ? automation.carousel_cards : [];
 
-    let senderIdx = 0;
+    // Uso por sender DURANTE este ciclo — distribui carga mesmo entre devices "iguais"
+    const cycleUsage = new Map<string, number>();
+    for (const s of availableSenders) cycleUsage.set(s.id, 0);
     let sentThisCycle = 0;
 
     for (const item of pendingItems) {
@@ -566,9 +740,21 @@ async function processPhase() {
         .eq("status", "pending");
       if (lockErr) continue;
 
-      // Pick sender (round-robin) — each person gets ONE message from ONE sender
-      const sender = availableSenders[senderIdx % availableSenders.length];
-      senderIdx++;
+      // ── Select best sender (smart strategy + send-slot claim via RPC) ──
+      const selected = await selectBestSender(
+        db, availableSenders, senderStats, cycleUsage, automation.id,
+      );
+      if (!selected) {
+        // Nenhum sender pôde claim send-slot agora — devolve item pra fila
+        await db.from("welcome_queue")
+          .update({ status: "pending", locked_at: null } as any)
+          .eq("id", item.id);
+        log.info(`No sender slot available for item ${item.id.slice(0, 8)} — re-queued`);
+        continue;
+      }
+      const { sender, reason, waitedMs } = selected;
+      cycleUsage.set(sender.id, (cycleUsage.get(sender.id) || 0) + 1);
+      log.info(`Sender chosen: ${sender.name} [${sender.id.slice(0, 8)}] — ${reason}${waitedMs > 0 ? ` (waited ${waitedMs}ms for slot)` : ""}`);
 
       // Build message with variables
       const messageTemplate = automation.message_content || "Olá! Seja bem-vindo(a)!";
