@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
-import heroCrmScreenshot from "@/assets/hero-crm-dashboard.png";
 import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel.png";
+import HeroDataViz from "@/components/landing/HeroDataViz";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
@@ -91,31 +91,8 @@ const Hero = () => {
   const navigate = useNavigate();
   return (
     <section className="relative pt-20 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden lg:min-h-[100vh] flex items-center">
-      {/* Background screenshot — desktop only, full-bleed right */}
-      <motion.div
-        initial={{ opacity: 0, scale: 1.02 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.8, ease: easeOut }}
-        className="absolute inset-0 z-0 pointer-events-none hidden lg:block"
-        aria-hidden="true"
-      >
-        <img
-          src={heroCrmScreenshot}
-          alt=""
-          className="absolute top-1/2 right-0 -translate-y-1/2 h-auto w-[68%] max-w-none object-contain object-right select-none"
-          draggable={false}
-        />
-        {/* Left dark gradient — stronger fade following the crop */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to right, hsl(222,22%,5%) 0%, hsl(222,22%,5%) 38%, hsla(222,22%,5%,0.92) 52%, hsla(222,22%,5%,0.55) 68%, hsla(222,22%,5%,0.15) 85%, transparent 100%)",
-          }}
-        />
-        {/* Bottom subtle fade for section transition */}
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[hsl(222,22%,5%)]" />
-      </motion.div>
+      {/* Background — animated data visualization (desktop) */}
+      <HeroDataViz />
 
       <div className="max-w-[1320px] mx-auto relative z-10 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-6 items-center">
