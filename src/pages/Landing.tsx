@@ -105,9 +105,10 @@ const Hero = () => {
               <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
             </motion.div>
 
-            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7">
-              Pare de perder números no{" "}
-              <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent">WhatsApp.</span>{" "}
+            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7 [text-wrap:balance]">
+              <span className="whitespace-nowrap">Pare de perder</span>{" "}
+              <span className="whitespace-nowrap">números no</span>{" "}
+              <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">WhatsApp.</span>{" "}
               <span className="text-white/55">Escale com controle total.</span>
             </motion.h1>
 
