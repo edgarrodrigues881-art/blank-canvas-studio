@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 /**
  * Animated "live data" visualization for the Hero background.
- * Pure SVG/CSS — no dependencies. Electric blue + cyan accent.
+ * Pure SVG/CSS — no dependencies. Emerald green (matches logo).
  */
 const HeroDataViz = () => {
   // Bar chart values (pulse subtly)
@@ -18,22 +18,27 @@ const HeroDataViz = () => {
     { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
   ];
 
+  // Emerald palette (matches DG logo green)
+  const GREEN = "rgb(16,185,129)";      // emerald-500
+  const GREEN_BRIGHT = "rgb(52,211,153)"; // emerald-400
+  const GREEN_DEEP = "rgb(5,150,105)";   // emerald-600
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
       {/* Grid pattern */}
-      <svg className="absolute inset-0 w-full h-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
-            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgb(56,189,248)" strokeWidth="0.5" />
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke={GREEN_BRIGHT} strokeWidth="0.5" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#grid)" />
       </svg>
 
-      {/* Glow halos */}
-      <div className="absolute top-[10%] right-[5%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_60%)] blur-3xl" />
-      <div className="absolute bottom-[5%] right-[25%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.18)_0%,transparent_65%)] blur-3xl" />
-      <div className="absolute top-[40%] right-[40%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.10)_0%,transparent_70%)] blur-3xl" />
+      {/* Glow halos — emerald */}
+      <div className="absolute top-[8%] right-[5%] w-[750px] h-[750px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18)_0%,transparent_60%)] blur-3xl" />
+      <div className="absolute bottom-[5%] right-[22%] w-[520px] h-[520px] rounded-full bg-[radial-gradient(circle,rgba(5,150,105,0.20)_0%,transparent_65%)] blur-3xl" />
+      <div className="absolute top-[40%] right-[40%] w-[420px] h-[420px] rounded-full bg-[radial-gradient(circle,rgba(52,211,153,0.10)_0%,transparent_70%)] blur-3xl" />
 
       {/* Right zone — data widgets */}
       <div className="absolute top-1/2 right-[3%] -translate-y-1/2 w-[58%] h-[78%] hidden lg:block">
@@ -45,16 +50,16 @@ const HeroDataViz = () => {
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6, delay: 0.3 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-xl border border-cyan-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm px-4 py-3 shadow-[0_8px_32px_-8px_rgba(56,189,248,0.25)]"
+              className="rounded-xl border border-emerald-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm px-4 py-3 shadow-[0_8px_32px_-8px_rgba(16,185,129,0.28)]"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">{s.label}</span>
-                <span className="text-[10px] text-cyan-400 font-semibold">{s.trend}</span>
+                <span className="text-[10px] text-emerald-400 font-semibold">{s.trend}</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[22px] font-semibold text-white tracking-tight tabular-nums">{s.value}</span>
                 <motion.span
-                  className="w-1.5 h-1.5 rounded-full bg-cyan-400"
+                  className="w-1.5 h-1.5 rounded-full bg-emerald-400"
                   animate={{ opacity: [1, 0.3, 1] }}
                   transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
                 />
@@ -68,18 +73,18 @@ const HeroDataViz = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute bottom-[8%] right-[8%] w-[420px] h-[200px] rounded-xl border border-blue-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm p-5 shadow-[0_12px_40px_-8px_rgba(59,130,246,0.3)]"
+          className="absolute bottom-[8%] right-[8%] w-[420px] h-[200px] rounded-xl border border-emerald-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm p-5 shadow-[0_12px_40px_-8px_rgba(16,185,129,0.32)]"
         >
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</div>
               <div className="text-[18px] font-semibold text-white tabular-nums mt-0.5">
-                12.847 <span className="text-cyan-400 text-[12px] font-medium">↑ 18%</span>
+                12.847 <span className="text-emerald-400 text-[12px] font-medium">↑ 18%</span>
               </div>
             </div>
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/70" />
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400/40" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/70" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
               <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
             </div>
           </div>
@@ -99,9 +104,9 @@ const HeroDataViz = () => {
                     ease: "easeInOut",
                   },
                 }}
-                className="flex-1 rounded-t-sm bg-gradient-to-t from-blue-500/80 via-blue-400/90 to-cyan-300"
+                className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
                 style={{
-                  boxShadow: "0 0 12px rgba(56,189,248,0.4)",
+                  boxShadow: "0 0 12px rgba(16,185,129,0.45)",
                 }}
               />
             ))}
@@ -113,17 +118,17 @@ const HeroDataViz = () => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute top-[12%] left-[2%] w-[320px] h-[140px] rounded-xl border border-cyan-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm p-4 shadow-[0_8px_32px_-8px_rgba(34,211,238,0.25)]"
+          className="absolute top-[12%] left-[2%] w-[320px] h-[140px] rounded-xl border border-emerald-400/15 bg-[hsl(222,28%,8%)]/85 backdrop-blur-sm p-4 shadow-[0_8px_32px_-8px_rgba(52,211,153,0.28)]"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Taxa de entrega</span>
-            <span className="text-[10px] text-cyan-400 font-semibold tabular-nums">98,4%</span>
+            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">98,4%</span>
           </div>
           <svg viewBox="0 0 400 100" className="w-full h-[90px]" preserveAspectRatio="none">
             <defs>
               <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(56,189,248)" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="rgb(56,189,248)" stopOpacity="0" />
+                <stop offset="0%" stopColor={GREEN} stopOpacity="0.45" />
+                <stop offset="100%" stopColor={GREEN} stopOpacity="0" />
               </linearGradient>
             </defs>
             <motion.path
@@ -136,20 +141,20 @@ const HeroDataViz = () => {
             <motion.path
               d={sparkline}
               fill="none"
-              stroke="rgb(56,189,248)"
+              stroke={GREEN}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{ duration: 1.8, delay: 0.8, ease: "easeInOut" }}
-              style={{ filter: "drop-shadow(0 0 4px rgba(56,189,248,0.6))" }}
+              style={{ filter: "drop-shadow(0 0 4px rgba(16,185,129,0.65))" }}
             />
             <motion.circle
               cx="400"
               cy="10"
               r="4"
-              fill="rgb(34,211,238)"
+              fill={GREEN_BRIGHT}
               animate={{ opacity: [1, 0.3, 1], r: [4, 6, 4] }}
               transition={{ duration: 1.6, repeat: Infinity }}
             />
@@ -167,9 +172,9 @@ const HeroDataViz = () => {
             <motion.line
               key={i}
               {...line}
-              stroke="rgb(56,189,248)"
+              stroke={GREEN}
               strokeWidth="0.8"
-              strokeOpacity="0.25"
+              strokeOpacity="0.28"
               strokeDasharray="3 4"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
