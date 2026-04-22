@@ -734,20 +734,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                 Ao vivo
               </span>
             </div>
-            <div className="flex-1 flex items-start justify-center">
-              <div className="relative w-full max-w-[280px]">
-                <div className="absolute inset-0 -m-4 rounded-[3rem] bg-gradient-to-b from-pink-500/20 via-fuchsia-500/10 to-transparent blur-2xl" />
-                <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/5">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/85 rounded-b-2xl z-10" />
-                  <div className="absolute -left-[14px] top-24 w-1 h-12 rounded-l-md bg-foreground/85" />
-                  <div className="bg-background overflow-hidden">
-                    <WelcomeWhatsAppPreview payload={payload} height={500} />
-                  </div>
-                </div>
-                <p className="text-center text-[10px] text-muted-foreground mt-4 font-medium tracking-wide uppercase">
-                  Como aparecerá no WhatsApp
-                </p>
-              </div>
+            <div className="flex-1 flex items-start justify-center pt-2">
+              <WelcomeWhatsAppPreview payload={payload} height={560} />
             </div>
           </aside>
         </div>
