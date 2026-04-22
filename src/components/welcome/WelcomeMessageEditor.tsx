@@ -559,9 +559,13 @@ interface Props {
   onChange: (patch: Partial<WelcomeMessagePayload>) => void;
   /** Hide the delay section if the parent already exposes it elsewhere */
   hideDelay?: boolean;
+  /** Hide the type selector grid (parent renders it) */
+  hideTypeSelector?: boolean;
+  /** Hide the inline WhatsApp preview (parent renders it elsewhere) */
+  hidePreview?: boolean;
 }
 
-export function WelcomeMessageBuilder({ value, onChange, hideDelay }: Props) {
+export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSelector, hidePreview }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { data: templates } = useTemplates();
   const { data: carouselTemplates } = useCarouselTemplates();
