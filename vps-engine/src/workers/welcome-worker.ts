@@ -907,15 +907,49 @@ async function processPhase() {
         finalCarousel,
       );
 
+      // ── Classificação de erro + retry inteligente ──
+      const newAttempts = item.attempts + 1;
+      const errClass: ClassifiedError = result.ok
+        ? { class: "temporary", reason: "ok", shouldRetry: false }
+        : classifyError(result.detail);
+
+      let nextStatus: "sent" | "failed" | "pending";
+      let nextSendAt: string | null = item.send_at ?? null;
+      let errorReason: string | null = null;
+      let dispositionLog: string;
+
+      if (result.ok) {
+        nextStatus = "sent";
+        dispositionLog = "ok";
+      } else if (errClass.class === "permanent") {
+        // Erro permanente → falha definitiva, sem retry
+        nextStatus = "failed";
+        errorReason = `[permanent:${errClass.reason}] ${result.detail}`;
+        dispositionLog = `discarded_permanent (${errClass.reason})`;
+      } else if (newAttempts >= automation.max_retries) {
+        // Esgotou tentativas em erro temporário/desconhecido
+        nextStatus = "failed";
+        errorReason = `[${errClass.class}:max_retries] ${result.detail}`;
+        dispositionLog = `discarded_max_retries (${newAttempts}/${automation.max_retries})`;
+      } else {
+        // Retry com backoff progressivo
+        nextStatus = "pending";
+        nextSendAt = computeBackoffSendAt(newAttempts);
+        errorReason = `[${errClass.class}:retry] ${result.detail}`;
+        const waitS = Math.round((new Date(nextSendAt).getTime() - Date.now()) / 1000);
+        dispositionLog = `retry_${errClass.class} in ${waitS}s (attempt ${newAttempts}/${automation.max_retries}, ${errClass.reason})`;
+      }
+
       // Update queue item
       await db.from("welcome_queue").update({
-        status: result.ok ? "sent" : "failed",
-        attempts: item.attempts + 1,
-        processed_at: nowIso(),
+        status: nextStatus,
+        attempts: newAttempts,
+        processed_at: nextStatus === "pending" ? null : nowIso(),
         sender_device_id: sender.id,
-        error_reason: result.ok ? null : result.detail,
+        error_reason: errorReason,
         message_used: finalMessage,
         locked_at: null,
+        send_at: nextSendAt,
       } as any).eq("id", item.id);
 
       // Log message
@@ -924,7 +958,12 @@ async function processPhase() {
         sender_device_id: sender.id,
         message_text: finalMessage,
         result: result.ok ? "sent" : "failed",
-        external_response: { detail: result.detail },
+        external_response: {
+          detail: result.detail,
+          error_class: errClass.class,
+          classified_reason: errClass.reason,
+          disposition: dispositionLog,
+        },
       }).then(() => {}, () => {});
 
       // Compute timing metrics for observability
@@ -935,20 +974,30 @@ async function processPhase() {
       const driftSeconds = Math.round((actualSendMs - plannedSendMs) / 1000);
 
       // Log event
+      const eventType = result.ok
+        ? "message_sent"
+        : nextStatus === "pending" ? "message_retry" : "message_failed";
+      const eventLevel = result.ok ? "info" : nextStatus === "pending" ? "warn" : "error";
       await db.from("welcome_events").insert({
         automation_id: automation.id,
         user_id: automation.user_id,
-        event_type: result.ok ? "message_sent" : "message_failed",
-        level: result.ok ? "info" : "error",
+        event_type: eventType,
+        level: eventLevel,
         message: result.ok
           ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name} (esperou ${waitedSeconds}s, drift ${driftSeconds >= 0 ? "+" : ""}${driftSeconds}s)`
-          : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
+          : `Falha ao enviar para ${item.participant_phone}: ${result.detail} → ${dispositionLog}`,
         reference_id: item.id,
         payload_json: {
           phone: item.participant_phone,
           sender: sender.id,
           messageType,
           result: result.detail,
+          error_class: errClass.class,
+          classified_reason: errClass.reason,
+          disposition: dispositionLog,
+          attempts: newAttempts,
+          max_retries: automation.max_retries,
+          next_send_at: nextSendAt,
           planned_send_at: item.send_at,
           actual_sent_at: new Date(actualSendMs).toISOString(),
           waited_seconds: waitedSeconds,
@@ -956,7 +1005,7 @@ async function processPhase() {
         },
       }).then(() => {}, () => {});
 
-      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${result.detail}`);
+      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${dispositionLog} | ${result.detail}`);
 
       sentThisCycle++;
 
