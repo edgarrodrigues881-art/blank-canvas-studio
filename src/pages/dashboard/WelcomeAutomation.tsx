@@ -27,6 +27,9 @@ import { WelcomeMessageEditor } from "@/components/welcome/WelcomeMessageEditor"
 import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
 import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
+import { WelcomePerformanceDashboard } from "@/components/welcome/WelcomePerformanceDashboard";
+import { WelcomeDeviceUsage } from "@/components/welcome/WelcomeDeviceUsage";
+import { WelcomeSystemInfo } from "@/components/welcome/WelcomeSystemInfo";
 import {
   Heart, Plus, Smartphone, Users, Send, Loader2, Trash2, ArrowLeft,
   Play, Pause, MessageSquare, Settings as SettingsIcon, Search, Check,
@@ -456,19 +459,30 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
         </Button>
       </div>
 
+      {/* Performance dashboard */}
+      <WelcomePerformanceDashboard automationId={id} />
+
       {/* Stats */}
       <WelcomeStatsCards stats={stats} />
+
+      {/* System info — explains intelligence to the user */}
+      <WelcomeSystemInfo />
 
       {/* Tabs */}
       <Tabs defaultValue="queue" className="space-y-4">
         <TabsList>
           <TabsTrigger value="queue" className="gap-1.5"><Users className="w-3.5 h-3.5" /> Fila</TabsTrigger>
+          <TabsTrigger value="devices" className="gap-1.5"><Smartphone className="w-3.5 h-3.5" /> Dispositivos</TabsTrigger>
           <TabsTrigger value="message" className="gap-1.5"><MessageSquare className="w-3.5 h-3.5" /> Mensagem</TabsTrigger>
           <TabsTrigger value="settings" className="gap-1.5"><SettingsIcon className="w-3.5 h-3.5" /> Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="queue" className="space-y-4">
-          <WelcomeQueueTable automationId={id} />
+          <WelcomeQueueTable automationId={id} maxRetries={automation.max_retries || 3} />
+        </TabsContent>
+
+        <TabsContent value="devices" className="space-y-4">
+          <WelcomeDeviceUsage automationId={id} maxPerAccount={automation.max_per_account || 200} />
         </TabsContent>
 
         <TabsContent value="message" className="space-y-4">

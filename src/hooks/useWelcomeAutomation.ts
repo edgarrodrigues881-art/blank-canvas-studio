@@ -45,9 +45,51 @@ export interface WelcomeQueueItem {
   detected_at: string;
   queued_at: string;
   processed_at: string | null;
+  locked_at: string | null;
   error_reason: string | null;
   message_used: string | null;
   dedupe_hash: string;
+  send_at: string | null;
+  priority: number;
+}
+
+export interface WelcomeMessageLog {
+  id: string;
+  queue_id: string | null;
+  sender_device_id: string | null;
+  message_text: string | null;
+  result: string | null;
+  external_response: any;
+  created_at: string;
+}
+
+export function useWelcomeMessageLogs(automationId: string | undefined, limit = 200) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["welcome-message-logs", automationId, limit],
+    queryFn: async () => {
+      if (!automationId) return [];
+      // Join via queue_id → welcome_queue.automation_id
+      const { data: queueIds } = await supabase
+        .from("welcome_queue")
+        .select("id")
+        .eq("automation_id", automationId)
+        .order("detected_at", { ascending: false })
+        .limit(500);
+      const ids = (queueIds || []).map((q: any) => q.id);
+      if (!ids.length) return [];
+      const { data, error } = await supabase
+        .from("welcome_message_logs")
+        .select("*")
+        .in("queue_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data || []) as unknown as WelcomeMessageLog[];
+    },
+    enabled: !!user && !!automationId,
+    refetchInterval: () => document.hidden ? false : 30_000,
+  });
 }
 
 export function useWelcomeAutomations() {
