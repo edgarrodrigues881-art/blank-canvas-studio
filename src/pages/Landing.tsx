@@ -154,22 +154,69 @@ const Hero = () => {
             </motion.p>
           </motion.div>
 
-          {/* Mobile/tablet — inline screenshot below content */}
+          {/* Mobile/tablet — compact data viz panel (no competing screenshot) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: easeOut, delay: 0.2 }}
-            className="lg:hidden relative mt-2"
+            className="lg:hidden relative mt-4"
           >
-            <div className="absolute -inset-6 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-2xl pointer-events-none" />
-            <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
-              <img
-                src={heroCrmMobile}
-                alt="Dashboard CRM"
-                className="w-full h-auto block select-none"
-                draggable={false}
-                loading="eager"
-              />
+            <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.18)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+            <div className="relative rounded-2xl border border-emerald-400/15 bg-[hsl(222,28%,7%)]/90 backdrop-blur-sm p-4 shadow-[0_20px_60px_-20px_rgba(16,185,129,0.35)] overflow-hidden">
+              {/* Subtle grid */}
+              <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" aria-hidden="true">
+                <defs>
+                  <pattern id="hero-mob-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+                    <path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgb(52,211,153)" strokeWidth="0.5" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#hero-mob-grid)" />
+              </svg>
+
+              {/* KPI row */}
+              <div className="relative grid grid-cols-2 gap-2.5 mb-4">
+                {[
+                  { label: "Mensagens hoje", value: "12.847", trend: "+18%" },
+                  { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
+                ].map((s, i) => (
+                  <div key={s.label} className="rounded-lg border border-emerald-400/15 bg-white/[0.02] px-3 py-2.5">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">{s.label}</span>
+                      <span className="text-[9px] text-emerald-400 font-semibold">{s.trend}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[17px] font-semibold text-white tabular-nums tracking-tight">{s.value}</span>
+                      <motion.span
+                        className="w-1 h-1 rounded-full bg-emerald-400"
+                        animate={{ opacity: [1, 0.3, 1] }}
+                        transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3 }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mini bar chart */}
+              <div className="relative">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ 18%</span>
+                </div>
+                <div className="flex items-end gap-1 h-[68px]">
+                  {[42, 68, 56, 81, 64, 88, 72, 92, 60, 78, 48, 70].map((v, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ height: 0 }}
+                      animate={{ height: [`${v}%`, `${Math.max(20, v - 12)}%`, `${v}%`] }}
+                      transition={{
+                        height: { duration: 3 + (i % 3), repeat: Infinity, delay: i * 0.08, ease: "easeInOut" },
+                      }}
+                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
+                      style={{ boxShadow: "0 0 8px rgba(16,185,129,0.4)" }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
 

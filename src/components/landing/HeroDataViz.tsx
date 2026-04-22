@@ -24,7 +24,7 @@ const HeroDataViz = () => {
   const GREEN_DEEP = "rgb(5,150,105)";   // emerald-600
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div className="absolute inset-0 overflow-hidden pointer-events-none hidden lg:block" aria-hidden="true">
       {/* Grid pattern */}
       <svg className="absolute inset-0 w-full h-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
         <defs>
