@@ -17,9 +17,10 @@ import { Search, Download, ListChecks, Flame } from "lucide-react";
 
 export function WelcomeQueueTable({ automationId, maxRetries = 3 }: { automationId: string; maxRetries?: number }) {
   const { data: queue } = useWelcomeQueue(automationId);
-  const updateQueueItem = useUpdateQueueItem();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [editItem, setEditItem] = useState<WelcomeQueueItem | null>(null);
+  const [logsItem, setLogsItem] = useState<WelcomeQueueItem | null>(null);
 
   const filtered = useMemo(() => {
     if (!queue) return [];
@@ -145,18 +146,11 @@ export function WelcomeQueueTable({ automationId, maxRetries = 3 }: { automation
                   </TableCell>
                   <TableCell className="text-[11px] text-red-400 max-w-[140px] truncate" title={item.error_reason || ""}>{item.error_reason || "—"}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      {(item.status === "failed" || item.status === "ignored") && (
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg hover:bg-primary/10" title="Reenfileirar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "pending" }).then(() => toast.success("Reenfileirado!"))}>
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      {item.status === "pending" && (
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg hover:bg-destructive/10" title="Ignorar" onClick={() => updateQueueItem.mutateAsync({ id: item.id, status: "ignored" }).then(() => toast.success("Ignorado!"))}>
-                          <XCircle className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                    <WelcomeQueueRowActions
+                      item={item}
+                      onEdit={setEditItem}
+                      onShowLogs={setLogsItem}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
