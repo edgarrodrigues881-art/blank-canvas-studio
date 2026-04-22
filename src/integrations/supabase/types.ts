@@ -6375,6 +6375,7 @@ export type Database = {
           participant_phone: string
           processed_at: string | null
           queued_at: string
+          send_at: string | null
           sender_device_id: string | null
           status: string
           updated_at: string
@@ -6396,6 +6397,7 @@ export type Database = {
           participant_phone: string
           processed_at?: string | null
           queued_at?: string
+          send_at?: string | null
           sender_device_id?: string | null
           status?: string
           updated_at?: string
@@ -6417,6 +6419,7 @@ export type Database = {
           participant_phone?: string
           processed_at?: string | null
           queued_at?: string
+          send_at?: string | null
           sender_device_id?: string | null
           status?: string
           updated_at?: string

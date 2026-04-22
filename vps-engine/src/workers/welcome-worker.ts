@@ -426,6 +426,15 @@ async function monitorPhase() {
             continue;
           }
 
+          // ── Compute scheduled send time (send_at) ──
+          // Cada item nasce com horário definido baseado em min/max_delay_seconds da automação.
+          // O processPhase só envia quando send_at <= now(), eliminando dependência de sleep como controle principal.
+          const minDelay = Math.max(0, automation.min_delay_seconds ?? 30);
+          const maxDelay = Math.max(minDelay, automation.max_delay_seconds ?? 60);
+          const delaySeconds = randomBetween(minDelay, maxDelay);
+          const detectedAt = new Date();
+          const sendAt = new Date(detectedAt.getTime() + delaySeconds * 1000);
+
           const { error: insertErr } = await db.from("welcome_queue").insert({
             automation_id: automation.id,
             user_id: automation.user_id,
@@ -434,8 +443,9 @@ async function monitorPhase() {
             group_name: group.group_name,
             status: "pending",
             dedupe_hash: dedupeHash,
-            detected_at: nowIso(),
-          });
+            detected_at: detectedAt.toISOString(),
+            send_at: sendAt.toISOString(),
+          } as any);
 
           if (insertErr) {
             if (String(insertErr.message).includes("unique") || String(insertErr.code) === "23505") {
@@ -444,15 +454,15 @@ async function monitorPhase() {
               log.error(`Failed to enqueue: ${phone}`, insertErr);
             }
           } else {
-            log.info(`Enqueued: ${phone} → group ${group.group_name || group.group_id.slice(0, 12)}`);
+            log.info(`Enqueued: ${phone} → group ${group.group_name || group.group_id.slice(0, 12)} | send_at=${sendAt.toISOString()} (delay=${delaySeconds}s)`);
 
             await db.from("welcome_events").insert({
               automation_id: automation.id,
               user_id: automation.user_id,
                event_type: "participant_detected",
                level: "info",
-               message: `Novo participante detectado: ${phone}`,
-               payload_json: { phone, group_id: group.group_id },
+               message: `Novo participante detectado: ${phone} (envio agendado para +${delaySeconds}s)`,
+               payload_json: { phone, group_id: group.group_id, send_at: sendAt.toISOString(), delay_seconds: delaySeconds },
              }).then(() => {}, () => {});
           }
         }
@@ -492,12 +502,17 @@ async function processPhase() {
     const senders = (automation.welcome_automation_senders || []).filter((s: any) => s.is_active);
     if (!senders.length) continue;
 
-    // Get pending items (batch of 10)
+    // Get pending items DUE for sending (send_at <= now OR send_at IS NULL para compat).
+    // O agendamento é o controle principal de tempo — o sleep entre envios virou apenas
+    // um pequeno guard técnico (ver mais abaixo).
+    const nowTs = new Date().toISOString();
     const { data: pendingItems } = await db
       .from("welcome_queue")
       .select("*")
       .eq("automation_id", automation.id)
       .eq("status", "pending")
+      .or(`send_at.lte.${nowTs},send_at.is.null`)
+      .order("send_at", { ascending: true, nullsFirst: true })
       .order("detected_at", { ascending: true })
       .limit(10);
     if (!pendingItems?.length) continue;
@@ -610,6 +625,13 @@ async function processPhase() {
         external_response: { detail: result.detail },
       }).then(() => {}, () => {});
 
+      // Compute timing metrics for observability
+      const detectedAtMs = item.detected_at ? new Date(item.detected_at).getTime() : Date.now();
+      const plannedSendMs = item.send_at ? new Date(item.send_at).getTime() : detectedAtMs;
+      const actualSendMs = Date.now();
+      const waitedSeconds = Math.round((actualSendMs - detectedAtMs) / 1000);
+      const driftSeconds = Math.round((actualSendMs - plannedSendMs) / 1000);
+
       // Log event
       await db.from("welcome_events").insert({
         automation_id: automation.id,
@@ -617,21 +639,30 @@ async function processPhase() {
         event_type: result.ok ? "message_sent" : "message_failed",
         level: result.ok ? "info" : "error",
         message: result.ok
-          ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name}`
+          ? `Mensagem (${messageType}) enviada para ${item.participant_phone} via ${sender.name} (esperou ${waitedSeconds}s, drift ${driftSeconds >= 0 ? "+" : ""}${driftSeconds}s)`
           : `Falha ao enviar para ${item.participant_phone}: ${result.detail}`,
         reference_id: item.id,
-        payload_json: { phone: item.participant_phone, sender: sender.id, messageType, result: result.detail },
+        payload_json: {
+          phone: item.participant_phone,
+          sender: sender.id,
+          messageType,
+          result: result.detail,
+          planned_send_at: item.send_at,
+          actual_sent_at: new Date(actualSendMs).toISOString(),
+          waited_seconds: waitedSeconds,
+          drift_seconds: driftSeconds,
+        },
       }).then(() => {}, () => {});
 
-      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name}: ${result.detail}`);
+      log.info(`${result.ok ? "✓" : "✗"} [${messageType}] ${item.participant_phone} via ${sender.name} | waited=${waitedSeconds}s drift=${driftSeconds}s | ${result.detail}`);
 
       sentThisCycle++;
 
-      // Apply delay
-      const minD = automation.min_delay_seconds ?? 30;
-      const maxD = Math.max(automation.max_delay_seconds ?? 60, minD);
-      const delayMs = randomBetween(minD * 1000, maxD * 1000);
-      if (delayMs > 0) await sleep(delayMs);
+      // ── Technical guard delay ──
+      // O controle principal de tempo é o send_at (definido no monitorPhase).
+      // Aqui aplicamos apenas um pequeno espaçamento (500ms) para evitar burst em uma mesma
+      // instância quando vários itens vencem ao mesmo tempo. NÃO é o delay de aquecimento.
+      await sleep(500);
 
       // Check if automation was paused/stopped while processing
       const { data: freshAutomation } = await db
