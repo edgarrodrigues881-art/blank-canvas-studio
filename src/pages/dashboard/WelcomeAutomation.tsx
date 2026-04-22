@@ -285,124 +285,197 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
     onClose();
   };
 
+  const monitorDevice = (devices || []).find((d: any) => d.id === monitoringId);
+  const sendersValid = senderIds.length > 0;
+  const groupsValid = selectedGroups.length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-pink-400" /> Nova automação de Boas-vindas
+      <DialogContent className="max-w-[1200px] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0 bg-background">
+        {/* ── Header ── */}
+        <DialogHeader className="px-6 py-4 border-b border-border/40 shrink-0">
+          <DialogTitle className="flex items-center gap-3 text-base font-semibold">
+            <div className="w-9 h-9 rounded-xl bg-pink-500/10 flex items-center justify-center">
+              <Heart className="w-4 h-4 text-pink-500" />
+            </div>
+            <div className="flex flex-col">
+              <span>Nova automação de Boas-vindas</span>
+              <span className="text-[11px] font-normal text-muted-foreground">Configure a mensagem que será enviada para novos membros do grupo</span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-3 -mr-3">
-          <div className="space-y-5 py-2">
+        {/* ── Body: 2-column layout ── */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-0 overflow-hidden">
+
+          {/* ═══ LEFT: Builder (main focus) ═══ */}
+          <div className="min-w-0 overflow-y-auto px-8 py-6 border-r border-border/40">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 rounded-full bg-primary" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Mensagem de boas-vindas</h3>
+              </div>
+              <WelcomeMessageBuilder value={payload} onChange={patch => setPayload(p => ({ ...p, ...patch }))} />
+            </div>
+          </div>
+
+          {/* ═══ RIGHT: Settings sidebar ═══ */}
+          <div className="min-w-0 overflow-y-auto bg-muted/20 px-5 py-6 space-y-5">
+
             {/* Name */}
             <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Nome da automação</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Boas-vindas grupo VIP" />
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Nome da automação</Label>
+              <Input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Ex: Boas-vindas VIP"
+                className="h-10 bg-background"
+              />
             </div>
 
-            {/* Monitoring device */}
+            {/* Monitor */}
             <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5" /> Dispositivo monitor
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Smartphone className="w-3 h-3" /> Dispositivo monitor
               </Label>
-              <p className="text-[11px] text-muted-foreground">Esta instância precisa estar dentro do(s) grupo(s) para detectar novos membros.</p>
               <Select value={monitoringId} onValueChange={setMonitoringId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o dispositivo que está no grupo" /></SelectTrigger>
+                <SelectTrigger className="h-10 bg-background"><SelectValue placeholder="Selecione um dispositivo" /></SelectTrigger>
                 <SelectContent>
                   {(devices || []).map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name} {d.number ? `(${d.number})` : ""}</SelectItem>
+                    <SelectItem key={d.id} value={d.id}>{d.name}{d.number ? ` · ${d.number}` : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Instância que está dentro dos grupos para detectar novos membros.
+              </p>
             </div>
 
-            {/* Groups */}
+            {/* Groups (collapsible) */}
             {monitoringId && (
-              <div className="space-y-2">
-                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5" /> Grupos a monitorar
-                  <span className="text-primary normal-case">({selectedGroups.length} selecionado{selectedGroups.length !== 1 ? "s" : ""})</span>
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Buscar grupo..." className="pl-9 h-9" />
+              <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!groupsValid}>
+                <summary className="flex items-center gap-2 px-3 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold flex-1">Grupos monitorados</span>
+                  <Badge variant={groupsValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
+                    {selectedGroups.length}
+                  </Badge>
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform group-open:rotate-45" />
+                </summary>
+                <div className="border-t border-border/30 p-2 space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      value={groupSearch}
+                      onChange={e => setGroupSearch(e.target.value)}
+                      placeholder="Buscar grupo..."
+                      className="pl-8 h-8 text-xs"
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto rounded-lg bg-muted/20">
+                    {loadingGroups ? (
+                      <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                    ) : !filteredGroups.length ? (
+                      <p className="text-[11px] text-muted-foreground p-4 text-center">Nenhum grupo encontrado.</p>
+                    ) : (
+                      filteredGroups.map((g: any) => {
+                        const checked = !!selectedGroups.find(x => x.group_id === g.id);
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs"
+                          >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                              {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
+                            <span className="flex-1 truncate">{g.name}</span>
+                            {g.participants > 0 && <span className="text-[9px] text-muted-foreground">{g.participants}</span>}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-                <div className="rounded-xl border border-border/50 bg-muted/10 max-h-52 overflow-y-auto">
-                  {loadingGroups ? (
-                    <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-                  ) : !filteredGroups.length ? (
-                    <p className="text-xs text-muted-foreground p-6 text-center">Nenhum grupo encontrado nesse dispositivo.</p>
+              </details>
+            )}
+
+            {/* Senders (collapsible) */}
+            <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!sendersValid}>
+              <summary className="flex items-center gap-2 px-3 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors">
+                <Send className="w-3.5 h-3.5 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold">Remetentes</p>
+                  {sendersValid && (
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {senderIds.length} dispositivo{senderIds.length !== 1 ? "s" : ""} selecionado{senderIds.length !== 1 ? "s" : ""}
+                    </p>
+                  )}
+                </div>
+                <Badge variant={sendersValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
+                  {senderIds.length}
+                </Badge>
+                <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform group-open:rotate-45" />
+              </summary>
+              <div className="border-t border-border/30 p-2 space-y-2">
+                <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
+                  Dispositivos que enviarão a mensagem no privado, em rodízio.
+                </p>
+                <div className="max-h-48 overflow-y-auto rounded-lg bg-muted/20">
+                  {!devices?.length ? (
+                    <p className="text-[11px] text-muted-foreground p-4 text-center">Nenhum dispositivo disponível.</p>
                   ) : (
-                    filteredGroups.map((g: any) => {
-                      const checked = !!selectedGroups.find(x => x.group_id === g.id);
+                    devices.map((d: any) => {
+                      const checked = senderIds.includes(d.id);
+                      const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
                       return (
                         <button
-                          key={g.id}
+                          key={d.id}
                           type="button"
-                          onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
-                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/40 text-left text-xs border-b border-border/20 last:border-b-0"
+                          onClick={() => toggleSender(d.id)}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs"
                         >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
                             {checked && <Check className="w-3 h-3 text-primary-foreground" />}
                           </div>
-                          <span className="flex-1 truncate">{g.name}</span>
-                          {g.participants > 0 && <span className="text-[10px] text-muted-foreground">{g.participants}</span>}
+                          <span className="flex-1 truncate">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${online ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
                         </button>
                       );
                     })
                   )}
                 </div>
               </div>
-            )}
+            </details>
 
-            {/* Senders */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Send className="w-3.5 h-3.5" /> Remetentes (envio no PV)
-                <span className="text-primary normal-case">({senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""})</span>
-              </Label>
-              <p className="text-[11px] text-muted-foreground">Estes dispositivos enviarão a mensagem no privado dos novos membros, em rodízio.</p>
-              <div className="rounded-xl border border-border/50 bg-muted/10 max-h-52 overflow-y-auto">
-                {!devices?.length ? (
-                  <p className="text-xs text-muted-foreground p-6 text-center">Nenhum dispositivo disponível.</p>
-                ) : (
-                  devices.map((d: any) => {
-                    const checked = senderIds.includes(d.id);
-                    const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
-                    return (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => toggleSender(d.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/40 text-left text-xs border-b border-border/20 last:border-b-0"
-                      >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${checked ? "bg-primary border-primary" : "border-border"}`}>
-                          {checked && <Check className="w-3 h-3 text-primary-foreground" />}
-                        </div>
-                        <span className="flex-1 truncate">{d.name}{d.number ? ` (${d.number})` : ""}</span>
-                        <span className={`w-2 h-2 rounded-full ${online ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
-                      </button>
-                    );
-                  })
+            {/* Status summary */}
+            <div className="rounded-xl border border-border/40 bg-background p-3 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Resumo</p>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tipo</span>
+                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{payload.message_type}</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Delay</span>
+                  <span className="font-mono">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                </div>
+                {monitorDevice && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Monitor</span>
+                    <span className="truncate max-w-[160px] text-right">{monitorDevice.name}</span>
+                  </div>
                 )}
               </div>
             </div>
-
-            {/* Message */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <MessageSquare className="w-3.5 h-3.5" /> Mensagem de boas-vindas
-              </Label>
-              <WelcomeMessageBuilder value={payload} onChange={patch => setPayload(p => ({ ...p, ...patch }))} />
-            </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <DialogFooter className="border-t border-border/30 pt-4">
+        {/* ── Footer ── */}
+        <DialogFooter className="border-t border-border/40 px-6 py-3 shrink-0 bg-muted/10">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2">
+          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2 min-w-[140px]">
             {create.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             Criar automação
           </Button>
