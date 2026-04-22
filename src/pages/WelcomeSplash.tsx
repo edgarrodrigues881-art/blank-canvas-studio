@@ -23,7 +23,14 @@ const WelcomeSplash = () => {
         navigated.current = true;
         setPhase(4); // trigger exit animation
         setTimeout(() => {
-          navigate(`/onboarding/theme?to=${encodeURIComponent(redirectTo)}`, { replace: true });
+          let themeChosen = false;
+          try {
+            themeChosen = localStorage.getItem("dg_theme_chosen") === "1";
+          } catch {}
+          const dest = themeChosen
+            ? redirectTo
+            : `/onboarding/theme?to=${encodeURIComponent(redirectTo)}`;
+          navigate(dest, { replace: true });
         }, 500);
       }
     };
