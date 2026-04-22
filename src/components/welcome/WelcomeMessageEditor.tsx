@@ -80,13 +80,27 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-export const WELCOME_TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; tag: string; icon: any }[] = [
-  { value: "text", label: "Texto", desc: "Mensagem simples e direta", tag: "Simples", icon: Type },
-  { value: "buttons", label: "Botões", desc: "CTAs interativos clicáveis", tag: "Interativo", icon: MousePointerClick },
-  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais", tag: "Alta conversão", icon: Images },
-  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", tag: "Visual", icon: ImageIcon },
+// UI-level message modes — composable. Backend keeps `text | buttons | media | carousel`,
+// but the user picks only between "simple" (composable text + media + buttons) and "carousel".
+export type WelcomeUiMode = "simple" | "carousel";
+
+export const WELCOME_TYPE_OPTIONS: { value: WelcomeUiMode; label: string; desc: string; tag: string; icon: any }[] = [
+  { value: "simple", label: "Mensagem", desc: "Texto, mídia e botões em uma única mensagem", tag: "Composável", icon: Type },
+  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais com botões", tag: "Alta conversão", icon: Images },
 ];
-const TYPE_OPTIONS = WELCOME_TYPE_OPTIONS;
+
+/** Derive UI mode from backend message_type */
+export function getUiModeFromPayload(p: Pick<WelcomeMessagePayload, "message_type">): WelcomeUiMode {
+  return p.message_type === "carousel" ? "carousel" : "simple";
+}
+
+/** Derive backend message_type from a "simple" composition */
+export function deriveBackendMessageType(p: WelcomeMessagePayload): WelcomeMessageType {
+  if (p.message_type === "carousel") return "carousel";
+  if (p.buttons && p.buttons.length > 0) return "buttons";
+  if (p.media_url && p.media_url.trim()) return "media";
+  return "text";
+}
 
 // ────────────────────────────────────────────────────────────
 // Helpers
