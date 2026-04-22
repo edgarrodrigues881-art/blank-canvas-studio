@@ -336,7 +336,148 @@ function isWithinSendWindow(startHour: string, endHour: string): boolean {
   return brtMinutes >= startMin && brtMinutes <= endMin;
 }
 
-// ── PHASE 1: Monitor groups for new participants ──
+// ══════════════════════════════════════════════════════════
+// Smart sender selection
+// ══════════════════════════════════════════════════════════
+//
+// Estratégia (ordem de prioridade):
+//   1. Menor uso DURANTE o ciclo atual (cycleUsage) — distribui pressão
+//   2. Menor número de envios HOJE (sentToday)        — balanceamento diário
+//   3. Menos falhas recentes (failedRecent, 60min)    — penaliza instáveis
+//   4. last_api_call_at mais antigo                   — respeita "esfriamento"
+//
+// Após ranquear, tenta `claim_device_send_slot` (RPC do Postgres) que serializa
+// chamadas no mesmo device com intervalo mínimo. Se a espera devolvida for
+// excessiva (> SLOT_MAX_WAIT_MS), pula pro próximo candidato.
+//
+// Fallback: se nenhum passar nos critérios refinados, devolve o primeiro
+// disponível que conseguiu claim — garante que sempre tenta enviar.
+//
+// Estrutura preparada pra plugar futuros caps:
+//   - max_per_account: comparar sentToday >= cap → remover do pool
+//   - max_per_minute:  comparar sentRecent >= cap → remover do pool
+// (basta filtrar `pool` antes do sort)
+
+const SLOT_MIN_INTERVAL_MS = 4000;   // intervalo mínimo entre envios no mesmo device
+const SLOT_MAX_WAIT_MS = 1500;       // se RPC pedir mais que isso, pula pro próximo
+
+interface SenderDevice {
+  id: string;
+  name: string;
+  uazapi_token: string | null;
+  uazapi_base_url: string | null;
+  status: string;
+  number: string | null;
+  last_api_call_at: string | null;
+}
+
+interface SenderStats {
+  sentRecent: number;   // últimos 60min
+  failedRecent: number; // últimos 60min
+  sentToday: number;    // BRT hoje
+}
+
+interface SelectedSender {
+  sender: SenderDevice;
+  reason: string;
+  waitedMs: number;
+}
+
+async function selectBestSender(
+  db: any,
+  pool: SenderDevice[],
+  stats: Map<string, SenderStats>,
+  cycleUsage: Map<string, number>,
+  automationId: string,
+): Promise<SelectedSender | null> {
+  if (pool.length === 0) return null;
+
+  // ── Score & sort (lower = better) ──
+  const scored = pool.map(d => {
+    const s = stats.get(d.id) || { sentRecent: 0, failedRecent: 0, sentToday: 0 };
+    const cycle = cycleUsage.get(d.id) || 0;
+    const lastCallAge = d.last_api_call_at
+      ? Date.now() - new Date(d.last_api_call_at).getTime()
+      : Number.MAX_SAFE_INTEGER;
+
+    // Score composto: cada componente em escala compatível
+    // - cycleUsage tem peso máximo (separar load no ciclo atual)
+    // - sentToday balanceia ao longo do dia
+    // - failedRecent penaliza instáveis (peso forte: x10)
+    // - lastCallAge: subtrai (mais antigo = melhor)
+    const score =
+      cycle * 1000 +
+      s.sentToday * 10 +
+      s.failedRecent * 100 +
+      s.sentRecent * 5 -
+      Math.min(lastCallAge / 1000, 600); // cap em 10min para não dominar
+
+    return { d, s, cycle, lastCallAge, score };
+  }).sort((a, b) => a.score - b.score);
+
+  // ── Tenta claim do send-slot em ordem de prioridade ──
+  for (const candidate of scored) {
+    const { d, s, cycle, lastCallAge } = candidate;
+
+    // Tenta reservar slot via RPC (atualiza devices.last_api_call_at com FOR UPDATE)
+    let waitMs = 0;
+    try {
+      const { data: rpcResult, error: rpcErr } = await db.rpc("claim_device_send_slot", {
+        p_device_id: d.id,
+        p_min_interval_ms: SLOT_MIN_INTERVAL_MS,
+      });
+      if (rpcErr) {
+        log.warn(`claim_device_send_slot error for ${d.name}: ${rpcErr.message} — trying anyway`);
+        waitMs = 0;
+      } else {
+        waitMs = Number(rpcResult ?? 0);
+      }
+    } catch (err: any) {
+      log.warn(`claim_device_send_slot threw for ${d.name}: ${err.message} — trying anyway`);
+      waitMs = 0;
+    }
+
+    if (waitMs < 0) {
+      // device não encontrado pelo RPC — pula
+      continue;
+    }
+    if (waitMs > SLOT_MAX_WAIT_MS) {
+      log.info(`Slot busy on ${d.name} [${d.id.slice(0, 8)}] — needs ${waitMs}ms, trying next`);
+      continue;
+    }
+
+    // Se precisar esperar pouco (<= SLOT_MAX_WAIT_MS), aguarda
+    if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
+
+    // Monta motivo da escolha (audit trail)
+    const ageStr = lastCallAge === Number.MAX_SAFE_INTEGER
+      ? "nunca usado"
+      : `${Math.round(lastCallAge / 1000)}s atrás`;
+    const reason =
+      `cycle=${cycle} today=${s.sentToday} recent=${s.sentRecent} ` +
+      `fail60m=${s.failedRecent} lastCall=${ageStr}`;
+
+    return { sender: d, reason, waitedMs: waitMs };
+  }
+
+  // ── Fallback: nenhum passou no slot — pega o primeiro do ranking sem claim ──
+  // (acontece se TODOS estão dentro do intervalo mínimo; garante que algo é enviado)
+  const fallback = scored[0];
+  if (fallback) {
+    log.warn(`All senders busy on slot — fallback to ${fallback.d.name} [${fallback.d.id.slice(0, 8)}]`);
+    return {
+      sender: fallback.d,
+      reason: `FALLBACK (todos com slot ocupado) — cycle=${fallback.cycle} today=${fallback.s.sentToday}`,
+      waitedMs: 0,
+    };
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════════════
+// PHASE 1: Monitor groups for new participants
+// ══════════════════════════════════════════════════════════
+
 async function monitorPhase() {
   const db = getDb();
 
