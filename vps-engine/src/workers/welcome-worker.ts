@@ -783,20 +783,37 @@ async function processPhase() {
         .eq("status", "pending");
       if (lockErr) continue;
 
-      // ── Select best sender (smart strategy + send-slot claim via RPC) ──
+      // ── Select best sender (filtros HARD + score + send-slot claim) ──
       const selected = await selectBestSender(
-        db, availableSenders, senderStats, cycleUsage, automation.id,
+        db, availableSenders, senderStats, cycleUsage, automation.id, limits,
       );
       if (!selected) {
-        // Nenhum sender pôde claim send-slot agora — devolve item pra fila
+        // Nenhum sender disponível (limites/cooldown/slot) — devolve item pra fila.
+        // SEM fallback perigoso: melhor adiar do que sobrecarregar device.
         await db.from("welcome_queue")
           .update({ status: "pending", locked_at: null } as any)
           .eq("id", item.id);
-        log.info(`No sender slot available for item ${item.id.slice(0, 8)} — re-queued`);
+        log.warn(`Queue paused for item ${item.id.slice(0, 8)} — no sender available (limits/cooldown). Will retry next tick.`);
+        await db.from("welcome_events").insert({
+          automation_id: automation.id,
+          user_id: automation.user_id,
+          event_type: "queue_paused",
+          level: "warn",
+          message: `Item re-enfileirado: nenhum sender disponível (limites diário/curto-prazo/cooldown)`,
+          reference_id: item.id,
+          payload_json: {
+            phone: item.participant_phone,
+            limits,
+            available_senders: availableSenders.length,
+          },
+        }).then(() => {}, () => {});
         continue;
       }
       const { sender, reason, waitedMs } = selected;
       cycleUsage.set(sender.id, (cycleUsage.get(sender.id) || 0) + 1);
+      // Atualiza contadores in-memory para próxima iteração do mesmo ciclo
+      const st = senderStats.get(sender.id);
+      if (st) { st.sentToday += 1; st.sentShortWindow += 1; st.sentRecent += 1; }
       log.info(`Sender chosen: ${sender.name} [${sender.id.slice(0, 8)}] — ${reason}${waitedMs > 0 ? ` (waited ${waitedMs}ms for slot)` : ""}`);
 
       // Build message with variables
