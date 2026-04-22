@@ -90,7 +90,7 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-24 md:pt-32 pb-16 md:pb-32 px-5 md:px-6 overflow-hidden min-h-[100vh] flex items-center">
+    <section className="relative pt-20 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden lg:min-h-[100vh] flex items-center">
       {/* Background screenshot — desktop only, full-bleed right */}
       <motion.div
         initial={{ opacity: 0, scale: 1.02 }}
@@ -118,18 +118,18 @@ const Hero = () => {
       </motion.div>
 
       <div className="max-w-[1320px] mx-auto relative z-10 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-center">
-          <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-center lg:text-left">
-            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-5xl md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-5 md:mb-7">
-              Pare de perder números no WhatsApp.<br />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-6 items-center">
+          <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
+            <motion.h1 variants={fadeUp} className="text-[2.5rem] sm:text-[3rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.05] md:leading-[1.0] tracking-[-0.035em] md:tracking-[-0.04em] mb-4 md:mb-7">
+              Pare de perder números no WhatsApp.{" "}
               <span className="text-white/55">Escale com controle total.</span>
             </motion.h1>
 
-            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mx-auto lg:mx-0 mb-6 md:mb-9 leading-[1.5] md:leading-[1.55]">
+            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mb-7 md:mb-9 leading-[1.5] md:leading-[1.55]">
               Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
             </motion.p>
 
-            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center lg:items-start lg:justify-start justify-center gap-2.5 md:gap-3">
+            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 md:gap-3">
               <Button size="lg" onClick={() => navigate("/auth?mode=signup")} className="w-full sm:w-auto bg-white hover:bg-white text-black text-[14px] font-semibold px-7 h-12 rounded-[10px] gap-2 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_8px_32px_-4px_rgba(255,255,255,0.15)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_12px_40px_-4px_rgba(255,255,255,0.25)] hover:scale-[1.02] transition-all duration-200">
                 Começar agora <ArrowRight className="w-4 h-4" />
               </Button>
@@ -138,7 +138,7 @@ const Hero = () => {
               </Button>
             </motion.div>
 
-            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-4 md:mt-5 flex items-center justify-center lg:justify-start gap-1.5">
+            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-5 flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
               Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
