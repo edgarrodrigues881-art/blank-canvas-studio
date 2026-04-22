@@ -337,29 +337,43 @@ function isWithinSendWindow(startHour: string, endHour: string): boolean {
 }
 
 // ══════════════════════════════════════════════════════════
-// Smart sender selection
+// Smart sender selection — limites reais + cooldown
 // ══════════════════════════════════════════════════════════
 //
-// Estratégia (ordem de prioridade):
-//   1. Menor uso DURANTE o ciclo atual (cycleUsage) — distribui pressão
-//   2. Menor número de envios HOJE (sentToday)        — balanceamento diário
-//   3. Menos falhas recentes (failedRecent, 60min)    — penaliza instáveis
-//   4. last_api_call_at mais antigo                   — respeita "esfriamento"
+// Pipeline:
+//   1. FILTROS HARD (eliminam device do pool antes do score):
+//        a) sentToday >= max_per_account   → limite diário esgotado
+//        b) sentShortWindow >= max_per_minute (janela SHORT_WINDOW_MS)
+//        c) lastCallAge < cooldown_seconds → device em cooldown
+//   2. SCORE composto entre os sobreviventes:
+//        - cycleUsage * 1000   (distribui carga no ciclo)
+//        - sentToday  * 10     (balanceia ao longo do dia)
+//        - failedRecent * 100  (penaliza instáveis)
+//        - sentRecent * 5
+//        - lastCallAge subtrai (mais antigo = melhor)
+//   3. RPC claim_device_send_slot — serializa envios no mesmo device
+//        - se waitMs > SLOT_MAX_WAIT_MS → pula pro próximo
+//   4. SEM FALLBACK PERIGOSO: se nenhum passou, retorna null
+//      (caller devolve item pra fila como pending)
 //
-// Após ranquear, tenta `claim_device_send_slot` (RPC do Postgres) que serializa
-// chamadas no mesmo device com intervalo mínimo. Se a espera devolvida for
-// excessiva (> SLOT_MAX_WAIT_MS), pula pro próximo candidato.
-//
-// Fallback: se nenhum passar nos critérios refinados, devolve o primeiro
-// disponível que conseguiu claim — garante que sempre tenta enviar.
-//
-// Estrutura preparada pra plugar futuros caps:
-//   - max_per_account: comparar sentToday >= cap → remover do pool
-//   - max_per_minute:  comparar sentRecent >= cap → remover do pool
-// (basta filtrar `pool` antes do sort)
+// Limites são CONFIGURÁVEIS via SenderLimits (vindos da automação no futuro).
 
-const SLOT_MIN_INTERVAL_MS = 4000;   // intervalo mínimo entre envios no mesmo device
+const SLOT_MIN_INTERVAL_MS = 4000;   // intervalo mínimo entre envios no mesmo device (RPC)
 const SLOT_MAX_WAIT_MS = 1500;       // se RPC pedir mais que isso, pula pro próximo
+const SHORT_WINDOW_MS = 2 * 60_000;  // janela curta (2min) para max_per_minute
+
+// Defaults seguros — podem ser sobrescritos pela automação
+const DEFAULT_LIMITS: SenderLimits = {
+  maxPerAccount: 200,     // total/dia por device
+  maxPerShortWindow: 5,   // envios em SHORT_WINDOW_MS
+  cooldownSeconds: 8,     // tempo mínimo entre envios pro mesmo device
+};
+
+interface SenderLimits {
+  maxPerAccount: number;
+  maxPerShortWindow: number;
+  cooldownSeconds: number;
+}
 
 interface SenderDevice {
   id: string;
@@ -372,9 +386,10 @@ interface SenderDevice {
 }
 
 interface SenderStats {
-  sentRecent: number;   // últimos 60min
-  failedRecent: number; // últimos 60min
-  sentToday: number;    // BRT hoje
+  sentRecent: number;       // últimos 60min
+  failedRecent: number;     // últimos 60min
+  sentToday: number;        // BRT hoje
+  sentShortWindow: number;  // últimos SHORT_WINDOW_MS
 }
 
 interface SelectedSender {
@@ -389,37 +404,67 @@ async function selectBestSender(
   stats: Map<string, SenderStats>,
   cycleUsage: Map<string, number>,
   automationId: string,
+  limits: SenderLimits = DEFAULT_LIMITS,
 ): Promise<SelectedSender | null> {
   if (pool.length === 0) return null;
 
-  // ── Score & sort (lower = better) ──
-  const scored = pool.map(d => {
-    const s = stats.get(d.id) || { sentRecent: 0, failedRecent: 0, sentToday: 0 };
+  // ── FILTROS HARD: removem device do pool ANTES do score ──
+  const eligible: SenderDevice[] = [];
+  const cooldownMs = Math.max(0, limits.cooldownSeconds) * 1000;
+
+  for (const d of pool) {
+    const s = stats.get(d.id) || { sentRecent: 0, failedRecent: 0, sentToday: 0, sentShortWindow: 0 };
+    const lastCallAge = d.last_api_call_at
+      ? Date.now() - new Date(d.last_api_call_at).getTime()
+      : Number.MAX_SAFE_INTEGER;
+
+    // (a) limite diário por device
+    if (s.sentToday >= limits.maxPerAccount) {
+      log.info(`Device excluded [daily_cap]: ${d.name} [${d.id.slice(0, 8)}] sentToday=${s.sentToday} >= ${limits.maxPerAccount}`);
+      continue;
+    }
+    // (b) limite curto prazo (janela SHORT_WINDOW_MS)
+    if (s.sentShortWindow >= limits.maxPerShortWindow) {
+      log.info(`Device excluded [short_window]: ${d.name} [${d.id.slice(0, 8)}] sent=${s.sentShortWindow}/${limits.maxPerShortWindow} in ${SHORT_WINDOW_MS / 1000}s`);
+      continue;
+    }
+    // (c) cooldown entre envios
+    if (cooldownMs > 0 && lastCallAge < cooldownMs) {
+      log.info(`Device excluded [cooldown]: ${d.name} [${d.id.slice(0, 8)}] lastCall=${Math.round(lastCallAge / 1000)}s < ${limits.cooldownSeconds}s`);
+      continue;
+    }
+
+    eligible.push(d);
+  }
+
+  if (eligible.length === 0) {
+    log.warn(`Pool exhausted by limits — all devices excluded (daily/short-window/cooldown). Re-queueing item.`);
+    return null;
+  }
+
+  // ── SCORE & SORT (lower = better) entre os elegíveis ──
+  const scored = eligible.map(d => {
+    const s = stats.get(d.id) || { sentRecent: 0, failedRecent: 0, sentToday: 0, sentShortWindow: 0 };
     const cycle = cycleUsage.get(d.id) || 0;
     const lastCallAge = d.last_api_call_at
       ? Date.now() - new Date(d.last_api_call_at).getTime()
       : Number.MAX_SAFE_INTEGER;
 
-    // Score composto: cada componente em escala compatível
-    // - cycleUsage tem peso máximo (separar load no ciclo atual)
-    // - sentToday balanceia ao longo do dia
-    // - failedRecent penaliza instáveis (peso forte: x10)
-    // - lastCallAge: subtrai (mais antigo = melhor)
     const score =
       cycle * 1000 +
       s.sentToday * 10 +
       s.failedRecent * 100 +
-      s.sentRecent * 5 -
-      Math.min(lastCallAge / 1000, 600); // cap em 10min para não dominar
+      s.sentRecent * 5 +
+      s.sentShortWindow * 50 -
+      Math.min(lastCallAge / 1000, 600);
 
     return { d, s, cycle, lastCallAge, score };
   }).sort((a, b) => a.score - b.score);
 
-  // ── Tenta claim do send-slot em ordem de prioridade ──
+  // ── RPC claim_device_send_slot em ordem de prioridade ──
   for (const candidate of scored) {
     const { d, s, cycle, lastCallAge } = candidate;
 
-    // Tenta reservar slot via RPC (atualiza devices.last_api_call_at com FOR UPDATE)
     let waitMs = 0;
     try {
       const { data: rpcResult, error: rpcErr } = await db.rpc("claim_device_send_slot", {
@@ -427,50 +472,37 @@ async function selectBestSender(
         p_min_interval_ms: SLOT_MIN_INTERVAL_MS,
       });
       if (rpcErr) {
-        log.warn(`claim_device_send_slot error for ${d.name}: ${rpcErr.message} — trying anyway`);
-        waitMs = 0;
-      } else {
-        waitMs = Number(rpcResult ?? 0);
+        log.warn(`claim_device_send_slot error for ${d.name}: ${rpcErr.message} — skipping`);
+        continue;
       }
+      waitMs = Number(rpcResult ?? 0);
     } catch (err: any) {
-      log.warn(`claim_device_send_slot threw for ${d.name}: ${err.message} — trying anyway`);
-      waitMs = 0;
-    }
-
-    if (waitMs < 0) {
-      // device não encontrado pelo RPC — pula
+      log.warn(`claim_device_send_slot threw for ${d.name}: ${err.message} — skipping`);
       continue;
     }
+
+    if (waitMs < 0) continue;            // device não encontrado pelo RPC
     if (waitMs > SLOT_MAX_WAIT_MS) {
       log.info(`Slot busy on ${d.name} [${d.id.slice(0, 8)}] — needs ${waitMs}ms, trying next`);
       continue;
     }
 
-    // Se precisar esperar pouco (<= SLOT_MAX_WAIT_MS), aguarda
     if (waitMs > 0) await new Promise(r => setTimeout(r, waitMs));
 
-    // Monta motivo da escolha (audit trail)
     const ageStr = lastCallAge === Number.MAX_SAFE_INTEGER
       ? "nunca usado"
       : `${Math.round(lastCallAge / 1000)}s atrás`;
     const reason =
-      `cycle=${cycle} today=${s.sentToday} recent=${s.sentRecent} ` +
+      `cycle=${cycle} today=${s.sentToday}/${limits.maxPerAccount} ` +
+      `short=${s.sentShortWindow}/${limits.maxPerShortWindow} ` +
       `fail60m=${s.failedRecent} lastCall=${ageStr}`;
 
     return { sender: d, reason, waitedMs: waitMs };
   }
 
-  // ── Fallback: nenhum passou no slot — pega o primeiro do ranking sem claim ──
-  // (acontece se TODOS estão dentro do intervalo mínimo; garante que algo é enviado)
-  const fallback = scored[0];
-  if (fallback) {
-    log.warn(`All senders busy on slot — fallback to ${fallback.d.name} [${fallback.d.id.slice(0, 8)}]`);
-    return {
-      sender: fallback.d,
-      reason: `FALLBACK (todos com slot ocupado) — cycle=${fallback.cycle} today=${fallback.s.sentToday}`,
-      waitedMs: 0,
-    };
-  }
+  // ── SEM FALLBACK PERIGOSO ──
+  // Se ninguém passou no claim, devolve null. O caller re-enfileira o item.
+  log.warn(`No sender passed slot claim — re-queueing item (eligible=${eligible.length}, all slot-busy)`);
   return null;
 }
 
@@ -683,10 +715,11 @@ async function processPhase() {
       return new Date(brtMidnight.getTime() + 3 * 3600_000).toISOString();
     })();
 
-    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number }>();
+    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number; sentShortWindow: number }>();
     for (const did of activeSenders.map(s => s.id)) {
-      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0 });
+      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0, sentShortWindow: 0 });
     }
+    const sinceShortWindow = new Date(Date.now() - SHORT_WINDOW_MS).toISOString();
     const { data: recentLogs } = await db
       .from("welcome_message_logs")
       .select("sender_device_id, result, created_at")
@@ -701,7 +734,17 @@ async function processPhase() {
         if (lg.result === "sent") st.sentRecent += 1;
         else st.failedRecent += 1;
       }
+      if (lg.result === "sent" && lg.created_at >= sinceShortWindow) {
+        st.sentShortWindow += 1;
+      }
     }
+
+    // ── Limites configuráveis (podem vir da automação no futuro) ──
+    const limits: SenderLimits = {
+      maxPerAccount: Math.max(1, (automation as any).max_per_account ?? DEFAULT_LIMITS.maxPerAccount),
+      maxPerShortWindow: Math.max(1, (automation as any).max_per_minute ?? DEFAULT_LIMITS.maxPerShortWindow),
+      cooldownSeconds: Math.max(0, (automation as any).cooldown_seconds ?? DEFAULT_LIMITS.cooldownSeconds),
+    };
 
     // Acquire device locks for all sender devices
     const lockedSenderIds: string[] = [];
@@ -740,20 +783,37 @@ async function processPhase() {
         .eq("status", "pending");
       if (lockErr) continue;
 
-      // ── Select best sender (smart strategy + send-slot claim via RPC) ──
+      // ── Select best sender (filtros HARD + score + send-slot claim) ──
       const selected = await selectBestSender(
-        db, availableSenders, senderStats, cycleUsage, automation.id,
+        db, availableSenders, senderStats, cycleUsage, automation.id, limits,
       );
       if (!selected) {
-        // Nenhum sender pôde claim send-slot agora — devolve item pra fila
+        // Nenhum sender disponível (limites/cooldown/slot) — devolve item pra fila.
+        // SEM fallback perigoso: melhor adiar do que sobrecarregar device.
         await db.from("welcome_queue")
           .update({ status: "pending", locked_at: null } as any)
           .eq("id", item.id);
-        log.info(`No sender slot available for item ${item.id.slice(0, 8)} — re-queued`);
+        log.warn(`Queue paused for item ${item.id.slice(0, 8)} — no sender available (limits/cooldown). Will retry next tick.`);
+        await db.from("welcome_events").insert({
+          automation_id: automation.id,
+          user_id: automation.user_id,
+          event_type: "queue_paused",
+          level: "warn",
+          message: `Item re-enfileirado: nenhum sender disponível (limites diário/curto-prazo/cooldown)`,
+          reference_id: item.id,
+          payload_json: {
+            phone: item.participant_phone,
+            limits,
+            available_senders: availableSenders.length,
+          },
+        }).then(() => {}, () => {});
         continue;
       }
       const { sender, reason, waitedMs } = selected;
       cycleUsage.set(sender.id, (cycleUsage.get(sender.id) || 0) + 1);
+      // Atualiza contadores in-memory para próxima iteração do mesmo ciclo
+      const st = senderStats.get(sender.id);
+      if (st) { st.sentToday += 1; st.sentShortWindow += 1; st.sentRecent += 1; }
       log.info(`Sender chosen: ${sender.name} [${sender.id.slice(0, 8)}] — ${reason}${waitedMs > 0 ? ` (waited ${waitedMs}ms for slot)` : ""}`);
 
       // Build message with variables
