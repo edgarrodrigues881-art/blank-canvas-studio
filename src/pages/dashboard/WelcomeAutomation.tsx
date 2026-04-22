@@ -291,6 +291,27 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
   const sendersValid = senderIds.length > 0;
   const groupsValid = selectedGroups.length > 0;
 
+  // ── Stepper state ──
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  useEffect(() => { if (!open) setStep(1); }, [open]);
+
+  const step1Valid = name.trim().length > 0 && !!monitoringId && groupsValid;
+  const step2Valid = (() => {
+    const t = deriveBackendMessageType(payload);
+    if (t === "carousel") return payload.carousel_cards.length > 0;
+    return payload.message_content.trim().length > 0 || payload.media_url.trim().length > 0;
+  })();
+  const step3Valid = sendersValid;
+
+  const steps = [
+    { n: 1 as const, title: "Configuração", desc: "Nome, grupos e monitor", icon: SettingsIcon, valid: step1Valid },
+    { n: 2 as const, title: "Mensagem", desc: "Construa o conteúdo", icon: MessageSquare, valid: step2Valid },
+    { n: 3 as const, title: "Envio", desc: "Delays e remetentes", icon: Send, valid: step3Valid },
+  ];
+
+  const goNext = () => setStep(s => (s < 3 ? ((s + 1) as 1 | 2 | 3) : s));
+  const goBack = () => setStep(s => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[1440px] w-[97vw] h-[95vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
@@ -346,85 +367,223 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 3-col: Stepper · Content · Preview ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_360px] min-h-0 overflow-hidden">
 
-          {/* ═══ LEFT — Builder protagonist ═══ */}
+          {/* ═══ COL 1: Stepper sidebar ═══ */}
+          <aside className="hidden lg:flex flex-col border-r border-border/40 bg-card/30 backdrop-blur-xl px-5 py-7">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5 px-1">
+              Etapas
+            </p>
+            <div className="relative space-y-1">
+              {/* Vertical track */}
+              <div className="absolute left-[22px] top-6 bottom-6 w-px bg-border/60" />
+              {steps.map((s, idx) => {
+                const Icon = s.icon;
+                const active = step === s.n;
+                const past = step > s.n;
+                return (
+                  <button
+                    key={s.n}
+                    type="button"
+                    onClick={() => setStep(s.n)}
+                    className={`group relative w-full flex items-start gap-3 p-2.5 rounded-xl text-left transition-all ${
+                      active ? "bg-gradient-to-r from-pink-500/[0.10] to-transparent" : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className={`relative z-10 w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-all duration-300 ring-1 ${
+                      active
+                        ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white ring-pink-500/40 shadow-lg shadow-pink-500/30 scale-105"
+                        : past
+                        ? "bg-emerald-500/15 text-emerald-500 ring-emerald-500/30"
+                        : "bg-muted/60 text-muted-foreground ring-border/40 group-hover:ring-border"
+                    }`}>
+                      {past ? <Check className="w-4 h-4" strokeWidth={3} /> : <Icon className="w-4 h-4" />}
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold tracking-wider ${active ? "text-pink-500" : past ? "text-emerald-500" : "text-muted-foreground/70"}`}>
+                          ETAPA {s.n}
+                        </span>
+                        {past && s.valid && <Check className="w-3 h-3 text-emerald-500" strokeWidth={3} />}
+                      </div>
+                      <p className={`text-sm font-semibold leading-tight mt-0.5 ${active ? "text-foreground" : "text-foreground/80"}`}>
+                        {s.title}
+                      </p>
+                      <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug">
+                        {s.desc}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Mini summary chip */}
+            <div className="mt-auto pt-5 border-t border-border/40">
+              <div className="rounded-xl bg-gradient-to-br from-pink-500/[0.08] to-fuchsia-500/[0.04] border border-pink-500/20 p-3">
+                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-500 flex items-center gap-1 mb-2">
+                  <Sparkles className="w-2.5 h-2.5" /> Progresso
+                </p>
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Grupos</span><span className="font-mono font-semibold">{selectedGroups.length}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Remetentes</span><span className="font-mono font-semibold">{senderIds.length}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Delay</span><span className="font-mono font-semibold">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span></div>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          {/* ═══ COL 2: Step content ═══ */}
           <div className="min-w-0 overflow-y-auto">
-            <div className="px-8 py-7 space-y-8 max-w-[1040px] mx-auto">
+            <div className="px-8 py-7 max-w-[760px] mx-auto animate-in fade-in-50 slide-in-from-bottom-2 duration-300" key={step}>
 
-              {/* === Section 1: Type === */}
-              <section className="space-y-3.5">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    <span className="text-pink-500">01</span> · Tipo de mensagem
-                  </h3>
-                  <span className="text-[11px] text-muted-foreground">Escolha como sua mensagem será exibida</span>
+              {/* Step header */}
+              <div className="mb-6 flex items-center gap-3">
+                <div className="text-[60px] font-black leading-none bg-gradient-to-br from-pink-500/40 to-fuchsia-600/10 bg-clip-text text-transparent select-none">
+                  0{step}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {WELCOME_TYPE_OPTIONS.map(opt => {
-                    const currentMode = getUiModeFromPayload(payload);
-                    const active = currentMode === opt.value;
-                    const Icon = opt.icon;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setPayload(p => {
-                          if (opt.value === "carousel") return { ...p, message_type: "carousel" };
-                          const derived = deriveBackendMessageType({ ...p, message_type: "text" });
-                          return { ...p, message_type: derived };
-                        })}
-                        className={`group relative rounded-2xl border p-5 text-left transition-all duration-300 overflow-hidden ${
-                          active
-                            ? "border-pink-500/60 bg-gradient-to-br from-pink-500/[0.12] via-fuchsia-500/[0.06] to-transparent shadow-xl shadow-pink-500/10 -translate-y-0.5"
-                            : "border-border/50 bg-card/60 backdrop-blur-sm hover:border-pink-500/30 hover:-translate-y-0.5 hover:shadow-lg hover:bg-card/80"
-                        }`}
-                      >
-                        {/* Decorative shine */}
-                        {active && (
-                          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-pink-500/20 blur-2xl" />
-                        )}
-                        {active && (
-                          <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-pink-500/40 ring-2 ring-background animate-in zoom-in-50 duration-200">
-                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                          </div>
-                        )}
-                        <div className={`relative w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-all duration-300 ${
-                          active
-                            ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white shadow-lg shadow-pink-500/30"
-                            : "bg-muted/60 text-muted-foreground group-hover:bg-pink-500/10 group-hover:text-pink-500 group-hover:scale-105"
-                        }`}>
-                          <Icon className="w-5 h-5" strokeWidth={2} />
-                        </div>
-                        <p className="text-sm font-bold text-foreground leading-tight">{opt.label}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{opt.desc}</p>
-                        <div className={`inline-flex items-center gap-1 mt-3 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-colors ${
-                          active
-                            ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 ring-1 ring-pink-500/20"
-                            : "bg-muted/60 text-muted-foreground"
-                        }`}>
-                          <Sparkles className="w-2.5 h-2.5" />
-                          {opt.tag}
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div>
+                  <h2 className="text-xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
+                  <p className="text-[12.5px] text-muted-foreground mt-0.5">{steps[step - 1].desc}</p>
                 </div>
-              </section>
+              </div>
 
-              {/* === Section 2: Builder + Preview === */}
-              <section className="space-y-3.5">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                    <span className="text-pink-500">02</span> · Construa sua mensagem
-                  </h3>
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                    <Zap className="w-3 h-3 text-amber-500" /> Pré-visualização ao vivo
-                  </span>
+              {/* ──────── STEP 1 ──────── */}
+              {step === 1 && (
+                <div className="space-y-6">
+                  {/* Name */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-foreground/90">Nome da automação</Label>
+                    <Input
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Ex: Boas-vindas VIP"
+                      className="h-11 text-sm bg-background/60 backdrop-blur border-border/60 focus-visible:border-pink-500/60 focus-visible:ring-pink-500/30"
+                    />
+                  </div>
+
+                  {/* Type cards */}
+                  <div className="space-y-2.5">
+                    <Label className="text-xs font-semibold text-foreground/90">Tipo de mensagem</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {WELCOME_TYPE_OPTIONS.map(opt => {
+                        const currentMode = getUiModeFromPayload(payload);
+                        const active = currentMode === opt.value;
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setPayload(p => {
+                              if (opt.value === "carousel") return { ...p, message_type: "carousel" };
+                              const derived = deriveBackendMessageType({ ...p, message_type: "text" });
+                              return { ...p, message_type: derived };
+                            })}
+                            className={`group relative rounded-xl border p-4 text-left transition-all duration-300 overflow-hidden ${
+                              active
+                                ? "border-pink-500/60 bg-gradient-to-br from-pink-500/[0.12] via-fuchsia-500/[0.06] to-transparent shadow-lg shadow-pink-500/10 -translate-y-0.5"
+                                : "border-border/50 bg-card/60 hover:border-pink-500/30 hover:-translate-y-0.5"
+                            }`}
+                          >
+                            {active && (
+                              <>
+                                <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-pink-500/20 blur-2xl" />
+                                <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 flex items-center justify-center shadow shadow-pink-500/40 ring-2 ring-background animate-in zoom-in-50">
+                                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                                </div>
+                              </>
+                            )}
+                            <div className={`relative w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 ${
+                              active ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white shadow shadow-pink-500/30" : "bg-muted/60 text-muted-foreground group-hover:bg-pink-500/10 group-hover:text-pink-500"
+                            }`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <p className="text-[13px] font-bold text-foreground">{opt.label}</p>
+                            <p className="text-[10.5px] text-muted-foreground mt-0.5">{opt.desc}</p>
+                            <div className={`inline-flex items-center gap-1 mt-2 px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider ${
+                              active ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 ring-1 ring-pink-500/20" : "bg-muted/60 text-muted-foreground"
+                            }`}>
+                              <Sparkles className="w-2 h-2" /> {opt.tag}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Monitor + Groups */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5" /> Dispositivo monitor
+                    </Label>
+                    <Select value={monitoringId} onValueChange={setMonitoringId}>
+                      <SelectTrigger className="h-11 bg-background/60 backdrop-blur border-border/60 focus:ring-pink-500/30">
+                        <SelectValue placeholder="Selecione o dispositivo que está nos grupos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(devices || []).map((d: any) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}{d.number ? ` · ${d.number}` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Este dispositivo detecta novos membros entrando nos grupos selecionados.
+                    </p>
+                  </div>
+
+                  {monitoringId && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Grupos monitorados
+                        <Badge variant="outline" className={`h-5 text-[10px] font-mono ml-1 ${groupsValid ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : ""}`}>
+                          {selectedGroups.length} selecionado{selectedGroups.length !== 1 ? "s" : ""}
+                        </Badge>
+                      </Label>
+                      <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden">
+                        <div className="relative p-2 border-b border-border/40">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Input
+                            value={groupSearch}
+                            onChange={e => setGroupSearch(e.target.value)}
+                            placeholder="Buscar grupo..."
+                            className="pl-8 h-9 text-xs bg-muted/30 border-transparent"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto">
+                          {loadingGroups ? (
+                            <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                          ) : !filteredGroups.length ? (
+                            <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum grupo encontrado.</p>
+                          ) : (
+                            filteredGroups.map((g: any) => {
+                              const checked = !!selectedGroups.find(x => x.group_id === g.id);
+                              return (
+                                <button
+                                  key={g.id}
+                                  type="button"
+                                  onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 text-left text-xs transition-colors border-b border-border/20 last:border-0"
+                                >
+                                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow shadow-pink-500/30" : "border-border bg-background"}`}>
+                                    {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                  </div>
+                                  <span className="flex-1 truncate text-[12.5px]">{g.name}</span>
+                                  {g.participants > 0 && <span className="text-[10px] text-muted-foreground font-mono">{g.participants}</span>}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
-                  {/* Builder card with glassmorphism */}
+              )}
+
+              {/* ──────── STEP 2 ──────── */}
+              {step === 2 && (
+                <div className="space-y-4">
                   <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 shadow-lg shadow-black/[0.04] dark:shadow-black/20 ring-1 ring-white/[0.02]">
                     <WelcomeMessageBuilder
                       value={payload}
@@ -433,232 +592,215 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                       hidePreview
                     />
                   </div>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1">
+                    <Zap className="w-3 h-3 text-amber-500" />
+                    A pré-visualização ao lado atualiza em tempo real conforme você edita.
+                  </p>
+                </div>
+              )}
 
-                  {/* Phone preview — premium */}
-                  <div className="lg:sticky lg:top-0">
-                    <div className="relative mx-auto w-full max-w-[300px]">
-                      {/* Glow halo */}
-                      <div className="absolute inset-0 -m-4 rounded-[3rem] bg-gradient-to-b from-pink-500/20 via-fuchsia-500/10 to-transparent blur-2xl" />
-
-                      {/* Phone frame */}
-                      <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/5">
-                        {/* Notch */}
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/85 rounded-b-2xl z-10" />
-                        {/* Side button */}
-                        <div className="absolute -left-[14px] top-24 w-1 h-12 rounded-l-md bg-foreground/85" />
-                        {/* Screen */}
-                        <div className="bg-background overflow-hidden">
-                          <WelcomeWhatsAppPreview payload={payload} height={520} />
-                        </div>
+              {/* ──────── STEP 3 ──────── */}
+              {step === 3 && (
+                <div className="space-y-6">
+                  {/* Delay sliders */}
+                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 ring-1 ring-amber-500/30 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-amber-500" />
                       </div>
-                      <p className="text-center text-[10px] text-muted-foreground mt-4 font-medium tracking-wide uppercase">
-                        Como aparecerá no WhatsApp
-                      </p>
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">Delay entre envios</h4>
+                        <p className="text-[11px] text-muted-foreground">Tempo aleatório entre cada mensagem (anti-bloqueio)</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-5">
+                      <div className="space-y-3">
+                        <div className="flex items-baseline justify-between">
+                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mínimo</Label>
+                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.min_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                        </div>
+                        <Slider
+                          value={[payload.min_delay_seconds]}
+                          onValueChange={v => setPayload(p => ({ ...p, min_delay_seconds: v[0] }))}
+                          min={5} max={300} step={5}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-baseline justify-between">
+                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Máximo</Label>
+                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.max_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                        </div>
+                        <Slider
+                          value={[payload.max_delay_seconds]}
+                          onValueChange={v => setPayload(p => ({ ...p, max_delay_seconds: Math.max(v[0], payload.min_delay_seconds) }))}
+                          min={5} max={600} step={5}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Senders */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
+                        <Send className="w-3.5 h-3.5" /> Remetentes
+                      </Label>
+                      <Badge variant="outline" className={`h-5 text-[10px] font-mono ${sendersValid ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" : ""}`}>
+                        {senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Estes dispositivos enviam as mensagens privadas em rodízio inteligente.
+                    </p>
+                    <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden">
+                      <div className="max-h-72 overflow-y-auto">
+                        {!devices?.length ? (
+                          <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum dispositivo disponível.</p>
+                        ) : (
+                          devices.map((d: any) => {
+                            const checked = senderIds.includes(d.id);
+                            const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
+                            return (
+                              <button
+                                key={d.id}
+                                type="button"
+                                onClick={() => toggleSender(d.id)}
+                                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-muted/40 text-left text-xs transition-colors border-b border-border/20 last:border-0"
+                              >
+                                <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow shadow-pink-500/30" : "border-border bg-background"}`}>
+                                  {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                </div>
+                                <span className="flex-1 truncate text-[12.5px] font-medium">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
+                                <span className="relative flex shrink-0 items-center gap-1.5">
+                                  <span className="relative flex">
+                                    {online && <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />}
+                                    <span className={`relative w-2 h-2 rounded-full ${online ? "bg-emerald-400 shadow shadow-emerald-400/50" : "bg-muted-foreground/40"}`} />
+                                  </span>
+                                  <span className={`text-[10px] font-medium ${online ? "text-emerald-500" : "text-muted-foreground"}`}>
+                                    {online ? "Online" : "Offline"}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Final summary */}
+                  <div className="relative rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/[0.10] via-fuchsia-500/[0.04] to-transparent p-5 overflow-hidden">
+                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-pink-500/15 blur-2xl" />
+                    <p className="relative text-[10px] font-bold uppercase tracking-[0.14em] text-pink-600 dark:text-pink-400 flex items-center gap-1.5 mb-3">
+                      <Sparkles className="w-3 h-3" /> Resumo da automação
+                    </p>
+                    <div className="relative grid grid-cols-2 gap-3 text-[12px]">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Modo:</span>
+                        <span className="font-semibold text-foreground capitalize">{getUiModeFromPayload(payload)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Delay:</span>
+                        <span className="font-mono font-semibold text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Grupos:</span>
+                        <span className="font-semibold text-foreground">{selectedGroups.length}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Send className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">Remetentes:</span>
+                        <span className="font-semibold text-foreground">{senderIds.length}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </section>
+              )}
             </div>
           </div>
 
-          {/* ═══ RIGHT — Sidebar with glassmorphism ═══ */}
-          <aside className="min-w-0 overflow-y-auto border-l border-border/40 bg-card/30 backdrop-blur-xl px-5 py-7 space-y-5">
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3 flex items-center gap-1.5">
-                <SettingsIcon className="w-3 h-3" /> Configurações
+          {/* ═══ COL 3: Persistent preview ═══ */}
+          <aside className="hidden lg:flex flex-col border-l border-border/40 bg-gradient-to-b from-card/30 to-card/10 backdrop-blur-xl px-6 py-7">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Pré-visualização
               </p>
-
-              {/* Name */}
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/80">Nome da automação</Label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Boas-vindas VIP"
-                  className="h-10 bg-background/60 backdrop-blur border-border/60 focus-visible:border-pink-500/60 focus-visible:ring-pink-500/30"
-                />
-              </div>
+              <span className="flex items-center gap-1 text-[10px] text-emerald-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Ao vivo
+              </span>
             </div>
-
-            {/* Monitor */}
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-medium text-foreground/80 flex items-center gap-1.5">
-                <Smartphone className="w-3 h-3" /> Dispositivo nos grupos
-              </Label>
-              <Select value={monitoringId} onValueChange={setMonitoringId}>
-                <SelectTrigger className="h-10 bg-background/60 backdrop-blur border-border/60 focus:ring-pink-500/30">
-                  <SelectValue placeholder="Selecione o monitor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(devices || []).map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}{d.number ? ` · ${d.number}` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] text-muted-foreground leading-relaxed pt-0.5">
-                Detecta novos membros nos grupos.
-              </p>
-            </div>
-
-            {/* Groups */}
-            {monitoringId && (
-              <details className="group rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden transition-all hover:border-border/80" open={!groupsValid}>
-                <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 flex items-center justify-center">
-                    <Users className="w-3 h-3 text-emerald-500" />
-                  </div>
-                  <span className="text-xs font-semibold flex-1">Grupos monitorados</span>
-                  <Badge variant={groupsValid ? "default" : "outline"} className={`h-5 text-[10px] font-mono ${groupsValid ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15" : ""}`}>
-                    {selectedGroups.length}
-                  </Badge>
-                  <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
-                </summary>
-                <div className="border-t border-border/40 p-2 space-y-2">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <Input
-                      value={groupSearch}
-                      onChange={e => setGroupSearch(e.target.value)}
-                      placeholder="Buscar grupo..."
-                      className="pl-8 h-8 text-xs bg-muted/30"
-                    />
-                  </div>
-                  <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
-                    {loadingGroups ? (
-                      <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-                    ) : !filteredGroups.length ? (
-                      <p className="text-[11px] text-muted-foreground p-4 text-center">Nenhum grupo encontrado.</p>
-                    ) : (
-                      filteredGroups.map((g: any) => {
-                        const checked = !!selectedGroups.find(x => x.group_id === g.id);
-                        return (
-                          <button
-                            key={g.id}
-                            type="button"
-                            onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
-                            className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs transition-colors"
-                          >
-                            <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow-sm shadow-pink-500/30" : "border-border bg-background"}`}>
-                              {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                            </div>
-                            <span className="flex-1 truncate">{g.name}</span>
-                            {g.participants > 0 && <span className="text-[9px] text-muted-foreground font-mono">{g.participants}</span>}
-                          </button>
-                        );
-                      })
-                    )}
+            <div className="flex-1 flex items-start justify-center">
+              <div className="relative w-full max-w-[280px]">
+                <div className="absolute inset-0 -m-4 rounded-[3rem] bg-gradient-to-b from-pink-500/20 via-fuchsia-500/10 to-transparent blur-2xl" />
+                <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/5">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/85 rounded-b-2xl z-10" />
+                  <div className="absolute -left-[14px] top-24 w-1 h-12 rounded-l-md bg-foreground/85" />
+                  <div className="bg-background overflow-hidden">
+                    <WelcomeWhatsAppPreview payload={payload} height={500} />
                   </div>
                 </div>
-              </details>
-            )}
-
-            {/* Senders */}
-            <details className="group rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden transition-all hover:border-border/80" open={!sendersValid}>
-              <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
-                <div className="w-6 h-6 rounded-lg bg-pink-500/10 ring-1 ring-pink-500/20 flex items-center justify-center">
-                  <Send className="w-3 h-3 text-pink-500" />
-                </div>
-                <span className="text-xs font-semibold flex-1">Remetentes</span>
-                <Badge variant={sendersValid ? "default" : "outline"} className={`h-5 text-[10px] font-mono ${sendersValid ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30 hover:bg-pink-500/15" : ""}`}>
-                  {senderIds.length}
-                </Badge>
-                <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
-              </summary>
-              <div className="border-t border-border/40 p-2 space-y-2">
-                <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                  Enviam no privado em rodízio inteligente.
+                <p className="text-center text-[10px] text-muted-foreground mt-4 font-medium tracking-wide uppercase">
+                  Como aparecerá no WhatsApp
                 </p>
-                <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
-                  {!devices?.length ? (
-                    <p className="text-[11px] text-muted-foreground p-4 text-center">Nenhum dispositivo disponível.</p>
-                  ) : (
-                    devices.map((d: any) => {
-                      const checked = senderIds.includes(d.id);
-                      const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => toggleSender(d.id)}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs transition-colors"
-                        >
-                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow-sm shadow-pink-500/30" : "border-border bg-background"}`}>
-                            {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                          </div>
-                          <span className="flex-1 truncate">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
-                          <span className="relative flex shrink-0">
-                            {online && <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />}
-                            <span className={`relative w-2 h-2 rounded-full ${online ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-muted-foreground/40"}`} />
-                          </span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </details>
-
-            {/* Summary card — premium */}
-            <div className="relative rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/[0.08] via-fuchsia-500/[0.04] to-transparent p-4 space-y-3 overflow-hidden">
-              <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-pink-500/10 blur-2xl" />
-              <div className="relative">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3" /> Resumo
-                </p>
-              </div>
-              <div className="relative space-y-2 text-[11px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <MessageSquare className="w-3 h-3" /> Modo
-                  </span>
-                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase bg-background/60 border-border/60">
-                    {getUiModeFromPayload(payload)}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <Zap className="w-3 h-3" /> Delay
-                  </span>
-                  <span className="font-mono font-semibold text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
-                </div>
-                {monitorDevice && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Smartphone className="w-3 h-3" /> Monitor
-                    </span>
-                    <span className="truncate max-w-[160px] text-right text-foreground font-medium">{monitorDevice.name}</span>
-                  </div>
-                )}
-                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-2" />
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <Users className="w-3 h-3" /> Grupos · Remetentes
-                  </span>
-                  <span className="font-mono font-semibold text-foreground">{selectedGroups.length} · {senderIds.length}</span>
-                </div>
               </div>
             </div>
           </aside>
         </div>
 
-        {/* ═══════ FOOTER ═══════ */}
-        <DialogFooter className="relative border-t border-border/40 px-8 py-4 shrink-0 bg-background/80 backdrop-blur-xl gap-2">
+        {/* ═══════ FOOTER — stepper navigation ═══════ */}
+        <DialogFooter className="relative border-t border-border/40 px-8 py-4 shrink-0 bg-background/80 backdrop-blur-xl flex-row sm:justify-between gap-2">
           <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             Cancelar
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={create.isPending}
-            className="group gap-2 min-w-[200px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10"
-          >
-            {create.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
+
+          <div className="flex items-center gap-2">
+            {/* Step pips */}
+            <div className="hidden sm:flex items-center gap-1.5 mr-2">
+              {[1, 2, 3].map(n => (
+                <div
+                  key={n}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    step === n ? "w-8 bg-gradient-to-r from-pink-500 to-fuchsia-600" : step > n ? "w-1.5 bg-emerald-500" : "w-1.5 bg-border"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {step > 1 && (
+              <Button variant="outline" onClick={goBack} className="gap-1.5 border-border/60">
+                <ArrowLeft className="w-4 h-4" /> Voltar
+              </Button>
             )}
-            Criar automação
-          </Button>
+
+            {step < 3 ? (
+              <Button
+                onClick={goNext}
+                disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
+                className="group gap-2 min-w-[140px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10 disabled:opacity-50 disabled:hover:translate-y-0"
+              >
+                Continuar
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleCreate}
+                disabled={create.isPending}
+                className="group gap-2 min-w-[200px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10"
+              >
+                {create.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
+                )}
+                Criar automação
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
