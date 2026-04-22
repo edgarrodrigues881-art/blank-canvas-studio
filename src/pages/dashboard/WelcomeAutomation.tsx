@@ -422,7 +422,7 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: groups } = useWelcomeGroups(id);
   const { data: senders } = useWelcomeSenders(id);
 
-  const [localMessage, setLocalMessage] = useState("");
+  const [msgPayload, setMsgPayload] = useState<WelcomeMessagePayload>(DEFAULT_WELCOME_PAYLOAD);
   const [minDelay, setMinDelay] = useState(30);
   const [maxDelay, setMaxDelay] = useState(60);
   const [startHour, setStartHour] = useState("08:00");
@@ -430,7 +430,18 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   useEffect(() => {
     if (automation) {
-      setLocalMessage(automation.message_content || "");
+      const a: any = automation;
+      setMsgPayload({
+        message_type: (a.message_type as any) || "text",
+        message_content: a.message_content || "",
+        buttons: Array.isArray(a.buttons) ? a.buttons : [],
+        carousel_cards: Array.isArray(a.carousel_cards) ? a.carousel_cards : [],
+        media_url: a.media_url || "",
+        media_caption: a.media_caption || "",
+        media_kind: null,
+        min_delay_seconds: a.min_delay_seconds ?? 30,
+        max_delay_seconds: a.max_delay_seconds ?? 60,
+      });
       setMinDelay(automation.min_delay_seconds);
       setMaxDelay(automation.max_delay_seconds);
       setStartHour((automation.send_start_hour || "08:00").slice(0, 5));
@@ -444,7 +455,19 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const isActive = automation.status === "active";
 
-  const saveMessage = () => update.mutateAsync({ id, message_content: localMessage } as any).then(() => toast.success("Mensagem atualizada!"));
+  const saveMessage = () =>
+    update.mutateAsync({
+      id,
+      message_type: msgPayload.message_type,
+      message_content: msgPayload.message_type === "media" ? msgPayload.media_caption : msgPayload.message_content,
+      buttons: msgPayload.buttons,
+      carousel_cards: msgPayload.carousel_cards,
+      media_url: msgPayload.media_url,
+      media_caption: msgPayload.media_caption,
+      min_delay_seconds: msgPayload.min_delay_seconds,
+      max_delay_seconds: Math.max(msgPayload.max_delay_seconds, msgPayload.min_delay_seconds),
+    } as any).then(() => toast.success("Mensagem atualizada!"));
+
   const saveSchedule = () => update.mutateAsync({
     id,
     min_delay_seconds: minDelay,
