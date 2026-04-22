@@ -171,62 +171,60 @@ function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessa
         <div className="flex justify-end">
           <div className="max-w-[90%] space-y-1">
 
-            {/* Media block (when type = media) */}
-            {payload.message_type === "media" && payload.media_url && (
-              <div className="rounded-xl overflow-hidden shadow-lg mb-1" style={{ backgroundColor: bubbleBg }}>
-                {mediaKind === "image" && (
-                  <img src={payload.media_url} alt="" className="w-full max-h-[180px] object-cover" onError={e => (e.currentTarget.style.display = "none")} />
-                )}
-                {mediaKind === "video" && (
-                  <div className="relative h-[180px] bg-black/40 flex items-center justify-center">
-                    <video src={payload.media_url} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
-                        <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+            {/* Composable bubble for non-carousel: media + text + buttons can coexist */}
+            {payload.message_type !== "carousel" && (
+              <div className="rounded-xl rounded-tr-sm overflow-hidden shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
+                {/* Media block (top) */}
+                {payload.media_url && (
+                  <>
+                    {mediaKind === "image" && (
+                      <img src={payload.media_url} alt="" className="w-full max-h-[200px] object-cover" onError={e => (e.currentTarget.style.display = "none")} />
+                    )}
+                    {mediaKind === "video" && (
+                      <div className="relative h-[180px] bg-black/40 flex items-center justify-center">
+                        <video src={payload.media_url} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
+                    {mediaKind === "audio" && (
+                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
+                        <FileAudio className="w-5 h-5" style={{ color: bubbleColor }} />
+                        <span className="text-xs" style={{ color: bubbleColor }}>Áudio anexado</span>
+                      </div>
+                    )}
+                    {mediaKind === "document" && (
+                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
+                        <FileText className="w-5 h-5" style={{ color: bubbleColor }} />
+                        <span className="text-xs truncate" style={{ color: bubbleColor }}>{payload.media_url.split("/").pop()}</span>
+                      </div>
+                    )}
+                  </>
                 )}
-                {mediaKind === "audio" && (
-                  <div className="px-3 py-3 flex items-center gap-2">
-                    <FileAudio className="w-5 h-5" style={{ color: bubbleColor }} />
-                    <span className="text-xs" style={{ color: bubbleColor }}>Áudio anexado</span>
-                  </div>
-                )}
-                {mediaKind === "document" && (
-                  <div className="px-3 py-3 flex items-center gap-2">
-                    <FileText className="w-5 h-5" style={{ color: bubbleColor }} />
-                    <span className="text-xs truncate" style={{ color: bubbleColor }}>{payload.media_url.split("/").pop()}</span>
-                  </div>
-                )}
-                {payload.media_caption && (
-                  <div className="px-3 py-2 text-sm leading-relaxed" style={{ color: bubbleColor }}>
-                    <span dangerouslySetInnerHTML={{ __html: renderVars(payload.media_caption, varClass) }} />
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* Text bubble (text / buttons / carousel) */}
-            {payload.message_type !== "media" && (
-              <div className="rounded-xl rounded-tr-sm px-3 py-2 text-sm leading-relaxed shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
-                {payload.message_content ? (
-                  <span dangerouslySetInnerHTML={{ __html: renderedText }} />
-                ) : (
-                  <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
-                )}
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
-                  <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
-                    <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                    <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                  </svg>
+                {/* Text/caption */}
+                <div className="px-3 py-2 text-sm leading-relaxed">
+                  {payload.message_content ? (
+                    <span dangerouslySetInnerHTML={{ __html: renderedText }} />
+                  ) : (
+                    <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
+                  )}
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
+                    <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
+                      <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                      <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Buttons preview */}
-            {payload.message_type === "buttons" && buttons.length > 0 && (
+            {/* Inline buttons (composable, after main bubble) */}
+            {payload.message_type !== "carousel" && buttons.length > 0 && (
               <div className="space-y-1">
                 {buttons.map((btn, i) => (
                   <div key={btn.id} className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm flex items-center justify-center gap-1.5" style={{ backgroundColor: cardBg, color: btnColor }}>
@@ -275,16 +273,10 @@ function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessa
               </div>
             )}
 
-            {/* Empty state for buttons/carousel/media */}
-            {payload.message_type === "buttons" && buttons.length === 0 && (
-              <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Adicione botões ao lado →</p>
-            )}
             {payload.message_type === "carousel" && cards.length === 0 && (
               <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Adicione cards ao lado →</p>
             )}
-            {payload.message_type === "media" && !payload.media_url && (
-              <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Cole a URL da mídia ao lado →</p>
-            )}
+
           </div>
         </div>
       </div>
