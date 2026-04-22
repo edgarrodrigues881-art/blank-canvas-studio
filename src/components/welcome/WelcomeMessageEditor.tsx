@@ -80,12 +80,13 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-const TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; icon: any }[] = [
-  { value: "text", label: "Texto", desc: "Mensagem simples", icon: Type },
-  { value: "buttons", label: "Texto + Botões", desc: "CTA interativo", icon: MousePointerClick },
-  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards", icon: Images },
-  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", icon: ImageIcon },
+export const WELCOME_TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; tag: string; icon: any }[] = [
+  { value: "text", label: "Texto", desc: "Mensagem simples e direta", tag: "Simples", icon: Type },
+  { value: "buttons", label: "Botões", desc: "CTAs interativos clicáveis", tag: "Interativo", icon: MousePointerClick },
+  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais", tag: "Alta conversão", icon: Images },
+  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", tag: "Visual", icon: ImageIcon },
 ];
+const TYPE_OPTIONS = WELCOME_TYPE_OPTIONS;
 
 // ────────────────────────────────────────────────────────────
 // Helpers
