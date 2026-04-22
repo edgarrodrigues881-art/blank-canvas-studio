@@ -143,8 +143,8 @@ function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessa
 
   return (
     <div
-      className="rounded-2xl border border-border/30 flex flex-col h-[460px] overflow-hidden"
-      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD" }}
+      className="rounded-2xl border border-border/30 flex flex-col overflow-hidden"
+      style={{ backgroundColor: isDark ? "#0b141a" : "#ECE5DD", height }}
     >
       <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border/20 shrink-0">
         <div className="w-2 h-2 rounded-full bg-emerald-400" />
