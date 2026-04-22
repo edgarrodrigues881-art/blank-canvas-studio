@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import heroCrmScreenshot from "@/assets/hero-crm-dashboard.png";
+import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel.png";
 
 // ─── Prefetch ───
@@ -151,11 +152,11 @@ const Hero = () => {
             className="lg:hidden relative mt-2"
           >
             <div className="absolute -inset-6 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-2xl pointer-events-none" />
-            <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)] aspect-[4/3] sm:aspect-[16/10]">
+            <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
               <img
-                src={heroCrmScreenshot}
+                src={heroCrmMobile}
                 alt="Dashboard CRM"
-                className="absolute inset-0 w-full h-full object-cover object-left-top select-none"
+                className="w-full h-auto block select-none"
                 draggable={false}
                 loading="eager"
               />
