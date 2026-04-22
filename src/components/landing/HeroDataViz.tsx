@@ -76,7 +76,8 @@ const HeroDataViz = () => {
             <div>
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</div>
               <div className="text-[18px] font-semibold text-white tabular-nums mt-0.5">
-                12.847 <span className="text-emerald-400 text-[12px] font-medium">↑ 18%</span>
+                {HERO_METRICS.messagesToday.value}{" "}
+                <span className="text-emerald-400 text-[12px] font-medium">↑ {HERO_METRICS.messagesToday.trend.replace("+", "")}</span>
               </div>
             </div>
             <div className="flex gap-1">
@@ -91,19 +92,19 @@ const HeroDataViz = () => {
                 key={i}
                 initial={{ height: 0 }}
                 animate={{
-                  height: [`${v}%`, `${Math.max(20, v - 15)}%`, `${v}%`],
+                  height: [`${v}%`, `${Math.max(25, v - 8)}%`, `${v}%`],
                 }}
                 transition={{
                   height: {
-                    duration: 3 + (i % 3),
+                    duration: 5 + (i % 3),
                     repeat: Infinity,
-                    delay: i * 0.1,
+                    delay: i * 0.15,
                     ease: "easeInOut",
                   },
                 }}
-                className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/80 via-emerald-500/90 to-emerald-300"
+                className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/70 via-emerald-500/85 to-emerald-300/95"
                 style={{
-                  boxShadow: "0 0 12px rgba(16,185,129,0.45)",
+                  boxShadow: "0 0 10px rgba(16,185,129,0.3)",
                 }}
               />
             ))}
