@@ -100,10 +100,10 @@ const Hero = () => {
           <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
             <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-6 md:mb-7 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] backdrop-blur-sm">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" style={{ animationDuration: "2.4s" }} />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
               </span>
-              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+12.847 mensagens enviadas hoje</span>
+              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+{HERO_METRICS.messagesToday.value} mensagens enviadas hoje</span>
             </motion.div>
 
             <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7 [text-wrap:balance]">
