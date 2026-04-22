@@ -1,27 +1,24 @@
 import { motion } from "framer-motion";
+import { HERO_METRICS, HERO_BAR_SERIES, HERO_SPARKLINE } from "./heroMetrics";
 
 /**
  * Animated "live data" visualization for the Hero background.
  * Pure SVG/CSS — no dependencies. Emerald green (matches logo).
  */
 const HeroDataViz = () => {
-  // Bar chart values (pulse subtly)
-  const bars = [42, 78, 56, 91, 64, 88, 72, 95, 60, 83, 48, 76];
+  const bars = HERO_BAR_SERIES;
+  const sparkline = HERO_SPARKLINE;
 
-  // Sparkline path
-  const sparkline = "M0,80 L40,72 L80,58 L120,64 L160,42 L200,48 L240,28 L280,36 L320,18 L360,24 L400,10";
-
-  // Stat counters
   const stats = [
-    { label: "Mensagens enviadas hoje", value: "12.847", trend: "+18%" },
-    { label: "Chips ativos", value: "47", trend: "+3" },
-    { label: "Taxa de entrega", value: "98,4%", trend: "+0,6%" },
+    { label: "Mensagens enviadas hoje", ...HERO_METRICS.messagesToday },
+    { label: "Chips ativos", ...HERO_METRICS.activeChips },
+    { label: "Taxa de entrega", ...HERO_METRICS.deliveryRate },
   ];
 
   // Emerald palette (matches DG logo green)
-  const GREEN = "rgb(16,185,129)";      // emerald-500
-  const GREEN_BRIGHT = "rgb(52,211,153)"; // emerald-400
-  const GREEN_DEEP = "rgb(5,150,105)";   // emerald-600
+  const GREEN = "rgb(16,185,129)";
+  const GREEN_BRIGHT = "rgb(52,211,153)";
+
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none hidden lg:block" aria-hidden="true">
