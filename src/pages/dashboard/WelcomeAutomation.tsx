@@ -571,8 +571,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </p>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tipo</span>
-                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{payload.message_type}</Badge>
+                  <span className="text-muted-foreground">Modo</span>
+                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{getUiModeFromPayload(payload)}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Delay</span>
