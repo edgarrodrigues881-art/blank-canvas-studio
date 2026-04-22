@@ -293,38 +293,51 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1400px] w-[97vw] h-[94vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/50">
+      <DialogContent className="max-w-[1440px] w-[97vw] h-[95vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
 
-        {/* ═══════ HEADER — strong identity ═══════ */}
-        <DialogHeader className="px-8 pt-6 pb-5 border-b border-border/40 shrink-0 bg-gradient-to-br from-pink-500/[0.04] via-transparent to-transparent">
+        {/* Decorative ambient glow */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
+          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-pink-500/10 blur-3xl" />
+          <div className="absolute -top-32 right-0 w-[420px] h-[420px] rounded-full bg-fuchsia-500/10 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 w-[520px] h-[300px] rounded-full bg-emerald-500/[0.06] blur-3xl" />
+        </div>
+
+        {/* ═══════ HEADER ═══════ */}
+        <DialogHeader className="relative px-8 pt-6 pb-5 border-b border-border/40 shrink-0 backdrop-blur-xl bg-background/70">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-pink-500/20 shrink-0">
-              <Heart className="w-5 h-5 text-white fill-white/20" />
+            <div className="relative shrink-0">
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-pink-500 to-fuchsia-600 blur-md opacity-60" />
+              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-fuchsia-600 flex items-center justify-center shadow-xl shadow-pink-500/30 ring-1 ring-white/10">
+                <Heart className="w-5 h-5 text-white fill-white/30" />
+              </div>
             </div>
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-[22px] font-bold text-foreground leading-tight tracking-tight">
+              <DialogTitle className="text-[22px] font-bold text-foreground leading-tight tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
                 Criar automação de boas-vindas
               </DialogTitle>
               <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
                 Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
               </p>
 
-              {/* Flow concept */}
-              <div className="flex items-center gap-2 mt-4 flex-wrap">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm">
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center">
+              {/* Flow concept — interactive pills */}
+              <div className="flex items-center gap-2.5 mt-4 flex-wrap">
+                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-emerald-500/40 hover:shadow-emerald-500/10">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 ring-1 ring-emerald-500/30 flex items-center justify-center">
                     <UserPlus className="w-3 h-3 text-emerald-500" />
                   </div>
                   <span className="text-[11px] font-medium text-foreground">Alguém entra no grupo</span>
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/60" />
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border/60 shadow-sm">
-                  <div className="w-5 h-5 rounded-full bg-pink-500/15 flex items-center justify-center">
+                <div className="flex items-center">
+                  <div className="h-px w-6 bg-gradient-to-r from-emerald-500/40 to-pink-500/40" />
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/70 -ml-1" />
+                </div>
+                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-pink-500/40 hover:shadow-pink-500/10">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400/20 to-fuchsia-600/20 ring-1 ring-pink-500/30 flex items-center justify-center">
                     <Send className="w-3 h-3 text-pink-500" />
                   </div>
                   <span className="text-[11px] font-medium text-foreground">Recebe mensagem no privado</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-auto">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-auto shadow-sm shadow-emerald-500/10">
                   <Shield className="w-3 h-3 text-emerald-500" />
                   <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
                 </div>
@@ -334,21 +347,21 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
         </DialogHeader>
 
         {/* ═══════ BODY ═══════ */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_340px] min-h-0 overflow-hidden">
 
-          {/* ═══ LEFT — Builder protagonist + preview ═══ */}
-          <div className="min-w-0 overflow-y-auto bg-gradient-to-b from-muted/[0.15] to-transparent">
-            <div className="px-8 py-7 space-y-7 max-w-[1000px] mx-auto">
+          {/* ═══ LEFT — Builder protagonist ═══ */}
+          <div className="min-w-0 overflow-y-auto">
+            <div className="px-8 py-7 space-y-8 max-w-[1040px] mx-auto">
 
-              {/* === Section 1: Type — premium cards === */}
-              <section className="space-y-3">
+              {/* === Section 1: Type === */}
+              <section className="space-y-3.5">
                 <div className="flex items-baseline justify-between">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    01 · Tipo de mensagem
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="text-pink-500">01</span> · Tipo de mensagem
                   </h3>
                   <span className="text-[11px] text-muted-foreground">Escolha como sua mensagem será exibida</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   {WELCOME_TYPE_OPTIONS.map(opt => {
                     const currentMode = getUiModeFromPayload(payload);
                     const active = currentMode === opt.value;
@@ -362,26 +375,34 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                           const derived = deriveBackendMessageType({ ...p, message_type: "text" });
                           return { ...p, message_type: derived };
                         })}
-                        className={`group relative rounded-2xl border-2 p-4 text-left transition-all overflow-hidden ${
+                        className={`group relative rounded-2xl border p-5 text-left transition-all duration-300 overflow-hidden ${
                           active
-                            ? "border-primary bg-gradient-to-br from-primary/10 to-primary/[0.02] shadow-lg shadow-primary/10 -translate-y-0.5"
-                            : "border-border/50 bg-card hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md"
+                            ? "border-pink-500/60 bg-gradient-to-br from-pink-500/[0.12] via-fuchsia-500/[0.06] to-transparent shadow-xl shadow-pink-500/10 -translate-y-0.5"
+                            : "border-border/50 bg-card/60 backdrop-blur-sm hover:border-pink-500/30 hover:-translate-y-0.5 hover:shadow-lg hover:bg-card/80"
                         }`}
                       >
+                        {/* Decorative shine */}
                         {active && (
-                          <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+                          <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-pink-500/20 blur-2xl" />
+                        )}
+                        {active && (
+                          <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-pink-500/40 ring-2 ring-background animate-in zoom-in-50 duration-200">
+                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                           </div>
                         )}
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${
-                          active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        <div className={`relative w-11 h-11 rounded-xl flex items-center justify-center mb-3 transition-all duration-300 ${
+                          active
+                            ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white shadow-lg shadow-pink-500/30"
+                            : "bg-muted/60 text-muted-foreground group-hover:bg-pink-500/10 group-hover:text-pink-500 group-hover:scale-105"
                         }`}>
                           <Icon className="w-5 h-5" strokeWidth={2} />
                         </div>
                         <p className="text-sm font-bold text-foreground leading-tight">{opt.label}</p>
                         <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{opt.desc}</p>
-                        <div className={`inline-flex items-center gap-1 mt-2.5 px-2 py-0.5 rounded-md text-[9px] font-semibold uppercase tracking-wider ${
-                          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                        <div className={`inline-flex items-center gap-1 mt-3 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-colors ${
+                          active
+                            ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 ring-1 ring-pink-500/20"
+                            : "bg-muted/60 text-muted-foreground"
                         }`}>
                           <Sparkles className="w-2.5 h-2.5" />
                           {opt.tag}
@@ -392,19 +413,19 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                 </div>
               </section>
 
-              {/* === Section 2: Builder + Preview side by side === */}
-              <section className="space-y-3">
+              {/* === Section 2: Builder + Preview === */}
+              <section className="space-y-3.5">
                 <div className="flex items-baseline justify-between">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                    02 · Construa sua mensagem
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                    <span className="text-pink-500">02</span> · Construa sua mensagem
                   </h3>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                     <Zap className="w-3 h-3 text-amber-500" /> Pré-visualização ao vivo
                   </span>
                 </div>
                 <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
-                  {/* Builder */}
-                  <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
+                  {/* Builder card with glassmorphism */}
+                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 shadow-lg shadow-black/[0.04] dark:shadow-black/20 ring-1 ring-white/[0.02]">
                     <WelcomeMessageBuilder
                       value={payload}
                       onChange={patch => setPayload(p => ({ ...p, ...patch }))}
@@ -413,19 +434,24 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                     />
                   </div>
 
-                  {/* Phone preview */}
+                  {/* Phone preview — premium */}
                   <div className="lg:sticky lg:top-0">
                     <div className="relative mx-auto w-full max-w-[300px]">
+                      {/* Glow halo */}
+                      <div className="absolute inset-0 -m-4 rounded-[3rem] bg-gradient-to-b from-pink-500/20 via-fuchsia-500/10 to-transparent blur-2xl" />
+
                       {/* Phone frame */}
-                      <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/30 overflow-hidden">
+                      <div className="relative rounded-[2.5rem] border-[10px] border-foreground/85 bg-foreground/85 shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/5">
                         {/* Notch */}
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-5 bg-foreground/85 rounded-b-2xl z-10" />
+                        {/* Side button */}
+                        <div className="absolute -left-[14px] top-24 w-1 h-12 rounded-l-md bg-foreground/85" />
                         {/* Screen */}
                         <div className="bg-background overflow-hidden">
                           <WelcomeWhatsAppPreview payload={payload} height={520} />
                         </div>
                       </div>
-                      <p className="text-center text-[10px] text-muted-foreground mt-3 font-medium">
+                      <p className="text-center text-[10px] text-muted-foreground mt-4 font-medium tracking-wide uppercase">
                         Como aparecerá no WhatsApp
                       </p>
                     </div>
@@ -435,22 +461,22 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             </div>
           </div>
 
-          {/* ═══ RIGHT — Compact secondary sidebar ═══ */}
-          <div className="min-w-0 overflow-y-auto bg-card/40 border-l border-border/40 px-5 py-7 space-y-5">
+          {/* ═══ RIGHT — Sidebar with glassmorphism ═══ */}
+          <aside className="min-w-0 overflow-y-auto border-l border-border/40 bg-card/30 backdrop-blur-xl px-5 py-7 space-y-5">
 
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-3">
-                Configurações
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3 flex items-center gap-1.5">
+                <SettingsIcon className="w-3 h-3" /> Configurações
               </p>
 
               {/* Name */}
               <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-foreground/80">Nome</Label>
+                <Label className="text-[11px] font-medium text-foreground/80">Nome da automação</Label>
                 <Input
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Ex: Boas-vindas VIP"
-                  className="h-9 bg-background"
+                  className="h-10 bg-background/60 backdrop-blur border-border/60 focus-visible:border-pink-500/60 focus-visible:ring-pink-500/30"
                 />
               </div>
             </div>
@@ -458,40 +484,44 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             {/* Monitor */}
             <div className="space-y-1.5">
               <Label className="text-[11px] font-medium text-foreground/80 flex items-center gap-1.5">
-                <Smartphone className="w-3 h-3" /> Monitor
+                <Smartphone className="w-3 h-3" /> Dispositivo nos grupos
               </Label>
               <Select value={monitoringId} onValueChange={setMonitoringId}>
-                <SelectTrigger className="h-9 bg-background"><SelectValue placeholder="Dispositivo nos grupos" /></SelectTrigger>
+                <SelectTrigger className="h-10 bg-background/60 backdrop-blur border-border/60 focus:ring-pink-500/30">
+                  <SelectValue placeholder="Selecione o monitor" />
+                </SelectTrigger>
                 <SelectContent>
                   {(devices || []).map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>{d.name}{d.number ? ` · ${d.number}` : ""}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground leading-relaxed">
+              <p className="text-[10px] text-muted-foreground leading-relaxed pt-0.5">
                 Detecta novos membros nos grupos.
               </p>
             </div>
 
-            {/* Groups (collapsible) */}
+            {/* Groups */}
             {monitoringId && (
-              <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!groupsValid}>
+              <details className="group rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden transition-all hover:border-border/80" open={!groupsValid}>
                 <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
-                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium flex-1">Grupos</span>
-                  <Badge variant={groupsValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 flex items-center justify-center">
+                    <Users className="w-3 h-3 text-emerald-500" />
+                  </div>
+                  <span className="text-xs font-semibold flex-1">Grupos monitorados</span>
+                  <Badge variant={groupsValid ? "default" : "outline"} className={`h-5 text-[10px] font-mono ${groupsValid ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/15" : ""}`}>
                     {selectedGroups.length}
                   </Badge>
-                  <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform group-open:rotate-45" />
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
                 </summary>
-                <div className="border-t border-border/30 p-2 space-y-2">
+                <div className="border-t border-border/40 p-2 space-y-2">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                     <Input
                       value={groupSearch}
                       onChange={e => setGroupSearch(e.target.value)}
                       placeholder="Buscar grupo..."
-                      className="pl-8 h-8 text-xs"
+                      className="pl-8 h-8 text-xs bg-muted/30"
                     />
                   </div>
                   <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
@@ -507,13 +537,13 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                             key={g.id}
                             type="button"
                             onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
-                            className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs"
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs transition-colors"
                           >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
-                              {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                            <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow-sm shadow-pink-500/30" : "border-border bg-background"}`}>
+                              {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                             </div>
                             <span className="flex-1 truncate">{g.name}</span>
-                            {g.participants > 0 && <span className="text-[9px] text-muted-foreground">{g.participants}</span>}
+                            {g.participants > 0 && <span className="text-[9px] text-muted-foreground font-mono">{g.participants}</span>}
                           </button>
                         );
                       })
@@ -523,19 +553,21 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </details>
             )}
 
-            {/* Senders (collapsible) */}
-            <details className="group rounded-xl border border-border/40 bg-background overflow-hidden" open={!sendersValid}>
+            {/* Senders */}
+            <details className="group rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden transition-all hover:border-border/80" open={!sendersValid}>
               <summary className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none hover:bg-muted/30 transition-colors">
-                <Send className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium flex-1">Remetentes</span>
-                <Badge variant={sendersValid ? "default" : "outline"} className="h-5 text-[10px] font-mono">
+                <div className="w-6 h-6 rounded-lg bg-pink-500/10 ring-1 ring-pink-500/20 flex items-center justify-center">
+                  <Send className="w-3 h-3 text-pink-500" />
+                </div>
+                <span className="text-xs font-semibold flex-1">Remetentes</span>
+                <Badge variant={sendersValid ? "default" : "outline"} className={`h-5 text-[10px] font-mono ${sendersValid ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30 hover:bg-pink-500/15" : ""}`}>
                   {senderIds.length}
                 </Badge>
-                <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform group-open:rotate-45" />
+                <Plus className="w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 group-open:rotate-45" />
               </summary>
-              <div className="border-t border-border/30 p-2 space-y-2">
+              <div className="border-t border-border/40 p-2 space-y-2">
                 <p className="text-[10px] text-muted-foreground px-1 leading-relaxed">
-                  Enviam no privado em rodízio.
+                  Enviam no privado em rodízio inteligente.
                 </p>
                 <div className="max-h-44 overflow-y-auto rounded-lg bg-muted/20">
                   {!devices?.length ? (
@@ -549,13 +581,16 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                           key={d.id}
                           type="button"
                           onClick={() => toggleSender(d.id)}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs"
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-muted/40 text-left text-xs transition-colors"
                         >
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? "bg-primary border-primary" : "border-border"}`}>
-                            {checked && <Check className="w-3 h-3 text-primary-foreground" />}
+                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow-sm shadow-pink-500/30" : "border-border bg-background"}`}>
+                            {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                           </div>
                           <span className="flex-1 truncate">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${online ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+                          <span className="relative flex shrink-0">
+                            {online && <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />}
+                            <span className={`relative w-2 h-2 rounded-full ${online ? "bg-emerald-400 shadow-sm shadow-emerald-400/50" : "bg-muted-foreground/40"}`} />
+                          </span>
                         </button>
                       );
                     })
@@ -564,40 +599,64 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </div>
             </details>
 
-            {/* Summary card */}
-            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3 space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-primary flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3" /> Resumo
-              </p>
-              <div className="space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Modo</span>
-                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{getUiModeFromPayload(payload)}</Badge>
+            {/* Summary card — premium */}
+            <div className="relative rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/[0.08] via-fuchsia-500/[0.04] to-transparent p-4 space-y-3 overflow-hidden">
+              <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-pink-500/10 blur-2xl" />
+              <div className="relative">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-pink-600 dark:text-pink-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3" /> Resumo
+                </p>
+              </div>
+              <div className="relative space-y-2 text-[11px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <MessageSquare className="w-3 h-3" /> Modo
+                  </span>
+                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase bg-background/60 border-border/60">
+                    {getUiModeFromPayload(payload)}
+                  </Badge>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Delay</span>
-                  <span className="font-mono text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Zap className="w-3 h-3" /> Delay
+                  </span>
+                  <span className="font-mono font-semibold text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
                 </div>
                 {monitorDevice && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-muted-foreground">Monitor</span>
-                    <span className="truncate max-w-[160px] text-right text-foreground">{monitorDevice.name}</span>
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Smartphone className="w-3 h-3" /> Monitor
+                    </span>
+                    <span className="truncate max-w-[160px] text-right text-foreground font-medium">{monitorDevice.name}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Grupos · Remetentes</span>
-                  <span className="font-mono text-foreground">{selectedGroups.length} · {senderIds.length}</span>
+                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-2" />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Users className="w-3 h-3" /> Grupos · Remetentes
+                  </span>
+                  <span className="font-mono font-semibold text-foreground">{selectedGroups.length} · {senderIds.length}</span>
                 </div>
               </div>
             </div>
-          </div>
+          </aside>
         </div>
 
         {/* ═══════ FOOTER ═══════ */}
-        <DialogFooter className="border-t border-border/40 px-8 py-4 shrink-0 bg-background gap-2">
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleCreate} disabled={create.isPending} className="gap-2 min-w-[180px] h-10 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-lg shadow-pink-500/20">
-            {create.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+        <DialogFooter className="relative border-t border-border/40 px-8 py-4 shrink-0 bg-background/80 backdrop-blur-xl gap-2">
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={create.isPending}
+            className="group gap-2 min-w-[200px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10"
+          >
+            {create.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
+            )}
             Criar automação
           </Button>
         </DialogFooter>
