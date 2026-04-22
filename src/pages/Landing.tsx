@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
-import heroCrmScreenshot from "@/assets/hero-crm-screenshot.png";
+import heroCrmScreenshot from "@/assets/hero-crm-dashboard.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel.png";
 
 // ─── Prefetch ───
@@ -89,19 +89,19 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-24 md:pt-32 pb-12 md:pb-32 px-5 md:px-6 overflow-hidden min-h-[100vh] flex items-center">
-      {/* Background screenshot — ~100% width */}
+    <section className="relative pt-24 md:pt-32 pb-16 md:pb-32 px-5 md:px-6 overflow-hidden min-h-[100vh] flex items-center">
+      {/* Background screenshot — desktop only, full-bleed right */}
       <motion.div
         initial={{ opacity: 0, scale: 1.02 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.8, ease: easeOut }}
-        className="absolute inset-0 z-0 pointer-events-none"
+        className="absolute inset-0 z-0 pointer-events-none hidden lg:block"
         aria-hidden="true"
       >
         <img
           src={heroCrmScreenshot}
           alt=""
-          className="absolute top-1/2 right-0 -translate-y-1/2 h-[88%] w-auto max-w-[62%] object-contain object-right select-none"
+          className="absolute top-1/2 right-0 -translate-y-1/2 h-[85%] w-auto max-w-[62%] object-contain object-right select-none"
           draggable={false}
         />
         {/* Left dark gradient — stronger fade following the crop */}
@@ -141,6 +141,25 @@ const Hero = () => {
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
               Acesso imediato · Sem cartão · Sem contrato
             </motion.p>
+          </motion.div>
+
+          {/* Mobile/tablet — inline screenshot below content */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: easeOut, delay: 0.2 }}
+            className="lg:hidden relative mt-2"
+          >
+            <div className="absolute -inset-6 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.08)_0%,transparent_70%)] blur-2xl pointer-events-none" />
+            <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
+              <img
+                src={heroCrmScreenshot}
+                alt="Dashboard CRM"
+                className="w-full h-auto block select-none"
+                draggable={false}
+                loading="eager"
+              />
+            </div>
           </motion.div>
 
           <div className="hidden lg:block lg:col-span-6" aria-hidden="true" />
