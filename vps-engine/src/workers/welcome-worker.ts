@@ -502,12 +502,17 @@ async function processPhase() {
     const senders = (automation.welcome_automation_senders || []).filter((s: any) => s.is_active);
     if (!senders.length) continue;
 
-    // Get pending items (batch of 10)
+    // Get pending items DUE for sending (send_at <= now OR send_at IS NULL para compat).
+    // O agendamento é o controle principal de tempo — o sleep entre envios virou apenas
+    // um pequeno guard técnico (ver mais abaixo).
+    const nowTs = new Date().toISOString();
     const { data: pendingItems } = await db
       .from("welcome_queue")
       .select("*")
       .eq("automation_id", automation.id)
       .eq("status", "pending")
+      .or(`send_at.lte.${nowTs},send_at.is.null`)
+      .order("send_at", { ascending: true, nullsFirst: true })
       .order("detected_at", { ascending: true })
       .limit(10);
     if (!pendingItems?.length) continue;
