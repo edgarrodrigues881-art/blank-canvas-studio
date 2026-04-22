@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, type WelcomeMessagePayload, type WelcomeMessageType } from "@/components/welcome/WelcomeMessageEditor";
+import { WelcomeMessageBuilder, WelcomeWhatsAppPreview, WELCOME_TYPE_OPTIONS, DEFAULT_WELCOME_PAYLOAD, getUiModeFromPayload, deriveBackendMessageType, type WelcomeMessagePayload, type WelcomeMessageType, type WelcomeUiMode } from "@/components/welcome/WelcomeMessageEditor";
 import { WelcomeStatsCards } from "@/components/welcome/WelcomeStatsCards";
 import { WelcomeQueueTable } from "@/components/welcome/WelcomeQueueTable";
 import { AutomationStatusBadge } from "@/components/welcome/WelcomeStatusBadge";
@@ -254,28 +254,29 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
     if (!selectedGroups.length) return toast.error("Selecione pelo menos 1 grupo");
     if (!senderIds.length) return toast.error("Selecione pelo menos 1 remetente para enviar no PV");
 
-    if (payload.message_type === "media" && !payload.media_url.trim()) {
-      return toast.error("Informe a URL da mídia");
-    }
-    if (payload.message_type === "carousel" && payload.carousel_cards.length === 0) {
+    const finalType = deriveBackendMessageType(payload);
+
+    if (finalType === "carousel" && payload.carousel_cards.length === 0) {
       return toast.error("Adicione ao menos 1 card ao carrossel");
     }
-    if (payload.message_type === "buttons" && payload.buttons.length === 0) {
-      return toast.error("Adicione ao menos 1 botão");
+    if (finalType !== "carousel" && !payload.message_content.trim() && !payload.media_url.trim()) {
+      return toast.error("Escreva uma mensagem ou adicione uma mídia");
     }
-    if (payload.message_type !== "media" && !payload.message_content.trim()) {
-      return toast.error("Escreva a mensagem de boas-vindas");
+    // If a button slot is open but empty, block (composable rule: button needs label)
+    if (finalType === "buttons" && payload.buttons.some(b => !b.text.trim())) {
+      return toast.error("Preencha o texto de todos os botões ou remova-os");
     }
 
     const created = await create.mutateAsync({
       name: name.trim(),
       monitoring_device_id: monitoringId,
-      message_content: payload.message_type === "media" ? payload.media_caption : payload.message_content,
-      message_type: payload.message_type,
+      // When the message has media, the text becomes the caption; otherwise it's the body.
+      message_content: finalType === "media" ? (payload.message_content || payload.media_caption) : payload.message_content,
+      message_type: finalType,
       buttons: payload.buttons,
       carousel_cards: payload.carousel_cards,
       media_url: payload.media_url,
-      media_caption: payload.media_caption,
+      media_caption: finalType === "media" ? (payload.message_content || payload.media_caption) : payload.media_caption,
       min_delay_seconds: payload.min_delay_seconds,
       max_delay_seconds: payload.max_delay_seconds,
       group_ids: selectedGroups,
@@ -347,15 +348,20 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   </h3>
                   <span className="text-[11px] text-muted-foreground">Escolha como sua mensagem será exibida</span>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {WELCOME_TYPE_OPTIONS.map(opt => {
-                    const active = payload.message_type === opt.value;
+                    const currentMode = getUiModeFromPayload(payload);
+                    const active = currentMode === opt.value;
                     const Icon = opt.icon;
                     return (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setPayload(p => ({ ...p, message_type: opt.value as WelcomeMessageType }))}
+                        onClick={() => setPayload(p => {
+                          if (opt.value === "carousel") return { ...p, message_type: "carousel" };
+                          const derived = deriveBackendMessageType({ ...p, message_type: "text" });
+                          return { ...p, message_type: derived };
+                        })}
                         className={`group relative rounded-2xl border-2 p-4 text-left transition-all overflow-hidden ${
                           active
                             ? "border-primary bg-gradient-to-br from-primary/10 to-primary/[0.02] shadow-lg shadow-primary/10 -translate-y-0.5"
@@ -565,8 +571,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </p>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tipo</span>
-                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{payload.message_type}</Badge>
+                  <span className="text-muted-foreground">Modo</span>
+                  <Badge variant="outline" className="h-5 text-[10px] font-mono uppercase">{getUiModeFromPayload(payload)}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Delay</span>
@@ -643,18 +649,20 @@ function AutomationDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
   const isActive = automation.status === "active";
 
-  const saveMessage = () =>
-    update.mutateAsync({
+  const saveMessage = () => {
+    const finalType = deriveBackendMessageType(msgPayload);
+    return update.mutateAsync({
       id,
-      message_type: msgPayload.message_type,
-      message_content: msgPayload.message_type === "media" ? msgPayload.media_caption : msgPayload.message_content,
+      message_type: finalType,
+      message_content: finalType === "media" ? (msgPayload.message_content || msgPayload.media_caption) : msgPayload.message_content,
       buttons: msgPayload.buttons,
       carousel_cards: msgPayload.carousel_cards,
       media_url: msgPayload.media_url,
-      media_caption: msgPayload.media_caption,
+      media_caption: finalType === "media" ? (msgPayload.message_content || msgPayload.media_caption) : msgPayload.media_caption,
       min_delay_seconds: msgPayload.min_delay_seconds,
       max_delay_seconds: Math.max(msgPayload.max_delay_seconds, msgPayload.min_delay_seconds),
     } as any).then(() => toast.success("Mensagem atualizada!"));
+  };
 
   const saveSchedule = () => update.mutateAsync({
     id,

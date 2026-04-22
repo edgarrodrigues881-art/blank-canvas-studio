@@ -80,13 +80,27 @@ const FORMAT_BUTTONS = [
   { icon: Code, wrap: ["```", "```"], label: "Código" },
 ];
 
-export const WELCOME_TYPE_OPTIONS: { value: WelcomeMessageType; label: string; desc: string; tag: string; icon: any }[] = [
-  { value: "text", label: "Texto", desc: "Mensagem simples e direta", tag: "Simples", icon: Type },
-  { value: "buttons", label: "Botões", desc: "CTAs interativos clicáveis", tag: "Interativo", icon: MousePointerClick },
-  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais", tag: "Alta conversão", icon: Images },
-  { value: "media", label: "Mídia", desc: "Imagem, vídeo ou áudio", tag: "Visual", icon: ImageIcon },
+// UI-level message modes — composable. Backend keeps `text | buttons | media | carousel`,
+// but the user picks only between "simple" (composable text + media + buttons) and "carousel".
+export type WelcomeUiMode = "simple" | "carousel";
+
+export const WELCOME_TYPE_OPTIONS: { value: WelcomeUiMode; label: string; desc: string; tag: string; icon: any }[] = [
+  { value: "simple", label: "Mensagem", desc: "Texto, mídia e botões em uma única mensagem", tag: "Composável", icon: Type },
+  { value: "carousel", label: "Carrossel", desc: "Múltiplos cards visuais com botões", tag: "Alta conversão", icon: Images },
 ];
-const TYPE_OPTIONS = WELCOME_TYPE_OPTIONS;
+
+/** Derive UI mode from backend message_type */
+export function getUiModeFromPayload(p: Pick<WelcomeMessagePayload, "message_type">): WelcomeUiMode {
+  return p.message_type === "carousel" ? "carousel" : "simple";
+}
+
+/** Derive backend message_type from a "simple" composition */
+export function deriveBackendMessageType(p: WelcomeMessagePayload): WelcomeMessageType {
+  if (p.message_type === "carousel") return "carousel";
+  if (p.buttons && p.buttons.length > 0) return "buttons";
+  if (p.media_url && p.media_url.trim()) return "media";
+  return "text";
+}
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -157,62 +171,60 @@ function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessa
         <div className="flex justify-end">
           <div className="max-w-[90%] space-y-1">
 
-            {/* Media block (when type = media) */}
-            {payload.message_type === "media" && payload.media_url && (
-              <div className="rounded-xl overflow-hidden shadow-lg mb-1" style={{ backgroundColor: bubbleBg }}>
-                {mediaKind === "image" && (
-                  <img src={payload.media_url} alt="" className="w-full max-h-[180px] object-cover" onError={e => (e.currentTarget.style.display = "none")} />
-                )}
-                {mediaKind === "video" && (
-                  <div className="relative h-[180px] bg-black/40 flex items-center justify-center">
-                    <video src={payload.media_url} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
-                        <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+            {/* Composable bubble for non-carousel: media + text + buttons can coexist */}
+            {payload.message_type !== "carousel" && (
+              <div className="rounded-xl rounded-tr-sm overflow-hidden shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
+                {/* Media block (top) */}
+                {payload.media_url && (
+                  <>
+                    {mediaKind === "image" && (
+                      <img src={payload.media_url} alt="" className="w-full max-h-[200px] object-cover" onError={e => (e.currentTarget.style.display = "none")} />
+                    )}
+                    {mediaKind === "video" && (
+                      <div className="relative h-[180px] bg-black/40 flex items-center justify-center">
+                        <video src={payload.media_url} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
+                    {mediaKind === "audio" && (
+                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
+                        <FileAudio className="w-5 h-5" style={{ color: bubbleColor }} />
+                        <span className="text-xs" style={{ color: bubbleColor }}>Áudio anexado</span>
+                      </div>
+                    )}
+                    {mediaKind === "document" && (
+                      <div className="px-3 py-3 flex items-center gap-2 border-b border-black/10">
+                        <FileText className="w-5 h-5" style={{ color: bubbleColor }} />
+                        <span className="text-xs truncate" style={{ color: bubbleColor }}>{payload.media_url.split("/").pop()}</span>
+                      </div>
+                    )}
+                  </>
                 )}
-                {mediaKind === "audio" && (
-                  <div className="px-3 py-3 flex items-center gap-2">
-                    <FileAudio className="w-5 h-5" style={{ color: bubbleColor }} />
-                    <span className="text-xs" style={{ color: bubbleColor }}>Áudio anexado</span>
-                  </div>
-                )}
-                {mediaKind === "document" && (
-                  <div className="px-3 py-3 flex items-center gap-2">
-                    <FileText className="w-5 h-5" style={{ color: bubbleColor }} />
-                    <span className="text-xs truncate" style={{ color: bubbleColor }}>{payload.media_url.split("/").pop()}</span>
-                  </div>
-                )}
-                {payload.media_caption && (
-                  <div className="px-3 py-2 text-sm leading-relaxed" style={{ color: bubbleColor }}>
-                    <span dangerouslySetInnerHTML={{ __html: renderVars(payload.media_caption, varClass) }} />
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* Text bubble (text / buttons / carousel) */}
-            {payload.message_type !== "media" && (
-              <div className="rounded-xl rounded-tr-sm px-3 py-2 text-sm leading-relaxed shadow-lg" style={{ backgroundColor: bubbleBg, color: bubbleColor }}>
-                {payload.message_content ? (
-                  <span dangerouslySetInnerHTML={{ __html: renderedText }} />
-                ) : (
-                  <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
-                )}
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
-                  <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
-                    <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                    <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
-                  </svg>
+                {/* Text/caption */}
+                <div className="px-3 py-2 text-sm leading-relaxed">
+                  {payload.message_content ? (
+                    <span dangerouslySetInnerHTML={{ __html: renderedText }} />
+                  ) : (
+                    <span className={isDark ? "text-white/40 italic" : "text-gray-400 italic"}>Digite uma mensagem...</span>
+                  )}
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className={`text-[9px] ${isDark ? "text-white/50" : "text-gray-500"}`}>14:30</span>
+                    <svg viewBox="0 0 16 11" className={`w-4 h-3 ${isDark ? "text-blue-300" : "text-blue-500"}`} fill="currentColor">
+                      <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                      <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Buttons preview */}
-            {payload.message_type === "buttons" && buttons.length > 0 && (
+            {/* Inline buttons (composable, after main bubble) */}
+            {payload.message_type !== "carousel" && buttons.length > 0 && (
               <div className="space-y-1">
                 {buttons.map((btn, i) => (
                   <div key={btn.id} className="rounded-xl px-3 py-2 text-center text-sm font-medium shadow-sm flex items-center justify-center gap-1.5" style={{ backgroundColor: cardBg, color: btnColor }}>
@@ -261,16 +273,10 @@ function WhatsAppPreviewInner({ payload, height = 460 }: { payload: WelcomeMessa
               </div>
             )}
 
-            {/* Empty state for buttons/carousel/media */}
-            {payload.message_type === "buttons" && buttons.length === 0 && (
-              <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Adicione botões ao lado →</p>
-            )}
             {payload.message_type === "carousel" && cards.length === 0 && (
               <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Adicione cards ao lado →</p>
             )}
-            {payload.message_type === "media" && !payload.media_url && (
-              <p className={`text-[10px] italic text-right ${isDark ? "text-white/40" : "text-gray-500"}`}>Cole a URL da mídia ao lado →</p>
-            )}
+
           </div>
         </div>
       </div>
@@ -571,9 +577,27 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
   const { data: templates } = useTemplates();
   const { data: carouselTemplates } = useCarouselTemplates();
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showMediaSlot, setShowMediaSlot] = useState<boolean>(!!value.media_url);
+  const [showButtonsSlot, setShowButtonsSlot] = useState<boolean>((value.buttons || []).length > 0);
 
-  const setType = (next: WelcomeMessageType) => {
-    onChange({ message_type: next });
+  const uiMode: WelcomeUiMode = getUiModeFromPayload(value);
+
+  // In "simple" UI mode, derive backend message_type from contents (text/buttons/media).
+  const syncBackendType = (patch: Partial<WelcomeMessagePayload>) => {
+    const next: WelcomeMessagePayload = { ...value, ...patch };
+    if (next.message_type !== "carousel") {
+      patch.message_type = deriveBackendMessageType(next);
+    }
+    onChange(patch);
+  };
+
+  const setUiMode = (mode: WelcomeUiMode) => {
+    if (mode === "carousel") {
+      onChange({ message_type: "carousel" });
+    } else {
+      const derived = deriveBackendMessageType({ ...value, message_type: "text" });
+      onChange({ message_type: derived });
+    }
   };
 
   const insertAtCursor = (text: string) => {
@@ -616,11 +640,8 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
           value: b?.value || b?.url || "",
         }))
       : [];
-    onChange({
-      message_type: buttons.length > 0 ? "buttons" : "text",
-      message_content: content || "",
-      buttons,
-    });
+    if (buttons.length > 0) setShowButtonsSlot(true);
+    syncBackendType({ message_content: content || "", buttons });
     setShowTemplates(false);
     toast.success("Template importado!");
   };
@@ -651,19 +672,29 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
     toast.success("Carrossel importado!");
   };
 
+  const removeMediaSlot = () => {
+    setShowMediaSlot(false);
+    syncBackendType({ media_url: "", media_caption: "", media_kind: null });
+  };
+
+  const removeButtonsSlot = () => {
+    setShowButtonsSlot(false);
+    syncBackendType({ buttons: [] });
+  };
+
   return (
     <div className="space-y-4">
-      {/* Type selector */}
+      {/* UI mode selector — only "Simples" vs "Carrossel" */}
       {!hideTypeSelector && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {TYPE_OPTIONS.map(opt => {
-            const active = value.message_type === opt.value;
+        <div className="grid grid-cols-2 gap-2">
+          {WELCOME_TYPE_OPTIONS.map(opt => {
+            const active = uiMode === opt.value;
             const Icon = opt.icon;
             return (
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setType(opt.value)}
+                onClick={() => setUiMode(opt.value)}
                 className={`group relative rounded-xl border p-3 text-left transition-all ${
                   active
                     ? "border-primary bg-primary/10 shadow-sm"
@@ -683,139 +714,199 @@ export function WelcomeMessageBuilder({ value, onChange, hideDelay, hideTypeSele
       <div className={hidePreview ? "" : "grid lg:grid-cols-[3fr_2fr] gap-5"}>
         {/* Editor side */}
         <div className="space-y-3 min-w-0">
-          {/* Toolbar (text-related types) */}
-          {value.message_type !== "media" && (
-            <div className="flex items-center gap-1 flex-wrap rounded-xl border border-border/50 bg-muted/20 p-2">
-              {FORMAT_BUTTONS.map(fb => (
-                <Button
-                  key={fb.label}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 rounded-lg hover:bg-primary/10"
-                  title={fb.label}
-                  onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}
-                >
-                  <fb.icon className="w-4 h-4" />
+          {/* Toolbar — always visible (text exists in both modes) */}
+          <div className="flex items-center gap-1 flex-wrap rounded-xl border border-border/50 bg-muted/20 p-2">
+            {FORMAT_BUTTONS.map(fb => (
+              <Button
+                key={fb.label}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-lg hover:bg-primary/10"
+                title={fb.label}
+                onClick={() => wrapSelection(fb.wrap[0], fb.wrap[1])}
+              >
+                <fb.icon className="w-4 h-4" />
+              </Button>
+            ))}
+            <div className="w-px h-6 bg-border/50 mx-1" />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-3 gap-1.5 text-xs rounded-lg hover:bg-primary/10">
+                  <Variable className="w-4 h-4" /> Variáveis
                 </Button>
-              ))}
-              <div className="w-px h-6 bg-border/50 mx-1" />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-3 gap-1.5 text-xs rounded-lg hover:bg-primary/10">
-                    <Variable className="w-4 h-4" /> Variáveis
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-1.5" align="start">
-                  {VARIABLES.map(v => (
-                    <button
-                      key={v.key}
-                      className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors flex items-center justify-between"
-                      onClick={() => insertAtCursor(v.key)}
-                    >
-                      <span className="font-mono text-primary font-medium">{v.key}</span>
-                      <span className="text-muted-foreground text-[10px]">{v.desc}</span>
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              <div className="w-px h-6 bg-border/50 mx-1" />
-              <Popover open={showTemplates} onOpenChange={setShowTemplates}>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="ghost" size="sm" className="h-8 px-3 gap-1.5 text-xs rounded-lg hover:bg-primary/10">
-                    <Import className="w-4 h-4" /> Importar
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 p-0" align="start">
-                  <div className="p-3 border-b border-border/50">
-                    <p className="text-xs font-semibold">Importar Template</p>
-                  </div>
-                  <ScrollArea className="max-h-[280px]">
-                    {templates && templates.length > 0 && (
-                      <div className="p-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Texto / Botões</p>
-                        {templates.map(t => (
-                          <button
-                            key={t.id}
-                            className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
-                            onClick={() => importTextTemplate(t.content || "", (t as any).buttons)}
-                          >
-                            <span className="font-medium">{t.name}</span>
-                            <span className="block text-[10px] text-muted-foreground truncate mt-0.5">
-                              {(t.content || "").slice(0, 60)}...
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {carouselTemplates && carouselTemplates.length > 0 && (
-                      <div className="p-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Carrossel</p>
-                        {carouselTemplates.map(t => (
-                          <button
-                            key={t.id}
-                            className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
-                            onClick={() => importCarouselTemplate(t)}
-                          >
-                            <span className="font-medium">{t.name}</span>
-                            <span className="block text-[10px] text-muted-foreground truncate mt-0.5">
-                              {(t.message || "").split("|||")[0].slice(0, 60)}...
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {(!templates?.length && !carouselTemplates?.length) && (
-                      <p className="text-xs text-muted-foreground p-6 text-center">Nenhum template disponível</p>
-                    )}
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-1.5" align="start">
+                {VARIABLES.map(v => (
+                  <button
+                    key={v.key}
+                    className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted transition-colors flex items-center justify-between"
+                    onClick={() => insertAtCursor(v.key)}
+                  >
+                    <span className="font-mono text-primary font-medium">{v.key}</span>
+                    <span className="text-muted-foreground text-[10px]">{v.desc}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+            <div className="w-px h-6 bg-border/50 mx-1" />
+            <Popover open={showTemplates} onOpenChange={setShowTemplates}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-3 gap-1.5 text-xs rounded-lg hover:bg-primary/10">
+                  <Import className="w-4 h-4" /> Importar
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                <div className="p-3 border-b border-border/50">
+                  <p className="text-xs font-semibold">Importar Template</p>
+                </div>
+                <ScrollArea className="max-h-[280px]">
+                  {templates && templates.length > 0 && (
+                    <div className="p-1.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Texto / Botões</p>
+                      {templates.map(t => (
+                        <button
+                          key={t.id}
+                          className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                          onClick={() => importTextTemplate(t.content || "", (t as any).buttons)}
+                        >
+                          <span className="font-medium">{t.name}</span>
+                          <span className="block text-[10px] text-muted-foreground truncate mt-0.5">
+                            {(t.content || "").slice(0, 60)}...
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {carouselTemplates && carouselTemplates.length > 0 && (
+                    <div className="p-1.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">Carrossel</p>
+                      {carouselTemplates.map(t => (
+                        <button
+                          key={t.id}
+                          className="w-full text-left px-3 py-2.5 text-xs rounded-lg hover:bg-muted transition-colors"
+                          onClick={() => importCarouselTemplate(t)}
+                        >
+                          <span className="font-medium">{t.name}</span>
+                          <span className="block text-[10px] text-muted-foreground truncate mt-0.5">
+                            {(t.message || "").split("|||")[0].slice(0, 60)}...
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(!templates?.length && !carouselTemplates?.length) && (
+                    <p className="text-xs text-muted-foreground p-6 text-center">Nenhum template disponível</p>
+                  )}
+                </ScrollArea>
+              </PopoverContent>
+            </Popover>
+          </div>
 
-          {/* Text input (text/buttons/carousel) */}
-          {value.message_type !== "media" && (
-            <div className="rounded-xl border border-border/50 bg-muted/10">
-              <Textarea
-                ref={textareaRef}
-                value={value.message_content}
-                onChange={e => onChange({ message_content: e.target.value })}
-                placeholder={
-                  value.message_type === "carousel"
-                    ? "Mensagem antes do carrossel (opcional)"
-                    : "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
-                }
-                className="min-h-[140px] text-sm font-mono border-0 bg-transparent resize-none focus-visible:ring-0"
-              />
-            </div>
-          )}
+          {/* Main text editor */}
+          <div className="rounded-xl border border-border/50 bg-muted/10">
+            <Textarea
+              ref={textareaRef}
+              value={value.message_content}
+              onChange={e => syncBackendType({ message_content: e.target.value })}
+              placeholder={
+                uiMode === "carousel"
+                  ? "Mensagem antes do carrossel (opcional)"
+                  : "Olá {nome}! Seja bem-vindo(a) ao grupo {grupo}! 🎉"
+              }
+              className="min-h-[140px] text-sm font-mono border-0 bg-transparent resize-none focus-visible:ring-0"
+            />
+          </div>
 
           {/* Variable chips */}
-          {value.message_type !== "media" && (
-            <div className="flex flex-wrap gap-1.5">
-              {VARIABLES.map(v => (
-                <button
-                  key={v.key}
-                  type="button"
-                  onClick={() => insertAtCursor(v.key)}
-                  className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-mono font-medium hover:bg-primary/20 transition-colors"
-                >
-                  {v.key}
-                </button>
-              ))}
+          <div className="flex flex-wrap gap-1.5">
+            {VARIABLES.map(v => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => insertAtCursor(v.key)}
+                className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-[10px] font-mono font-medium hover:bg-primary/20 transition-colors"
+              >
+                {v.key}
+              </button>
+            ))}
+          </div>
+
+          {/* SIMPLE composable mode: optional media + optional buttons slots */}
+          {uiMode === "simple" && (
+            <div className="space-y-3">
+              {showMediaSlot && (
+                <Card className="p-3 border-border/40 bg-muted/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5" /> Mídia anexada
+                    </Label>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10 gap-1" onClick={removeMediaSlot}>
+                      <Trash2 className="w-3.5 h-3.5" /> Remover
+                    </Button>
+                  </div>
+                  <Input
+                    value={value.media_url}
+                    onChange={e => syncBackendType({ media_url: e.target.value, media_kind: detectMediaKind(e.target.value) })}
+                    placeholder="https://exemplo.com/imagem.jpg"
+                    className="h-8 text-xs font-mono"
+                  />
+                  {value.media_url && (
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                      {detectMediaKind(value.media_url) === "image" && <ImageIcon className="w-3 h-3" />}
+                      {detectMediaKind(value.media_url) === "video" && <Video className="w-3 h-3" />}
+                      {detectMediaKind(value.media_url) === "audio" && <FileAudio className="w-3 h-3" />}
+                      {detectMediaKind(value.media_url) === "document" && <FileText className="w-3 h-3" />}
+                      Tipo detectado: <span className="font-mono uppercase">{detectMediaKind(value.media_url)}</span>
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground italic">
+                    O texto principal será enviado como legenda da mídia.
+                  </p>
+                </Card>
+              )}
+
+              {showButtonsSlot && (
+                <Card className="p-3 border-border/40 bg-muted/5">
+                  <div className="flex items-center justify-end mb-2">
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10 gap-1" onClick={removeButtonsSlot}>
+                      <Trash2 className="w-3.5 h-3.5" /> Remover botões
+                    </Button>
+                  </div>
+                  <ButtonsBuilder buttons={value.buttons} onChange={b => syncBackendType({ buttons: b })} />
+                </Card>
+              )}
+
+              {/* Add slot actions */}
+              <div className="flex flex-wrap gap-2">
+                {!showMediaSlot && (
+                  <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5 text-xs border-dashed" onClick={() => setShowMediaSlot(true)}>
+                    <ImageIcon className="w-3.5 h-3.5" /> + Adicionar mídia
+                  </Button>
+                )}
+                {!showButtonsSlot && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-1.5 text-xs border-dashed"
+                    onClick={() => {
+                      setShowButtonsSlot(true);
+                      if ((value.buttons || []).length === 0) {
+                        syncBackendType({ buttons: [{ id: newId("btn"), type: "reply", text: "", value: "" }] });
+                      }
+                    }}
+                  >
+                    <MousePointerClick className="w-3.5 h-3.5" /> + Adicionar botão
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Type-specific editor */}
-          {value.message_type === "buttons" && (
-            <ButtonsBuilder buttons={value.buttons} onChange={b => onChange({ buttons: b })} />
-          )}
-          {value.message_type === "carousel" && (
+          {/* CAROUSEL mode editor */}
+          {uiMode === "carousel" && (
             <CarouselBuilder cards={value.carousel_cards} onChange={c => onChange({ carousel_cards: c })} />
-          )}
-          {value.message_type === "media" && (
-            <MediaBuilder payload={value} onChange={onChange} />
           )}
 
           {/* Delay */}
