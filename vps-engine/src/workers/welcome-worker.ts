@@ -715,10 +715,11 @@ async function processPhase() {
       return new Date(brtMidnight.getTime() + 3 * 3600_000).toISOString();
     })();
 
-    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number }>();
+    const senderStats = new Map<string, { sentRecent: number; failedRecent: number; sentToday: number; sentShortWindow: number }>();
     for (const did of activeSenders.map(s => s.id)) {
-      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0 });
+      senderStats.set(did, { sentRecent: 0, failedRecent: 0, sentToday: 0, sentShortWindow: 0 });
     }
+    const sinceShortWindow = new Date(Date.now() - SHORT_WINDOW_MS).toISOString();
     const { data: recentLogs } = await db
       .from("welcome_message_logs")
       .select("sender_device_id, result, created_at")
@@ -733,7 +734,17 @@ async function processPhase() {
         if (lg.result === "sent") st.sentRecent += 1;
         else st.failedRecent += 1;
       }
+      if (lg.result === "sent" && lg.created_at >= sinceShortWindow) {
+        st.sentShortWindow += 1;
+      }
     }
+
+    // ── Limites configuráveis (podem vir da automação no futuro) ──
+    const limits: SenderLimits = {
+      maxPerAccount: Math.max(1, (automation as any).max_per_account ?? DEFAULT_LIMITS.maxPerAccount),
+      maxPerShortWindow: Math.max(1, (automation as any).max_per_minute ?? DEFAULT_LIMITS.maxPerShortWindow),
+      cooldownSeconds: Math.max(0, (automation as any).cooldown_seconds ?? DEFAULT_LIMITS.cooldownSeconds),
+    };
 
     // Acquire device locks for all sender devices
     const lockedSenderIds: string[] = [];
