@@ -218,7 +218,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
   const [monitoringId, setMonitoringId] = useState<string>("");
   const [selectedGroups, setSelectedGroups] = useState<{ group_id: string; group_name: string }[]>([]);
   const [senderIds, setSenderIds] = useState<string[]>([]);
-  const [message, setMessage] = useState("Olá {nome}! Seja bem-vindo(a) ao {grupo}! 🎉");
+  const [payload, setPayload] = useState<WelcomeMessagePayload>(DEFAULT_WELCOME_PAYLOAD);
   const [groupSearch, setGroupSearch] = useState("");
 
   const { data: groups, isFetching: loadingGroups } = useDeviceGroups(monitoringId);
@@ -233,7 +233,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
   useEffect(() => {
     if (!open) {
       setName(""); setMonitoringId(""); setSelectedGroups([]); setSenderIds([]);
-      setMessage("Olá {nome}! Seja bem-vindo(a) ao {grupo}! 🎉"); setGroupSearch("");
+      setPayload(DEFAULT_WELCOME_PAYLOAD); setGroupSearch("");
     }
   }, [open]);
 
@@ -252,12 +252,31 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
     if (!monitoringId) return toast.error("Escolha o dispositivo monitor (que está nos grupos)");
     if (!selectedGroups.length) return toast.error("Selecione pelo menos 1 grupo");
     if (!senderIds.length) return toast.error("Selecione pelo menos 1 remetente para enviar no PV");
-    if (!message.trim()) return toast.error("Escreva a mensagem de boas-vindas");
+
+    if (payload.message_type === "media" && !payload.media_url.trim()) {
+      return toast.error("Informe a URL da mídia");
+    }
+    if (payload.message_type === "carousel" && payload.carousel_cards.length === 0) {
+      return toast.error("Adicione ao menos 1 card ao carrossel");
+    }
+    if (payload.message_type === "buttons" && payload.buttons.length === 0) {
+      return toast.error("Adicione ao menos 1 botão");
+    }
+    if (payload.message_type !== "media" && !payload.message_content.trim()) {
+      return toast.error("Escreva a mensagem de boas-vindas");
+    }
 
     const created = await create.mutateAsync({
       name: name.trim(),
       monitoring_device_id: monitoringId,
-      message_content: message,
+      message_content: payload.message_type === "media" ? payload.media_caption : payload.message_content,
+      message_type: payload.message_type,
+      buttons: payload.buttons,
+      carousel_cards: payload.carousel_cards,
+      media_url: payload.media_url,
+      media_caption: payload.media_caption,
+      min_delay_seconds: payload.min_delay_seconds,
+      max_delay_seconds: payload.max_delay_seconds,
       group_ids: selectedGroups,
       sender_device_ids: senderIds,
       settings: { status: "active" } as any,
@@ -376,7 +395,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <MessageSquare className="w-3.5 h-3.5" /> Mensagem de boas-vindas
               </Label>
-              <WelcomeMessageEditor value={message} onChange={setMessage} />
+              <WelcomeMessageBuilder value={payload} onChange={patch => setPayload(p => ({ ...p, ...patch }))} />
             </div>
           </div>
         </ScrollArea>
