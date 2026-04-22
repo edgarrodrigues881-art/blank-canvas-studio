@@ -1347,10 +1347,6 @@ const WarmupInstances = () => {
                       Li e concordo com as orientações
                     </span>
                   </label>
-                  <label htmlFor="dontShowAgainV2" className="flex items-center gap-2.5 cursor-pointer select-none pl-0.5">
-                    <Checkbox id="dontShowAgainV2" checked={dontShowAgain} onCheckedChange={(v) => setDontShowAgain(!!v)} className="border-white/15 data-[state=checked]:bg-teal-500/80 data-[state=checked]:border-teal-500/80" />
-                    <span className="text-xs text-white/35 leading-none">Não mostrar novamente</span>
-                  </label>
                 </div>
               </div>
 
@@ -1360,7 +1356,8 @@ const WarmupInstances = () => {
                   className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:via-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
                   disabled={!agreedResponsibility}
                   onClick={() => {
-                    if (dontShowAgain) localStorage.setItem(WARNING_DISMISS_KEY, "true");
+                    // Persist by default — once accepted, never show again on this browser
+                    localStorage.setItem(WARNING_DISMISS_KEY, "true");
                     setShowWarning(false);
                   }}
                 >
