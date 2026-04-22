@@ -155,11 +155,7 @@ function WhatsAppPreviewInner({ payload, height = 580 }: { payload: WelcomeMessa
   const waInputBg = "#2a3942";
   const varClass = "text-emerald-300";
 
-  const renderedText = renderVars(
-    payload.message_content || "",
-    varClass,
-    { nome: "João Silva", grupo: "Grupo VIP" }
-  );
+  const renderedText = renderVars(payload.message_content || "", varClass);
   const buttons = payload.buttons || [];
   const cards = payload.carousel_cards || [];
   const mediaKind = payload.media_url ? detectMediaKind(payload.media_url) : null;
