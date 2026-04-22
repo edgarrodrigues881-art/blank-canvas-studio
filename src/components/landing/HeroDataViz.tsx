@@ -120,7 +120,7 @@ const HeroDataViz = () => {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Taxa de entrega</span>
-            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">98,4%</span>
+            <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">{HERO_METRICS.deliveryRate.value}</span>
           </div>
           <svg viewBox="0 0 400 100" className="w-full h-[90px]" preserveAspectRatio="none">
             <defs>
