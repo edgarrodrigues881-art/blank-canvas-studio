@@ -640,35 +640,23 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             </div>
           </div>
 
-          {/* ═══ COL 3: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col bg-muted/20 dark:bg-muted/10 px-6 py-7 overflow-hidden">
-            {/* Soft ambient glow background */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-[100px]" />
-              <div className="absolute bottom-0 right-0 w-[260px] h-[260px] rounded-full bg-emerald-400/[0.06] blur-[80px]" />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/60" />
-            </div>
-
-            {/* Header label */}
-            <div className="relative flex items-center justify-between mb-5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/70">
+          {/* ═══ COL 2: Persistent preview ═══ */}
+          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_7%)] px-6 py-6 overflow-hidden">
+            <div className="relative flex items-center justify-between mb-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
                 Preview em tempo real
               </p>
-              <span className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-500">
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-[hsl(152_45%_52%)]">
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_45%_52%)] opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_45%_52%)]" />
                 </span>
                 AO VIVO
               </span>
             </div>
 
-            {/* Phone mockup with perspective tilt + drop shadow */}
             <div className="relative flex-1 flex items-start justify-center pt-2 [perspective:1200px]">
-              <div
-                className="transition-transform duration-500 ease-out hover:[transform:rotateY(0deg)_rotateX(0deg)]"
-                style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}
-              >
+              <div style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}>
                 <div
                   key={JSON.stringify({
                     t: payload.message_type,
@@ -678,68 +666,53 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   })}
                   className="animate-in fade-in-0 zoom-in-[0.98] duration-300 drop-shadow-[0_25px_50px_rgba(0,0,0,0.45)]"
                 >
-                  <WelcomeWhatsAppPreview payload={payload} height={560} />
+                  <WelcomeWhatsAppPreview payload={payload} height={540} />
                 </div>
               </div>
             </div>
           </aside>
         </div>
 
-        {/* ═══════ FOOTER — stepper navigation ═══════ */}
-        <DialogFooter className="relative px-8 py-4 shrink-0 bg-background flex-row sm:justify-between gap-2">
-          <Button
-            variant="ghost"
+        {/* ═══════ FOOTER ═══════ */}
+        <DialogFooter className="relative px-7 py-3.5 shrink-0 bg-[hsl(0_0%_8%)] border-t border-[hsl(0_0%_13%)] flex-row sm:justify-between gap-2">
+          <button
+            type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
+            className="text-[12.5px] text-[#888] hover:text-white transition-colors px-1"
           >
             Cancelar
-          </Button>
+          </button>
 
-          <div className="flex items-center gap-3">
-            {/* Step pips */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-1">
-              {[1, 2, 3].map(n => (
-                <div
-                  key={n}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    step === n ? "w-6 bg-emerald-500" : step > n ? "w-1 bg-emerald-500/60" : "w-1 bg-border"
-                  }`}
-                />
-              ))}
-            </div>
-
+          <div className="flex items-center gap-4">
             {step > 1 && (
-              <Button
-                variant="ghost"
+              <button
+                type="button"
                 onClick={goBack}
-                className="gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+                className="inline-flex items-center gap-1 text-[12.5px] text-[#888] hover:text-white transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" /> Voltar
-              </Button>
+                <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+              </button>
             )}
 
             {step < 3 ? (
-              <Button
+              <button
+                type="button"
                 onClick={goNext}
                 disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                className="group gap-2 min-w-[130px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-md"
+                className="px-5 h-9 rounded-full bg-[hsl(152_45%_42%)] hover:bg-[hsl(152_45%_48%)] text-white text-[12.5px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Continuar
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </Button>
+              </button>
             ) : (
-              <Button
+              <button
+                type="button"
                 onClick={handleCreate}
                 disabled={create.isPending}
-                className="group gap-2 min-w-[180px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium"
+                className="px-5 h-9 rounded-full bg-[hsl(152_45%_42%)] hover:bg-[hsl(152_45%_48%)] text-white text-[12.5px] font-medium transition-colors disabled:opacity-30 inline-flex items-center gap-2"
               >
-                {create.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
-                )}
+                {create.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Criar automação
-              </Button>
+              </button>
             )}
           </div>
         </DialogFooter>
