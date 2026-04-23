@@ -314,89 +314,67 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[900px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
-
-        {/* Brand accent — thin top border */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10" />
+      <DialogContent className="max-w-[960px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl">
 
         {/* ═══════ HEADER ═══════ */}
-        <DialogHeader className="relative px-8 pt-7 pb-5 shrink-0 bg-background">
-          <div className="flex-1 min-w-0">
-            <DialogTitle className="text-[24px] font-bold text-foreground leading-tight tracking-tight">
-              Criar automação de boas-vindas
-            </DialogTitle>
-            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-              Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
-            </p>
+        <DialogHeader className="relative px-7 pt-6 pb-5 shrink-0 bg-[hsl(0_0%_8%)]">
+          <DialogTitle className="text-[18px] font-semibold text-white leading-tight tracking-tight">
+            Criar automação de boas-vindas
+          </DialogTitle>
+          <p className="text-[12.5px] text-[#aaa] mt-1 leading-relaxed">
+            Mensagens automáticas com distribuição inteligente
+          </p>
 
-            {/* Flow concept — minimal pills */}
-            <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
-                <UserPlus className="w-3 h-3 text-emerald-500" />
-                <span className="text-[11px] font-medium text-foreground/80">Alguém entra no grupo</span>
-              </div>
-              <ArrowRight className="w-3 h-3 text-muted-foreground/50" />
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
-                <Send className="w-3 h-3 text-emerald-500" />
-                <span className="text-[11px] font-medium text-foreground/80">Recebe mensagem no privado</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 ml-auto">
-                <Shield className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
-              </div>
+          {/* Flow concept — monochrome pills with arrow line */}
+          <div className="flex items-center gap-2 mt-4 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[hsl(0_0%_18%)] bg-transparent">
+              <UserPlus className="w-3 h-3 text-[#aaa]" />
+              <span className="text-[10.5px] font-medium text-[#ccc]">Alguém entra no grupo</span>
+            </span>
+            <div className="flex items-center gap-1 text-[#555]">
+              <span className="h-px w-4 bg-[hsl(0_0%_22%)]" />
+              <ArrowRight className="w-3 h-3" />
             </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[hsl(0_0%_18%)] bg-transparent">
+              <Send className="w-3 h-3 text-[#aaa]" />
+              <span className="text-[10.5px] font-medium text-[#ccc]">Recebe mensagem no privado</span>
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[hsl(0_0%_18%)] text-[#888]">
+              <Shield className="w-3 h-3" />
+              <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em]">Anti-bloqueio</span>
+            </span>
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 2-col: Content · Preview ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 55% form / 45% preview, subtle divider ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[55fr_45fr] min-h-0 overflow-hidden">
 
-          {/* ═══ COL 1: Step content ═══ */}
-          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden">
-            {/* ─── Horizontal Stepper (pinned) ─── */}
-            <div className="px-8 pt-6 pb-3 max-w-[760px] mx-auto w-full shrink-0">
-              <nav aria-label="Progresso" className="flex items-start justify-between gap-2">
+          {/* ═══ COL 1: Form panel ═══ */}
+          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] lg:border-r lg:border-[hsl(0_0%_13%)]">
+            {/* ─── Minimal numbered step indicator (top of form) ─── */}
+            <div className="px-7 pt-5 pb-3 shrink-0">
+              <nav aria-label="Progresso" className="flex items-center gap-2">
                 {steps.map((s, idx) => {
-                  const Icon = s.icon;
                   const active = step === s.n;
                   const past = step > s.n;
-                  const isLast = idx === steps.length - 1;
                   return (
-                    <div key={s.n} className="flex items-start flex-1 min-w-0">
+                    <div key={s.n} className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setStep(s.n)}
-                        className="flex flex-col items-center gap-2 group focus:outline-none"
+                        aria-label={`Etapa ${s.n}: ${s.title}`}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-medium transition-all duration-200 focus:outline-none ${
+                          active
+                            ? "bg-[hsl(152_45%_42%)] text-white"
+                            : past
+                            ? "bg-transparent text-[#666] hover:text-[#999]"
+                            : "bg-transparent text-[#555] border border-[hsl(0_0%_18%)] hover:border-[hsl(0_0%_28%)]"
+                        }`}
                       >
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
-                            active
-                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
-                              : past
-                              ? "bg-transparent text-muted-foreground"
-                              : "bg-transparent text-muted-foreground/60 border border-border"
-                          }`}
-                        >
-                          {past ? (
-                            <Check className="w-4 h-4" strokeWidth={2.5} />
-                          ) : (
-                            <Icon className="w-3.5 h-3.5" strokeWidth={active ? 2.5 : 2} />
-                          )}
-                        </div>
-                        <span
-                          className={`text-[11px] tracking-tight whitespace-nowrap transition-colors ${
-                            active
-                              ? "font-semibold text-foreground"
-                              : past
-                              ? "font-medium text-muted-foreground"
-                              : "font-normal text-muted-foreground/70"
-                          }`}
-                        >
-                          {s.title}
-                        </span>
+                        {past ? <Check className="w-3 h-3" strokeWidth={2.5} /> : s.n}
                       </button>
-                      {!isLast && (
-                        <div className="flex-1 h-px bg-border mt-4 mx-2" />
+                      {idx < steps.length - 1 && (
+                        <div className={`h-px w-6 transition-colors ${past ? "bg-[hsl(0_0%_22%)]" : "bg-[hsl(0_0%_15%)]"}`} />
                       )}
                     </div>
                   );
@@ -406,13 +384,13 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
             {/* ─── Scrollable content area ─── */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="px-10 py-6 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
+              <div className="px-7 py-5 animate-in fade-in-50 slide-in-from-right-2 duration-300" key={step}>
 
-              {/* Step header */}
-              <div className="mb-7">
-                <h2 className="text-2xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
-                <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-relaxed">{steps[step - 1].desc}</p>
-              </div>
+                {/* Step header */}
+                <div className="mb-6">
+                  <h2 className="text-[17px] font-semibold text-white tracking-tight">{steps[step - 1].title}</h2>
+                  <p className="text-[12px] text-[#888] mt-0.5">{steps[step - 1].desc}</p>
+                </div>
 
               {/* ──────── STEP 1 ──────── */}
               {step === 1 && (
