@@ -653,16 +653,16 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   return [
     // Strategy 0: Most common UAZAPI endpoint (groupJid camelCase)
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [p] } },
-    // Strategy 1: lowercase groupjid variant
-    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
+    // Strategy 1: legacy addParticipant endpoint with the leanest body
+    { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
     // Strategy 2: PUT with query param
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
-    // Strategy 3: POST with full JID for stricter providers
+    // Strategy 3: lowercase groupjid variant
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
+    // Strategy 4: POST with full JID for stricter providers
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 4: PUT with full JID for stricter providers
+    // Strategy 5: PUT with full JID for stricter providers
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 5: legacy addParticipant endpoint
-    { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
 }
 
@@ -692,11 +692,7 @@ async function ensureContactSaved(
 
   const attempts: Array<{ method: "POST" | "PUT"; url: string; body: any }> = [
     { method: "POST", url: `${baseUrl}/contact/add`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contact/add`, body: { phone: p, name: placeholderName } },
     { method: "POST", url: `${baseUrl}/contact/save`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contacts`, body: { number: p, name: placeholderName } },
-    { method: "PUT", url: `${baseUrl}/contact`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contact/upsert`, body: { number: p, name: placeholderName } },
   ];
 
   for (const a of attempts) {
@@ -731,7 +727,7 @@ async function ensureContactSaved(
 // hammering the presence endpoint between consecutive contacts on the same
 // group.
 const presenceCache = new Map<string, number>(); // key: baseUrl::tokenPrefix::groupId
-const PRESENCE_TTL_MS = 90_000;
+const PRESENCE_TTL_MS = 12 * 60_000;
 
 async function sendPresenceOnline(baseUrl: string, token: string, groupId: string): Promise<void> {
   const key = `${baseUrl}::${String(token).slice(0, 6)}::${groupId}`;
@@ -911,6 +907,22 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
     // Cooldown aleatório de 30–60s — evita bater na API durante o bloqueio
     const cooldown = randomBetween(30_000, 60_000);
     return { ...base, detail: `Rate limit detectado pela API. Cooldown de ${Math.round(cooldown / 1000)}s antes de retomar.`, retryable: true, pauseCampaign: false, cooldownMs: cooldown, failureStatus: "rate_limited" };
+  }
+  if (
+    msg.includes("try again later")
+    || msg.includes("wait a while")
+    || msg.includes("temporarily blocked")
+    || msg.includes("temporarily unavailable")
+    || msg.includes("too many recent")
+    || msg.includes("too many attempts")
+    || msg.includes("muitas tentativas")
+    || msg.includes("muito rápido")
+    || msg.includes("aguarde")
+    || msg.includes("temporariamente")
+    || msg.includes("temporarily")
+  ) {
+    const cooldown = randomBetween(8 * 60_000, 15 * 60_000);
+    return { ...base, detail: `Restrição temporária detectada. Cooldown de ${Math.round(cooldown / 1000)}s para evitar nova desconexão.`, retryable: true, pauseCampaign: false, cooldownMs: cooldown, failureStatus: "rate_limited" };
   }
   if (msg.includes("websocket disconnected before info query") || msg.includes("connection reset") || msg.includes("socket hang up"))
     return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
