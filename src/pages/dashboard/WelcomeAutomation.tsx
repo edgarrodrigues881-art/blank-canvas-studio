@@ -314,89 +314,67 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[900px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
-
-        {/* Brand accent — thin top border */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10" />
+      <DialogContent className="max-w-[960px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl">
 
         {/* ═══════ HEADER ═══════ */}
-        <DialogHeader className="relative px-8 pt-7 pb-5 shrink-0 bg-background">
-          <div className="flex-1 min-w-0">
-            <DialogTitle className="text-[24px] font-bold text-foreground leading-tight tracking-tight">
-              Criar automação de boas-vindas
-            </DialogTitle>
-            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-              Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
-            </p>
+        <DialogHeader className="relative px-7 pt-6 pb-5 shrink-0 bg-[hsl(0_0%_8%)]">
+          <DialogTitle className="text-[18px] font-semibold text-white leading-tight tracking-tight">
+            Criar automação de boas-vindas
+          </DialogTitle>
+          <p className="text-[12.5px] text-[#aaa] mt-1 leading-relaxed">
+            Mensagens automáticas com distribuição inteligente
+          </p>
 
-            {/* Flow concept — minimal pills */}
-            <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
-                <UserPlus className="w-3 h-3 text-emerald-500" />
-                <span className="text-[11px] font-medium text-foreground/80">Alguém entra no grupo</span>
-              </div>
-              <ArrowRight className="w-3 h-3 text-muted-foreground/50" />
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
-                <Send className="w-3 h-3 text-emerald-500" />
-                <span className="text-[11px] font-medium text-foreground/80">Recebe mensagem no privado</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 ml-auto">
-                <Shield className="w-3 h-3 text-emerald-500" />
-                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
-              </div>
+          {/* Flow concept — monochrome pills with arrow line */}
+          <div className="flex items-center gap-2 mt-4 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[hsl(0_0%_18%)] bg-transparent">
+              <UserPlus className="w-3 h-3 text-[#aaa]" />
+              <span className="text-[10.5px] font-medium text-[#ccc]">Alguém entra no grupo</span>
+            </span>
+            <div className="flex items-center gap-1 text-[#555]">
+              <span className="h-px w-4 bg-[hsl(0_0%_22%)]" />
+              <ArrowRight className="w-3 h-3" />
             </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[hsl(0_0%_18%)] bg-transparent">
+              <Send className="w-3 h-3 text-[#aaa]" />
+              <span className="text-[10.5px] font-medium text-[#ccc]">Recebe mensagem no privado</span>
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[hsl(0_0%_18%)] text-[#888]">
+              <Shield className="w-3 h-3" />
+              <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em]">Anti-bloqueio</span>
+            </span>
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 2-col: Content · Preview ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 55% form / 45% preview, subtle divider ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[55fr_45fr] min-h-0 overflow-hidden">
 
-          {/* ═══ COL 1: Step content ═══ */}
-          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden">
-            {/* ─── Horizontal Stepper (pinned) ─── */}
-            <div className="px-8 pt-6 pb-3 max-w-[760px] mx-auto w-full shrink-0">
-              <nav aria-label="Progresso" className="flex items-start justify-between gap-2">
+          {/* ═══ COL 1: Form panel ═══ */}
+          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] lg:border-r lg:border-[hsl(0_0%_13%)]">
+            {/* ─── Minimal numbered step indicator (top of form) ─── */}
+            <div className="px-7 pt-5 pb-3 shrink-0">
+              <nav aria-label="Progresso" className="flex items-center gap-2">
                 {steps.map((s, idx) => {
-                  const Icon = s.icon;
                   const active = step === s.n;
                   const past = step > s.n;
-                  const isLast = idx === steps.length - 1;
                   return (
-                    <div key={s.n} className="flex items-start flex-1 min-w-0">
+                    <div key={s.n} className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setStep(s.n)}
-                        className="flex flex-col items-center gap-2 group focus:outline-none"
+                        aria-label={`Etapa ${s.n}: ${s.title}`}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[10.5px] font-medium transition-all duration-200 focus:outline-none ${
+                          active
+                            ? "bg-[hsl(152_45%_42%)] text-white"
+                            : past
+                            ? "bg-transparent text-[#666] hover:text-[#999]"
+                            : "bg-transparent text-[#555] border border-[hsl(0_0%_18%)] hover:border-[hsl(0_0%_28%)]"
+                        }`}
                       >
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
-                            active
-                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
-                              : past
-                              ? "bg-transparent text-muted-foreground"
-                              : "bg-transparent text-muted-foreground/60 border border-border"
-                          }`}
-                        >
-                          {past ? (
-                            <Check className="w-4 h-4" strokeWidth={2.5} />
-                          ) : (
-                            <Icon className="w-3.5 h-3.5" strokeWidth={active ? 2.5 : 2} />
-                          )}
-                        </div>
-                        <span
-                          className={`text-[11px] tracking-tight whitespace-nowrap transition-colors ${
-                            active
-                              ? "font-semibold text-foreground"
-                              : past
-                              ? "font-medium text-muted-foreground"
-                              : "font-normal text-muted-foreground/70"
-                          }`}
-                        >
-                          {s.title}
-                        </span>
+                        {past ? <Check className="w-3 h-3" strokeWidth={2.5} /> : s.n}
                       </button>
-                      {!isLast && (
-                        <div className="flex-1 h-px bg-border mt-4 mx-2" />
+                      {idx < steps.length - 1 && (
+                        <div className={`h-px w-6 transition-colors ${past ? "bg-[hsl(0_0%_22%)]" : "bg-[hsl(0_0%_15%)]"}`} />
                       )}
                     </div>
                   );
@@ -406,13 +384,13 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
             {/* ─── Scrollable content area ─── */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="px-10 py-6 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
+              <div className="px-7 py-5 animate-in fade-in-50 slide-in-from-right-2 duration-300" key={step}>
 
-              {/* Step header */}
-              <div className="mb-7">
-                <h2 className="text-2xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
-                <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-relaxed">{steps[step - 1].desc}</p>
-              </div>
+                {/* Step header */}
+                <div className="mb-6">
+                  <h2 className="text-[17px] font-semibold text-white tracking-tight">{steps[step - 1].title}</h2>
+                  <p className="text-[12px] text-[#888] mt-0.5">{steps[step - 1].desc}</p>
+                </div>
 
               {/* ──────── STEP 1 ──────── */}
               {step === 1 && (
@@ -536,42 +514,38 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
               {/* ──────── STEP 2 ──────── */}
               {step === 2 && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 shadow-lg shadow-black/[0.04] dark:shadow-black/20 ring-1 ring-white/[0.02]">
-                    <WelcomeMessageBuilder
-                      value={payload}
-                      onChange={patch => setPayload(p => ({ ...p, ...patch }))}
-                      hideTypeSelector
-                      hidePreview
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1">
-                    <Zap className="w-3 h-3 text-amber-500" />
-                    A pré-visualização ao lado atualiza em tempo real conforme você edita.
+                <div className="space-y-3">
+                  <WelcomeMessageBuilder
+                    value={payload}
+                    onChange={patch => setPayload(p => ({ ...p, ...patch }))}
+                    hideTypeSelector
+                    hidePreview
+                  />
+                  <p className="text-[10.5px] text-[#666]">
+                    A pré-visualização ao lado atualiza em tempo real.
                   </p>
                 </div>
               )}
 
               {/* ──────── STEP 3 ──────── */}
               {step === 3 && (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Delay sliders */}
-                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 space-y-5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 ring-1 ring-amber-500/30 flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-amber-500" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-foreground">Delay entre envios</h4>
-                        <p className="text-[11px] text-muted-foreground">Tempo aleatório entre cada mensagem (anti-bloqueio)</p>
-                      </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+                        Delay entre envios
+                      </Label>
+                      <p className="text-[11px] text-[#666] mt-1">Tempo aleatório aplicado entre cada mensagem.</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mínimo</Label>
-                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.min_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                          <Label className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888]">Mínimo</Label>
+                          <span className="text-base font-semibold tabular-nums text-white">
+                            {payload.min_delay_seconds}<span className="text-[10px] text-[#666] font-normal ml-0.5">s</span>
+                          </span>
                         </div>
                         <Slider
                           value={[payload.min_delay_seconds]}
@@ -579,10 +553,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                           min={5} max={300} step={5}
                         />
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Máximo</Label>
-                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.max_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                          <Label className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888]">Máximo</Label>
+                          <span className="text-base font-semibold tabular-nums text-white">
+                            {payload.max_delay_seconds}<span className="text-[10px] text-[#666] font-normal ml-0.5">s</span>
+                          </span>
                         </div>
                         <Slider
                           value={[payload.max_delay_seconds]}
@@ -594,80 +570,67 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   </div>
 
                   {/* Senders */}
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
-                        <Send className="w-3.5 h-3.5" /> Remetentes
+                      <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+                        Remetentes
                       </Label>
-                      <Badge variant="outline" className={`h-5 text-[10px] font-mono ${sendersValid ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" : ""}`}>
+                      <span className={`text-[10px] font-mono ${sendersValid ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
                         {senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Estes dispositivos enviam as mensagens privadas em rodízio inteligente.
-                    </p>
-                    <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden">
-                      <div className="max-h-72 overflow-y-auto">
-                        {!devices?.length ? (
-                          <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum dispositivo disponível.</p>
-                        ) : (
-                          devices.map((d: any) => {
-                            const checked = senderIds.includes(d.id);
-                            const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
-                            return (
-                              <button
-                                key={d.id}
-                                type="button"
-                                onClick={() => toggleSender(d.id)}
-                                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-muted/40 text-left text-xs transition-colors border-b border-border/20 last:border-0"
-                              >
-                                <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow shadow-pink-500/30" : "border-border bg-background"}`}>
-                                  {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                                </div>
-                                <span className="flex-1 truncate text-[12.5px] font-medium">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
-                                <span className="relative flex shrink-0 items-center gap-1.5">
-                                  <span className="relative flex">
-                                    {online && <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />}
-                                    <span className={`relative w-2 h-2 rounded-full ${online ? "bg-emerald-400 shadow shadow-emerald-400/50" : "bg-muted-foreground/40"}`} />
-                                  </span>
-                                  <span className={`text-[10px] font-medium ${online ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                    {online ? "Online" : "Offline"}
-                                  </span>
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar -mx-1">
+                      {!devices?.length ? (
+                        <p className="text-[12px] text-[#666] py-6 text-center">Nenhum dispositivo disponível.</p>
+                      ) : (
+                        devices.map((d: any) => {
+                          const checked = senderIds.includes(d.id);
+                          const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => toggleSender(d.id)}
+                              className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[hsl(0_0%_11%)] rounded-md text-left text-xs transition-colors group"
+                            >
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-[hsl(152_45%_42%)] border-[hsl(152_45%_42%)]" : "border-[hsl(0_0%_22%)] group-hover:border-[hsl(0_0%_32%)]"}`}>
+                                {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                              </div>
+                              <span className="flex-1 truncate text-[12.5px] text-[#ddd]">{d.name}{d.number ? <span className="text-[#666]"> · {d.number}</span> : ""}</span>
+                              <span className="flex items-center gap-1.5 shrink-0">
+                                <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-[hsl(152_45%_52%)]" : "bg-[#444]"}`} />
+                                <span className={`text-[10px] ${online ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
+                                  {online ? "Online" : "Offline"}
                                 </span>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
-                  {/* Final summary */}
-                  <div className="relative rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/[0.10] via-fuchsia-500/[0.04] to-transparent p-5 overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-pink-500/15 blur-2xl" />
-                    <p className="relative text-[10px] font-bold uppercase tracking-[0.14em] text-pink-600 dark:text-pink-400 flex items-center gap-1.5 mb-3">
-                      <Sparkles className="w-3 h-3" /> Resumo da automação
+                  {/* Final summary — flat, monochrome */}
+                  <div className="pt-4 border-t border-[hsl(0_0%_13%)]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888] mb-3">
+                      Resumo
                     </p>
-                    <div className="relative grid grid-cols-2 gap-3 text-[12px]">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Modo:</span>
-                        <span className="font-semibold text-foreground capitalize">{getUiModeFromPayload(payload)}</span>
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[12px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Modo</span>
+                        <span className="font-medium text-white capitalize">{getUiModeFromPayload(payload)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Delay:</span>
-                        <span className="font-mono font-semibold text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Delay</span>
+                        <span className="font-mono text-white">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Grupos:</span>
-                        <span className="font-semibold text-foreground">{selectedGroups.length}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Grupos</span>
+                        <span className="font-medium text-white">{selectedGroups.length}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Send className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Remetentes:</span>
-                        <span className="font-semibold text-foreground">{senderIds.length}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Remetentes</span>
+                        <span className="font-medium text-white">{senderIds.length}</span>
                       </div>
                     </div>
                   </div>
@@ -677,35 +640,23 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             </div>
           </div>
 
-          {/* ═══ COL 3: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col bg-muted/20 dark:bg-muted/10 px-6 py-7 overflow-hidden">
-            {/* Soft ambient glow background */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-[100px]" />
-              <div className="absolute bottom-0 right-0 w-[260px] h-[260px] rounded-full bg-emerald-400/[0.06] blur-[80px]" />
-              <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/60" />
-            </div>
-
-            {/* Header label */}
-            <div className="relative flex items-center justify-between mb-5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/70">
+          {/* ═══ COL 2: Persistent preview ═══ */}
+          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_7%)] px-6 py-6 overflow-hidden">
+            <div className="relative flex items-center justify-between mb-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
                 Preview em tempo real
               </p>
-              <span className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-500">
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-[hsl(152_45%_52%)]">
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_45%_52%)] opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_45%_52%)]" />
                 </span>
                 AO VIVO
               </span>
             </div>
 
-            {/* Phone mockup with perspective tilt + drop shadow */}
             <div className="relative flex-1 flex items-start justify-center pt-2 [perspective:1200px]">
-              <div
-                className="transition-transform duration-500 ease-out hover:[transform:rotateY(0deg)_rotateX(0deg)]"
-                style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}
-              >
+              <div style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}>
                 <div
                   key={JSON.stringify({
                     t: payload.message_type,
@@ -715,68 +666,53 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   })}
                   className="animate-in fade-in-0 zoom-in-[0.98] duration-300 drop-shadow-[0_25px_50px_rgba(0,0,0,0.45)]"
                 >
-                  <WelcomeWhatsAppPreview payload={payload} height={560} />
+                  <WelcomeWhatsAppPreview payload={payload} height={540} />
                 </div>
               </div>
             </div>
           </aside>
         </div>
 
-        {/* ═══════ FOOTER — stepper navigation ═══════ */}
-        <DialogFooter className="relative px-8 py-4 shrink-0 bg-background flex-row sm:justify-between gap-2">
-          <Button
-            variant="ghost"
+        {/* ═══════ FOOTER ═══════ */}
+        <DialogFooter className="relative px-7 py-3.5 shrink-0 bg-[hsl(0_0%_8%)] border-t border-[hsl(0_0%_13%)] flex-row sm:justify-between gap-2">
+          <button
+            type="button"
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
+            className="text-[12.5px] text-[#888] hover:text-white transition-colors px-1"
           >
             Cancelar
-          </Button>
+          </button>
 
-          <div className="flex items-center gap-3">
-            {/* Step pips */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-1">
-              {[1, 2, 3].map(n => (
-                <div
-                  key={n}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    step === n ? "w-6 bg-emerald-500" : step > n ? "w-1 bg-emerald-500/60" : "w-1 bg-border"
-                  }`}
-                />
-              ))}
-            </div>
-
+          <div className="flex items-center gap-4">
             {step > 1 && (
-              <Button
-                variant="ghost"
+              <button
+                type="button"
                 onClick={goBack}
-                className="gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+                className="inline-flex items-center gap-1 text-[12.5px] text-[#888] hover:text-white transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" /> Voltar
-              </Button>
+                <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+              </button>
             )}
 
             {step < 3 ? (
-              <Button
+              <button
+                type="button"
                 onClick={goNext}
                 disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                className="group gap-2 min-w-[130px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-md"
+                className="px-5 h-9 rounded-full bg-[hsl(152_45%_42%)] hover:bg-[hsl(152_45%_48%)] text-white text-[12.5px] font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Continuar
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </Button>
+              </button>
             ) : (
-              <Button
+              <button
+                type="button"
                 onClick={handleCreate}
                 disabled={create.isPending}
-                className="group gap-2 min-w-[180px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium"
+                className="px-5 h-9 rounded-full bg-[hsl(152_45%_42%)] hover:bg-[hsl(152_45%_48%)] text-white text-[12.5px] font-medium transition-colors disabled:opacity-30 inline-flex items-center gap-2"
               >
-                {create.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
-                )}
+                {create.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Criar automação
-              </Button>
+              </button>
             )}
           </div>
         </DialogFooter>
