@@ -815,3 +815,15 @@
   border-color: hsl(var(--app-accent) / 0.7);
   box-shadow: 0 0 0 3px hsl(var(--app-accent) / 0.18);
 }
+
+/* Subtle themed scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); background-clip: padding-box; border: 2px solid transparent; }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
