@@ -720,26 +720,34 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
         </div>
 
         {/* ═══════ FOOTER — stepper navigation ═══════ */}
-        <DialogFooter className="relative border-t border-border/40 px-8 py-4 shrink-0 bg-background/80 backdrop-blur-xl flex-row sm:justify-between gap-2">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <DialogFooter className="relative px-8 py-4 shrink-0 bg-background flex-row sm:justify-between gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
+          >
             Cancelar
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Step pips */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-2">
+            <div className="hidden sm:flex items-center gap-1.5 mr-1">
               {[1, 2, 3].map(n => (
                 <div
                   key={n}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    step === n ? "w-8 bg-gradient-to-r from-pink-500 to-fuchsia-600" : step > n ? "w-1.5 bg-emerald-500" : "w-1.5 bg-border"
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    step === n ? "w-6 bg-emerald-500" : step > n ? "w-1 bg-emerald-500/60" : "w-1 bg-border"
                   }`}
                 />
               ))}
             </div>
 
             {step > 1 && (
-              <Button variant="outline" onClick={goBack} className="gap-1.5 border-border/60">
+              <Button
+                variant="ghost"
+                onClick={goBack}
+                className="gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+              >
                 <ArrowLeft className="w-4 h-4" /> Voltar
               </Button>
             )}
@@ -748,7 +756,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <Button
                 onClick={goNext}
                 disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                className="group gap-2 min-w-[140px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10 disabled:opacity-50 disabled:hover:translate-y-0"
+                className="group gap-2 min-w-[130px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-md"
               >
                 Continuar
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -757,12 +765,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <Button
                 onClick={handleCreate}
                 disabled={create.isPending}
-                className="group gap-2 min-w-[200px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10"
+                className="group gap-2 min-w-[180px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium"
               >
                 {create.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
+                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
                 )}
                 Criar automação
               </Button>
