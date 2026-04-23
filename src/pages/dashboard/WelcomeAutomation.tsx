@@ -694,18 +694,46 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 3: Persistent preview ═══ */}
-          <aside className="hidden lg:flex flex-col border-l border-border/40 bg-gradient-to-b from-card/30 to-card/10 backdrop-blur-xl px-6 py-7">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Pré-visualização
+          <aside className="relative hidden lg:flex flex-col border-l border-border/40 px-6 py-7 overflow-hidden">
+            {/* Soft ambient glow background */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-[100px]" />
+              <div className="absolute bottom-0 right-0 w-[260px] h-[260px] rounded-full bg-emerald-400/[0.06] blur-[80px]" />
+              <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background/60" />
+            </div>
+
+            {/* Header label */}
+            <div className="relative flex items-center justify-between mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/70">
+                Preview em tempo real
               </p>
-              <span className="flex items-center gap-1 text-[10px] text-emerald-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Ao vivo
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-500">
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                </span>
+                AO VIVO
               </span>
             </div>
-            <div className="flex-1 flex items-start justify-center pt-2">
-              <WelcomeWhatsAppPreview payload={payload} height={560} />
+
+            {/* Phone mockup with perspective tilt + drop shadow */}
+            <div className="relative flex-1 flex items-start justify-center pt-2 [perspective:1200px]">
+              <div
+                className="transition-transform duration-500 ease-out hover:[transform:rotateY(0deg)_rotateX(0deg)]"
+                style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}
+              >
+                <div
+                  key={JSON.stringify({
+                    t: payload.message_type,
+                    c: payload.message_content,
+                    m: payload.media_url,
+                    cards: payload.carousel_cards?.length,
+                  })}
+                  className="animate-in fade-in-0 zoom-in-[0.98] duration-300 drop-shadow-[0_25px_50px_rgba(0,0,0,0.45)]"
+                >
+                  <WelcomeWhatsAppPreview payload={payload} height={560} />
+                </div>
+              </div>
             </div>
           </aside>
         </div>
