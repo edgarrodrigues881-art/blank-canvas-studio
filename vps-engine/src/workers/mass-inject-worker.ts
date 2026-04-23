@@ -653,16 +653,16 @@ function buildAddStrategies(baseUrl: string, groupId: string, phone: string) {
   return [
     // Strategy 0: Most common UAZAPI endpoint (groupJid camelCase)
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [p] } },
-    // Strategy 1: lowercase groupjid variant
-    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
+    // Strategy 1: legacy addParticipant endpoint with the leanest body
+    { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
     // Strategy 2: PUT with query param
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [p] } },
-    // Strategy 3: POST with full JID for stricter providers
+    // Strategy 3: lowercase groupjid variant
+    { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupjid: groupId, action: "add", participants: [p] } },
+    // Strategy 4: POST with full JID for stricter providers
     { method: "POST" as const, url: `${baseUrl}/group/updateParticipants`, body: { groupJid: groupId, action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 4: PUT with full JID for stricter providers
+    // Strategy 5: PUT with full JID for stricter providers
     { method: "PUT" as const, url: `${baseUrl}/group/updateParticipant?groupJid=${encodeURIComponent(groupId)}`, body: { action: "add", participants: [`${p}@s.whatsapp.net`] } },
-    // Strategy 5: legacy addParticipant endpoint
-    { method: "POST" as const, url: `${baseUrl}/group/addParticipant`, body: { groupJid: groupId, participant: p } },
   ];
 }
 
@@ -692,11 +692,7 @@ async function ensureContactSaved(
 
   const attempts: Array<{ method: "POST" | "PUT"; url: string; body: any }> = [
     { method: "POST", url: `${baseUrl}/contact/add`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contact/add`, body: { phone: p, name: placeholderName } },
     { method: "POST", url: `${baseUrl}/contact/save`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contacts`, body: { number: p, name: placeholderName } },
-    { method: "PUT", url: `${baseUrl}/contact`, body: { number: p, name: placeholderName } },
-    { method: "POST", url: `${baseUrl}/contact/upsert`, body: { number: p, name: placeholderName } },
   ];
 
   for (const a of attempts) {
