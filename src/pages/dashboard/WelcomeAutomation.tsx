@@ -34,7 +34,7 @@ import { WelcomeSystemInfo } from "@/components/welcome/WelcomeSystemInfo";
 import {
   Heart, Plus, Smartphone, Users, Send, Loader2, Trash2, ArrowLeft,
   Play, Pause, MessageSquare, Settings as SettingsIcon, Search, Check,
-  UserPlus, ArrowRight, Sparkles, Shield, Zap,
+  UserPlus, ArrowRight, Sparkles, Shield, Zap, MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
