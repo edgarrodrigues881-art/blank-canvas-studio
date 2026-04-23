@@ -673,6 +673,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
 
