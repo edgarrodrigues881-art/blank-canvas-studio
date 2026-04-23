@@ -353,7 +353,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[960px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl">
+      <DialogContent className="max-w-[960px] w-[95vw] h-auto max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl fixed">
 
         {/* ═══════ HEADER ═══════ */}
         <DialogHeader className="relative px-7 pt-6 pb-5 shrink-0 bg-[hsl(0_0%_8%)]">
@@ -386,10 +386,10 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
         </DialogHeader>
 
         {/* ═══════ BODY — 55% form / 45% preview, subtle divider ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[55fr_45fr] min-h-0 overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[55fr_45fr] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Form panel ═══ */}
-          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] lg:border-r lg:border-[hsl(0_0%_13%)]">
+          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] md:border-r md:border-[hsl(0_0%_13%)]">
             {/* ─── Minimal numbered step indicator (top of form) ─── */}
             <div className="px-7 pt-5 pb-3 shrink-0">
               <nav aria-label="Progresso" className="flex items-center gap-2">
@@ -421,9 +421,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </nav>
             </div>
 
-            {/* ─── Scrollable content area ─── */}
-            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-              <div className="px-7 py-5 animate-in fade-in-50 slide-in-from-right-2 duration-300" key={step}>
+            {/* ─── Scrollable content area (smooth scroll, footer-safe padding) ─── */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar scroll-smooth">
+              <div className="px-7 py-5 pb-20 animate-in fade-in-50 slide-in-from-right-2 duration-300" key={step}>
 
                 {/* Step header */}
                 <div className="mb-6">
@@ -712,8 +712,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
             </div>
           </div>
 
-          {/* ═══ COL 2: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden">
+          {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden md:sticky md:top-0 md:self-start md:max-h-full">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
@@ -734,7 +734,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </span>
             </div>
 
-            <div className="relative flex-1 flex items-start justify-center pt-2">
+            <div className="relative flex-1 min-h-0 flex items-start justify-center pt-2 overflow-hidden">
               <div
                 key={JSON.stringify({
                   t: payload.message_type,
@@ -742,9 +742,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   m: payload.media_url,
                   cards: payload.carousel_cards?.length,
                 })}
-                className="animate-in fade-in-0 duration-300"
+                className="animate-in fade-in-0 duration-300 w-full h-full flex items-center justify-center"
+                style={{ maxHeight: "100%" }}
               >
-                <MinimalPhonePreview payload={payload} height={540} />
+                <div style={{ height: "clamp(300px, calc(90vh - 240px), 500px)" }} className="flex items-center justify-center">
+                  <MinimalPhonePreview payload={payload} height={Math.min(500, Math.max(300, typeof window !== "undefined" ? window.innerHeight - 240 : 500))} />
+                </div>
               </div>
             </div>
           </aside>

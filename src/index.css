@@ -22,6 +22,11 @@
 .row-flash-success {
   animation: row-flash-success 1.6s ease-out;
 }
+
+/* Hide welcome modal preview panel on short screens to save space */
+@media (max-height: 599px) {
+  .welcome-preview-panel { display: none !important; }
+}
 .plan-gold-btn {
   position: relative;
   border: none;
