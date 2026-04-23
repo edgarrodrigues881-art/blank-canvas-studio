@@ -53,7 +53,7 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
 ]);
 // Per-device consecutive critical error counter
 const deviceCriticalErrors = new Map<string, number>();
-const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
+const DEVICE_CRITICAL_PAUSE_THRESHOLD = 999_999; // disabled: avoid auto-pausing campaign due per-contact critical failures
 const deviceRestrictionErrors = new Map<string, number>();
 const DEVICE_RESTRICTION_PAUSE_THRESHOLD = 999_999; // disabled: WhatsApp-side contact rejections must not pause the campaign
 
@@ -1593,48 +1593,9 @@ async function runDeviceWorker(
           result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
         }
 
-        // ── Generic-failure retry with exponential backoff (3s → 6s).
-        // Applies to non-privacy, non-success, non-permanent failures only.
-        // We retry up to 2 times. Privacy, "already in group", "blocked",
-        // "contact_not_found", "invalid_group", "confirmed_no_admin" and
-        // "unauthorized" are NOT retried here.
-        const NON_RETRY_STATUSES = new Set([
-          "blocked",
-          "contact_not_found",
-          "invalid_group",
-          "confirmed_no_admin",
-          "unauthorized",
-        ]);
-        const shouldRetryGeneric = (r: AddResult) =>
-          !r.ok
-          && !r.alreadyExists
-          && !isExplicitPrivacyError(r)
-          && !NON_RETRY_STATUSES.has(r.failureStatus || "");
-
-        const backoffSchedule = [3_000, 6_000];
-        for (let attempt = 0; attempt < backoffSchedule.length && shouldRetryGeneric(result); attempt++) {
-          const delay = backoffSchedule[attempt];
-          log.warn(
-            `add_generic_retry attempt=${attempt + 1}/${backoffSchedule.length} phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.failureStatus || "?"} http=${result.httpStatus ?? "?"} delay_ms=${delay} body=${(result.rawResponse || "").slice(0, 200)}`,
-          );
-          await sleep(delay);
-          try {
-            result = await withDeadline(doAdd(`generic_retry_${attempt + 1}`));
-          } catch (retryErr: any) {
-            // Treat retry exceptions as transient unknown failure so the loop
-            // can decide whether to keep retrying (it won't, after 2 tries).
-            result = {
-              ok: false,
-              alreadyExists: false,
-              detail: `Falha durante retry: ${String(retryErr?.message || retryErr).slice(0, 120)}`,
-              retryable: true,
-              pauseCampaign: false,
-              cooldownMs: 0,
-              failureStatus: "unknown_failure",
-              canTryOtherStrategy: false,
-            };
-          }
-        }
+        // In-line retries removed: each retry multiplied API fingerprint per
+        // contact and increased WhatsApp restriction risk. Retries remain
+        // handled by DB `attempt_count` + `next_retry_at` across worker ticks.
 
         // After all retries, if still failing for a non-privacy reason, log
         // the full raw API response with diagnostic context.
