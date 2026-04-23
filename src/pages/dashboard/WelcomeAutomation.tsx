@@ -352,9 +352,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
         <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Step content ═══ */}
-          <div className="min-w-0 overflow-y-auto">
-            {/* ─── Horizontal Stepper (Linear.app inspired) ─── */}
-            <div className="px-8 pt-7 pb-2 max-w-[760px] mx-auto w-full">
+          <div className="min-w-0 flex flex-col min-h-0 overflow-hidden">
+            {/* ─── Horizontal Stepper (pinned) ─── */}
+            <div className="px-8 pt-6 pb-3 max-w-[760px] mx-auto w-full shrink-0">
               <nav aria-label="Progresso" className="flex items-start justify-between gap-2">
                 {steps.map((s, idx) => {
                   const Icon = s.icon;
@@ -404,7 +404,9 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </nav>
             </div>
 
-            <div className="px-10 py-7 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
+            {/* ─── Scrollable content area ─── */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+              <div className="px-10 py-6 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
 
               {/* Step header */}
               <div className="mb-7">
