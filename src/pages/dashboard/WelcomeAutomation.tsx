@@ -367,86 +367,68 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 3-col: Stepper · Content · Preview ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_360px] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 2-col: Content · Preview ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-0 overflow-hidden">
 
-          {/* ═══ COL 1: Stepper sidebar ═══ */}
-          <aside className="hidden lg:flex flex-col border-r border-border/40 bg-card/30 backdrop-blur-xl px-5 py-7">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5 px-1">
-              Etapas
-            </p>
-            <div className="relative space-y-1">
-              {/* Vertical track */}
-              <div className="absolute left-[22px] top-6 bottom-6 w-px bg-border/60" />
-              {steps.map((s, idx) => {
-                const Icon = s.icon;
-                const active = step === s.n;
-                const past = step > s.n;
-                return (
-                  <button
-                    key={s.n}
-                    type="button"
-                    onClick={() => setStep(s.n)}
-                    className={`group relative w-full flex items-start gap-3 p-2.5 rounded-xl text-left transition-all ${
-                      active ? "bg-gradient-to-r from-pink-500/[0.10] to-transparent" : "hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className={`relative z-10 w-11 h-11 shrink-0 rounded-xl flex items-center justify-center transition-all duration-300 ring-1 ${
-                      active
-                        ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white ring-pink-500/40 shadow-lg shadow-pink-500/30 scale-105"
-                        : past
-                        ? "bg-emerald-500/15 text-emerald-500 ring-emerald-500/30"
-                        : "bg-muted/60 text-muted-foreground ring-border/40 group-hover:ring-border"
-                    }`}>
-                      {past ? <Check className="w-4 h-4" strokeWidth={3} /> : <Icon className="w-4 h-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-bold tracking-wider ${active ? "text-pink-500" : past ? "text-emerald-500" : "text-muted-foreground/70"}`}>
-                          ETAPA {s.n}
-                        </span>
-                        {past && s.valid && <Check className="w-3 h-3 text-emerald-500" strokeWidth={3} />}
-                      </div>
-                      <p className={`text-sm font-semibold leading-tight mt-0.5 ${active ? "text-foreground" : "text-foreground/80"}`}>
-                        {s.title}
-                      </p>
-                      <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug">
-                        {s.desc}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Mini summary chip */}
-            <div className="mt-auto pt-5 border-t border-border/40">
-              <div className="rounded-xl bg-gradient-to-br from-pink-500/[0.08] to-fuchsia-500/[0.04] border border-pink-500/20 p-3">
-                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-pink-500 flex items-center gap-1 mb-2">
-                  <Sparkles className="w-2.5 h-2.5" /> Progresso
-                </p>
-                <div className="space-y-1.5 text-[11px]">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Grupos</span><span className="font-mono font-semibold">{selectedGroups.length}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Remetentes</span><span className="font-mono font-semibold">{senderIds.length}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Delay</span><span className="font-mono font-semibold">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span></div>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          {/* ═══ COL 2: Step content ═══ */}
+          {/* ═══ COL 1: Step content ═══ */}
           <div className="min-w-0 overflow-y-auto">
-            <div className="px-8 py-7 max-w-[760px] mx-auto animate-in fade-in-50 slide-in-from-bottom-2 duration-300" key={step}>
+            {/* ─── Horizontal Stepper (Linear.app inspired) ─── */}
+            <div className="px-8 pt-7 pb-2 max-w-[760px] mx-auto w-full">
+              <nav aria-label="Progresso" className="flex items-start justify-between gap-2">
+                {steps.map((s, idx) => {
+                  const Icon = s.icon;
+                  const active = step === s.n;
+                  const past = step > s.n;
+                  const isLast = idx === steps.length - 1;
+                  return (
+                    <div key={s.n} className="flex items-start flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => setStep(s.n)}
+                        className="flex flex-col items-center gap-2 group focus:outline-none"
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                            active
+                              ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
+                              : past
+                              ? "bg-transparent text-muted-foreground"
+                              : "bg-transparent text-muted-foreground/60 border border-border"
+                          }`}
+                        >
+                          {past ? (
+                            <Check className="w-4 h-4" strokeWidth={2.5} />
+                          ) : (
+                            <Icon className="w-3.5 h-3.5" strokeWidth={active ? 2.5 : 2} />
+                          )}
+                        </div>
+                        <span
+                          className={`text-[11px] tracking-tight whitespace-nowrap transition-colors ${
+                            active
+                              ? "font-semibold text-foreground"
+                              : past
+                              ? "font-medium text-muted-foreground"
+                              : "font-normal text-muted-foreground/70"
+                          }`}
+                        >
+                          {s.title}
+                        </span>
+                      </button>
+                      {!isLast && (
+                        <div className="flex-1 h-px bg-border mt-4 mx-2" />
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="px-8 py-6 max-w-[760px] mx-auto animate-in fade-in-50 slide-in-from-bottom-2 duration-300" key={step}>
 
               {/* Step header */}
-              <div className="mb-6 flex items-center gap-3">
-                <div className="text-[60px] font-black leading-none bg-gradient-to-br from-pink-500/40 to-fuchsia-600/10 bg-clip-text text-transparent select-none">
-                  0{step}
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
-                  <p className="text-[12.5px] text-muted-foreground mt-0.5">{steps[step - 1].desc}</p>
-                </div>
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
+                <p className="text-[12.5px] text-muted-foreground mt-1">{steps[step - 1].desc}</p>
               </div>
 
               {/* ──────── STEP 1 ──────── */}
