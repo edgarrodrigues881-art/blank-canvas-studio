@@ -675,7 +675,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 3: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col border-l border-border/40 px-6 py-7 overflow-hidden">
+          <aside className="relative hidden lg:flex flex-col bg-muted/20 dark:bg-muted/10 px-6 py-7 overflow-hidden">
             {/* Soft ambient glow background */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-[100px]" />
