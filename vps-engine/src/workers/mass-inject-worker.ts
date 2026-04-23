@@ -53,9 +53,9 @@ const TRANSIENT_FAILURE_STATUSES = new Set([
 ]);
 // Per-device consecutive critical error counter
 const deviceCriticalErrors = new Map<string, number>();
-const DEVICE_CRITICAL_PAUSE_THRESHOLD = 4; // pause only after 4 consecutive critical errors on same device
+const DEVICE_CRITICAL_PAUSE_THRESHOLD = 999_999; // disabled: avoid auto-pausing campaign due per-contact critical failures
 const deviceRestrictionErrors = new Map<string, number>();
-const DEVICE_RESTRICTION_PAUSE_THRESHOLD = 3; // protect accounts when WhatsApp starts rejecting sequential adds
+const DEVICE_RESTRICTION_PAUSE_THRESHOLD = 999_999; // disabled: WhatsApp-side contact rejections must not pause the campaign
 
 // ── Per-contact attempt cap (bounded retry) ──
 // Each contact gets at most 3 attempts total (1 initial + up to 2 retries). The DB
@@ -75,7 +75,7 @@ function backoffMsForAttempt(attemptCount: number): number {
 // If an instance produces this many consecutive add failures (any kind, not just
 // critical) we stop this worker so siblings can absorb the load and the campaign
 // is not stuck spinning on the same broken state.
-const MAX_CONSECUTIVE_ADD_FAILURES = 5;
+const MAX_CONSECUTIVE_ADD_FAILURES = 999_999;
 
 const DEVICE_RETRY_INTERVAL_MS = 6_000; // 6s — fast retry, don't block
 
@@ -727,7 +727,7 @@ async function ensureContactSaved(
 // hammering the presence endpoint between consecutive contacts on the same
 // group.
 const presenceCache = new Map<string, number>(); // key: baseUrl::tokenPrefix::groupId
-const PRESENCE_TTL_MS = 12 * 60_000;
+const PRESENCE_TTL_MS = 60 * 60_000;
 
 async function sendPresenceOnline(baseUrl: string, token: string, groupId: string): Promise<void> {
   const key = `${baseUrl}::${String(token).slice(0, 6)}::${groupId}`;
@@ -1153,7 +1153,7 @@ async function reassignMyQueueToSiblings(
 // → More devices = automatic acceleration
 // → Failed device = remaining workers absorb the load (auto-redistribution)
 // ══════════════════════════════════════════════════════════
-const BATCH_SIZE = 10; // contacts per device-worker per batch
+const BATCH_SIZE = 100; // contacts per device-worker per batch
 async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value: boolean }) {
   const campaignId = campaign.id;
   const slotLabel = `mass-inject:${campaignId.slice(0, 8)}`;
@@ -1565,20 +1565,7 @@ async function runDeviceWorker(
           ),
         ]);
 
-        // Pre-step: ensure contact exists in device's address book to bypass
-        // the "only saved contacts can invite" privacy restriction.
-        await ensureContactSaved(baseUrl, device.uazapi_token, phone);
-        await sleep(randomBetween(500, 1500));
-
-        // Pre-step: send "online" presence so the chip looks like it actually
-        // opened the group before issuing the add command. Best-effort — never
-        // blocks the actual add.
         const effectiveGroupId = targetInfo.kind === "community_child" ? targetInfo.targetId : groupId;
-        try {
-          await sendPresenceOnline(baseUrl, device.uazapi_token, effectiveGroupId);
-          await sleep(randomBetween(400, 1200));
-        } catch { /* never block the add */ }
-
 
         const doAdd = async (label = "primary") => {
           // MANDATORY pre-request log — proves the API is being called and with what.
@@ -1601,63 +1588,14 @@ async function runDeviceWorker(
         // are NEVER classified as privacy here.
         if (isExplicitPrivacyError(result)) {
           log.warn(
-            `retry_after_privacy: phone=${phone} group=${groupId} instance_id=${deviceId} — forcing contact save and retrying once. body=${(result.rawResponse || "").slice(0, 200)}`,
+            `privacy_blocked_final: phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.httpStatus ?? "?"} body=${(result.rawResponse || "").slice(0, 300)}`,
           );
-          const saved = await ensureContactSaved(baseUrl, device.uazapi_token, phone, { force: true });
-          if (saved) {
-            await sleep(randomBetween(800, 1500));
-            result = await withDeadline(doAdd("retry_after_privacy"));
-          }
-          if (isExplicitPrivacyError(result)) {
-            log.warn(
-              `privacy_blocked_final: phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.httpStatus ?? "?"} body=${(result.rawResponse || "").slice(0, 300)}`,
-            );
-            result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
-          }
+          result = { ...result, retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "failed" };
         }
 
-        // ── Generic-failure retry with exponential backoff (3s → 6s).
-        // Applies to non-privacy, non-success, non-permanent failures only.
-        // We retry up to 2 times. Privacy, "already in group", "blocked",
-        // "contact_not_found", "invalid_group", "confirmed_no_admin" and
-        // "unauthorized" are NOT retried here.
-        const NON_RETRY_STATUSES = new Set([
-          "blocked",
-          "contact_not_found",
-          "invalid_group",
-          "confirmed_no_admin",
-          "unauthorized",
-        ]);
-        const shouldRetryGeneric = (r: AddResult) =>
-          !r.ok
-          && !r.alreadyExists
-          && !isExplicitPrivacyError(r)
-          && !NON_RETRY_STATUSES.has(r.failureStatus || "");
-
-        const backoffSchedule = [3_000, 6_000];
-        for (let attempt = 0; attempt < backoffSchedule.length && shouldRetryGeneric(result); attempt++) {
-          const delay = backoffSchedule[attempt];
-          log.warn(
-            `add_generic_retry attempt=${attempt + 1}/${backoffSchedule.length} phone=${phone} group=${groupId} instance_id=${deviceId} status=${result.failureStatus || "?"} http=${result.httpStatus ?? "?"} delay_ms=${delay} body=${(result.rawResponse || "").slice(0, 200)}`,
-          );
-          await sleep(delay);
-          try {
-            result = await withDeadline(doAdd(`generic_retry_${attempt + 1}`));
-          } catch (retryErr: any) {
-            // Treat retry exceptions as transient unknown failure so the loop
-            // can decide whether to keep retrying (it won't, after 2 tries).
-            result = {
-              ok: false,
-              alreadyExists: false,
-              detail: `Falha durante retry: ${String(retryErr?.message || retryErr).slice(0, 120)}`,
-              retryable: true,
-              pauseCampaign: false,
-              cooldownMs: 0,
-              failureStatus: "unknown_failure",
-              canTryOtherStrategy: false,
-            };
-          }
-        }
+        // In-line retries removed: each retry multiplied API fingerprint per
+        // contact and increased WhatsApp restriction risk. Retries remain
+        // handled by DB `attempt_count` + `next_retry_at` across worker ticks.
 
         // After all retries, if still failing for a non-privacy reason, log
         // the full raw API response with diagnostic context.
@@ -1854,18 +1792,7 @@ async function runDeviceWorker(
         if (isRestrictionError) {
           const restrictionCount = (deviceRestrictionErrors.get(deviceId) || 0) + 1;
           deviceRestrictionErrors.set(deviceId, restrictionCount);
-
-          if (restrictionCount >= DEVICE_RESTRICTION_PAUSE_THRESHOLD) {
-            const reason = `Pausada para proteger a conta: ${restrictionCount} contatos seguidos rejeitados pelo WhatsApp (${failureDetail}).`;
-            log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
-            await flushCounters(sb, campaignId, counterState);
-            await sb.from("mass_inject_campaigns").update({
-              status: "paused", updated_at: nowIso(), next_run_at: null, pause_reason: reason,
-            }).eq("id", campaignId);
-            await emitEvent(sb, campaignId, "campaign_paused", "warning", reason);
-            stopAllRef.value = true;
-            break;
-          }
+          log.warn(`Campaign ${campaignId.slice(0, 8)}: WhatsApp/contact restriction on device ${device.name || deviceId.slice(0, 8)} (${restrictionCount}x) — skipping contact without pausing campaign.`);
         } else if (!isTransientError) {
           deviceRestrictionErrors.delete(deviceId);
         }
@@ -1903,12 +1830,10 @@ async function runDeviceWorker(
         // continue. Device is NOT marked disconnected just because adds failed.
         consecutiveAddFailures += 1;
         if (consecutiveAddFailures >= MAX_CONSECUTIVE_ADD_FAILURES) {
-          const reason = `Worker pausado: ${consecutiveAddFailures} falhas consecutivas no device ${device.name || deviceId.slice(0, 8)}.`;
+          const reason = `Worker paused after ${consecutiveAddFailures} consecutive failures on device ${device.name || deviceId.slice(0, 8)}.`;
           log.warn(`Campaign ${campaignId.slice(0, 8)}: ${reason}`);
           await flushCounters(sb, campaignId, counterState);
           await emitEvent(sb, campaignId, "device_worker_circuit_break", "warning", reason);
-          // Mark this device as temporarily unavailable so siblings absorb load.
-          // We do NOT touch deviceConnectionState — the device may still be online.
           failedDeviceIds.set(deviceId, Date.now());
           break;
         }
