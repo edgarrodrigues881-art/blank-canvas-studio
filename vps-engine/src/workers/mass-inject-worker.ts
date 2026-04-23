@@ -1669,10 +1669,23 @@ async function runDeviceWorker(
         // Classify retryable vs permanent failure
         isRateLimit = (result.failureStatus === "rate_limited") || detailLower.includes("rate limit") || detailLower.includes("rate-overlimit") || detailLower.includes("too many");
         isTimeout = detailLower.includes("timeout");
-        isConnectionIssue = detailLower.includes("desconectada") || detailLower.includes("socket") || detailLower.includes("disconnected");
+        isConnectionIssue =
+          result.failureStatus === "session_dropped"
+          || result.failureStatus === "connection_unconfirmed"
+          || detailLower.includes("desconectada")
+          || detailLower.includes("desconectado")
+          || detailLower.includes("socket")
+          || detailLower.includes("disconnected")
+          || detailLower.includes("not connected")
+          || detailLower.includes("logged out")
+          || detailLower.includes("logout")
+          || detailLower.includes("session dropped")
+          || detailLower.includes("session not found")
+          || detailLower.includes("websocket closed")
+          || detailLower.includes("offline");
         failureDetail = result.detail;
         failStatus = result.failureStatus || (result.retryable
-          ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "connection_unconfirmed" : "api_temporary")
+          ? (isRateLimit ? "rate_limited" : isTimeout ? "timeout" : isConnectionIssue ? "session_dropped" : "api_temporary")
           : "failed");
 
         // ── Rate limit: NEVER mark device disconnected. Pause this device for the
@@ -1700,37 +1713,53 @@ async function runDeviceWorker(
           continue;
         }
 
-        // Track API failures for connection state — ONLY explicit connection
-        // issues ever influence device-disconnected status. Rate limits, timeouts,
-        // and queue delays are explicitly excluded — those are transient and the
-        // instance is still healthy.
+        // ── Connection issue: ALWAYS return contact to pending immediately so
+        //    another chip can claim it. Refund the attempt — the lead is not at
+        //    fault when the chip session drops. We also unpin the contact
+        //    (assigned_device_id = NULL) so it falls back into the shared pool
+        //    and any sibling worker may pick it up. Then we mark THIS device as
+        //    failed; the worker exits, triggering reassignMyQueueToSiblings to
+        //    redistribute its remaining queue. The campaign keeps running on the
+        //    healthy chips (auto-redistribution).
         if (isConnectionIssue) {
           const shouldForceRecheck = recordDeviceApiFailure(deviceId, failureDetail);
+
+          await sb.from("mass_inject_contacts").update({
+            status: "pending",
+            error_message: `Sessão caiu durante adição — devolvendo à fila: ${failureDetail.slice(0, 160)}`,
+            device_used: null,
+            assigned_device_id: null,
+            attempt_count: Math.max(0, currentAttempt - 1),
+            next_retry_at: null,
+          } as any).eq("id", contact.id);
+
+          batchFailed++;
+          // Connection drops are infra issues — don't burn the worker's
+          // consecutive-failure budget.
+          consecutiveAddFailures = 0;
+
           if (shouldForceRecheck) {
-            // 3 consecutive REAL connection failures — validate via health check
-            // endpoint before marking device as offline. Revert contact to pending
-            // (don't consume an attempt) so it auto-resumes after recovery.
             const health = await isInstanceConnected(deviceId, baseUrl, device.uazapi_token, true);
             if (!health.connected) {
-              await sb.from("mass_inject_contacts").update({
-                status: "pending",
-                error_message: `Aguardando reconexão: ${failureDetail}`,
-                device_used: null,
-                attempt_count: Math.max(0, currentAttempt - 1), // refund attempt
-              } as any).eq("id", contact.id);
+              // Confirmed offline → flag device and let worker exit so siblings
+              // pick up its queue via reassignMyQueueToSiblings.
               failedDeviceIds.set(deviceId, Date.now());
-              batchFailed++;
-              // Don't count this as a campaign failure — device is the issue
+              log.warn(
+                `Campaign ${campaignId.slice(0, 8)}: device ${deviceId.slice(0, 8)} confirmed offline after ${API_FAILURE_DISCONNECT_THRESHOLD} session drops — releasing worker so siblings absorb the load.`,
+              );
               continue;
-            } else {
-              log.info(`Device ${deviceId.slice(0, 8)}: API failures recovered after health check — continuing.`);
             }
+            log.info(`Device ${deviceId.slice(0, 8)}: health check OK after session drop — continuing on this chip.`);
+          } else {
+            log.info(
+              `Campaign ${campaignId.slice(0, 8)}: session drop on device ${deviceId.slice(0, 8)} — contact returned to pending pool, sibling will retry.`,
+            );
           }
-        }
 
-        if (isConnectionIssue) {
-          failStatus = "api_temporary";
-          failureDetail = `Oscilação temporária: ${result.detail}`.trim();
+          // Brief pause before claiming next contact to avoid hammering a
+          // wobbly socket.
+          await sleep(randomBetween(2000, 4000));
+          continue;
         }
 
         // Enforce MAX_CONTACT_ATTEMPTS: if this was the last allowed try and the
