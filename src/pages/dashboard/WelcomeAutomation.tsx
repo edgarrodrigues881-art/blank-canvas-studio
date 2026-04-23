@@ -433,22 +433,26 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
               {/* ──────── STEP 1 ──────── */}
               {step === 1 && (
-                <div className="space-y-6">
-                  {/* Name */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-foreground/90">Nome da automação</Label>
-                    <Input
+                <div className="space-y-8">
+                  {/* Name — large, prominent, underline style */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Nome da automação
+                    </Label>
+                    <input
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      placeholder="Ex: Boas-vindas VIP"
-                      className="h-11 text-sm bg-background/60 backdrop-blur border-border/60 focus-visible:border-pink-500/60 focus-visible:ring-pink-500/30"
+                      placeholder="Boas-vindas VIP"
+                      className="w-full bg-transparent border-0 border-b border-border/60 px-0 py-2.5 text-xl font-semibold text-foreground placeholder:text-muted-foreground/40 placeholder:font-normal focus:outline-none focus:border-emerald-500 transition-colors duration-200"
                     />
                   </div>
 
-                  {/* Type cards */}
-                  <div className="space-y-2.5">
-                    <Label className="text-xs font-semibold text-foreground/90">Tipo de mensagem</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                  {/* Type selector — sleek pill toggle */}
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Tipo de mensagem
+                    </Label>
+                    <div className="inline-flex p-1 rounded-lg bg-muted/40 border border-border/40">
                       {WELCOME_TYPE_OPTIONS.map(opt => {
                         const currentMode = getUiModeFromPayload(payload);
                         const active = currentMode === opt.value;
@@ -462,46 +466,28 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                               const derived = deriveBackendMessageType({ ...p, message_type: "text" });
                               return { ...p, message_type: derived };
                             })}
-                            className={`group relative rounded-xl border p-4 text-left transition-all duration-300 overflow-hidden ${
+                            className={`relative inline-flex items-center gap-2 px-4 py-1.5 rounded-md text-[12.5px] font-medium transition-all duration-200 ${
                               active
-                                ? "border-pink-500/60 bg-gradient-to-br from-pink-500/[0.12] via-fuchsia-500/[0.06] to-transparent shadow-lg shadow-pink-500/10 -translate-y-0.5"
-                                : "border-border/50 bg-card/60 hover:border-pink-500/30 hover:-translate-y-0.5"
+                                ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                             }`}
                           >
-                            {active && (
-                              <>
-                                <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-pink-500/20 blur-2xl" />
-                                <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-fuchsia-600 flex items-center justify-center shadow shadow-pink-500/40 ring-2 ring-background animate-in zoom-in-50">
-                                  <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                                </div>
-                              </>
-                            )}
-                            <div className={`relative w-9 h-9 rounded-lg flex items-center justify-center mb-2.5 ${
-                              active ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 text-white shadow shadow-pink-500/30" : "bg-muted/60 text-muted-foreground group-hover:bg-pink-500/10 group-hover:text-pink-500"
-                            }`}>
-                              <Icon className="w-4 h-4" />
-                            </div>
-                            <p className="text-[13px] font-bold text-foreground">{opt.label}</p>
-                            <p className="text-[10.5px] text-muted-foreground mt-0.5">{opt.desc}</p>
-                            <div className={`inline-flex items-center gap-1 mt-2 px-1.5 py-0.5 rounded text-[8.5px] font-bold uppercase tracking-wider ${
-                              active ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 ring-1 ring-pink-500/20" : "bg-muted/60 text-muted-foreground"
-                            }`}>
-                              <Sparkles className="w-2 h-2" /> {opt.tag}
-                            </div>
+                            <Icon className="w-3.5 h-3.5" />
+                            {opt.label}
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Monitor + Groups */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
-                      <Smartphone className="w-3.5 h-3.5" /> Dispositivo monitor
+                  {/* Monitor — modern select, custom arrow */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                      <Smartphone className="w-3 h-3" /> Dispositivo monitor
                     </Label>
                     <Select value={monitoringId} onValueChange={setMonitoringId}>
-                      <SelectTrigger className="h-11 bg-background/60 backdrop-blur border-border/60 focus:ring-pink-500/30">
-                        <SelectValue placeholder="Selecione o dispositivo que está nos grupos" />
+                      <SelectTrigger className="h-11 bg-transparent border-0 border-b border-border/60 rounded-none px-0 text-sm font-medium hover:border-foreground/40 focus:border-emerald-500 focus:ring-0 focus:ring-offset-0 transition-colors duration-200 [&>svg]:text-muted-foreground [&>svg]:opacity-100">
+                        <SelectValue placeholder="Selecione o dispositivo nos grupos" />
                       </SelectTrigger>
                       <SelectContent>
                         {(devices || []).map((d: any) => (
@@ -509,54 +495,56 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Este dispositivo detecta novos membros entrando nos grupos selecionados.
+                    <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+                      Detecta novos membros entrando nos grupos selecionados.
                     </p>
                   </div>
 
                   {monitoringId && (
                     <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" /> Grupos monitorados
-                        <Badge variant="outline" className={`h-5 text-[10px] font-mono ml-1 ${groupsValid ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : ""}`}>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                          <Users className="w-3 h-3" /> Grupos monitorados
+                        </Label>
+                        <span className={`text-[10px] font-mono font-medium transition-colors ${groupsValid ? "text-emerald-500" : "text-muted-foreground"}`}>
                           {selectedGroups.length} selecionado{selectedGroups.length !== 1 ? "s" : ""}
-                        </Badge>
-                      </Label>
-                      <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden">
-                        <div className="relative p-2 border-b border-border/40">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                          <Input
+                        </span>
+                      </div>
+                      <div className="border-b border-border/60">
+                        <div className="relative">
+                          <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <input
                             value={groupSearch}
                             onChange={e => setGroupSearch(e.target.value)}
                             placeholder="Buscar grupo..."
-                            className="pl-8 h-9 text-xs bg-muted/30 border-transparent"
+                            className="w-full pl-6 pr-2 py-2.5 bg-transparent border-0 text-sm placeholder:text-muted-foreground/50 focus:outline-none"
                           />
                         </div>
-                        <div className="max-h-56 overflow-y-auto">
-                          {loadingGroups ? (
-                            <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-                          ) : !filteredGroups.length ? (
-                            <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum grupo encontrado.</p>
-                          ) : (
-                            filteredGroups.map((g: any) => {
-                              const checked = !!selectedGroups.find(x => x.group_id === g.id);
-                              return (
-                                <button
-                                  key={g.id}
-                                  type="button"
-                                  onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
-                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/40 text-left text-xs transition-colors border-b border-border/20 last:border-0"
-                                >
-                                  <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow shadow-pink-500/30" : "border-border bg-background"}`}>
-                                    {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                                  </div>
-                                  <span className="flex-1 truncate text-[12.5px]">{g.name}</span>
-                                  {g.participants > 0 && <span className="text-[10px] text-muted-foreground font-mono">{g.participants}</span>}
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto -mx-1">
+                        {loadingGroups ? (
+                          <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                        ) : !filteredGroups.length ? (
+                          <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum grupo encontrado.</p>
+                        ) : (
+                          filteredGroups.map((g: any) => {
+                            const checked = !!selectedGroups.find(x => x.group_id === g.id);
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                onClick={() => toggleGroup({ group_id: g.id, group_name: g.name })}
+                                className="w-full flex items-center gap-3 px-1 py-2 hover:bg-muted/30 rounded-md text-left text-xs transition-all duration-150 group"
+                              >
+                                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all duration-200 ${checked ? "bg-emerald-500 border-emerald-500" : "border-border group-hover:border-foreground/40 bg-transparent"}`}>
+                                  {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                </div>
+                                <span className="flex-1 truncate text-[13px] text-foreground/90">{g.name}</span>
+                                {g.participants > 0 && <span className="text-[10px] text-muted-foreground font-mono">{g.participants}</span>}
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
                     </div>
                   )}
