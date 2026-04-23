@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,7 +34,7 @@ import { WelcomeSystemInfo } from "@/components/welcome/WelcomeSystemInfo";
 import {
   Heart, Plus, Smartphone, Users, Send, Loader2, Trash2, ArrowLeft,
   Play, Pause, MessageSquare, Settings as SettingsIcon, Search, Check,
-  UserPlus, ArrowRight, Sparkles, Shield, Zap,
+  UserPlus, ArrowRight, Sparkles, Shield, Zap, MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -128,61 +129,96 @@ function AutomationsList({ onOpen, onCreate }: { onOpen: (id: string) => void; o
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
       ) : !automations?.length ? (
-        <Card className="border-dashed border-border/50">
-          <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-pink-500/10 flex items-center justify-center">
-              <Heart className="w-6 h-6 text-pink-400" />
-            </div>
-            <div className="max-w-sm space-y-1">
-              <p className="text-base font-semibold">Nenhuma automação criada</p>
-              <p className="text-sm text-muted-foreground">
-                Crie sua primeira automação para enviar uma mensagem de boas-vindas no privado de cada pessoa que entrar no seu grupo.
-              </p>
-            </div>
-            <Button onClick={onCreate} className="gap-2 rounded-xl">
-              <Plus className="w-4 h-4" /> Criar automação
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
+          {/* Empty-state illustration */}
+          <div className="relative w-24 h-24">
+            <div className="absolute inset-0 rounded-full bg-[hsl(152_60%_45%/0.08)] blur-2xl" />
+            <svg viewBox="0 0 96 96" className="relative w-24 h-24" fill="none">
+              <rect x="14" y="20" width="56" height="44" rx="8" stroke="hsl(var(--border))" strokeWidth="1.5" />
+              <path d="M14 28l28 18 28-18" stroke="hsl(var(--border))" strokeWidth="1.5" strokeLinecap="round" />
+              <circle cx="74" cy="68" r="14" fill="hsl(152 60% 45% / 0.12)" stroke="hsl(152 60% 45%)" strokeWidth="1.5" />
+              <path d="M68 68l4 4 8-8" stroke="hsl(152 60% 55%)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="max-w-sm space-y-1.5">
+            <p className="text-base font-semibold text-foreground">Nenhuma automação criada</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Crie sua primeira automação para enviar uma mensagem no privado de cada pessoa que entrar no seu grupo.
+            </p>
+          </div>
+          <Button onClick={onCreate} className="gap-2 rounded-full px-5">
+            <Plus className="w-4 h-4" /> Criar primeira automação
+          </Button>
+        </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {automations.map(a => {
             const isActive = a.status === "active";
             return (
-              <Card key={a.id} className="border-border/40 hover:border-primary/40 transition-colors group">
-                <CardContent className="p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <button onClick={() => onOpen(a.id)} className="text-left flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{a.name}</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Criada em {format(new Date(a.created_at), "dd/MM/yyyy")}
-                      </p>
-                    </button>
-                    <AutomationStatusBadge status={a.status} />
+              <div
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpen(a.id)}
+                onKeyDown={e => { if (e.key === "Enter") onOpen(a.id); }}
+                className="group relative cursor-pointer rounded-xl bg-card/60 hover:bg-card/90 border border-border/40 hover:border-[hsl(152_60%_45%/0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-12px_hsl(152_60%_45%/0.25)]"
+              >
+                <div className="p-5 space-y-3">
+                  {/* Top: name + status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-semibold text-foreground text-[14px] leading-tight truncate flex-1 min-w-0">
+                      {a.name}
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[hsl(152_60%_50%)]" : "bg-muted-foreground/50"}`} />
+                      <span className={isActive ? "text-[hsl(152_60%_55%)]" : "text-muted-foreground"}>
+                        {isActive ? "Ativa" : "Pausada"}
+                      </span>
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <MessageSquare className="w-3 h-3" />
-                    <span className="truncate">{a.message_content?.slice(0, 60) || "Sem mensagem definida"}</span>
+
+                  {/* Message preview */}
+                  <p className="text-[12px] text-muted-foreground truncate leading-relaxed">
+                    {a.message_content?.trim() || <span className="italic opacity-70">Sem mensagem definida</span>}
+                  </p>
+
+                  {/* Date */}
+                  <p className="text-[10.5px] text-muted-foreground/70">
+                    Criada em {format(new Date(a.created_at), "dd/MM/yyyy")}
+                  </p>
+
+                  {/* Footer actions */}
+                  <div className="flex items-center justify-between pt-3 mt-1 border-t border-border/30" onClick={e => e.stopPropagation()}>
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={v => updateAutomation.mutateAsync({ id: a.id, status: v ? "active" : "paused" }).then(() => toast.success(v ? "Ativada!" : "Pausada"))}
+                    />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-7 w-7 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                          aria-label="Mais opções"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem onClick={() => onOpen(a.id)}>
+                          Abrir
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setConfirmDelete(a.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-2" /> Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={isActive}
-                        onCheckedChange={v => updateAutomation.mutateAsync({ id: a.id, status: v ? "active" : "paused" }).then(() => toast.success(v ? "Ativada!" : "Pausada"))}
-                      />
-                      <span className="text-[11px] text-muted-foreground">{isActive ? "Ativa" : "Pausada"}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onOpen(a.id)}>
-                        Abrir
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10" onClick={() => setConfirmDelete(a.id)}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
