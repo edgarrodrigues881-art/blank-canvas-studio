@@ -314,61 +314,42 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1440px] w-[97vw] h-[95vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
+      <DialogContent className="max-w-[900px] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
 
-        {/* Decorative ambient glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
-          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-pink-500/10 blur-3xl" />
-          <div className="absolute -top-32 right-0 w-[420px] h-[420px] rounded-full bg-fuchsia-500/10 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 w-[520px] h-[300px] rounded-full bg-emerald-500/[0.06] blur-3xl" />
-        </div>
+        {/* Brand accent — thin top border */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10" />
 
         {/* ═══════ HEADER ═══════ */}
-        <DialogHeader className="relative px-8 pt-6 pb-5 border-b border-border/40 shrink-0 backdrop-blur-xl bg-background/70">
-          <div className="flex items-start gap-4">
-            <div className="relative shrink-0">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-pink-500 to-fuchsia-600 blur-md opacity-60" />
-              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-fuchsia-600 flex items-center justify-center shadow-xl shadow-pink-500/30 ring-1 ring-white/10">
-                <Heart className="w-5 h-5 text-white fill-white/30" />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-[22px] font-bold text-foreground leading-tight tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Criar automação de boas-vindas
-              </DialogTitle>
-              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
-                Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
-              </p>
+        <DialogHeader className="relative px-8 pt-7 pb-5 shrink-0 bg-background">
+          <div className="flex-1 min-w-0">
+            <DialogTitle className="text-[24px] font-bold text-foreground leading-tight tracking-tight">
+              Criar automação de boas-vindas
+            </DialogTitle>
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
+              Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
+            </p>
 
-              {/* Flow concept — interactive pills */}
-              <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-emerald-500/40 hover:shadow-emerald-500/10">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 ring-1 ring-emerald-500/30 flex items-center justify-center">
-                    <UserPlus className="w-3 h-3 text-emerald-500" />
-                  </div>
-                  <span className="text-[11px] font-medium text-foreground">Alguém entra no grupo</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-px w-6 bg-gradient-to-r from-emerald-500/40 to-pink-500/40" />
-                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/70 -ml-1" />
-                </div>
-                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-pink-500/40 hover:shadow-pink-500/10">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400/20 to-fuchsia-600/20 ring-1 ring-pink-500/30 flex items-center justify-center">
-                    <Send className="w-3 h-3 text-pink-500" />
-                  </div>
-                  <span className="text-[11px] font-medium text-foreground">Recebe mensagem no privado</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-auto shadow-sm shadow-emerald-500/10">
-                  <Shield className="w-3 h-3 text-emerald-500" />
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
-                </div>
+            {/* Flow concept — minimal pills */}
+            <div className="flex items-center gap-2.5 mt-4 flex-wrap">
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
+                <UserPlus className="w-3 h-3 text-emerald-500" />
+                <span className="text-[11px] font-medium text-foreground/80">Alguém entra no grupo</span>
+              </div>
+              <ArrowRight className="w-3 h-3 text-muted-foreground/50" />
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
+                <Send className="w-3 h-3 text-emerald-500" />
+                <span className="text-[11px] font-medium text-foreground/80">Recebe mensagem no privado</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 ml-auto">
+                <Shield className="w-3 h-3 text-emerald-500" />
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
               </div>
             </div>
           </div>
         </DialogHeader>
 
         {/* ═══════ BODY — 2-col: Content · Preview ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-0 overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Step content ═══ */}
           <div className="min-w-0 overflow-y-auto">
