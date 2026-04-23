@@ -641,33 +641,38 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_7%)] px-6 py-6 overflow-hidden">
-            <div className="relative flex items-center justify-between mb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
-                Preview em tempo real
-              </p>
-              <span className="flex items-center gap-1.5 text-[10px] font-medium text-[hsl(152_45%_52%)]">
+          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden">
+            {/* Soft green radial glow behind phone */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 50% at 50% 45%, hsla(152, 60%, 45%, 0.15), transparent 70%)",
+              }}
+            />
+
+            <div className="relative flex items-center justify-end mb-4">
+              <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-[#9aa0a6]">
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_45%_52%)] opacity-75 animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_45%_52%)]" />
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_60%_50%)] opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_60%_50%)]" />
                 </span>
-                AO VIVO
+                ao vivo
               </span>
             </div>
 
-            <div className="relative flex-1 flex items-start justify-center pt-2 [perspective:1200px]">
-              <div style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}>
-                <div
-                  key={JSON.stringify({
-                    t: payload.message_type,
-                    c: payload.message_content,
-                    m: payload.media_url,
-                    cards: payload.carousel_cards?.length,
-                  })}
-                  className="animate-in fade-in-0 zoom-in-[0.98] duration-300 drop-shadow-[0_25px_50px_rgba(0,0,0,0.45)]"
-                >
-                  <WelcomeWhatsAppPreview payload={payload} height={540} />
-                </div>
+            <div className="relative flex-1 flex items-start justify-center pt-2">
+              <div
+                key={JSON.stringify({
+                  t: payload.message_type,
+                  c: payload.message_content,
+                  m: payload.media_url,
+                  cards: payload.carousel_cards?.length,
+                })}
+                className="animate-in fade-in-0 duration-300"
+              >
+                <MinimalPhonePreview payload={payload} height={540} />
               </div>
             </div>
           </aside>
