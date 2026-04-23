@@ -23,9 +23,17 @@ export const AUTOMATION_STATUS: Record<string, { label: string; color: string; d
 export function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_MAP[status] || { label: status, color: "bg-muted text-muted-foreground", icon: Clock };
   const Icon = cfg.icon;
+  const isProcessing = status === "processing";
   return (
-    <Badge variant="outline" className={`${cfg.color} gap-1.5 text-[11px] font-medium border px-2.5 py-1`}>
-      <Icon className="w-3 h-3" />
+    <Badge variant="outline" className={`${cfg.color} gap-1.5 text-[11px] font-medium border px-2.5 py-1 relative`}>
+      {isProcessing ? (
+        <span className="relative flex w-3 h-3 items-center justify-center">
+          <span className="absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-400 opacity-60 animate-ping" />
+          <Icon className="w-3 h-3 relative animate-spin" style={{ animationDuration: "2s" }} />
+        </span>
+      ) : (
+        <Icon className="w-3 h-3" />
+      )}
       {cfg.label}
     </Badge>
   );
