@@ -724,6 +724,39 @@ async function ensureContactSaved(
   return false;
 }
 
+// ── Presence "online" before joining a group ──
+// Simulates the chip "opening" the group on a real phone before issuing the
+// add command, mimicking organic user behavior. Best-effort: failures are
+// swallowed so they never block the actual add. Cached briefly to avoid
+// hammering the presence endpoint between consecutive contacts on the same
+// group.
+const presenceCache = new Map<string, number>(); // key: baseUrl::tokenPrefix::groupId
+const PRESENCE_TTL_MS = 90_000;
+
+async function sendPresenceOnline(baseUrl: string, token: string, groupId: string): Promise<void> {
+  const key = `${baseUrl}::${String(token).slice(0, 6)}::${groupId}`;
+  const last = presenceCache.get(key);
+  if (last && Date.now() - last < PRESENCE_TTL_MS) return;
+
+  const headers = buildHeaders(token, true);
+  const attempts: Array<{ method: "POST" | "PUT"; url: string; body: any }> = [
+    { method: "POST", url: `${baseUrl}/chat/presence`, body: { number: groupId, presence: "available" } },
+    { method: "POST", url: `${baseUrl}/sendPresence`, body: { number: groupId, presence: "available" } },
+    { method: "POST", url: `${baseUrl}/instance/presence`, body: { presence: "available" } },
+  ];
+  for (const a of attempts) {
+    try {
+      const res = await fetchWithTimeout(a.url, { method: a.method, headers, body: JSON.stringify(a.body) }, 6_000);
+      if (res.status === 404 || res.status === 405) continue;
+      if (res.ok) {
+        presenceCache.set(key, Date.now());
+        return;
+      }
+    } catch { /* try next */ }
+  }
+  // No cache on failure — retry next round.
+}
+
 async function addToGroup(baseUrl: string, token: string, groupId: string, phone: string): Promise<AddResult> {
   const cacheKey = `${baseUrl}::${groupId}`;
   const cachedIdx = endpointCache.get(cacheKey);
@@ -1525,7 +1558,16 @@ async function runDeviceWorker(
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
         await sleep(randomBetween(500, 1500));
 
+        // Pre-step: send "online" presence so the chip looks like it actually
+        // opened the group before issuing the add command. Best-effort — never
+        // blocks the actual add.
         const effectiveGroupId = targetInfo.kind === "community_child" ? targetInfo.targetId : groupId;
+        try {
+          await sendPresenceOnline(baseUrl, device.uazapi_token, effectiveGroupId);
+          await sleep(randomBetween(400, 1200));
+        } catch { /* never block the add */ }
+
+
         const doAdd = async (label = "primary") => {
           // MANDATORY pre-request log — proves the API is being called and with what.
           log.info(
