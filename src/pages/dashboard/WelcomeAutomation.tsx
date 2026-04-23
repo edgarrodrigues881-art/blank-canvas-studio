@@ -39,6 +39,9 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+const ONLINE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+const isDeviceOnline = (status: string | null | undefined) => !!status && ONLINE_DEVICE_STATUSES.includes(status);
+
 // ── Hook: load user devices ──
 function useUserDevices() {
   const { user } = useAuth();
@@ -611,9 +614,26 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                       <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
                         Remetentes
                       </Label>
-                      <span className={`text-[10px] font-mono ${sendersValid ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
-                        {senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        {(() => {
+                          const onlineIds = (devices || [])
+                            .filter((d: any) => isDeviceOnline(d.status))
+                            .map((d: any) => d.id);
+                          if (!onlineIds.length) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setSenderIds(onlineIds)}
+                              className="text-[10.5px] text-[#888] hover:text-[hsl(152_45%_55%)] transition-colors"
+                            >
+                              Selecionar apenas online
+                            </button>
+                          );
+                        })()}
+                        <span className={`text-[10px] font-mono ${sendersValid ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
+                          {senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
                     </div>
                     <div className="max-h-72 overflow-y-auto custom-scrollbar -mx-1">
                       {!devices?.length ? (
@@ -621,21 +641,25 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                       ) : (
                         devices.map((d: any) => {
                           const checked = senderIds.includes(d.id);
-                          const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
+                          const online = isDeviceOnline(d.status);
                           return (
                             <button
                               key={d.id}
                               type="button"
                               onClick={() => toggleSender(d.id)}
-                              className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[hsl(0_0%_11%)] rounded-md text-left text-xs transition-colors group"
+                              className={`w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[hsl(0_0%_11%)] rounded-md text-left text-xs transition-colors group ${online ? "" : "opacity-50"}`}
                             >
                               <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-[hsl(152_45%_42%)] border-[hsl(152_45%_42%)]" : "border-[hsl(0_0%_22%)] group-hover:border-[hsl(0_0%_32%)]"}`}>
                                 {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                               </div>
-                              <span className="flex-1 truncate text-[12.5px] text-[#ddd]">{d.name}{d.number ? <span className="text-[#666]"> · {d.number}</span> : ""}</span>
+                              <span className="flex-1 truncate text-[12.5px] text-[#ddd]">
+                                {d.name}
+                                {d.number ? <span className="text-[#666]"> · {d.number}</span> : ""}
+                                {!online && <span className="text-[#666] ml-1">(Offline)</span>}
+                              </span>
                               <span className="flex items-center gap-1.5 shrink-0">
-                                <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-[hsl(152_45%_52%)]" : "bg-[#444]"}`} />
-                                <span className={`text-[10px] ${online ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-[hsl(152_45%_52%)]" : "bg-[#555]"}`} />
+                                <span className={`text-[10px] ${online ? "text-[hsl(152_45%_52%)]" : "text-[#777]"}`}>
                                   {online ? "Online" : "Offline"}
                                 </span>
                               </span>
@@ -644,6 +668,18 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                         })
                       )}
                     </div>
+                    {/* Inline warning when no selected sender is online */}
+                    {senderIds.length > 0 && !senderIds.some(id => {
+                      const dev = (devices || []).find((d: any) => d.id === id);
+                      return dev && isDeviceOnline(dev.status);
+                    }) && (
+                      <div className="flex items-start gap-2 px-3 py-2.5 rounded-md bg-[hsl(38_60%_15%/0.5)] border border-[hsl(38_60%_35%/0.4)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[hsl(38_85%_55%)] mt-1.5 shrink-0" />
+                        <p className="text-[11.5px] text-[hsl(38_75%_75%)] leading-relaxed">
+                          Nenhum dispositivo online selecionado. As mensagens ficarão na fila até um dispositivo conectar.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Final summary — flat, monochrome */}
