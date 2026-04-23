@@ -39,6 +39,9 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+const ONLINE_DEVICE_STATUSES = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"];
+const isDeviceOnline = (status: string | null | undefined) => !!status && ONLINE_DEVICE_STATUSES.includes(status);
+
 // ── Hook: load user devices ──
 function useUserDevices() {
   const { user } = useAuth();
