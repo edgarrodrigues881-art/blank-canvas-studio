@@ -514,18 +514,15 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
               {/* ──────── STEP 2 ──────── */}
               {step === 2 && (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 shadow-lg shadow-black/[0.04] dark:shadow-black/20 ring-1 ring-white/[0.02]">
-                    <WelcomeMessageBuilder
-                      value={payload}
-                      onChange={patch => setPayload(p => ({ ...p, ...patch }))}
-                      hideTypeSelector
-                      hidePreview
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1">
-                    <Zap className="w-3 h-3 text-amber-500" />
-                    A pré-visualização ao lado atualiza em tempo real conforme você edita.
+                <div className="space-y-3">
+                  <WelcomeMessageBuilder
+                    value={payload}
+                    onChange={patch => setPayload(p => ({ ...p, ...patch }))}
+                    hideTypeSelector
+                    hidePreview
+                  />
+                  <p className="text-[10.5px] text-[#666]">
+                    A pré-visualização ao lado atualiza em tempo real.
                   </p>
                 </div>
               )}
