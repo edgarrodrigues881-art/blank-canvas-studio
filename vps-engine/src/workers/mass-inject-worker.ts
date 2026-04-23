@@ -1558,7 +1558,16 @@ async function runDeviceWorker(
         await ensureContactSaved(baseUrl, device.uazapi_token, phone);
         await sleep(randomBetween(500, 1500));
 
+        // Pre-step: send "online" presence so the chip looks like it actually
+        // opened the group before issuing the add command. Best-effort — never
+        // blocks the actual add.
         const effectiveGroupId = targetInfo.kind === "community_child" ? targetInfo.targetId : groupId;
+        try {
+          await sendPresenceOnline(baseUrl, device.uazapi_token, effectiveGroupId);
+          await sleep(randomBetween(400, 1200));
+        } catch { /* never block the add */ }
+
+
         const doAdd = async (label = "primary") => {
           // MANDATORY pre-request log — proves the API is being called and with what.
           log.info(
