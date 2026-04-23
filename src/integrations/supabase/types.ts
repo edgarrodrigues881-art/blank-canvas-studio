@@ -2898,6 +2898,21 @@ export type Database = {
         }
         Relationships: []
       }
+      device_last_sent: {
+        Row: {
+          device_id: string
+          last_sent_at: string
+        }
+        Insert: {
+          device_id: string
+          last_sent_at: string
+        }
+        Update: {
+          device_id?: string
+          last_sent_at?: string
+        }
+        Relationships: []
+      }
       devices: {
         Row: {
           created_at: string
@@ -6530,7 +6545,7 @@ export type Database = {
       }
       check_phone_available: { Args: { _phone: string }; Returns: boolean }
       claim_device_send_slot: {
-        Args: { p_device_id: string; p_min_interval_ms?: number }
+        Args: { p_device_id: string; p_min_interval_ms: number }
         Returns: number
       }
       claim_next_mass_inject_contact: {
