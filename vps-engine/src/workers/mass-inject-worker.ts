@@ -731,7 +731,7 @@ async function ensureContactSaved(
 // hammering the presence endpoint between consecutive contacts on the same
 // group.
 const presenceCache = new Map<string, number>(); // key: baseUrl::tokenPrefix::groupId
-const PRESENCE_TTL_MS = 90_000;
+const PRESENCE_TTL_MS = 12 * 60_000;
 
 async function sendPresenceOnline(baseUrl: string, token: string, groupId: string): Promise<void> {
   const key = `${baseUrl}::${String(token).slice(0, 6)}::${groupId}`;
@@ -911,6 +911,22 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
     // Cooldown aleatório de 30–60s — evita bater na API durante o bloqueio
     const cooldown = randomBetween(30_000, 60_000);
     return { ...base, detail: `Rate limit detectado pela API. Cooldown de ${Math.round(cooldown / 1000)}s antes de retomar.`, retryable: true, pauseCampaign: false, cooldownMs: cooldown, failureStatus: "rate_limited" };
+  }
+  if (
+    msg.includes("try again later")
+    || msg.includes("wait a while")
+    || msg.includes("temporarily blocked")
+    || msg.includes("temporarily unavailable")
+    || msg.includes("too many recent")
+    || msg.includes("too many attempts")
+    || msg.includes("muitas tentativas")
+    || msg.includes("muito rápido")
+    || msg.includes("aguarde")
+    || msg.includes("temporariamente")
+    || msg.includes("temporarily")
+  ) {
+    const cooldown = randomBetween(8 * 60_000, 15 * 60_000);
+    return { ...base, detail: `Restrição temporária detectada. Cooldown de ${Math.round(cooldown / 1000)}s para evitar nova desconexão.`, retryable: true, pauseCampaign: false, cooldownMs: cooldown, failureStatus: "rate_limited" };
   }
   if (msg.includes("websocket disconnected before info query") || msg.includes("connection reset") || msg.includes("socket hang up"))
     return { ...base, detail: "A integração interrompeu a consulta antes de concluir.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "api_temporary" };
