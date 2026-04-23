@@ -314,61 +314,42 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1440px] w-[97vw] h-[95vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
+      <DialogContent className="max-w-[900px] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
 
-        {/* Decorative ambient glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg">
-          <div className="absolute -top-40 -left-32 w-[460px] h-[460px] rounded-full bg-pink-500/10 blur-3xl" />
-          <div className="absolute -top-32 right-0 w-[420px] h-[420px] rounded-full bg-fuchsia-500/10 blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 w-[520px] h-[300px] rounded-full bg-emerald-500/[0.06] blur-3xl" />
-        </div>
+        {/* Brand accent — thin top border */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10" />
 
         {/* ═══════ HEADER ═══════ */}
-        <DialogHeader className="relative px-8 pt-6 pb-5 border-b border-border/40 shrink-0 backdrop-blur-xl bg-background/70">
-          <div className="flex items-start gap-4">
-            <div className="relative shrink-0">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-pink-500 to-fuchsia-600 blur-md opacity-60" />
-              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-fuchsia-600 flex items-center justify-center shadow-xl shadow-pink-500/30 ring-1 ring-white/10">
-                <Heart className="w-5 h-5 text-white fill-white/30" />
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-[22px] font-bold text-foreground leading-tight tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Criar automação de boas-vindas
-              </DialogTitle>
-              <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed max-w-2xl">
-                Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
-              </p>
+        <DialogHeader className="relative px-8 pt-7 pb-5 shrink-0 bg-background">
+          <div className="flex-1 min-w-0">
+            <DialogTitle className="text-[24px] font-bold text-foreground leading-tight tracking-tight">
+              Criar automação de boas-vindas
+            </DialogTitle>
+            <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
+              Envie mensagens automáticas com distribuição inteligente e proteção anti-bloqueio
+            </p>
 
-              {/* Flow concept — interactive pills */}
-              <div className="flex items-center gap-2.5 mt-4 flex-wrap">
-                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-emerald-500/40 hover:shadow-emerald-500/10">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-400/20 to-emerald-600/20 ring-1 ring-emerald-500/30 flex items-center justify-center">
-                    <UserPlus className="w-3 h-3 text-emerald-500" />
-                  </div>
-                  <span className="text-[11px] font-medium text-foreground">Alguém entra no grupo</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-px w-6 bg-gradient-to-r from-emerald-500/40 to-pink-500/40" />
-                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/70 -ml-1" />
-                </div>
-                <div className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/60 backdrop-blur-md border border-border/60 shadow-sm transition-all hover:border-pink-500/40 hover:shadow-pink-500/10">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-400/20 to-fuchsia-600/20 ring-1 ring-pink-500/30 flex items-center justify-center">
-                    <Send className="w-3 h-3 text-pink-500" />
-                  </div>
-                  <span className="text-[11px] font-medium text-foreground">Recebe mensagem no privado</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 ml-auto shadow-sm shadow-emerald-500/10">
-                  <Shield className="w-3 h-3 text-emerald-500" />
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
-                </div>
+            {/* Flow concept — minimal pills */}
+            <div className="flex items-center gap-2.5 mt-4 flex-wrap">
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
+                <UserPlus className="w-3 h-3 text-emerald-500" />
+                <span className="text-[11px] font-medium text-foreground/80">Alguém entra no grupo</span>
+              </div>
+              <ArrowRight className="w-3 h-3 text-muted-foreground/50" />
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/40 transition-colors hover:bg-muted/60">
+                <Send className="w-3 h-3 text-emerald-500" />
+                <span className="text-[11px] font-medium text-foreground/80">Recebe mensagem no privado</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 ml-auto">
+                <Shield className="w-3 h-3 text-emerald-500" />
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Anti-bloqueio</span>
               </div>
             </div>
           </div>
         </DialogHeader>
 
         {/* ═══════ BODY — 2-col: Content · Preview ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-0 overflow-hidden">
+        <div className="relative flex-1 grid grid-cols-1 lg:grid-cols-[1fr_320px] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Step content ═══ */}
           <div className="min-w-0 overflow-y-auto">
@@ -423,12 +404,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </nav>
             </div>
 
-            <div className="px-8 py-6 max-w-[760px] mx-auto animate-in fade-in-50 slide-in-from-bottom-2 duration-300" key={step}>
+            <div className="px-10 py-7 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
 
               {/* Step header */}
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
-                <p className="text-[12.5px] text-muted-foreground mt-1">{steps[step - 1].desc}</p>
+              <div className="mb-7">
+                <h2 className="text-2xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
+                <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-relaxed">{steps[step - 1].desc}</p>
               </div>
 
               {/* ──────── STEP 1 ──────── */}
@@ -694,7 +675,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 3: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col border-l border-border/40 px-6 py-7 overflow-hidden">
+          <aside className="relative hidden lg:flex flex-col bg-muted/20 dark:bg-muted/10 px-6 py-7 overflow-hidden">
             {/* Soft ambient glow background */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-emerald-500/10 blur-[100px]" />
@@ -739,26 +720,34 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
         </div>
 
         {/* ═══════ FOOTER — stepper navigation ═══════ */}
-        <DialogFooter className="relative border-t border-border/40 px-8 py-4 shrink-0 bg-background/80 backdrop-blur-xl flex-row sm:justify-between gap-2">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <DialogFooter className="relative px-8 py-4 shrink-0 bg-background flex-row sm:justify-between gap-2">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
+          >
             Cancelar
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* Step pips */}
-            <div className="hidden sm:flex items-center gap-1.5 mr-2">
+            <div className="hidden sm:flex items-center gap-1.5 mr-1">
               {[1, 2, 3].map(n => (
                 <div
                   key={n}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    step === n ? "w-8 bg-gradient-to-r from-pink-500 to-fuchsia-600" : step > n ? "w-1.5 bg-emerald-500" : "w-1.5 bg-border"
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    step === n ? "w-6 bg-emerald-500" : step > n ? "w-1 bg-emerald-500/60" : "w-1 bg-border"
                   }`}
                 />
               ))}
             </div>
 
             {step > 1 && (
-              <Button variant="outline" onClick={goBack} className="gap-1.5 border-border/60">
+              <Button
+                variant="ghost"
+                onClick={goBack}
+                className="gap-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-all"
+              >
                 <ArrowLeft className="w-4 h-4" /> Voltar
               </Button>
             )}
@@ -767,7 +756,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <Button
                 onClick={goNext}
                 disabled={(step === 1 && !step1Valid) || (step === 2 && !step2Valid)}
-                className="group gap-2 min-w-[140px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10 disabled:opacity-50 disabled:hover:translate-y-0"
+                className="group gap-2 min-w-[130px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium disabled:opacity-40 disabled:hover:scale-100 disabled:hover:shadow-md"
               >
                 Continuar
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -776,12 +765,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               <Button
                 onClick={handleCreate}
                 disabled={create.isPending}
-                className="group gap-2 min-w-[200px] h-11 bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-600 hover:via-rose-600 hover:to-fuchsia-700 text-white shadow-xl shadow-pink-500/30 hover:shadow-pink-500/50 hover:-translate-y-0.5 transition-all duration-200 font-semibold ring-1 ring-white/10"
+                className="group gap-2 min-w-[180px] h-10 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40 hover:scale-[1.03] active:scale-[0.98] transition-all duration-200 font-medium"
               >
                 {create.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12 group-hover:scale-110" />
+                  <Sparkles className="w-4 h-4 transition-transform group-hover:rotate-12" />
                 )}
                 Criar automação
               </Button>
