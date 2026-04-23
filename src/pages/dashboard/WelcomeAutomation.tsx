@@ -641,33 +641,38 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview ═══ */}
-          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_7%)] px-6 py-6 overflow-hidden">
-            <div className="relative flex items-center justify-between mb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
-                Preview em tempo real
-              </p>
-              <span className="flex items-center gap-1.5 text-[10px] font-medium text-[hsl(152_45%_52%)]">
+          <aside className="relative hidden lg:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden">
+            {/* Soft green radial glow behind phone */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 50% at 50% 45%, hsla(152, 60%, 45%, 0.15), transparent 70%)",
+              }}
+            />
+
+            <div className="relative flex items-center justify-end mb-4">
+              <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-[#9aa0a6]">
                 <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_45%_52%)] opacity-75 animate-ping" />
-                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_45%_52%)]" />
+                  <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_60%_50%)] opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-[hsl(152_60%_50%)]" />
                 </span>
-                AO VIVO
+                ao vivo
               </span>
             </div>
 
-            <div className="relative flex-1 flex items-start justify-center pt-2 [perspective:1200px]">
-              <div style={{ transform: "rotateY(-3deg) rotateX(2deg)" }}>
-                <div
-                  key={JSON.stringify({
-                    t: payload.message_type,
-                    c: payload.message_content,
-                    m: payload.media_url,
-                    cards: payload.carousel_cards?.length,
-                  })}
-                  className="animate-in fade-in-0 zoom-in-[0.98] duration-300 drop-shadow-[0_25px_50px_rgba(0,0,0,0.45)]"
-                >
-                  <WelcomeWhatsAppPreview payload={payload} height={540} />
-                </div>
+            <div className="relative flex-1 flex items-start justify-center pt-2">
+              <div
+                key={JSON.stringify({
+                  t: payload.message_type,
+                  c: payload.message_content,
+                  m: payload.media_url,
+                  cards: payload.carousel_cards?.length,
+                })}
+                className="animate-in fade-in-0 duration-300"
+              >
+                <MinimalPhonePreview payload={payload} height={540} />
               </div>
             </div>
           </aside>
@@ -955,5 +960,163 @@ export default function WelcomeAutomationPage() {
       <AutomationsList onOpen={setOpenId} onCreate={() => setCreateOpen(true)} />
       <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={id => setOpenId(id)} />
     </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// MINIMAL PHONE PREVIEW — sleek frame, WhatsApp dark chat
+// ══════════════════════════════════════════════════════════
+function MinimalPhonePreview({ payload, height = 540 }: { payload: WelcomeMessagePayload; height?: number }) {
+  const screenH = height;
+  const screenW = Math.round(height * 0.49);
+  const radius = 40;
+
+  // WhatsApp dark palette
+  const waBg = "#0b141a";
+  const waHeader = "#1f2c34";
+  const waBubbleSent = "#005c4b";
+  const waText = "#e9edef";
+  const waSubtext = "#8696a0";
+
+  const renderedHtml = (payload.message_content || "")
+    .replace(/\*(.*?)\*/g, "<b>$1</b>")
+    .replace(/_(.*?)_/g, "<i>$1</i>")
+    .replace(/~(.*?)~/g, "<s>$1</s>")
+    .replace(/\{\{(\w+)\}\}/g, '<span style="color:#6ee7b7">{{$1}}</span>');
+
+  return (
+    <div className="relative mx-auto select-none" style={{ width: screenW + 8 }}>
+      {/* Phone chassis — thin dark bezel, no buttons */}
+      <div
+        className="relative mx-auto overflow-hidden"
+        style={{
+          width: screenW + 8,
+          height: screenH + 8,
+          borderRadius: radius,
+          background: "#0a0a0c",
+          boxShadow:
+            "0 30px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px hsla(0,0%,100%,0.05), inset 0 0 0 1px hsla(0,0%,100%,0.04)",
+          padding: 4,
+        }}
+      >
+        {/* Inner screen */}
+        <div
+          className="relative w-full h-full overflow-hidden"
+          style={{ borderRadius: radius - 6, background: waBg }}
+        >
+          {/* Status bar — time + battery only */}
+          <div
+            className="relative z-20 flex items-center justify-between px-5 pt-2 pb-1"
+            style={{ height: 26, color: waText }}
+          >
+            <span className="text-[11px] font-semibold tabular-nums tracking-tight">9:41</span>
+            <div className="flex items-center">
+              <div
+                className="relative"
+                style={{
+                  width: 22,
+                  height: 11,
+                  border: "1px solid rgba(255,255,255,0.55)",
+                  borderRadius: 3,
+                }}
+              >
+                <div
+                  className="absolute top-[1px] left-[1px] bottom-[1px] rounded-[1.5px]"
+                  style={{ width: "82%", background: waText }}
+                />
+              </div>
+              <div className="ml-[1px] w-[1.5px] h-[5px] rounded-r" style={{ background: "rgba(255,255,255,0.55)" }} />
+            </div>
+          </div>
+
+          {/* WhatsApp header */}
+          <div
+            className="relative z-10 flex items-center gap-2.5 px-3 py-2"
+            style={{ background: waHeader, color: waText }}
+          >
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ background: "linear-gradient(135deg, #25d366, #128c7e)" }}
+            >
+              GV
+            </div>
+            <div className="flex-1 min-w-0 leading-tight">
+              <p className="text-[12.5px] font-semibold truncate" style={{ color: waText }}>
+                Grupo VIP
+              </p>
+              <p className="text-[10px] truncate" style={{ color: waSubtext }}>
+                online
+              </p>
+            </div>
+          </div>
+
+          {/* Chat area */}
+          <div
+            className="relative px-3 py-3"
+            style={{
+              height: `calc(100% - 26px - 44px)`,
+              background: waBg,
+              backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><g fill='%23182229' fill-opacity='0.45'><circle cx='30' cy='30' r='1.8'/><circle cx='110' cy='40' r='2'/><circle cx='160' cy='90' r='1.5'/><circle cx='40' cy='150' r='1.5'/><circle cx='130' cy='160' r='2'/><circle cx='90' cy='110' r='1.6'/></g></svg>")`,
+              backgroundSize: "220px 220px",
+            }}
+          >
+            <div className="flex justify-center mb-3">
+              <div
+                className="px-2.5 py-0.5 rounded-md text-[9.5px] font-medium"
+                style={{ background: waHeader, color: waSubtext }}
+              >
+                HOJE
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end">
+              {/* Sender name above bubble */}
+              <span
+                className="text-[10px] mb-0.5 mr-1 font-medium"
+                style={{ color: waSubtext }}
+              >
+                Você
+              </span>
+
+              <div className="max-w-[85%]">
+                <div
+                  className="relative rounded-lg shadow-sm"
+                  style={{
+                    background: waBubbleSent,
+                    color: waText,
+                    borderTopRightRadius: 4,
+                  }}
+                >
+                  <div className="px-2.5 py-1.5">
+                    <div
+                      className="text-[13px] leading-snug whitespace-pre-wrap break-words"
+                      style={{ color: waText }}
+                    >
+                      {payload.message_content ? (
+                        <span dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+                      ) : (
+                        <span style={{ color: "rgba(233,237,239,0.45)", fontStyle: "italic" }}>
+                          Digite uma mensagem...
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end gap-1 mt-0.5">
+                      <span className="text-[10px]" style={{ color: "rgba(233,237,239,0.6)" }}>
+                        9:41
+                      </span>
+                      {/* Double-check read receipt */}
+                      <svg viewBox="0 0 16 11" className="w-[15px] h-[11px]" fill="#53bdeb">
+                        <path d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.501.203.697.697 0 00.534-.229L11.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                        <path d="M15.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-1.2-1.134-.311.311a.39.39 0 00-.14.337c0 .136.047.25.14.343l1.791 1.791a.724.724 0 00.501.203.697.697 0 00.534-.229L15.2 1.292c.093-.118.14-.243.14-.375a.442.442 0 00-.269-.264z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
