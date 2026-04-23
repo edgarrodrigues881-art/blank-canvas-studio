@@ -144,7 +144,40 @@ export function useWelcomeQueue(automationId: string | undefined) {
       return (data || []) as unknown as WelcomeQueueItem[];
     },
     enabled: !!user && !!automationId,
-    refetchInterval: () => document.hidden ? false : 30_000,
+    refetchInterval: () => document.hidden ? false : 10_000,
+  });
+}
+
+/**
+ * Bulk-reprocess every failed item in an automation's queue.
+ * Resets attempts, clears errors, and reschedules send_at = now.
+ */
+export function useReprocessAllFailed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (automationId: string) => {
+      const { data, error } = await supabase
+        .from("welcome_queue")
+        .update({
+          status: "pending",
+          attempts: 0,
+          error_reason: null,
+          processed_at: null,
+          locked_at: null,
+          send_at: new Date().toISOString(),
+        } as any)
+        .eq("automation_id", automationId)
+        .eq("status", "failed")
+        .select("id");
+      if (error) throw error;
+      return data?.length || 0;
+    },
+    onSuccess: (count) => {
+      qc.invalidateQueries({ queryKey: ["welcome-queue"] });
+      if (count > 0) toast.success(`${count} ${count === 1 ? "item reprocessado" : "itens reprocessados"}`);
+      else toast.info("Nenhum item com falha para reprocessar");
+    },
+    onError: (err: any) => toast.error(err.message || "Erro ao reprocessar"),
   });
 }
 
