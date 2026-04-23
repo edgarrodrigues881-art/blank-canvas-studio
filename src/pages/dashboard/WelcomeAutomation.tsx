@@ -529,24 +529,23 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
               {/* ──────── STEP 3 ──────── */}
               {step === 3 && (
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Delay sliders */}
-                  <div className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-md p-5 space-y-5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 ring-1 ring-amber-500/30 flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-amber-500" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-foreground">Delay entre envios</h4>
-                        <p className="text-[11px] text-muted-foreground">Tempo aleatório entre cada mensagem (anti-bloqueio)</p>
-                      </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+                        Delay entre envios
+                      </Label>
+                      <p className="text-[11px] text-[#666] mt-1">Tempo aleatório aplicado entre cada mensagem.</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mínimo</Label>
-                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.min_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                          <Label className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888]">Mínimo</Label>
+                          <span className="text-base font-semibold tabular-nums text-white">
+                            {payload.min_delay_seconds}<span className="text-[10px] text-[#666] font-normal ml-0.5">s</span>
+                          </span>
                         </div>
                         <Slider
                           value={[payload.min_delay_seconds]}
@@ -554,10 +553,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                           min={5} max={300} step={5}
                         />
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
-                          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Máximo</Label>
-                          <span className="text-2xl font-black tabular-nums bg-gradient-to-br from-pink-500 to-fuchsia-600 bg-clip-text text-transparent">{payload.max_delay_seconds}<span className="text-xs text-muted-foreground font-medium ml-0.5">s</span></span>
+                          <Label className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#888]">Máximo</Label>
+                          <span className="text-base font-semibold tabular-nums text-white">
+                            {payload.max_delay_seconds}<span className="text-[10px] text-[#666] font-normal ml-0.5">s</span>
+                          </span>
                         </div>
                         <Slider
                           value={[payload.max_delay_seconds]}
@@ -569,80 +570,67 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   </div>
 
                   {/* Senders */}
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-foreground/90 flex items-center gap-1.5">
-                        <Send className="w-3.5 h-3.5" /> Remetentes
+                      <Label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888]">
+                        Remetentes
                       </Label>
-                      <Badge variant="outline" className={`h-5 text-[10px] font-mono ${sendersValid ? "bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30" : ""}`}>
+                      <span className={`text-[10px] font-mono ${sendersValid ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
                         {senderIds.length} selecionado{senderIds.length !== 1 ? "s" : ""}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Estes dispositivos enviam as mensagens privadas em rodízio inteligente.
-                    </p>
-                    <div className="rounded-xl border border-border/50 bg-background/60 backdrop-blur overflow-hidden">
-                      <div className="max-h-72 overflow-y-auto">
-                        {!devices?.length ? (
-                          <p className="text-[12px] text-muted-foreground p-6 text-center">Nenhum dispositivo disponível.</p>
-                        ) : (
-                          devices.map((d: any) => {
-                            const checked = senderIds.includes(d.id);
-                            const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
-                            return (
-                              <button
-                                key={d.id}
-                                type="button"
-                                onClick={() => toggleSender(d.id)}
-                                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-muted/40 text-left text-xs transition-colors border-b border-border/20 last:border-0"
-                              >
-                                <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all ${checked ? "bg-gradient-to-br from-pink-500 to-fuchsia-600 border-pink-500 shadow shadow-pink-500/30" : "border-border bg-background"}`}>
-                                  {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                                </div>
-                                <span className="flex-1 truncate text-[12.5px] font-medium">{d.name}{d.number ? ` · ${d.number}` : ""}</span>
-                                <span className="relative flex shrink-0 items-center gap-1.5">
-                                  <span className="relative flex">
-                                    {online && <span className="absolute inset-0 rounded-full bg-emerald-400/60 animate-ping" />}
-                                    <span className={`relative w-2 h-2 rounded-full ${online ? "bg-emerald-400 shadow shadow-emerald-400/50" : "bg-muted-foreground/40"}`} />
-                                  </span>
-                                  <span className={`text-[10px] font-medium ${online ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                    {online ? "Online" : "Offline"}
-                                  </span>
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar -mx-1">
+                      {!devices?.length ? (
+                        <p className="text-[12px] text-[#666] py-6 text-center">Nenhum dispositivo disponível.</p>
+                      ) : (
+                        devices.map((d: any) => {
+                          const checked = senderIds.includes(d.id);
+                          const online = ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(d.status);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => toggleSender(d.id)}
+                              className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[hsl(0_0%_11%)] rounded-md text-left text-xs transition-colors group"
+                            >
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-[hsl(152_45%_42%)] border-[hsl(152_45%_42%)]" : "border-[hsl(0_0%_22%)] group-hover:border-[hsl(0_0%_32%)]"}`}>
+                                {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                              </div>
+                              <span className="flex-1 truncate text-[12.5px] text-[#ddd]">{d.name}{d.number ? <span className="text-[#666]"> · {d.number}</span> : ""}</span>
+                              <span className="flex items-center gap-1.5 shrink-0">
+                                <span className={`w-1.5 h-1.5 rounded-full ${online ? "bg-[hsl(152_45%_52%)]" : "bg-[#444]"}`} />
+                                <span className={`text-[10px] ${online ? "text-[hsl(152_45%_52%)]" : "text-[#666]"}`}>
+                                  {online ? "Online" : "Offline"}
                                 </span>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
-                  {/* Final summary */}
-                  <div className="relative rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/[0.10] via-fuchsia-500/[0.04] to-transparent p-5 overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-pink-500/15 blur-2xl" />
-                    <p className="relative text-[10px] font-bold uppercase tracking-[0.14em] text-pink-600 dark:text-pink-400 flex items-center gap-1.5 mb-3">
-                      <Sparkles className="w-3 h-3" /> Resumo da automação
+                  {/* Final summary — flat, monochrome */}
+                  <div className="pt-4 border-t border-[hsl(0_0%_13%)]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#888] mb-3">
+                      Resumo
                     </p>
-                    <div className="relative grid grid-cols-2 gap-3 text-[12px]">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Modo:</span>
-                        <span className="font-semibold text-foreground capitalize">{getUiModeFromPayload(payload)}</span>
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[12px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Modo</span>
+                        <span className="font-medium text-white capitalize">{getUiModeFromPayload(payload)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Delay:</span>
-                        <span className="font-mono font-semibold text-foreground">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Delay</span>
+                        <span className="font-mono text-white">{payload.min_delay_seconds}–{payload.max_delay_seconds}s</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Grupos:</span>
-                        <span className="font-semibold text-foreground">{selectedGroups.length}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Grupos</span>
+                        <span className="font-medium text-white">{selectedGroups.length}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Send className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Remetentes:</span>
-                        <span className="font-semibold text-foreground">{senderIds.length}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#888]">Remetentes</span>
+                        <span className="font-medium text-white">{senderIds.length}</span>
                       </div>
                     </div>
                   </div>
