@@ -404,12 +404,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </nav>
             </div>
 
-            <div className="px-8 py-6 max-w-[760px] mx-auto animate-in fade-in-50 slide-in-from-bottom-2 duration-300" key={step}>
+            <div className="px-10 py-7 max-w-[640px] mx-auto animate-in fade-in-50 slide-in-from-right-3 duration-300" key={step}>
 
               {/* Step header */}
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
-                <p className="text-[12.5px] text-muted-foreground mt-1">{steps[step - 1].desc}</p>
+              <div className="mb-7">
+                <h2 className="text-2xl font-bold text-foreground tracking-tight">{steps[step - 1].title}</h2>
+                <p className="text-[12.5px] text-muted-foreground mt-1.5 leading-relaxed">{steps[step - 1].desc}</p>
               </div>
 
               {/* ──────── STEP 1 ──────── */}
