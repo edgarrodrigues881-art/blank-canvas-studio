@@ -270,17 +270,14 @@ async function sendWelcomeMessage(
       return { ok: true, detail: "Mensagem com botões enviada com sucesso" };
     }
 
-    // Default: text
-    const res = await fetchWithTimeout(`${baseUrl}/chat/send/text`, {
-      method: "POST",
-      headers: buildHeaders(token),
-      body: JSON.stringify({ chatId: recipient, message }),
-    });
-    const body: any = await res.json().catch(() => ({}));
-    if (res.ok && !String(body?.error || "").toLowerCase().includes("fail")) {
+    // Default: text — use canonical UAZAPI endpoint /send/text with { number, text }
+    // (Previously /chat/send/text returned 405 Method Not Allowed)
+    try {
+      await uazapiRequest(baseUrl, token, "/send/text", { number: cleanPhone, text: message });
       return { ok: true, detail: "Enviado com sucesso" };
+    } catch (err: any) {
+      return { ok: false, detail: err?.message || "Erro desconhecido" };
     }
-    return { ok: false, detail: body?.error || body?.message || `HTTP ${res.status}` };
   } catch (err: any) {
     return { ok: false, detail: err.message || "Erro desconhecido" };
   }
