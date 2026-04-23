@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.reassign_mass_inject_contacts(UUID, UUID, UUID[]) TO anon, authenticated, service_role;
