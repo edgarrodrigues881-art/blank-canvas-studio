@@ -314,7 +314,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[900px] w-[95vw] h-[92vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
+      <DialogContent className="max-w-[900px] w-[95vw] h-[85vh] max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 bg-background border-border/40 shadow-2xl">
 
         {/* Brand accent — thin top border */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent z-10" />
