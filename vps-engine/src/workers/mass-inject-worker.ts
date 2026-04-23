@@ -893,8 +893,24 @@ function classifyFailure(msg: string, status: number, strategyIndex: number): Ad
     return { ...base, detail: "Número não encontrado no WhatsApp.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "contact_not_found" };
   if (status === 401 || msg.includes("unauthorized") || msg.includes("invalid token"))
     return { ...base, detail: "Token inválido.", retryable: false, pauseCampaign: false, cooldownMs: 0, failureStatus: "unauthorized" };
-  if (status === 503 || msg.includes("disconnected") || msg.includes("session disconnected") || msg.includes("socket closed"))
-    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "connection_unconfirmed" };
+  if (
+    status === 503
+    || msg.includes("disconnected")
+    || msg.includes("session disconnected")
+    || msg.includes("socket closed")
+    || msg.includes("instância desconectada")
+    || msg.includes("instancia desconectada")
+    || msg.includes("instance disconnected")
+    || msg.includes("not connected")
+    || msg.includes("connection closed")
+    || msg.includes("websocket closed")
+    || msg.includes("session dropped")
+    || msg.includes("session not found")
+    || msg.includes("logged out")
+    || msg.includes("logout")
+    || msg.includes("offline")
+  )
+    return { ...base, detail: "Instância desconectada.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "session_dropped" };
   if (msg.includes("timeout") || status === 408 || status === 504)
     return { ...base, detail: "Timeout.", retryable: true, pauseCampaign: false, cooldownMs: 3000, canTryOtherStrategy: true, failureStatus: "timeout" };
   if (status >= 500)
