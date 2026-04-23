@@ -14,7 +14,14 @@
   100% { background-position: 200% center; }
 }
 
-/* Meu Plano - animated golden border with light trail */
+@keyframes row-flash-success {
+  0%   { background-color: hsl(152 60% 45% / 0); }
+  20%  { background-color: hsl(152 60% 45% / 0.25); }
+  100% { background-color: hsl(152 60% 45% / 0); }
+}
+.row-flash-success {
+  animation: row-flash-success 1.6s ease-out;
+}
 .plan-gold-btn {
   position: relative;
   border: none;
