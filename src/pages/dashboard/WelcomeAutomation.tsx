@@ -734,7 +734,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </span>
             </div>
 
-            <div className="relative flex-1 flex items-start justify-center pt-2">
+            <div className="relative flex-1 min-h-0 flex items-start justify-center pt-2 overflow-hidden">
               <div
                 key={JSON.stringify({
                   t: payload.message_type,
@@ -742,9 +742,12 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
                   m: payload.media_url,
                   cards: payload.carousel_cards?.length,
                 })}
-                className="animate-in fade-in-0 duration-300"
+                className="animate-in fade-in-0 duration-300 w-full h-full flex items-center justify-center"
+                style={{ maxHeight: "100%" }}
               >
-                <MinimalPhonePreview payload={payload} height={540} />
+                <div style={{ height: "clamp(300px, calc(90vh - 240px), 500px)" }} className="flex items-center justify-center">
+                  <MinimalPhonePreview payload={payload} height={Math.min(500, Math.max(300, typeof window !== "undefined" ? window.innerHeight - 240 : 500))} />
+                </div>
               </div>
             </div>
           </aside>
