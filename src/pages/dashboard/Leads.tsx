@@ -443,7 +443,7 @@ export default function Leads() {
           </div>
         ) : (
           filtered.map((lead) => {
-            const statusCfg = getStatusConfig(lead.pipeline_stage);
+            const statusCfg = getStatusConfig(lead.pipeline_stage, statusOptions);
             const priorityCfg = getPriorityConfig(lead.priority);
             const originCfg = getOriginConfig(lead.origin);
             const OriginIcon = originCfg.icon;
@@ -520,7 +520,7 @@ export default function Leads() {
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
         <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
           {detailLead && (() => {
-            const statusCfg = getStatusConfig(detailLead.pipeline_stage);
+            const statusCfg = getStatusConfig(detailLead.pipeline_stage, statusOptions);
             const priorityCfg = getPriorityConfig(detailLead.priority);
             const originCfg = getOriginConfig(detailLead.origin);
             const na = "Não informado";
