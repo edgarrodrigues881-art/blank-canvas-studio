@@ -263,6 +263,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         .eq("user_id", user.id)
         .like("phone", `%${digits.slice(-8)}%`);
       if (error) throw error;
+      setSavedOrigin(editForm.origin || "WhatsApp");
       toast.success("Contato atualizado");
       setIsEditing(false);
     } catch (e: any) {
@@ -276,7 +277,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
-      origin: "WhatsApp",
+      origin: savedOrigin,
       observations: "",
     });
     setIsEditing(false);
@@ -462,7 +463,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Origem</span>
                   <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-                    <Globe className="w-3 h-3 text-emerald-400" /> WhatsApp
+                    <Globe className="w-3 h-3 text-emerald-400" /> {savedOrigin}
                   </span>
                 </div>
               </div>
