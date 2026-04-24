@@ -629,8 +629,7 @@ export function ChatPanel({
                 nome: conversation.name || "",
                 telefone: conversation.phone || "",
               });
-              return (
-                const hasBlocks = Array.isArray((qr as any).blocks) && (qr as any).blocks.length > 0;
+              const hasBlocks = Array.isArray((qr as any).blocks) && (qr as any).blocks.length > 0;
               return (
                 <button
                   key={qr.id}
