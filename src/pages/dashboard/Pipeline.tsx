@@ -123,15 +123,28 @@ export default function Pipeline() {
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
   const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+  const [moveTargetKey, setMoveTargetKey] = useState<string>("");
+  const [deletingStage, setDeletingStage] = useState(false);
   const [customStages, setCustomStages] = useState<CustomStage[]>([]);
   const [creatingStage, setCreatingStage] = useState(false);
+  const [hiddenDefaults, setHiddenDefaults] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
 
   const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
 
+  const persistHiddenDefaults = (next: Set<string>) => {
+    setHiddenDefaults(new Set(next));
+    try { localStorage.setItem("pipeline_hidden_defaults", JSON.stringify([...next])); } catch {}
+  };
+
   // Build merged stage list: defaults (Novo..Negociacao) + custom + Fechado + Perdido at the end
   const allStages = (() => {
-    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido");
-    const tail = STAGES.filter(s => s.key === "fechado" || s.key === "perdido");
+    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido" && !hiddenDefaults.has(s.key));
+    const tail = STAGES.filter(s => (s.key === "fechado" || s.key === "perdido") && !hiddenDefaults.has(s.key));
     const custom = customStages.map(c => {
       const pal = COLOR_TO_PALETTE[c.color] || COLOR_TO_PALETTE.azul;
       return { key: c.key, label: c.label, dot: pal.dot, ring: "", bg: pal.bg, fg: pal.fg };
