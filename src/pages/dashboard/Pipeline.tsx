@@ -84,6 +84,7 @@ export default function Pipeline() {
   const [stageFilter, setStageFilter] = useState("all");
   const dragRef = useRef<{ id: string; from: string } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
