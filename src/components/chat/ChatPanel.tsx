@@ -730,7 +730,7 @@ export function ChatPanel({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 rows={1}
-                className="w-full resize-none rounded-xl bg-muted/40 border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:bg-background shadow-sm transition-all duration-200"
+                className="w-full resize-none rounded-xl bg-background dark:bg-card border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--chat-accent))]/25 focus:border-[hsl(var(--chat-accent))]/40 shadow-sm transition-all duration-200"
                 style={{ minHeight: "40px", maxHeight: "120px" }}
               />
             </div>
