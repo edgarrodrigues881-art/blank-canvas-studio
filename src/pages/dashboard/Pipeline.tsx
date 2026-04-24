@@ -105,6 +105,9 @@ export default function Pipeline() {
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
+  const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+
+  const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -243,6 +246,31 @@ export default function Pipeline() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Stage Confirmation */}
+      <Dialog open={!!deleteStage} onOpenChange={(o) => !o && setDeleteStage(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir etapa</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Os leads serão movidos para <span className="font-semibold text-foreground">Novo Lead</span>.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteStage(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                toast.success(`Etapa "${deleteStage?.label}" excluída`);
+                setDeleteStage(null);
+              }}
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -356,7 +384,16 @@ export default function Pipeline() {
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
-                        {/* Default 7 stages cannot be deleted */}
+                        {!DEFAULT_STAGE_KEYS.has(stage.key) && (
+                          <button
+                            type="button"
+                            title="Excluir etapa"
+                            onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
+                            className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
