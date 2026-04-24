@@ -89,6 +89,23 @@ function timeShort(date: string | null) {
   } catch { return null; }
 }
 
+interface CustomStage {
+  id: string;
+  key: string;
+  label: string;
+  color: string;
+  position: number;
+}
+
+const COLOR_TO_PALETTE: Record<string, { bg: string; fg: string; dot: string }> = {
+  azul:    { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
+  ciano:   { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
+  ambar:   { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
+  roxo:    { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
+  laranja: { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
+  verde:   { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+};
+
 export default function Pipeline() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -106,8 +123,35 @@ export default function Pipeline() {
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
   const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+  const [customStages, setCustomStages] = useState<CustomStage[]>([]);
+  const [creatingStage, setCreatingStage] = useState(false);
 
   const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
+
+  // Build merged stage list: defaults (Novo..Negociacao) + custom + Fechado + Perdido at the end
+  const allStages = (() => {
+    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido");
+    const tail = STAGES.filter(s => s.key === "fechado" || s.key === "perdido");
+    const custom = customStages.map(c => {
+      const pal = COLOR_TO_PALETTE[c.color] || COLOR_TO_PALETTE.azul;
+      return { key: c.key, label: c.label, dot: pal.dot, ring: "", bg: pal.bg, fg: pal.fg };
+    });
+    return [...defaults, ...custom, ...tail];
+  })();
+
+  const fetchCustomStages = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("pipeline_stages")
+      .select("id,key,label,color,position")
+      .eq("user_id", user.id)
+      .order("position", { ascending: true });
+    if (error) {
+      console.error("[Pipeline] custom stages fetch error:", error);
+      return;
+    }
+    setCustomStages((data as CustomStage[]) || []);
+  }, [user]);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -125,7 +169,53 @@ export default function Pipeline() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { fetchLeads(); fetchCustomStages(); }, [fetchLeads, fetchCustomStages]);
+
+  const handleCreateStage = async () => {
+    if (!user || !newStageName.trim()) return;
+    setCreatingStage(true);
+    const label = newStageName.trim();
+    const baseKey = "custom_" + label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const key = `${baseKey}_${Date.now().toString(36)}`;
+    const maxPos = customStages.reduce((m, s) => Math.max(m, s.position), 0);
+    const { error } = await supabase.from("pipeline_stages").insert({
+      user_id: user.id, key, label, color: newStageColor, position: maxPos + 1,
+    } as any);
+    setCreatingStage(false);
+    if (error) {
+      toast.error("Erro ao criar etapa: " + error.message);
+      return;
+    }
+    toast.success(`Etapa "${label}" criada`);
+    setNewStageOpen(false);
+    await fetchCustomStages();
+  };
+
+  const handleDeleteStage = async () => {
+    if (!user || !deleteStage) return;
+    const key = deleteStage.key;
+    // Move leads first
+    const { error: moveErr } = await supabase
+      .from("service_contacts")
+      .update({ pipeline_stage: "novo" } as any)
+      .eq("user_id", user.id)
+      .eq("pipeline_stage", key);
+    if (moveErr) {
+      toast.error("Erro ao mover leads: " + moveErr.message);
+      return;
+    }
+    const { error: delErr } = await supabase
+      .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
+    if (delErr) {
+      toast.error("Erro ao excluir etapa: " + delErr.message);
+      return;
+    }
+    toast.success(`Etapa "${deleteStage.label}" excluída`);
+    setDeleteStage(null);
+    setCustomStages(prev => prev.filter(s => s.key !== key));
+    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: "novo" } : l));
+  };
+
 
   const responsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
 
@@ -139,7 +229,7 @@ export default function Pipeline() {
   });
 
   const grouped: Record<string, Lead[]> = {};
-  for (const s of STAGES) grouped[s.key] = [];
+  for (const s of allStages) grouped[s.key] = [];
   for (const l of filtered) {
     const k = l.pipeline_stage || "novo";
     (grouped[k] || grouped["novo"]).push(l);
@@ -153,15 +243,15 @@ export default function Pipeline() {
   };
 
   const getNextStage = (current: string) => {
-    const idx = STAGES.findIndex((s) => s.key === current);
-    if (idx < 0 || idx >= STAGES.length - 1) return null;
-    return STAGES[idx + 1].key;
+    const idx = allStages.findIndex((s) => s.key === current);
+    if (idx < 0 || idx >= allStages.length - 1) return null;
+    return allStages[idx + 1].key;
   };
 
   const getPrevStage = (current: string) => {
-    const idx = STAGES.findIndex((s) => s.key === current);
+    const idx = allStages.findIndex((s) => s.key === current);
     if (idx <= 0) return null;
-    return STAGES[idx - 1].key;
+    return allStages[idx - 1].key;
   };
 
   const navigate = useNavigate();
@@ -234,13 +324,10 @@ export default function Pipeline() {
               Cancelar
             </Button>
             <Button
-              disabled={!newStageName.trim()}
-              onClick={() => {
-                toast.success(`Etapa "${newStageName.trim()}" criada`);
-                setNewStageOpen(false);
-              }}
+              disabled={!newStageName.trim() || creatingStage}
+              onClick={handleCreateStage}
             >
-              Criar
+              {creatingStage ? "Criando..." : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -261,10 +348,7 @@ export default function Pipeline() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                toast.success(`Etapa "${deleteStage?.label}" excluída`);
-                setDeleteStage(null);
-              }}
+              onClick={handleDeleteStage}
             >
               Excluir
             </Button>
@@ -297,7 +381,7 @@ export default function Pipeline() {
       {/* Kanban */}
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden -mx-1 px-1 pipeline-scroll">
         <div className="inline-flex gap-3 h-full pb-2" style={{ minWidth: "1200px" }}>
-          {STAGES.map((stage) => {
+          {allStages.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
             const isOver = overStage === stage.key;
@@ -330,20 +414,36 @@ export default function Pipeline() {
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
-                    {editingStageKey === stage.key && !DEFAULT_STAGE_KEYS.has(stage.key) ? (
+                    {editingStageKey === stage.key ? (
                       <input
                         autoFocus
                         value={editingStageDraft}
                         onChange={(e) => setEditingStageDraft(e.target.value)}
-                        onBlur={() => {
+                        onBlur={async () => {
                           const v = editingStageDraft.trim();
-                          if (v) setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                          if (v) {
+                            setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                            if (!DEFAULT_STAGE_KEYS.has(stage.key) && user) {
+                              await supabase.from("pipeline_stages")
+                                .update({ label: v } as any)
+                                .eq("user_id", user.id).eq("key", stage.key);
+                              setCustomStages(prev => prev.map(s => s.key === stage.key ? { ...s, label: v } : s));
+                            }
+                          }
                           setEditingStageKey(null);
                         }}
-                        onKeyDown={(e) => {
+                        onKeyDown={async (e) => {
                           if (e.key === "Enter") {
                             const v = editingStageDraft.trim();
-                            if (v) setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                            if (v) {
+                              setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                              if (!DEFAULT_STAGE_KEYS.has(stage.key) && user) {
+                                await supabase.from("pipeline_stages")
+                                  .update({ label: v } as any)
+                                  .eq("user_id", user.id).eq("key", stage.key);
+                                setCustomStages(prev => prev.map(s => s.key === stage.key ? { ...s, label: v } : s));
+                              }
+                            }
                             setEditingStageKey(null);
                           } else if (e.key === "Escape") {
                             setEditingStageKey(null);
@@ -369,32 +469,30 @@ export default function Pipeline() {
                     >
                       {items.length}
                     </span>
-                    {/* Hover actions — pencil always; trash only for custom stages (none default) */}
+                    {/* Hover actions — pencil for all stages; trash only for custom */}
                     {editingStageKey !== stage.key && (
                       <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          title="Renomear etapa"
+                          onClick={() => {
+                            setEditingStageDraft(stageLabels[stage.key] ?? stage.label);
+                            setEditingStageKey(stage.key);
+                          }}
+                          className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                          style={{ color: stage.fg }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
                         {!DEFAULT_STAGE_KEYS.has(stage.key) && (
-                          <>
-                            <button
-                              type="button"
-                              title="Renomear etapa"
-                              onClick={() => {
-                                setEditingStageDraft(stageLabels[stage.key] ?? stage.label);
-                                setEditingStageKey(stage.key);
-                              }}
-                              className="p-1 rounded-md hover:bg-black/5 transition-colors"
-                              style={{ color: stage.fg }}
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Excluir etapa"
-                              onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
-                              className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            title="Excluir etapa"
+                            onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
+                            className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         )}
                       </div>
                     )}
