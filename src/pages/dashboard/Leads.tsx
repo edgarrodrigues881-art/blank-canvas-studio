@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import * as XLSX from "xlsx";
 
 /* ── types ── */
 interface Lead {
@@ -196,6 +197,7 @@ export default function Leads() {
   const [exportOrigins, setExportOrigins] = useState<string[]>([]);
   const [exportStages, setExportStages] = useState<string[]>([]);
   const [exportTags, setExportTags] = useState<string[]>([]);
+  const [exportName, setExportName] = useState("");
 
   // All distinct tags across leads
   const allTags = useMemo(() => {
@@ -212,6 +214,11 @@ export default function Leads() {
   }, [leads]);
 
   const handleExport = () => {
+    const trimmedName = exportName.trim();
+    if (!trimmedName) {
+      toast.error("Informe um nome para a planilha");
+      return;
+    }
     const filteredForExport = leads.filter((l) => {
       const stage = l.pipeline_stage || "novo";
       const matchOrigin = exportOrigins.length === 0 || exportOrigins.includes(l.origin || "");
@@ -223,28 +230,52 @@ export default function Leads() {
       toast.error("Nenhum lead corresponde aos filtros selecionados");
       return;
     }
-    const headers = ["Nome", "Telefone", "E-mail", "Empresa", "Origem", "Pipeline", "Tags", "Interesse", "Valor estimado", "Responsável", "Criado em"];
-    const escape = (v: any) => {
-      const s = String(v ?? "").replace(/"/g, '""');
-      return /[",\n;]/.test(s) ? `"${s}"` : s;
-    };
-    const rows = filteredForExport.map((l) => [
-      l.name, l.phone, l.email || "", l.company || "", l.origin || "",
-      getStatusConfig(l.pipeline_stage, statusOptions).label,
-      (l.tags || []).join("; "),
-      l.interest || "", l.estimated_value ?? "", l.responsible || "",
-      format(new Date(l.created_at), "dd/MM/yyyy HH:mm"),
-    ].map(escape).join(","));
-    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `leads_${format(new Date(), "yyyy-MM-dd_HHmm")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    const rows = filteredForExport.map((l) => ({
+      "Nome": l.name || "",
+      "Telefone": l.phone || "",
+      "E-mail": l.email || "",
+      "Empresa": l.company || "",
+      "CPF/CNPJ": l.cpf_cnpj || "",
+      "Origem": l.origin || "",
+      "Canal": l.channel || "",
+      "Pipeline": getStatusConfig(l.pipeline_stage, statusOptions).label,
+      "Temperatura": l.lead_temperature || "",
+      "Tags": (l.tags || []).join(", "),
+      "Interesse": l.interest || "",
+      "Segmento": l.segment || "",
+      "Valor estimado (R$)": l.estimated_value ?? "",
+      "Responsável": l.responsible || "",
+      "Necessidade": l.description || "",
+      "Observações": l.notes || "",
+      "Última mensagem": l.last_message_content || "",
+      "Última interação": l.last_message_at ? format(new Date(l.last_message_at), "dd/MM/yyyy HH:mm") : "",
+      "Criado em": format(new Date(l.created_at), "dd/MM/yyyy HH:mm"),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Auto column widths based on header + sample content
+    const headers = Object.keys(rows[0]);
+    ws["!cols"] = headers.map((h) => {
+      const maxLen = Math.max(
+        h.length,
+        ...rows.slice(0, 100).map((r) => String((r as any)[h] ?? "").length)
+      );
+      return { wch: Math.min(Math.max(maxLen + 2, 12), 50) };
+    });
+
+    // Sanitize sheet name (Excel limit: 31 chars, no special chars)
+    const safeSheetName = trimmedName.replace(/[\\/?*[\]:]/g, "").slice(0, 31) || "Leads";
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+
+    // Sanitize file name
+    const safeFileName = trimmedName.replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(wb, `${safeFileName}.xlsx`);
+
     toast.success(`${filteredForExport.length} leads exportados`);
     setExportOpen(false);
+    setExportName("");
   };
 
   const toggleArr = (arr: string[], val: string, setter: (v: string[]) => void) => {
@@ -985,8 +1016,25 @@ export default function Leads() {
           </DialogHeader>
           <div className="space-y-5 py-2">
             <p className="text-xs text-muted-foreground">
-              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em CSV.
+              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em <span className="font-semibold text-foreground">.xlsx</span> (Excel) com os dados separados em colunas.
             </p>
+
+            {/* Nome da planilha */}
+            <div className="space-y-2">
+              <Label htmlFor="export-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Nome da planilha
+              </Label>
+              <Input
+                id="export-name"
+                value={exportName}
+                onChange={(e) => setExportName(e.target.value)}
+                placeholder="Ex: Leads Quentes Janeiro"
+                maxLength={60}
+              />
+              <p className="text-[11px] text-muted-foreground/70">
+                Esse nome será usado como nome do arquivo e da aba dentro do Excel.
+              </p>
+            </div>
 
             {/* Origem */}
             <div className="space-y-2">
@@ -1085,8 +1133,8 @@ export default function Leads() {
             <Button variant="outline" onClick={() => { setExportOrigins([]); setExportStages([]); setExportTags([]); }}>
               Limpar filtros
             </Button>
-            <Button onClick={handleExport} className="gap-1.5">
-              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            <Button onClick={handleExport} className="gap-1.5" disabled={!exportName.trim()}>
+              <Download className="w-3.5 h-3.5" /> Exportar Excel
             </Button>
           </DialogFooter>
         </DialogContent>
