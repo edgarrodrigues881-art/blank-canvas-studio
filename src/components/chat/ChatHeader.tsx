@@ -120,13 +120,7 @@ export const ChatHeader = memo(function ChatHeader({
 
         {/* Avatar — compact 32px */}
         <div className="relative shrink-0">
-          {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-border/20" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-muted-foreground">{conversation.name.slice(0, 2).toUpperCase()}</span>
-            </div>
-          )}
+          <HeaderAvatar src={conversation.avatar_url} name={conversation.name} phone={conversation.phone} />
           {conversation.status === "online" && (
             <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-[1.5px] ring-card" />
           )}
