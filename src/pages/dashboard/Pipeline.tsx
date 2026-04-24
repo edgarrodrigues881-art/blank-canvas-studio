@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import {
@@ -156,6 +157,14 @@ export default function Pipeline() {
             {filtered.length} leads · {currency(totalValue) || "R$ 0"}
           </p>
         </div>
+        <Button
+          size="sm"
+          onClick={() => toast.info("Em breve: criação de etapas customizadas")}
+          className="gap-1.5 h-9 rounded-xl"
+        >
+          <Plus className="w-4 h-4" />
+          Nova etapa
+        </Button>
       </div>
 
       {/* Filters */}
