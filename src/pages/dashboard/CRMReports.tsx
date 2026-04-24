@@ -59,7 +59,7 @@ function FeaturedMetricCard({
 }: {
   label: string;
   value: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   deltaLabel?: string;
   loading?: boolean;
 }) {
@@ -104,7 +104,7 @@ function MetricCard({
 }: {
   label: string;
   value: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   accentColor: string;
   delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
