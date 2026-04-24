@@ -192,6 +192,64 @@ export default function Leads() {
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
   const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportOrigins, setExportOrigins] = useState<string[]>([]);
+  const [exportStages, setExportStages] = useState<string[]>([]);
+  const [exportTags, setExportTags] = useState<string[]>([]);
+
+  // All distinct tags across leads
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((l) => (l.tags || []).forEach((t) => t && set.add(t)));
+    return Array.from(set).sort();
+  }, [leads]);
+
+  // All distinct origins across leads (merged with known options)
+  const allOrigins = useMemo(() => {
+    const set = new Set<string>(ORIGIN_OPTIONS.map((o) => o.value));
+    leads.forEach((l) => l.origin && set.add(l.origin));
+    return Array.from(set);
+  }, [leads]);
+
+  const handleExport = () => {
+    const filteredForExport = leads.filter((l) => {
+      const stage = l.pipeline_stage || "novo";
+      const matchOrigin = exportOrigins.length === 0 || exportOrigins.includes(l.origin || "");
+      const matchStage = exportStages.length === 0 || exportStages.includes(stage);
+      const matchTags = exportTags.length === 0 || (l.tags || []).some((t) => exportTags.includes(t));
+      return matchOrigin && matchStage && matchTags;
+    });
+    if (filteredForExport.length === 0) {
+      toast.error("Nenhum lead corresponde aos filtros selecionados");
+      return;
+    }
+    const headers = ["Nome", "Telefone", "E-mail", "Empresa", "Origem", "Pipeline", "Tags", "Interesse", "Valor estimado", "Responsável", "Criado em"];
+    const escape = (v: any) => {
+      const s = String(v ?? "").replace(/"/g, '""');
+      return /[",\n;]/.test(s) ? `"${s}"` : s;
+    };
+    const rows = filteredForExport.map((l) => [
+      l.name, l.phone, l.email || "", l.company || "", l.origin || "",
+      getStatusConfig(l.pipeline_stage, statusOptions).label,
+      (l.tags || []).join("; "),
+      l.interest || "", l.estimated_value ?? "", l.responsible || "",
+      format(new Date(l.created_at), "dd/MM/yyyy HH:mm"),
+    ].map(escape).join(","));
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads_${format(new Date(), "yyyy-MM-dd_HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredForExport.length} leads exportados`);
+    setExportOpen(false);
+  };
+
+  const toggleArr = (arr: string[], val: string, setter: (v: string[]) => void) => {
+    setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+  };
 
   // Load custom pipeline stages + respect hidden defaults (matches Pipeline page)
   useEffect(() => {
