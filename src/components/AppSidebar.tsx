@@ -332,11 +332,11 @@ export function AppSidebar() {
                     "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150",
                     collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
                     isCRM
-                      ? 'bg-primary/10 text-primary font-semibold'
-                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30'
+                      ? 'bg-muted/40 text-foreground font-semibold'
+                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
                   )}
                 >
-                  <Headset className={cn("w-[17px] h-[17px] shrink-0", isCRM && "text-primary")} strokeWidth={isCRM ? 2 : 1.4} />
+                  <Headset className={cn("w-[17px] h-[17px] shrink-0", isCRM && "text-foreground")} strokeWidth={isCRM ? 2 : 1.4} />
                   {!collapsed && <span className="truncate flex-1 text-left">CRM</span>}
                   {!collapsed && !isCRM && (
                     <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
