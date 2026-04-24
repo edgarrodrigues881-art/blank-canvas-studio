@@ -439,6 +439,9 @@ export default function Leads() {
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5">
             <Upload className="w-3.5 h-3.5" /> Importar
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+            <Download className="w-3.5 h-3.5" /> Exportar
+          </Button>
           <Button size="sm" onClick={openNew} className="gap-1.5">
             <Plus className="w-3.5 h-3.5" /> Novo Lead
           </Button>
