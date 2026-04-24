@@ -713,7 +713,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
-          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[360px] min-h-[560px]">
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[360px] min-h-0">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
@@ -1049,13 +1049,18 @@ function ResponsivePhonePreview({ payload }: { payload: WelcomeMessagePayload })
 
   // Phone aspect ≈ 0.49 (w/h). Fit by both width and height of container.
   const ASPECT = 0.49;
-  const padding = 16; // vertical breathing room
-  const maxByH = Math.max(0, size.h - padding);
-  const maxByW = Math.max(0, (size.w - 8) / ASPECT);
-  const phoneH = Math.max(280, Math.min(maxByH || 540, maxByW || 540));
+  const baseHeight = 540;
+  const baseWidth = baseHeight * ASPECT + 8;
+  const horizontalPadding = 16;
+  const verticalPadding = 16;
+  const availableWidth = Math.max(0, size.w - horizontalPadding);
+  const availableHeight = Math.max(0, size.h - verticalPadding);
+  const scale = size.w > 0 && size.h > 0
+    ? Math.min(availableWidth / baseWidth, availableHeight / (baseHeight + 8), 1)
+    : 1;
 
   return (
-    <div ref={containerRef} className="relative flex-1 min-h-0 w-full flex items-center justify-center">
+    <div ref={containerRef} className="relative flex-1 min-h-0 w-full overflow-visible flex items-center justify-center">
       {size.h > 0 && (
         <div
           key={JSON.stringify({
@@ -1065,8 +1070,9 @@ function ResponsivePhonePreview({ payload }: { payload: WelcomeMessagePayload })
             cards: payload.carousel_cards?.length,
           })}
           className="animate-in fade-in-0 duration-300 flex items-center justify-center"
+          style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}
         >
-          <MinimalPhonePreview payload={payload} height={phoneH} />
+          <MinimalPhonePreview payload={payload} height={baseHeight} />
         </div>
       )}
     </div>
