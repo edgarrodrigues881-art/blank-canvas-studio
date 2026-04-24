@@ -103,8 +103,8 @@ function getInitials(name: string) {
   return (name[0] || "?").toUpperCase();
 }
 
-function getStatusConfig(status: string | null) {
-  return STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
+function getStatusConfig(status: string | null, options: typeof DEFAULT_STATUS_OPTIONS = DEFAULT_STATUS_OPTIONS) {
+  return options.find((s) => s.value === status) || options[0] || DEFAULT_STATUS_OPTIONS[0];
 }
 
 function getPriorityConfig(priority: string | null) {
