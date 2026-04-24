@@ -301,6 +301,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_alerts_config: {
+        Row: {
+          alert_closing_opportunity: boolean
+          alert_human_request: boolean
+          created_at: string
+          enabled: boolean
+          id: string
+          notify_whatsapp: boolean
+          updated_at: string
+          user_id: string
+          whatsapp_device_id: string | null
+          whatsapp_target_phone: string | null
+        }
+        Insert: {
+          alert_closing_opportunity?: boolean
+          alert_human_request?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notify_whatsapp?: boolean
+          updated_at?: string
+          user_id: string
+          whatsapp_device_id?: string | null
+          whatsapp_target_phone?: string | null
+        }
+        Update: {
+          alert_closing_opportunity?: boolean
+          alert_human_request?: boolean
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notify_whatsapp?: boolean
+          updated_at?: string
+          user_id?: string
+          whatsapp_device_id?: string | null
+          whatsapp_target_phone?: string | null
+        }
+        Relationships: []
+      }
       ai_knowledge_base: {
         Row: {
           content: string | null
@@ -445,6 +484,87 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_predefined_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          tag: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          tag: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          tag?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_scheduled_dispatches: {
+        Row: {
+          approved_at: string | null
+          contact_id: string | null
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          detected_from_message: string | null
+          device_id: string | null
+          error_message: string | null
+          id: string
+          message_content: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          detected_from_message?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          message_content: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          detected_from_message?: string | null
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          message_content?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           ai_instructions: string | null
@@ -541,6 +661,69 @@ export type Database = {
           tone?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      ai_smart_alerts: {
+        Row: {
+          ai_reasoning: string | null
+          alert_type: string
+          contact_id: string | null
+          contact_name: string | null
+          contact_phone: string
+          context_message: string | null
+          created_at: string
+          description: string
+          id: string
+          resolved_at: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          whatsapp_error: string | null
+          whatsapp_sent: boolean
+          whatsapp_sent_at: string | null
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          alert_type: string
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone: string
+          context_message?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          whatsapp_error?: string | null
+          whatsapp_sent?: boolean
+          whatsapp_sent_at?: string | null
+        }
+        Update: {
+          ai_reasoning?: string | null
+          alert_type?: string
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone?: string
+          context_message?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_error?: string | null
+          whatsapp_sent?: boolean
+          whatsapp_sent_at?: string | null
         }
         Relationships: []
       }
