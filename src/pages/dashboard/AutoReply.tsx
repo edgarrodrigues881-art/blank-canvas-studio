@@ -743,6 +743,9 @@ function FlowCanvas() {
                   </p>
                   {[
                     { type: "messageNode" as const, label: "Mensagem", icon: MessageSquare, color: "text-primary", bg: "bg-primary/12", hover: "hover:bg-primary/8" },
+                    { type: "actionNode" as const, label: "Ações", icon: Wand2, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
+                    { type: "waitResponseNode" as const, label: "Esperar resposta", icon: MessageCircleReply, color: "text-blue-400", bg: "bg-blue-500/12", hover: "hover:bg-blue-500/8" },
+                    { type: "randomNode" as const, label: "Randomizador", icon: Shuffle, color: "text-fuchsia-400", bg: "bg-fuchsia-500/12", hover: "hover:bg-fuchsia-500/8" },
                     { type: "aiNode" as const, label: "IA", icon: Bot, color: "text-cyan-400", bg: "bg-cyan-500/12", hover: "hover:bg-cyan-500/8" },
                     { type: "conditionNode" as const, label: "Condição", icon: GitBranch, color: "text-violet-400", bg: "bg-violet-500/12", hover: "hover:bg-violet-500/8" },
                     { type: "delayNode" as const, label: "Delay", icon: Timer, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
