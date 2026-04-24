@@ -537,10 +537,7 @@ export default function Pipeline() {
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
-                    if (overStageRef.current !== stage.key) {
-                      overStageRef.current = stage.key;
-                      setOverStage(stage.key);
-                    }
+                    // Skip global state updates during card drag — they cause re-renders that block the drag
                     if (stageDragKey && isCustomStage && stageOverKey !== stage.key) {
                       setStageOverKey(stage.key);
                     }
@@ -672,7 +669,7 @@ export default function Pipeline() {
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto transition-all duration-200 pipeline-column-scroll",
+                    "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto pipeline-column-scroll",
                     "border",
                     lost && "opacity-50",
                   )}
