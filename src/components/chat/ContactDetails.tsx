@@ -240,9 +240,30 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setCustomTagInput("");
   };
 
-  const handleEditSave = () => {
-    // Future: persist changes
-    setIsEditing(false);
+  const handleEditSave = async () => {
+    if (!user || !conversation.phone) {
+      setIsEditing(false);
+      return;
+    }
+    const digits = conversation.phone.replace(/\D/g, "");
+    try {
+      const { error } = await supabase
+        .from("service_contacts")
+        .update({
+          name: editForm.name,
+          email: editForm.email || null,
+          company: editForm.company || null,
+          origin: editForm.origin || null,
+          notes: editForm.observations || null,
+        } as any)
+        .eq("user_id", user.id)
+        .like("phone", `%${digits.slice(-8)}%`);
+      if (error) throw error;
+      toast.success("Contato atualizado");
+      setIsEditing(false);
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + (e.message || "Tente novamente"));
+    }
   };
 
   const handleEditCancel = () => {
