@@ -523,7 +523,7 @@ const Conversations = () => {
                 */}
                 <button
                   onClick={() => setNewConversationOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-all duration-150 ml-1 shrink-0 shadow-sm shadow-primary/15"
+                  className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-lg bg-foreground text-background text-[11px] font-semibold hover:bg-foreground/90 transition-all duration-150 ml-1 shrink-0"
                 >
                   <MessageSquarePlus className="w-3.5 h-3.5" />
                   Nova

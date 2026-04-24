@@ -276,18 +276,18 @@ export function ConversationList({
                 key={tab.key}
                 onClick={() => setActiveStatus(tab.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all duration-200 border",
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-200 border",
                   isActive
-                    ? "bg-primary/10 text-primary border-primary/20 shadow-sm shadow-primary/5"
-                    : "bg-transparent text-muted-foreground border-transparent hover:bg-muted/30 hover:text-foreground"
+                    ? "bg-muted text-foreground border-border"
+                    : "bg-transparent text-muted-foreground border-transparent hover:bg-muted/40 hover:text-foreground"
                 )}
               >
                 {tab.label}
                 <span className={cn(
-                  "text-[9px] min-w-[16px] h-4 px-1 rounded-md flex items-center justify-center font-semibold tabular-nums",
+                  "text-[9px] min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center font-semibold tabular-nums",
                   isActive
-                    ? "bg-primary/15 text-primary"
-                    : "bg-muted-foreground/8 text-muted-foreground/70"
+                    ? "bg-muted-foreground/15 text-muted-foreground"
+                    : "bg-muted-foreground/10 text-muted-foreground/70"
                 )}>
                   {count}
                 </span>
