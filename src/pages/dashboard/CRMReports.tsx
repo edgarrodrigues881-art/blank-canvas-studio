@@ -589,13 +589,13 @@ export default function CRMReports() {
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11.5px] text-foreground/85 font-medium">{item.name}</span>
                     <div className="flex items-center gap-1.5 tabular-nums">
-                      <span className="text-[13px] font-semibold text-foreground">{item.value}</span>
-                      <span className="text-[10px] text-muted-foreground">({item.pct.toFixed(0)}%)</span>
+                      <span className="text-[13px] font-bold text-foreground">{item.value}</span>
+                      <span className="text-[11px] font-bold text-muted-foreground">({item.pct.toFixed(0)}%)</span>
                     </div>
                   </div>
-                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-700"
+                      className="h-full rounded transition-all duration-700"
                       style={{ width: `${Math.max(item.pct, 1)}%`, backgroundColor: item.fill }}
                     />
                   </div>
