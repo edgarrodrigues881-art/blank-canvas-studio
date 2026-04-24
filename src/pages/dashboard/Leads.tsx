@@ -974,6 +974,123 @@ export default function Leads() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-4 h-4" /> Exportar Leads
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <p className="text-xs text-muted-foreground">
+              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em CSV.
+            </p>
+
+            {/* Origem */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem</Label>
+              <div className="flex flex-wrap gap-2">
+                {allOrigins.map((o) => {
+                  const active = exportOrigins.includes(o);
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => toggleArr(exportOrigins, o, setExportOrigins)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      {o}
+                    </button>
+                  );
+                })}
+                {allOrigins.length === 0 && <span className="text-xs text-muted-foreground/60">Sem origens</span>}
+              </div>
+            </div>
+
+            {/* Pipeline */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pipeline</Label>
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map((s) => {
+                  const active = exportStages.includes(s.value);
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => toggleArr(exportStages, s.value, setExportStages)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      <span className={cn("w-2 h-2 rounded-full", s.dot)} />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <TagIcon className="w-3 h-3" /> Tags
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {allTags.map((t) => {
+                  const active = exportTags.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleArr(exportTags, t, setExportTags)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+                {allTags.length === 0 && <span className="text-xs text-muted-foreground/60">Nenhuma tag cadastrada</span>}
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 text-xs text-muted-foreground">
+              {(() => {
+                const c = leads.filter((l) => {
+                  const stage = l.pipeline_stage || "novo";
+                  const matchOrigin = exportOrigins.length === 0 || exportOrigins.includes(l.origin || "");
+                  const matchStage = exportStages.length === 0 || exportStages.includes(stage);
+                  const matchTags = exportTags.length === 0 || (l.tags || []).some((t) => exportTags.includes(t));
+                  return matchOrigin && matchStage && matchTags;
+                }).length;
+                return <><span className="font-semibold text-foreground">{c}</span> lead{c !== 1 ? "s" : ""} serão exportados</>;
+              })()}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setExportOrigins([]); setExportStages([]); setExportTags([]); }}>
+              Limpar filtros
+            </Button>
+            <Button onClick={handleExport} className="gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
