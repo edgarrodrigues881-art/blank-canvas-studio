@@ -129,6 +129,14 @@ export default function Pipeline() {
     return STAGES[idx + 1].key;
   };
 
+  const getPrevStage = (current: string) => {
+    const idx = STAGES.findIndex((s) => s.key === current);
+    if (idx <= 0) return null;
+    return STAGES[idx - 1].key;
+  };
+
+  const navigate = useNavigate();
+
   const totalValue = filtered.reduce((s, l) => s + (l.estimated_value || 0), 0);
   const isPerdido = (key: string) => key === "perdido";
 
