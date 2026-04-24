@@ -21,12 +21,15 @@ import { EndNode } from "@/components/autoreply/EndNode";
 import { DelayNode } from "@/components/autoreply/DelayNode";
 import { ConditionNode } from "@/components/autoreply/ConditionNode";
 import { AINode } from "@/components/autoreply/AINode";
+import { ActionNode } from "@/components/autoreply/ActionNode";
+import { WaitResponseNode } from "@/components/autoreply/WaitResponseNode";
+import { RandomNode } from "@/components/autoreply/RandomNode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData } from "@/components/autoreply/types";
-import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
-import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug } from "lucide-react";
+import { nextNodeId, nextBtnId, nextBranchId } from "@/components/autoreply/types";
+import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug, Wand2, MessageCircleReply, Shuffle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -38,6 +41,9 @@ const nodeTypes = {
   delayNode: DelayNode,
   conditionNode: ConditionNode,
   aiNode: AINode,
+  actionNode: ActionNode,
+  waitResponseNode: WaitResponseNode,
+  randomNode: RandomNode,
   endNode: EndNode,
 };
 
@@ -419,7 +425,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode" | "actionNode" | "waitResponseNode" | "randomNode") => {
       if (!dropMenu) return;
 
       rememberHistory();
@@ -435,6 +441,18 @@ function FlowCanvas() {
         data = { label: "Condição", conditions: [] };
       } else if (type === "aiNode") {
         data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
+      } else if (type === "actionNode") {
+        data = { label: "Ações", actions: [] };
+      } else if (type === "waitResponseNode") {
+        data = { label: "Esperar resposta", waitTimeoutSeconds: 0, saveReplyAs: "" };
+      } else if (type === "randomNode") {
+        data = {
+          label: "Randomizador",
+          randomBranches: [
+            { id: nextBranchId(), label: "Caminho A", weight: 50 },
+            { id: nextBranchId(), label: "Caminho B", weight: 50 },
+          ],
+        };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -443,6 +461,7 @@ function FlowCanvas() {
           imageCaption: "",
           delay: 0,
           buttons: [],
+          mediaType: "none",
         };
       }
 
@@ -553,6 +572,18 @@ function FlowCanvas() {
         data = { label: "Condição", conditions: [] };
       } else if (type === "aiNode") {
         data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
+      } else if (type === "actionNode") {
+        data = { label: "Ações", actions: [] };
+      } else if (type === "waitResponseNode") {
+        data = { label: "Esperar resposta", waitTimeoutSeconds: 0, saveReplyAs: "" };
+      } else if (type === "randomNode") {
+        data = {
+          label: "Randomizador",
+          randomBranches: [
+            { id: nextBranchId(), label: "Caminho A", weight: 50 },
+            { id: nextBranchId(), label: "Caminho B", weight: 50 },
+          ],
+        };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -561,6 +592,7 @@ function FlowCanvas() {
           imageCaption: "",
           delay: 0,
           buttons: [],
+          mediaType: "none",
         };
       }
 
@@ -711,6 +743,9 @@ function FlowCanvas() {
                   </p>
                   {[
                     { type: "messageNode" as const, label: "Mensagem", icon: MessageSquare, color: "text-primary", bg: "bg-primary/12", hover: "hover:bg-primary/8" },
+                    { type: "actionNode" as const, label: "Ações", icon: Wand2, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
+                    { type: "waitResponseNode" as const, label: "Esperar resposta", icon: MessageCircleReply, color: "text-blue-400", bg: "bg-blue-500/12", hover: "hover:bg-blue-500/8" },
+                    { type: "randomNode" as const, label: "Randomizador", icon: Shuffle, color: "text-fuchsia-400", bg: "bg-fuchsia-500/12", hover: "hover:bg-fuchsia-500/8" },
                     { type: "aiNode" as const, label: "IA", icon: Bot, color: "text-cyan-400", bg: "bg-cyan-500/12", hover: "hover:bg-cyan-500/8" },
                     { type: "conditionNode" as const, label: "Condição", icon: GitBranch, color: "text-violet-400", bg: "bg-violet-500/12", hover: "hover:bg-violet-500/8" },
                     { type: "delayNode" as const, label: "Delay", icon: Timer, color: "text-amber-400", bg: "bg-amber-500/12", hover: "hover:bg-amber-500/8" },
