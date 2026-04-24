@@ -115,6 +115,10 @@ function MetricCard({
       className="relative bg-card rounded-xl p-4 flex flex-col justify-between min-h-[130px] transition-colors duration-200 overflow-hidden shadow-sm"
       style={{ border: `1px solid ${accentColor}33` }}
     >
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px]"
+        style={{ backgroundColor: accentColor }}
+      />
       <div className="flex items-start justify-between">
         <div
           className="h-9 w-9 rounded-lg flex items-center justify-center"
@@ -262,16 +266,18 @@ export default function CRMReports() {
       ? Math.round(responseTimes.reduce((a: number, b: number) => a + b, 0) / responseTimes.length)
       : 0;
 
-    const dailyMap: Record<string, { leads: number; responses: number }> = {};
+    const dailyMap: Record<string, { ts: number; leads: number; responses: number }> = {};
     for (const l of leads) {
-      const day = format(new Date(l.created_at), "dd/MM", { locale: ptBR });
-      if (!dailyMap[day]) dailyMap[day] = { leads: 0, responses: 0 };
-      dailyMap[day].leads++;
+      const d = startOfDay(new Date(l.created_at));
+      const key = format(d, "yyyy-MM-dd");
+      if (!dailyMap[key]) dailyMap[key] = { ts: d.getTime(), leads: 0, responses: 0 };
+      dailyMap[key].leads++;
     }
     for (const c of conversations) {
-      const day = format(new Date(c.created_at), "dd/MM", { locale: ptBR });
-      if (!dailyMap[day]) dailyMap[day] = { leads: 0, responses: 0 };
-      if ((c as any).first_reply_at) dailyMap[day].responses++;
+      const d = startOfDay(new Date(c.created_at));
+      const key = format(d, "yyyy-MM-dd");
+      if (!dailyMap[key]) dailyMap[key] = { ts: d.getTime(), leads: 0, responses: 0 };
+      if ((c as any).first_reply_at) dailyMap[key].responses++;
     }
 
     const byOrigin: Record<string, number> = {};
@@ -353,9 +359,13 @@ export default function CRMReports() {
   }, [metrics]);
 
   const activityData = useMemo(() => {
-    return Object.entries(metrics.dailyMap).map(([day, d]) => ({
-      day, leads: d.leads, responses: d.responses,
-    }));
+    return Object.values(metrics.dailyMap)
+      .sort((a, b) => a.ts - b.ts)
+      .map((d) => ({
+        day: format(new Date(d.ts), "dd/MM", { locale: ptBR }),
+        leads: d.leads,
+        responses: d.responses,
+      }));
   }, [metrics.dailyMap]);
 
   const tempData = useMemo(() => {
@@ -691,7 +701,8 @@ export default function CRMReports() {
                       <div
                         className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{
-                          width: `${Math.max(pct, 6)}%`,
+                          width: `max(4px, ${Math.max(pct, 6)}%)`,
+                          minWidth: 4,
                           background: `linear-gradient(90deg, ${item.fill}, ${item.fill}dd)`,
                         }}
                       />
