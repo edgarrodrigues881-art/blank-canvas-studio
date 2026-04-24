@@ -672,7 +672,7 @@ export default function Pipeline() {
                 {/* Column body */}
                 <div
                   className={cn(
-                    "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto transition-all duration-200 pipeline-column-scroll",
+                    "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto pipeline-column-scroll",
                     "border",
                     lost && "opacity-50",
                   )}
