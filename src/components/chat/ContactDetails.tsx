@@ -60,8 +60,6 @@ const statusLabels: Record<AttendingStatus, { label: string; color: string; dot:
   finalizado: { label: "Finalizado", color: "text-muted-foreground/70", dot: "bg-muted-foreground/50" },
   pausado: { label: "Pausado", color: "text-muted-foreground", dot: "bg-muted-foreground" },
 };
-  pausado: { label: "Pausado", color: "text-orange-400", dot: "bg-orange-400" },
-};
 
 const avatarColors = [
   "from-emerald-500 to-teal-600",
