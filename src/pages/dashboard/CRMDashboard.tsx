@@ -295,6 +295,22 @@ const CRMDashboard = () => {
     staleTime: 60_000,
   });
 
+  const { data: customStages = [] } = useQuery({
+    queryKey: ["crm-dashboard-custom-stages", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("pipeline_stages")
+        .select("key,label,color,position")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
   const { data: scheduleCount = 0 } = useQuery({
     queryKey: ["crm-dashboard-schedules", user?.id],
     queryFn: async () => {
@@ -410,13 +426,36 @@ const CRMDashboard = () => {
     return { idx, value: max, day: m.dailyChart[idx]?.day };
   }, [m.dailyChart]);
 
-  const pipeline = [
-    { name: "Novo Lead", value: m.stages["novo"] || 0, color: "#3b82f6" },
-    { name: "Respondeu", value: m.stages["respondeu"] || 0, color: "#06b6d4" },
-    { name: "Interessado", value: m.stages["interessado"] || 0, color: "#f59e0b" },
-    { name: "Negociação", value: m.stages["negociacao"] || 0, color: "#a855f7" },
-    { name: "Fechado", value: m.stages["fechado"] || 0, color: "#10b981" },
-  ];
+  const pipeline = useMemo(() => {
+    const COLOR_HEX: Record<string, string> = {
+      azul: "#3b82f6", ciano: "#06b6d4", ambar: "#f59e0b",
+      roxo: "#a855f7", verde: "#10b981", rosa: "#ec4899",
+      vermelho: "#ef4444", cinza: "#64748b",
+    };
+    const DEFAULTS = [
+      { key: "novo", name: "Novo Lead", color: "#3b82f6" },
+      { key: "respondeu", name: "Respondeu", color: "#06b6d4" },
+      { key: "interessado", name: "Interessado", color: "#f59e0b" },
+      { key: "agendado", name: "Agendado", color: "#8b5cf6" },
+      { key: "negociacao", name: "Negociação", color: "#a855f7" },
+      { key: "fechado", name: "Fechado", color: "#10b981" },
+      { key: "perdido", name: "Perdido", color: "#ef4444" },
+    ];
+    let hidden = new Set<string>();
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      if (raw) hidden = new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+
+    const defaultsHead = DEFAULTS.filter(s => s.key !== "fechado" && s.key !== "perdido" && !hidden.has(s.key));
+    const tail = DEFAULTS.filter(s => (s.key === "fechado" || s.key === "perdido") && !hidden.has(s.key));
+    const custom = (customStages as any[]).map(c => ({
+      key: c.key, name: c.label, color: COLOR_HEX[c.color] || "#3b82f6",
+    }));
+
+    const merged = [...defaultsHead, ...custom, ...tail].slice(0, 5);
+    return merged.map(s => ({ name: s.name, value: m.stages[s.key] || 0, color: s.color }));
+  }, [m.stages, customStages]);
 
   // Find active funnel stage (highest non-zero from bottom)
   const activeFunnelStage = useMemo(() => {
