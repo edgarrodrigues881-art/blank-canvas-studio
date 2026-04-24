@@ -372,9 +372,9 @@ export function ConversationList({
                     className={cn(
                       "w-full flex items-center text-left transition-all duration-150 gap-3 px-4 py-3",
                       isSelected
-                        ? "bg-primary/6 border-l-[3px] border-l-emerald-500 dark:border-l-primary"
+                        ? "bg-muted/40 border-l-[3px] border-l-border"
                         : "hover:bg-slate-100/80 dark:hover:bg-muted/20 border-l-[3px] border-l-transparent",
-                      selectionMode && selectedIds.has(c.id) && "bg-primary/6"
+                      selectionMode && selectedIds.has(c.id) && "bg-muted/40"
                     )}
                   >
                     {selectionMode && (
