@@ -324,17 +324,17 @@ export default function Pipeline() {
                         ageDays >= 3 ? "text-orange-500" :
                         "text-muted-foreground/40";
 
-                      // Card bg/border by temperature
+                      // Card bg always white/default. Avatar receives the temperature color.
                       const isDragging = draggingId === lead.id;
-                      const cardStyle: React.CSSProperties = isHot
-                        ? { backgroundColor: "#fff1f2", borderLeft: "3px solid #ef4444" }
-                        : isWarm
-                        ? { backgroundColor: "#fffbeb", borderLeft: "3px solid #f59e0b" }
-                        : {};
+                      const cardStyle: React.CSSProperties = {};
                       if (isDragging) {
                         cardStyle.opacity = 0.95;
                         cardStyle.boxShadow = "0 4px 12px -2px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.06)";
                       }
+
+                      // Avatar color by temperature
+                      const avatarBg = isHot ? "#fee2e2" : isWarm ? "#fef3c7" : "#e5e7eb";
+                      const avatarFg = isHot ? "#991b1b" : isWarm ? "#92400e" : "#6b7280";
 
                       return (
                         <div
