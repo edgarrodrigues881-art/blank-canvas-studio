@@ -267,6 +267,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 5e. Load predefined tags (auto-tagging hybrid mode)
+    let tagsContext = "";
+    let predefinedTagList: string[] = [];
+    {
+      const { data: predefTags } = await admin
+        .from("ai_predefined_tags")
+        .select("tag, description")
+        .eq("user_id", user_id);
+      if (predefTags && predefTags.length > 0) {
+        predefinedTagList = predefTags.map((t: any) => t.tag);
+        tagsContext = `\nTAGS PRÉ-DEFINIDAS DO USUÁRIO (priorize usar essas; pode sugerir novas se necessário):\n${
+          predefTags.map((t: any) => `- "${t.tag}"${t.description ? `: ${t.description}` : ""}`).join("\n")
+        }`;
+      }
+    }
+
+    // 5f. Load smart alerts config
+    const { data: alertsConfig } = await admin
+      .from("ai_alerts_config")
+      .select("*")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+
     // 6. Build conversation history for context
     let conversationHistory: { role: string; content: string }[] = [];
     if (settings.conversation_memory) {
