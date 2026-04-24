@@ -16,13 +16,22 @@ import { useNavigate } from "react-router-dom";
 
 type Period = "7d" | "30d" | "90d" | "all";
 
-const PIPELINE_STAGES = [
-  { key: "novo", label: "Novo Lead" },
-  { key: "respondeu", label: "Respondeu" },
-  { key: "interessado", label: "Interessado" },
-  { key: "negociacao", label: "Negociação" },
-  { key: "fechado", label: "Fechado" },
+const DEFAULT_PIPELINE_STAGES = [
+  { key: "novo", label: "Novo Lead", color: "#3b82f6" },
+  { key: "respondeu", label: "Respondeu", color: "#06b6d4" },
+  { key: "interessado", label: "Interessado", color: "#f59e0b" },
+  { key: "agendado", label: "Agendado", color: "#8b5cf6" },
+  { key: "negociacao", label: "Negociação", color: "#f97316" },
+  { key: "fechado", label: "Fechado", color: "#22c55e" },
+  { key: "perdido", label: "Perdido", color: "#ef4444" },
 ];
+const DEFAULT_KEYS = new Set(DEFAULT_PIPELINE_STAGES.map(s => s.key));
+const TAIL_KEYS = new Set(["fechado", "perdido"]);
+
+const CUSTOM_COLOR_MAP: Record<string, string> = {
+  azul: "#3b82f6", ciano: "#06b6d4", ambar: "#f59e0b",
+  roxo: "#8b5cf6", laranja: "#f97316", verde: "#22c55e",
+};
 
 const TEMP_LABELS: Record<string, { label: string; color: string }> = {
   frio: { label: "Frio", color: "#9ca3af" }, // gray
@@ -227,6 +236,29 @@ export default function CRMReports() {
     staleTime: 120_000,
   });
 
+  const { data: customStages = [] } = useQuery({
+    queryKey: ["crm-report-pipeline-stages", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("pipeline_stages")
+        .select("key,label,color,position")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data || []) as Array<{ key: string; label: string; color: string; position: number }>;
+    },
+    enabled: !!user,
+    staleTime: 120_000,
+  });
+
+  const hiddenDefaults = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set<string>(); }
+  }, []);
+
   const isLoading = loadingLeads || loadingConv;
 
   const metrics = useMemo(() => {
@@ -349,14 +381,25 @@ export default function CRMReports() {
     return items;
   }, [todayPanel, metrics]);
 
+  const funnelStages = useMemo(() => {
+    const defaultsHead = DEFAULT_PIPELINE_STAGES.filter(s => !TAIL_KEYS.has(s.key) && !hiddenDefaults.has(s.key));
+    const tail = DEFAULT_PIPELINE_STAGES.filter(s => TAIL_KEYS.has(s.key) && !hiddenDefaults.has(s.key));
+    const customs = customStages.map(c => ({
+      key: c.key,
+      label: c.label,
+      color: CUSTOM_COLOR_MAP[c.color] || "#3b82f6",
+    }));
+    return [...defaultsHead, ...customs, ...tail];
+  }, [customStages, hiddenDefaults]);
+
   const funnelData = useMemo(() => {
-    return PIPELINE_STAGES.map((s, i, arr) => {
+    return funnelStages.map((s, i, arr) => {
       const count = metrics.byStage[s.key] || 0;
       const prevCount = i > 0 ? (metrics.byStage[arr[i - 1].key] || 0) : metrics.total;
       const dropPct = prevCount > 0 ? ((1 - count / prevCount) * 100) : 0;
-      return { name: s.label, value: count, dropPct: i > 0 ? dropPct : 0 };
+      return { name: s.label, value: count, dropPct: i > 0 ? dropPct : 0, color: s.color };
     });
-  }, [metrics]);
+  }, [metrics, funnelStages]);
 
   const activityData = useMemo(() => {
     return Object.values(metrics.dailyMap)
@@ -653,8 +696,7 @@ export default function CRMReports() {
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
                 const pct = Math.round((stage.value / maxValue) * 100);
-                const stageColors = ["#3b82f6", "#06b6d4", "#f59e0b", "#8b5cf6", "#22c55e"];
-                const color = stageColors[i] ?? "#3b82f6";
+                const color = stage.color || "#3b82f6";
                 return (
                   <div
                     key={stage.name}
