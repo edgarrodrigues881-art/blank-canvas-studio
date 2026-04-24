@@ -455,16 +455,25 @@ export default function Pipeline() {
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
             const isOver = overStage === stage.key;
             const lost = isPerdido(stage.key);
+            const isCustomStage = !DEFAULT_STAGE_KEYS.has(stage.key);
+            const isStageDragOver = stageDragKey && stageOverKey === stage.key && stageDragKey !== stage.key && isCustomStage;
 
             return (
               <div
                 key={stage.key}
-                className={cn("flex flex-col shrink-0 h-full", lost ? "w-[180px]" : "w-[240px]")}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); }}
-                onDragLeave={() => setOverStage(null)}
+                className={cn("flex flex-col shrink-0 h-full transition-transform", lost ? "w-[180px]" : "w-[240px]", stageDragKey === stage.key && "opacity-50")}
+                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); if (stageDragKey && isCustomStage) setStageOverKey(stage.key); }}
+                onDragLeave={() => { setOverStage(null); if (stageOverKey === stage.key) setStageOverKey(null); }}
                 onDrop={(e) => {
                   e.preventDefault();
                   setOverStage(null);
+                  // Stage reorder takes priority
+                  if (stageDragKey && isCustomStage && stageDragKey !== stage.key) {
+                    reorderCustomStage(stageDragKey, stage.key);
+                    setStageDragKey(null);
+                    setStageOverKey(null);
+                    return;
+                  }
                   const id = e.dataTransfer.getData("text/plain");
                   if (id && dragRef.current && dragRef.current.from !== stage.key) move(id, stage.key);
                   dragRef.current = null;
@@ -472,13 +481,24 @@ export default function Pipeline() {
               >
                 {/* Column header */}
                 <div
+                  draggable={isCustomStage && editingStageKey !== stage.key}
+                  onDragStart={(e) => {
+                    if (!isCustomStage) return;
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/x-stage", stage.key);
+                    setStageDragKey(stage.key);
+                  }}
+                  onDragEnd={() => { setStageDragKey(null); setStageOverKey(null); }}
                   className={cn(
-                    "group/header px-3 py-2.5 mb-2 shrink-0 rounded-xl border",
-                    lost && "opacity-60"
+                    "group/header px-3 py-2.5 mb-2 shrink-0 rounded-xl border transition-all",
+                    lost && "opacity-60",
+                    isCustomStage && "cursor-grab active:cursor-grabbing",
+                    isStageDragOver && "ring-2 ring-offset-1 scale-[1.02]"
                   )}
                   style={{
                     backgroundColor: stage.bg,
                     borderColor: `${stage.fg}1f`,
+                    ...(isStageDragOver ? { boxShadow: `0 0 0 2px ${stage.fg}66` } : {}),
                   }}
                 >
                   <div className="flex items-center gap-2">
