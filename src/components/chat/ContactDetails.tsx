@@ -109,6 +109,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     origin: "WhatsApp",
     observations: "",
   });
+  const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
@@ -140,12 +141,14 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return;
+        const nextOrigin = (data as any).origin || "WhatsApp";
+        setSavedOrigin(nextOrigin);
         setEditForm((prev) => ({
           ...prev,
           name: data.name || prev.name,
           email: data.email || prev.email,
           company: (data as any).company || prev.company,
-          origin: (data as any).origin || prev.origin,
+          origin: nextOrigin,
           observations: (data as any).notes || prev.observations,
         }));
       });
@@ -156,6 +159,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setIsEditing(false);
     setLeadTemp(conversation.leadTemperature || "frio");
     setAiInterest(conversation.aiInterest || null);
+    setSavedOrigin("WhatsApp");
     setEditForm({
       name: conversation.name,
       phone: conversation.phone,
@@ -259,6 +263,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         .eq("user_id", user.id)
         .like("phone", `%${digits.slice(-8)}%`);
       if (error) throw error;
+      setSavedOrigin(editForm.origin || "WhatsApp");
       toast.success("Contato atualizado");
       setIsEditing(false);
     } catch (e: any) {
@@ -272,7 +277,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
-      origin: "WhatsApp",
+      origin: savedOrigin,
       observations: "",
     });
     setIsEditing(false);
@@ -458,7 +463,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Origem</span>
                   <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-                    <Globe className="w-3 h-3 text-emerald-400" /> WhatsApp
+                    <Globe className="w-3 h-3 text-emerald-400" /> {savedOrigin}
                   </span>
                 </div>
               </div>
