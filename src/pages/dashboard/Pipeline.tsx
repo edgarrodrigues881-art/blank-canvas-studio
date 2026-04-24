@@ -329,16 +329,48 @@ export default function Pipeline() {
                             (isHot || isWarm) && "border-y border-r border-border/30",
                           )}
                         >
-                          {/* "···" hover action — top right */}
-                          {nextStage && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); move(lead.id, nextStage); }}
-                              className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
-                              title="Avançar etapa"
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          {/* "···" hover menu — top right */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
+                                title="Ações"
+                              >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem
+                                disabled={!nextStage}
+                                onClick={() => nextStage && move(lead.id, nextStage)}
+                              >
+                                <ArrowRight className="w-3.5 h-3.5 mr-2" />
+                                Avançar etapa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={!prevStage}
+                                onClick={() => prevStage && move(lead.id, prevStage)}
+                              >
+                                <ArrowLeft className="w-3.5 h-3.5 mr-2" />
+                                Voltar etapa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => navigate(`/dashboard/conversations?phone=${encodeURIComponent(lead.phone)}`)}
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 mr-2" />
+                                Abrir conversa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => navigate(`/dashboard/leads?id=${lead.id}`)}
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-2" />
+                                Ver detalhes
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
 
                           <div className="flex items-start gap-2.5">
                             {/* Avatar — photo if available, else initials */}
