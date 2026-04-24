@@ -6,8 +6,12 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil, MoreHorizontal } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const STAGES = [
   { key: "novo",       label: "Novo Lead",   dot: "bg-blue-500",     ring: "ring-blue-500/20",   bg: "#eff6ff", fg: "#1d4ed8" },
