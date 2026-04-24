@@ -49,7 +49,7 @@ interface Lead {
   description: string | null;
 }
 
-const DEFAULT_statusOptions = [
+const DEFAULT_STATUS_OPTIONS = [
   { value: "novo", label: "Novo Lead", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
   { value: "respondeu", label: "Respondeu", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
   { value: "interessado", label: "Interessado", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
@@ -103,8 +103,8 @@ function getInitials(name: string) {
   return (name[0] || "?").toUpperCase();
 }
 
-function getStatusConfig(status: string | null, options: typeof DEFAULT_statusOptions = DEFAULT_statusOptions) {
-  return options.find((s) => s.value === status) || options[0] || DEFAULT_statusOptions[0];
+function getStatusConfig(status: string | null, options: typeof DEFAULT_STATUS_OPTIONS = DEFAULT_STATUS_OPTIONS) {
+  return options.find((s) => s.value === status) || options[0] || DEFAULT_STATUS_OPTIONS[0];
 }
 
 function getPriorityConfig(priority: string | null) {
@@ -184,7 +184,7 @@ export default function Leads() {
   const [editingInline, setEditingInline] = useState(false);
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
-  const [statusOptions, setStatusOptions] = useState(DEFAULT_statusOptions);
+  const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS);
 
   // Load custom pipeline stages + respect hidden defaults (matches Pipeline page)
   useEffect(() => {
@@ -194,8 +194,8 @@ export default function Leads() {
       const raw = localStorage.getItem("pipeline_hidden_defaults");
       if (raw) hidden = new Set(JSON.parse(raw));
     } catch { /* ignore */ }
-    const head = DEFAULT_statusOptions.filter(s => s.value !== "fechado" && s.value !== "perdido" && !hidden.has(s.value));
-    const tail = DEFAULT_statusOptions.filter(s => (s.value === "fechado" || s.value === "perdido") && !hidden.has(s.value));
+    const head = DEFAULT_STATUS_OPTIONS.filter(s => s.value !== "fechado" && s.value !== "perdido" && !hidden.has(s.value));
+    const tail = DEFAULT_STATUS_OPTIONS.filter(s => (s.value === "fechado" || s.value === "perdido") && !hidden.has(s.value));
     supabase
       .from("pipeline_stages" as any)
       .select("key,label,position")
