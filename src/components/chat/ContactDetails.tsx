@@ -368,7 +368,26 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Origem</label>
-                  <Input value={editForm.origin} onChange={(e) => updateField("origin", e.target.value)} className={editFieldClass} placeholder="WhatsApp" />
+                  <Select value={editForm.origin || "WhatsApp"} onValueChange={(v) => updateField("origin", v)}>
+                    <SelectTrigger className={editFieldClass}>
+                      <SelectValue placeholder="Selecione a origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="Instagram">Instagram</SelectItem>
+                      <SelectItem value="Facebook">Facebook</SelectItem>
+                      <SelectItem value="Site">Site</SelectItem>
+                      <SelectItem value="Indicação">Indicação</SelectItem>
+                      <SelectItem value="Google Ads">Google Ads</SelectItem>
+                      <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                      <SelectItem value="TikTok">TikTok</SelectItem>
+                      <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                      <SelectItem value="Telefone">Telefone</SelectItem>
+                      <SelectItem value="Email">Email</SelectItem>
+                      <SelectItem value="Prospecção">Prospecção</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Observações</label>
