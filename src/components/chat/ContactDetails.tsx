@@ -110,6 +110,8 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     observations: "",
   });
   const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
+  const [pipelineStage, setPipelineStage] = useState<string>("novo");
+  const [pipelineStages, setPipelineStages] = useState<{ key: string; label: string }[]>([]);
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
@@ -134,7 +136,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     const digits = conversation.phone.replace(/\D/g, "");
     supabase
       .from("service_contacts")
-      .select("name, email, company, origin, notes")
+      .select("name, email, company, origin, notes, pipeline_stage")
       .eq("user_id", user.id)
       .like("phone", `%${digits.slice(-8)}%`)
       .limit(1)
@@ -143,6 +145,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         if (!data) return;
         const nextOrigin = (data as any).origin || "WhatsApp";
         setSavedOrigin(nextOrigin);
+        setPipelineStage((data as any).pipeline_stage || "novo");
         setEditForm((prev) => ({
           ...prev,
           name: data.name || prev.name,
@@ -153,6 +156,36 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         }));
       });
   }, [user, conversation.phone, conversation.id]);
+
+  // Fetch available pipeline stages (defaults visible + custom)
+  useEffect(() => {
+    if (!user) return;
+    const DEFAULTS = [
+      { key: "novo", label: "Novo Lead" },
+      { key: "respondeu", label: "Respondeu" },
+      { key: "interessado", label: "Interessado" },
+      { key: "agendado", label: "Agendado" },
+      { key: "negociacao", label: "Negociação" },
+      { key: "fechado", label: "Fechado" },
+      { key: "perdido", label: "Perdido" },
+    ];
+    let hidden = new Set<string>();
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      if (raw) hidden = new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+    const head = DEFAULTS.filter(s => s.key !== "fechado" && s.key !== "perdido" && !hidden.has(s.key));
+    const tail = DEFAULTS.filter(s => (s.key === "fechado" || s.key === "perdido") && !hidden.has(s.key));
+    supabase
+      .from("pipeline_stages")
+      .select("key,label,position")
+      .eq("user_id", user.id)
+      .order("position", { ascending: true })
+      .then(({ data }) => {
+        const custom = (data || []).map((c: any) => ({ key: c.key, label: c.label }));
+        setPipelineStages([...head, ...custom, ...tail]);
+      });
+  }, [user]);
 
   // Reset edit form when conversation changes
   useEffect(() => {
@@ -513,24 +546,36 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <GitBranch className="w-3.5 h-3.5" /> Pipeline
             </h4>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs h-9 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={() => {
-                const stage = conversation.pipelineStage || "novo";
-                supabase
-                  .from("conversations")
-                  .update({ pipeline_stage: stage } as any)
-                  .eq("id", conversation.id)
-                  .then(() => {
-                    toast.success("Lead movido para o Pipeline!");
-                  });
+            <Select
+              value={pipelineStage}
+              onValueChange={async (newStage) => {
+                const prev = pipelineStage;
+                setPipelineStage(newStage);
+                if (!user || !conversation.phone) return;
+                const digits = conversation.phone.replace(/\D/g, "");
+                const { error } = await supabase
+                  .from("service_contacts")
+                  .update({ pipeline_stage: newStage } as any)
+                  .eq("user_id", user.id)
+                  .like("phone", `%${digits.slice(-8)}%`);
+                if (error) {
+                  setPipelineStage(prev);
+                  toast.error("Erro ao mover etapa");
+                } else {
+                  const label = pipelineStages.find(s => s.key === newStage)?.label || newStage;
+                  toast.success(`Movido para: ${label}`);
+                }
               }}
             >
-              <ArrowRight className="w-3.5 h-3.5" />
-              {conversation.pipelineStage ? `Etapa: ${conversation.pipelineStage}` : "Mover para Pipeline"}
-            </Button>
+              <SelectTrigger className="w-full h-9 text-xs">
+                <SelectValue placeholder="Selecione a etapa" />
+              </SelectTrigger>
+              <SelectContent>
+                {pipelineStages.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* ── AI INTERESSE DETECTADO ── */}
