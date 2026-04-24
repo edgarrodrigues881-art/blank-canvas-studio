@@ -184,6 +184,33 @@ export default function Leads() {
   const [editingInline, setEditingInline] = useState(false);
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS);
+
+  // Load custom pipeline stages + respect hidden defaults (matches Pipeline page)
+  useEffect(() => {
+    if (!user) return;
+    let hidden = new Set<string>();
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      if (raw) hidden = new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+    const head = DEFAULT_STATUS_OPTIONS.filter(s => s.value !== "fechado" && s.value !== "perdido" && !hidden.has(s.value));
+    const tail = DEFAULT_STATUS_OPTIONS.filter(s => (s.value === "fechado" || s.value === "perdido") && !hidden.has(s.value));
+    supabase
+      .from("pipeline_stages" as any)
+      .select("key,label,position")
+      .eq("user_id", user.id)
+      .order("position", { ascending: true })
+      .then(({ data }) => {
+        const custom = ((data as any[]) || []).map((c: any) => ({
+          value: c.key,
+          label: c.label,
+          dot: CUSTOM_DOT,
+          badge: CUSTOM_BADGE,
+        }));
+        setStatusOptions([...head, ...custom, ...tail]);
+      });
+  }, [user]);
 
   const [form, setForm] = useState({
     name: "", phone: "", email: "", company: "", notes: "",
