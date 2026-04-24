@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle, Plus } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -289,7 +289,7 @@ export default function Pipeline() {
                 {/* Column header */}
                 <div
                   className={cn(
-                    "px-3 py-2.5 mb-2 shrink-0 rounded-xl border",
+                    "group/header px-3 py-2.5 mb-2 shrink-0 rounded-xl border",
                     lost && "opacity-60"
                   )}
                   style={{
@@ -300,17 +300,30 @@ export default function Pipeline() {
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
                     <span
-                      className="text-[11.5px] font-bold uppercase tracking-wider"
+                      className="text-[11.5px] font-bold uppercase tracking-wider truncate"
                       style={{ color: stage.fg }}
                     >
                       {stage.label}
                     </span>
                     <span
-                      className="ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
+                      className="ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums group-hover/header:hidden"
                       style={{ color: stage.fg, backgroundColor: `${stage.fg}1a` }}
                     >
                       {items.length}
                     </span>
+                    {/* Hover actions — pencil always; trash only for custom stages (none default) */}
+                    <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        title="Renomear etapa"
+                        onClick={() => toast.info(`Renomear "${stage.label}"`)}
+                        className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                        style={{ color: stage.fg }}
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      {/* Default 7 stages cannot be deleted */}
+                    </div>
                   </div>
                   {total > 0 && (
                     <p
