@@ -539,9 +539,8 @@ export default function CRMReports() {
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
                 const widthPct = Math.max((stage.value / maxValue) * 100, 6);
-                // gradient: foreground → muted-foreground using opacity to play with both themes
-                const intensity = 1 - (i / Math.max(funnelData.length - 1, 1)) * 0.55;
-                const bg = `linear-gradient(90deg, hsl(var(--foreground) / ${intensity}) 0%, hsl(var(--muted-foreground) / ${intensity * 0.75}) 100%)`;
+                const stageColors = ["#3b82f6", "#06b6d4", "#f59e0b", "#8b5cf6", "#22c55e"];
+                const color = stageColors[i] ?? "#3b82f6";
                 return (
                   <div key={stage.name}>
                     {i > 0 && stage.dropPct > 0 && (
@@ -556,10 +555,13 @@ export default function CRMReports() {
                       <span className="text-[11px] text-muted-foreground w-[100px] shrink-0 text-right">{stage.name}</span>
                       <div className="flex-1">
                         <div
-                          className="h-7 rounded-sm flex items-center px-3 transition-all duration-500"
-                          style={{ width: `${widthPct}%`, background: bg }}
+                          className="h-8 rounded-md flex items-center px-3 transition-all duration-500 shadow-sm"
+                          style={{
+                            width: `${widthPct}%`,
+                            background: `linear-gradient(90deg, ${color} 0%, ${color}cc 100%)`,
+                          }}
                         >
-                          <span className="text-[11px] font-semibold text-background tabular-nums">{stage.value}</span>
+                          <span className="text-[12px] font-bold text-white tabular-nums">{stage.value}</span>
                         </div>
                       </div>
                       {metrics.total > 0 && (
