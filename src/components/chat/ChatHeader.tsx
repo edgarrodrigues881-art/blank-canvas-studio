@@ -134,12 +134,13 @@ export const ChatHeader = memo(function ChatHeader({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
-                  "flex items-center gap-1 px-1.5 py-px rounded-md text-[10px] font-medium transition-colors shrink-0 hover:opacity-80",
-                  currentStatusCfg.color
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all shrink-0 hover:opacity-90 border",
+                  currentStatusCfg.color,
+                  currentStatusCfg.bg
                 )}>
                   <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
                   {currentStatusCfg.label}
-                  <ChevronDown className="w-2.5 h-2.5 opacity-50" />
+                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
