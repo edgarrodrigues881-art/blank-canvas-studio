@@ -618,9 +618,9 @@ export function ChatPanel({
               <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Respostas Rápidas</span>
             </div>
-            <button onClick={() => { setShowQuickReplies(false); setInput(""); setShowQRManager(true); }} className="text-[10px] text-primary hover:underline">
+            <a href="/dashboard/quick-replies" className="text-[10px] text-primary hover:underline">
               <Settings className="w-3.5 h-3.5 inline mr-0.5" />Gerenciar
-            </button>
+            </a>
           </div>
           <div className="px-2 pb-2 space-y-0.5 max-h-[240px] overflow-y-auto">
             {filteredQuickReplies.map((qr) => {
