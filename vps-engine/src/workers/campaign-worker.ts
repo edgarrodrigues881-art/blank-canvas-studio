@@ -849,7 +849,18 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
 
   let mediaUrl: string | null = null;
   if (campaign.media_url) {
-    try { const p = JSON.parse(campaign.media_url); mediaUrl = Array.isArray(p) && p.length > 0 ? p[0].url : campaign.media_url; } catch { mediaUrl = campaign.media_url; }
+    try {
+      const p = JSON.parse(campaign.media_url);
+      mediaUrl = Array.isArray(p) && p.length > 0 ? (p[0]?.url || null) : campaign.media_url;
+    } catch { mediaUrl = campaign.media_url; }
+    // Sanitize: trim whitespace and reject base64/data: payloads — imageButton requires a public URL
+    if (typeof mediaUrl === "string") {
+      mediaUrl = mediaUrl.trim();
+      if (!/^https?:\/\//i.test(mediaUrl)) {
+        log.warn(`[campaign-worker] Ignoring non-URL media_url for campaign ${campaign.id} (len=${mediaUrl.length}, prefix="${mediaUrl.slice(0, 32)}")`);
+        mediaUrl = null;
+      }
+    }
   }
   const campaignButtons: CampaignButton[] = Array.isArray(campaign.buttons) ? campaign.buttons : [];
   const carouselCards = normalizeCarouselCards(campaign.carousel_cards);
