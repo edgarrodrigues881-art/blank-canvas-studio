@@ -255,15 +255,30 @@ export default function Pipeline() {
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
 
-                      // Avatar — initials + deterministic color from initial
-                      const initialsSource = (hasName ? (lead.name || "") : (lead.company || lead.phone || "?")).trim();
-                      const initials = initialsSource
-                        .split(/\s+/)
-                        .filter(Boolean)
-                        .slice(0, 2)
-                        .map((p) => p[0])
-                        .join("")
-                        .toUpperCase() || "?";
+                      // Avatar — initials from name; if no name, 2 first letters of phone (without 55 prefix). Never show full number.
+                      let initials = "?";
+                      if (hasName && lead.name) {
+                        initials = lead.name
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((p) => p[0])
+                          .join("")
+                          .toUpperCase() || "?";
+                      } else if (lead.company) {
+                        initials = lead.company
+                          .trim()
+                          .split(/\s+/)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((p) => p[0])
+                          .join("")
+                          .toUpperCase() || "?";
+                      } else if (lead.phone) {
+                        const digits = lead.phone.replace(/\D/g, "").replace(/^55/, "");
+                        initials = digits.slice(0, 2) || "?";
+                      }
                       const avatarPalette = ["#3b82f6", "#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ec4899", "#f97316", "#14b8a6", "#6366f1", "#ef4444"];
                       const avatarColor = avatarPalette[(initials.charCodeAt(0) || 0) % avatarPalette.length];
 
@@ -312,13 +327,22 @@ export default function Pipeline() {
                           )}
 
                           <div className="flex items-start gap-2.5">
-                            {/* Avatar */}
-                            <div
-                              className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white shadow-sm"
-                              style={{ backgroundColor: avatarColor }}
-                            >
-                              {initials}
-                            </div>
+                            {/* Avatar — photo if available, else initials */}
+                            {lead.avatar_url ? (
+                              <img
+                                src={lead.avatar_url}
+                                alt={displayName || "Lead"}
+                                className="h-8 w-8 rounded-full shrink-0 object-cover shadow-sm"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                              />
+                            ) : (
+                              <div
+                                className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white shadow-sm"
+                                style={{ backgroundColor: avatarColor }}
+                              >
+                                {initials}
+                              </div>
+                            )}
 
                             <div className="min-w-0 flex-1">
                               {/* Name + temp */}
@@ -346,11 +370,8 @@ export default function Pipeline() {
                                 </p>
                               )}
 
-                              {/* Meta row */}
+                              {/* Meta row — sem valor R$ */}
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                {val && (
-                                  <span className="text-[11px] font-bold text-emerald-500 tabular-nums">{val}</span>
-                                )}
                                 {ago && (
                                   <span className={cn(
                                     "text-[10px] flex items-center gap-0.5 tabular-nums font-medium",
