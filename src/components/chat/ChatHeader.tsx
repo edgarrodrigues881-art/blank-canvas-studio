@@ -174,7 +174,7 @@ export const ChatHeader = memo(function ChatHeader({
               <UserX className="w-4 h-4" />
             </Button>
           ) : !conversation.assignedTo ? (
-            <Button variant="ghost" size="icon" className="w-8 h-8 text-emerald-500/70 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={() => onAssign?.(conversation.id)} title="Assumir">
+            <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground" onClick={() => onAssign?.(conversation.id)} title="Assumir">
               <UserCheck className="w-4 h-4" />
             </Button>
           ) : null}
