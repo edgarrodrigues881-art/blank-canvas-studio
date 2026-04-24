@@ -248,7 +248,6 @@ export default function Leads() {
       "Responsável": l.responsible || "",
       "Necessidade": l.description || "",
       "Observações": l.notes || "",
-      "Última mensagem": l.last_message_content || "",
       "Última interação": l.last_message_at ? format(new Date(l.last_message_at), "dd/MM/yyyy HH:mm") : "",
       "Criado em": format(new Date(l.created_at), "dd/MM/yyyy HH:mm"),
     }));
