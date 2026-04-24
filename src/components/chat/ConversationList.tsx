@@ -372,9 +372,9 @@ export function ConversationList({
                     className={cn(
                       "w-full flex items-center text-left transition-all duration-150 gap-3 px-4 py-3",
                       isSelected
-                        ? "bg-muted/40 border-l-[3px] border-l-border"
+                        ? "bg-[hsl(var(--chat-accent))]/8 border-l-[3px] border-l-[hsl(var(--chat-accent))]"
                         : "hover:bg-slate-100/80 dark:hover:bg-muted/20 border-l-[3px] border-l-transparent",
-                      selectionMode && selectedIds.has(c.id) && "bg-muted/40"
+                      selectionMode && selectedIds.has(c.id) && "bg-[hsl(var(--chat-accent))]/10"
                     )}
                   >
                     {selectionMode && (
