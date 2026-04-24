@@ -1,0 +1,1 @@
+ALTER TABLE public.service_contacts ADD COLUMN IF NOT EXISTS avatar_url TEXT;

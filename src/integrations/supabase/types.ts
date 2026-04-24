@@ -4588,6 +4588,7 @@ export type Database = {
       }
       service_contacts: {
         Row: {
+          avatar_url: string | null
           channel: string | null
           company: string | null
           conversation_id: string | null
@@ -4617,6 +4618,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           channel?: string | null
           company?: string | null
           conversation_id?: string | null
@@ -4646,6 +4648,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           channel?: string | null
           company?: string | null
           conversation_id?: string | null
