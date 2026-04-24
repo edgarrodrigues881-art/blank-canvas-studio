@@ -1534,7 +1534,9 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "Adicione pelo menos um botão válido." }, 400);
       }
 
-      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
+      // Image + text + buttons in a single message via /send/menu (imageButton field)
+      const buttonImageUrl = trimmedMediaUrl && detectMediaTypeFromUrl(trimmedMediaUrl) === "image" ? trimmedMediaUrl : undefined;
+      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons, buttonImageUrl);
 
       if (mentionAll) {
         const blindFields = buildBlindMentionFields();
