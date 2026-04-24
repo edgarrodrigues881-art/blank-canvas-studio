@@ -309,11 +309,16 @@ export default function Pipeline() {
                         "text-muted-foreground/40";
 
                       // Card bg/border by temperature
+                      const isDragging = draggingId === lead.id;
                       const cardStyle: React.CSSProperties = isHot
                         ? { backgroundColor: "#fff1f2", borderLeft: "3px solid #ef4444" }
                         : isWarm
                         ? { backgroundColor: "#fffbeb", borderLeft: "3px solid #f59e0b" }
                         : {};
+                      if (isDragging) {
+                        cardStyle.opacity = 0.95;
+                        cardStyle.boxShadow = "0 4px 12px -2px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.06)";
+                      }
 
                       return (
                         <div
@@ -323,13 +328,17 @@ export default function Pipeline() {
                             dragRef.current = { id: lead.id, from: lead.pipeline_stage || "novo" };
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
+                            setDraggingId(lead.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingId(null);
+                            setOverStage(null);
                           }}
                           style={cardStyle}
                           className={cn(
                             "group/card relative rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
-                            "transition-all duration-150",
-                            "hover:shadow-md hover:shadow-black/5",
-                            "active:scale-[0.97]",
+                            "transition-shadow duration-150",
+                            !isDragging && "hover:shadow-md hover:shadow-black/5",
                             !isHot && !isWarm && "bg-card border border-border/40 hover:border-border/60",
                             (isHot || isWarm) && "border-y border-r border-border/30",
                           )}
