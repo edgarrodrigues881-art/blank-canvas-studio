@@ -456,6 +456,7 @@ export default function Pipeline() {
             const isOver = overStage === stage.key;
             const lost = isPerdido(stage.key);
             const isCustomStage = !DEFAULT_STAGE_KEYS.has(stage.key);
+            const isFixedNovo = stage.key === "novo";
             const isStageDragOver = stageDragKey && stageOverKey === stage.key && stageDragKey !== stage.key && isCustomStage;
 
             return (
