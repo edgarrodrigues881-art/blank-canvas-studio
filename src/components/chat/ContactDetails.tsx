@@ -110,6 +110,8 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     observations: "",
   });
   const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
+  const [pipelineStage, setPipelineStage] = useState<string>("novo");
+  const [pipelineStages, setPipelineStages] = useState<{ key: string; label: string }[]>([]);
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
