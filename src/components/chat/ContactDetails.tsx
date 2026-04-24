@@ -127,6 +127,30 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       });
   }, [conversation.phone]);
 
+  // Fetch persisted contact details (origin, company, email, observations)
+  useEffect(() => {
+    if (!user || !conversation.phone) return;
+    const digits = conversation.phone.replace(/\D/g, "");
+    supabase
+      .from("service_contacts")
+      .select("name, email, company, origin, notes")
+      .eq("user_id", user.id)
+      .like("phone", `%${digits.slice(-8)}%`)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setEditForm((prev) => ({
+          ...prev,
+          name: data.name || prev.name,
+          email: data.email || prev.email,
+          company: (data as any).company || prev.company,
+          origin: (data as any).origin || prev.origin,
+          observations: (data as any).notes || prev.observations,
+        }));
+      });
+  }, [user, conversation.phone, conversation.id]);
+
   // Reset edit form when conversation changes
   useEffect(() => {
     setIsEditing(false);
@@ -216,9 +240,30 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setCustomTagInput("");
   };
 
-  const handleEditSave = () => {
-    // Future: persist changes
-    setIsEditing(false);
+  const handleEditSave = async () => {
+    if (!user || !conversation.phone) {
+      setIsEditing(false);
+      return;
+    }
+    const digits = conversation.phone.replace(/\D/g, "");
+    try {
+      const { error } = await supabase
+        .from("service_contacts")
+        .update({
+          name: editForm.name,
+          email: editForm.email || null,
+          company: editForm.company || null,
+          origin: editForm.origin || null,
+          notes: editForm.observations || null,
+        } as any)
+        .eq("user_id", user.id)
+        .like("phone", `%${digits.slice(-8)}%`);
+      if (error) throw error;
+      toast.success("Contato atualizado");
+      setIsEditing(false);
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + (e.message || "Tente novamente"));
+    }
   };
 
   const handleEditCancel = () => {
