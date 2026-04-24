@@ -229,7 +229,7 @@ export default function Pipeline() {
   });
 
   const grouped: Record<string, Lead[]> = {};
-  for (const s of STAGES) grouped[s.key] = [];
+  for (const s of allStages) grouped[s.key] = [];
   for (const l of filtered) {
     const k = l.pipeline_stage || "novo";
     (grouped[k] || grouped["novo"]).push(l);
@@ -243,15 +243,15 @@ export default function Pipeline() {
   };
 
   const getNextStage = (current: string) => {
-    const idx = STAGES.findIndex((s) => s.key === current);
-    if (idx < 0 || idx >= STAGES.length - 1) return null;
-    return STAGES[idx + 1].key;
+    const idx = allStages.findIndex((s) => s.key === current);
+    if (idx < 0 || idx >= allStages.length - 1) return null;
+    return allStages[idx + 1].key;
   };
 
   const getPrevStage = (current: string) => {
-    const idx = STAGES.findIndex((s) => s.key === current);
+    const idx = allStages.findIndex((s) => s.key === current);
     if (idx <= 0) return null;
-    return STAGES[idx - 1].key;
+    return allStages[idx - 1].key;
   };
 
   const navigate = useNavigate();
