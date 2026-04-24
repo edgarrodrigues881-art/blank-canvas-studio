@@ -385,8 +385,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 60% form / 40% preview (min 320px), subtle divider ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,40%)] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 55% form / 45% preview ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[55%_45%] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Form panel ═══ */}
           <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] md:border-r md:border-[hsl(0_0%_13%)]">
