@@ -394,7 +394,8 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const hasVisual = !!mediaUrl && !isAudio;
 
     if (hasVisual && mediaUrl) {
-      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, image: mediaUrl, choices });
+      // Single-message image + text + buttons via uazapi /send/menu (imageButton field)
+      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, imageButton: mediaUrl, choices });
       return;
     }
     await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
