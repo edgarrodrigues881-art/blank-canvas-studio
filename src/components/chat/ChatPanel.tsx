@@ -493,8 +493,8 @@ export function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5 bg-slate-50/50 dark:bg-transparent"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.08) 1px, transparent 0)", backgroundSize: "28px 28px", scrollBehavior: "smooth" }}
+        className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5 chat-surface"
+        style={{ scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
           const msgDate = new Date(msg.timestamp);
