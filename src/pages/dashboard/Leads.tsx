@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/select";
 import {
   Search, Plus, Upload, Trash2, Pencil, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
-  MessageSquare, Globe, Megaphone, Users, UserPlus, Clock,
+  MessageSquare, Globe, Megaphone, Users, UserPlus, Clock, Download, Tag as TagIcon,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { format, formatDistanceToNow } from "date-fns";
@@ -191,6 +192,64 @@ export default function Leads() {
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
   const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportOrigins, setExportOrigins] = useState<string[]>([]);
+  const [exportStages, setExportStages] = useState<string[]>([]);
+  const [exportTags, setExportTags] = useState<string[]>([]);
+
+  // All distinct tags across leads
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    leads.forEach((l) => (l.tags || []).forEach((t) => t && set.add(t)));
+    return Array.from(set).sort();
+  }, [leads]);
+
+  // All distinct origins across leads (merged with known options)
+  const allOrigins = useMemo(() => {
+    const set = new Set<string>(ORIGIN_OPTIONS.map((o) => o.value));
+    leads.forEach((l) => l.origin && set.add(l.origin));
+    return Array.from(set);
+  }, [leads]);
+
+  const handleExport = () => {
+    const filteredForExport = leads.filter((l) => {
+      const stage = l.pipeline_stage || "novo";
+      const matchOrigin = exportOrigins.length === 0 || exportOrigins.includes(l.origin || "");
+      const matchStage = exportStages.length === 0 || exportStages.includes(stage);
+      const matchTags = exportTags.length === 0 || (l.tags || []).some((t) => exportTags.includes(t));
+      return matchOrigin && matchStage && matchTags;
+    });
+    if (filteredForExport.length === 0) {
+      toast.error("Nenhum lead corresponde aos filtros selecionados");
+      return;
+    }
+    const headers = ["Nome", "Telefone", "E-mail", "Empresa", "Origem", "Pipeline", "Tags", "Interesse", "Valor estimado", "Responsável", "Criado em"];
+    const escape = (v: any) => {
+      const s = String(v ?? "").replace(/"/g, '""');
+      return /[",\n;]/.test(s) ? `"${s}"` : s;
+    };
+    const rows = filteredForExport.map((l) => [
+      l.name, l.phone, l.email || "", l.company || "", l.origin || "",
+      getStatusConfig(l.pipeline_stage, statusOptions).label,
+      (l.tags || []).join("; "),
+      l.interest || "", l.estimated_value ?? "", l.responsible || "",
+      format(new Date(l.created_at), "dd/MM/yyyy HH:mm"),
+    ].map(escape).join(","));
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `leads_${format(new Date(), "yyyy-MM-dd_HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredForExport.length} leads exportados`);
+    setExportOpen(false);
+  };
+
+  const toggleArr = (arr: string[], val: string, setter: (v: string[]) => void) => {
+    setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+  };
 
   // Load custom pipeline stages + respect hidden defaults (matches Pipeline page)
   useEffect(() => {
@@ -379,6 +438,9 @@ export default function Leads() {
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5">
             <Upload className="w-3.5 h-3.5" /> Importar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+            <Download className="w-3.5 h-3.5" /> Exportar
           </Button>
           <Button size="sm" onClick={openNew} className="gap-1.5">
             <Plus className="w-3.5 h-3.5" /> Novo Lead
@@ -909,6 +971,123 @@ export default function Leads() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={!form.name || !form.phone}>Criar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-4 h-4" /> Exportar Leads
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <p className="text-xs text-muted-foreground">
+              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em CSV.
+            </p>
+
+            {/* Origem */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Origem</Label>
+              <div className="flex flex-wrap gap-2">
+                {allOrigins.map((o) => {
+                  const active = exportOrigins.includes(o);
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => toggleArr(exportOrigins, o, setExportOrigins)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      {o}
+                    </button>
+                  );
+                })}
+                {allOrigins.length === 0 && <span className="text-xs text-muted-foreground/60">Sem origens</span>}
+              </div>
+            </div>
+
+            {/* Pipeline */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pipeline</Label>
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map((s) => {
+                  const active = exportStages.includes(s.value);
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => toggleArr(exportStages, s.value, setExportStages)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all flex items-center gap-1.5",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      <span className={cn("w-2 h-2 rounded-full", s.dot)} />
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <TagIcon className="w-3 h-3" /> Tags
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {allTags.map((t) => {
+                  const active = exportTags.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleArr(exportTags, t, setExportTags)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs rounded-full border transition-all",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                      )}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+                {allTags.length === 0 && <span className="text-xs text-muted-foreground/60">Nenhuma tag cadastrada</span>}
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted/30 border border-border/40 px-3 py-2 text-xs text-muted-foreground">
+              {(() => {
+                const c = leads.filter((l) => {
+                  const stage = l.pipeline_stage || "novo";
+                  const matchOrigin = exportOrigins.length === 0 || exportOrigins.includes(l.origin || "");
+                  const matchStage = exportStages.length === 0 || exportStages.includes(stage);
+                  const matchTags = exportTags.length === 0 || (l.tags || []).some((t) => exportTags.includes(t));
+                  return matchOrigin && matchStage && matchTags;
+                }).length;
+                return <><span className="font-semibold text-foreground">{c}</span> lead{c !== 1 ? "s" : ""} serão exportados</>;
+              })()}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setExportOrigins([]); setExportStages([]); setExportTags([]); }}>
+              Limpar filtros
+            </Button>
+            <Button onClick={handleExport} className="gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
