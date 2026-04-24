@@ -207,28 +207,33 @@ export default function Pipeline() {
   };
 
   const handleDeleteStage = async () => {
-    if (!user || !deleteStage || !moveTargetKey) return;
+    if (!user || !deleteStage) return;
     const key = deleteStage.key;
     if (key === "novo") {
       toast.error('A etapa "Novo Lead" é fixa e não pode ser excluída');
       return;
     }
+    const stageLeadCount = leads.filter(l => (l.pipeline_stage || "novo") === key).length;
+    const hasLeads = stageLeadCount > 0;
+    if (hasLeads && !moveTargetKey) return;
     const target = moveTargetKey;
-    if (target === key) {
+    if (hasLeads && target === key) {
       toast.error("Escolha uma etapa diferente");
       return;
     }
     setDeletingStage(true);
-    // Move leads first
-    const { error: moveErr } = await supabase
-      .from("service_contacts")
-      .update({ pipeline_stage: target } as any)
-      .eq("user_id", user.id)
-      .eq("pipeline_stage", key);
-    if (moveErr) {
-      setDeletingStage(false);
-      toast.error("Erro ao mover leads: " + moveErr.message);
-      return;
+    // Move leads only if there are any
+    if (hasLeads) {
+      const { error: moveErr } = await supabase
+        .from("service_contacts")
+        .update({ pipeline_stage: target } as any)
+        .eq("user_id", user.id)
+        .eq("pipeline_stage", key);
+      if (moveErr) {
+        setDeletingStage(false);
+        toast.error("Erro ao mover leads: " + moveErr.message);
+        return;
+      }
     }
     if (DEFAULT_STAGE_KEYS.has(key)) {
       // Hide default stage locally (per-user persistence)
@@ -245,7 +250,9 @@ export default function Pipeline() {
       setCustomStages(prev => prev.filter(s => s.key !== key));
     }
     toast.success(`Etapa "${deleteStage.label}" excluída`);
-    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
+    if (hasLeads) {
+      setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
+    }
     setDeleteStage(null);
     setMoveTargetKey("");
     setDeletingStage(false);
