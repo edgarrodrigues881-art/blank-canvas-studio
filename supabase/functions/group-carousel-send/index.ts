@@ -1534,7 +1534,9 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "Adicione pelo menos um botão válido." }, 400);
       }
 
-      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
+      // Image + text + buttons in a single message via /send/menu (imageButton field)
+      const buttonImageUrl = trimmedMediaUrl && detectMediaTypeFromUrl(trimmedMediaUrl) === "image" ? trimmedMediaUrl : undefined;
+      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons, buttonImageUrl);
 
       if (mentionAll) {
         const blindFields = buildBlindMentionFields();
@@ -1562,11 +1564,14 @@ Deno.serve(async (req) => {
 
             if (trimmedMediaUrl) {
               const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-              if (inspectedMedia.ok) {
-                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              // Skip extra media send when image is already embedded via imageButton
+              if (!(mediaType === "image" && buttonImageUrl)) {
+                const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+                if (inspectedMedia.ok) {
+                  const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                  await sendWithFallbacks(mediaAttempts, headers, groupJid);
+                }
               }
             }
           });
@@ -1579,11 +1584,14 @@ Deno.serve(async (req) => {
 
             if (trimmedMediaUrl) {
               const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-              if (inspectedMedia.ok) {
-                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              // Skip extra media send when image is already embedded via imageButton
+              if (!(mediaType === "image" && buttonImageUrl)) {
+                const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+                if (inspectedMedia.ok) {
+                  const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                  await sendWithFallbacks(mediaAttempts, headers, groupJid);
+                }
               }
             }
           });
@@ -1599,10 +1607,14 @@ Deno.serve(async (req) => {
           return json({ ok: false, error: inspectedMedia.error }, 400);
         }
 
-        // CRITICAL: NEVER combine media + buttons in a single packet.
-        // The WhatsApp client of the recipient renders the combo as "Mensagem incompatível"
-        // (incompatible message) on many app versions. Always send in 2 separate steps.
-        // See: mem://integrations/whatsapp/uazapi-messaging-standards
+        // For images: imageButton is already embedded inside the /send/menu payload,
+        // so a single request delivers image + text + buttons together.
+        if (mediaType === "image" && buttonImageUrl) {
+          await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
+          return json({ ok: true, mode: "buttons_image", isRestricted, groupName });
+        }
+
+        // For audio/video/document, send in 2 separate steps (no imageButton support)
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         await wrapSend(async () => {
@@ -1612,7 +1624,7 @@ Deno.serve(async (req) => {
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await sendWithFallbacks(mediaAttempts, headers, groupJid);
           } else {
-            // For image/video/document, send media first, then text+buttons
+            // For video/document, send media first, then text+buttons
             await sendWithFallbacks(mediaAttempts, headers, groupJid);
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await sendWithFallbacks(buttonAttempts, headers, groupJid);
