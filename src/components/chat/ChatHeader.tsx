@@ -65,10 +65,10 @@ export const attendingStatusConfig: Record<
   AttendingStatus,
   { label: string; color: string; bg: string; dot: string; textStrong: string }
 > = {
-  nova: { label: "Nova", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
-  em_atendimento: { label: "Em Atendimento", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
-  aguardando: { label: "Aguardando", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground animate-pulse", textStrong: "text-foreground" },
-  finalizado: { label: "Finalizado", color: "text-muted-foreground/70", bg: "bg-muted/30 border-border", dot: "bg-muted-foreground/60", textStrong: "text-muted-foreground" },
+  nova: { label: "Nova", color: "text-[hsl(var(--chat-status-new))]", bg: "bg-[hsl(var(--chat-status-new))]/10 border-[hsl(var(--chat-status-new))]/25", dot: "bg-[hsl(var(--chat-status-new))]", textStrong: "text-foreground" },
+  em_atendimento: { label: "Em Atendimento", color: "text-[hsl(var(--chat-status-attending))]", bg: "bg-[hsl(var(--chat-status-attending))]/10 border-[hsl(var(--chat-status-attending))]/25", dot: "bg-[hsl(var(--chat-status-attending))]", textStrong: "text-foreground" },
+  aguardando: { label: "Aguardando", color: "text-[hsl(var(--chat-status-waiting))]", bg: "bg-[hsl(var(--chat-status-waiting))]/10 border-[hsl(var(--chat-status-waiting))]/25", dot: "bg-[hsl(var(--chat-status-waiting))] animate-pulse", textStrong: "text-foreground" },
+  finalizado: { label: "Finalizado", color: "text-[hsl(var(--chat-status-finalized))]", bg: "bg-muted/40 border-border", dot: "bg-[hsl(var(--chat-status-finalized))]", textStrong: "text-muted-foreground" },
   pausado: { label: "Pausado", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
 };
 
