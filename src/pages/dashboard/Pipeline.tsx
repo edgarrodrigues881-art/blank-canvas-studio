@@ -278,7 +278,12 @@ export default function Pipeline() {
                       const isHot = effectiveTemp === "quente";
                       const isWarm = effectiveTemp === "morno";
                       const hasName = lead.name && lead.name !== lead.phone;
-                      const displayName = hasName ? lead.name : (lead.company || formatPhone(lead.phone));
+                      const rawDisplay = hasName ? lead.name! : (lead.company || formatPhone(lead.phone));
+                      // Truncate names (not phone numbers) longer than 15 chars to first word + "..."
+                      const isPhoneDisplay = !hasName && !lead.company;
+                      const displayName = (!isPhoneDisplay && rawDisplay.length > 15)
+                        ? `${rawDisplay.trim().split(/\s+/)[0]}...`
+                        : rawDisplay;
                       const val = currency(lead.estimated_value);
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
