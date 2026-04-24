@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAGES = [
@@ -247,11 +247,39 @@ export default function Pipeline() {
                     {items.map((lead) => {
                       const temp = TEMP_CONFIG[lead.lead_temperature || ""];
                       const isHot = lead.lead_temperature === "quente";
+                      const isWarm = lead.lead_temperature === "morno";
                       const hasName = lead.name && lead.name !== lead.phone;
                       const displayName = hasName ? lead.name : (lead.company || formatPhone(lead.phone));
                       const val = currency(lead.estimated_value);
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
+
+                      // Avatar — initials + deterministic color from initial
+                      const initialsSource = (hasName ? (lead.name || "") : (lead.company || lead.phone || "?")).trim();
+                      const initials = initialsSource
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((p) => p[0])
+                        .join("")
+                        .toUpperCase() || "?";
+                      const avatarPalette = ["#3b82f6", "#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ec4899", "#f97316", "#14b8a6", "#6366f1", "#ef4444"];
+                      const avatarColor = avatarPalette[(initials.charCodeAt(0) || 0) % avatarPalette.length];
+
+                      // Tempo parado — cor escalonada (3-7d laranja, 7d+ vermelho)
+                      const lastTs = lead.last_message_at || lead.created_at;
+                      const ageDays = lastTs ? Math.floor((Date.now() - new Date(lastTs).getTime()) / 86400000) : 0;
+                      const ageColor =
+                        ageDays > 7 ? "text-red-500" :
+                        ageDays >= 3 ? "text-orange-500" :
+                        "text-muted-foreground/40";
+
+                      // Card bg/border by temperature
+                      const cardStyle: React.CSSProperties = isHot
+                        ? { backgroundColor: "#fff1f2", borderLeft: "3px solid #ef4444" }
+                        : isWarm
+                        ? { backgroundColor: "#fffbeb", borderLeft: "3px solid #f59e0b" }
+                        : {};
 
                       return (
                         <div
@@ -262,68 +290,81 @@ export default function Pipeline() {
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
                           }}
+                          style={cardStyle}
                           className={cn(
-                            "group/card bg-card rounded-xl border border-border/40 px-3.5 py-3 cursor-grab active:cursor-grabbing",
+                            "group/card relative rounded-xl border border-border/40 px-3 py-2.5 cursor-grab active:cursor-grabbing",
                             "transition-all duration-150",
                             "hover:shadow-md hover:shadow-black/5 hover:border-border/60",
                             "active:scale-[0.97]",
-                            isHot && "border-rose-500/20",
-                            isHot && temp?.glow
+                            !isHot && !isWarm && "bg-card",
                           )}
                         >
-                          {/* Top row: Name + Temp */}
-                          <div className="flex items-start justify-between gap-2">
-                            <p className={cn(
-                              "text-[13px] font-semibold leading-snug truncate",
-                              lost ? "text-muted-foreground/60" : "text-foreground"
-                            )}>
-                              {displayName}
-                            </p>
-                            {temp && (
-                              <span className={cn(
-                                "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0",
-                                temp.cls
-                              )}>
-                                {temp.label}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Phone */}
-                          {lead.phone && hasName && (
-                            <p className="text-[10px] text-muted-foreground/35 mt-0.5 tabular-nums">
-                              {formatPhone(lead.phone)}
-                            </p>
+                          {/* "···" hover action — top right */}
+                          {nextStage && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); move(lead.id, nextStage); }}
+                              className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
+                              title="Avançar etapa"
+                            >
+                              <MoreHorizontal className="w-3.5 h-3.5" />
+                            </button>
                           )}
 
-                          {/* Meta row */}
-                          <div className="flex items-center gap-2 mt-2 flex-wrap">
-                            {val && (
-                              <span className="text-[11px] font-bold text-emerald-500 tabular-nums">{val}</span>
-                            )}
-                            {ago && (
-                              <span className="text-[10px] text-muted-foreground/40 flex items-center gap-0.5 tabular-nums">
-                                <Clock className="w-2.5 h-2.5" />{ago}
-                              </span>
-                            )}
-                            {lead.responsible && (
-                              <span className="text-[10px] text-muted-foreground/40 flex items-center gap-0.5 ml-auto truncate max-w-[80px]">
-                                <User className="w-2.5 h-2.5 shrink-0" />{lead.responsible}
-                              </span>
-                            )}
-                          </div>
+                          <div className="flex items-start gap-2.5">
+                            {/* Avatar */}
+                            <div
+                              className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white shadow-sm"
+                              style={{ backgroundColor: avatarColor }}
+                            >
+                              {initials}
+                            </div>
 
-                          {/* Hover actions */}
-                          <div className="hidden group-hover/card:flex items-center gap-1 mt-2 pt-2 border-t border-border/20">
-                            {nextStage && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); move(lead.id, nextStage); }}
-                                className="text-[10px] text-primary/70 hover:text-primary flex items-center gap-0.5 transition-colors"
-                                title="Avançar etapa"
-                              >
-                                <ArrowRight className="w-3 h-3" /> Avançar
-                              </button>
-                            )}
+                            <div className="min-w-0 flex-1">
+                              {/* Name + temp */}
+                              <div className="flex items-start justify-between gap-2 pr-5">
+                                <p className={cn(
+                                  "text-[13px] font-bold leading-snug truncate",
+                                  lost ? "text-muted-foreground/60" : "text-foreground"
+                                )}>
+                                  {displayName}
+                                </p>
+                                {temp && (
+                                  <span className={cn(
+                                    "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0",
+                                    temp.cls
+                                  )}>
+                                    {temp.label}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Phone (only if name shown) */}
+                              {lead.phone && hasName && (
+                                <p className="text-[10px] text-muted-foreground/55 mt-0.5 tabular-nums">
+                                  {formatPhone(lead.phone)}
+                                </p>
+                              )}
+
+                              {/* Meta row */}
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                {val && (
+                                  <span className="text-[11px] font-bold text-emerald-500 tabular-nums">{val}</span>
+                                )}
+                                {ago && (
+                                  <span className={cn(
+                                    "text-[10px] flex items-center gap-0.5 tabular-nums font-medium",
+                                    ageColor
+                                  )}>
+                                    <Clock className="w-2.5 h-2.5" />{ago}
+                                  </span>
+                                )}
+                                {lead.responsible && (
+                                  <span className="text-[10px] text-muted-foreground/55 flex items-center gap-0.5 ml-auto truncate max-w-[80px]">
+                                    <User className="w-2.5 h-2.5 shrink-0" />{lead.responsible}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
