@@ -372,27 +372,29 @@ export default function Pipeline() {
                     {/* Hover actions — pencil always; trash only for custom stages (none default) */}
                     {editingStageKey !== stage.key && (
                       <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
-                        <button
-                          type="button"
-                          title="Renomear etapa"
-                          onClick={() => {
-                            setEditingStageDraft(stageLabels[stage.key] ?? stage.label);
-                            setEditingStageKey(stage.key);
-                          }}
-                          className="p-1 rounded-md hover:bg-black/5 transition-colors"
-                          style={{ color: stage.fg }}
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
                         {!DEFAULT_STAGE_KEYS.has(stage.key) && (
-                          <button
-                            type="button"
-                            title="Excluir etapa"
-                            onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
-                            className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              title="Renomear etapa"
+                              onClick={() => {
+                                setEditingStageDraft(stageLabels[stage.key] ?? stage.label);
+                                setEditingStageKey(stage.key);
+                              }}
+                              className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                              style={{ color: stage.fg }}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Excluir etapa"
+                              onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
+                              className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </>
                         )}
                       </div>
                     )}
