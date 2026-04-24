@@ -13,6 +13,19 @@ import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+const STAGE_COLORS = [
+  { key: "azul",    label: "Azul",    hex: "#3b82f6" },
+  { key: "ciano",   label: "Ciano",   hex: "#06b6d4" },
+  { key: "ambar",   label: "Âmbar",   hex: "#f59e0b" },
+  { key: "roxo",    label: "Roxo",    hex: "#8b5cf6" },
+  { key: "laranja", label: "Laranja", hex: "#f97316" },
+  { key: "verde",   label: "Verde",   hex: "#22c55e" },
+];
 
 const STAGES = [
   { key: "novo",       label: "Novo Lead",   dot: "bg-blue-500",     ring: "ring-blue-500/20",   bg: "#eff6ff", fg: "#1d4ed8" },
