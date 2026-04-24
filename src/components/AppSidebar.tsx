@@ -249,17 +249,14 @@ export function AppSidebar() {
               ${isLocked
                 ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
                 : active
-                  ? 'bg-primary/12 text-foreground font-semibold shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15)]'
-                  : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/30 hover:scale-[1.01]'
+                  ? 'bg-muted/40 text-foreground font-semibold'
+                  : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
               }`}
             activeClassName=""
           >
-            {active && !isLocked && !collapsed && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
-            )}
             <div className="relative shrink-0">
               <item.icon
-                className={`w-[17px] h-[17px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-primary' : ''}`}
+                className={`w-[17px] h-[17px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-foreground' : ''}`}
                 strokeWidth={active ? 2 : 1.4}
               />
               {isLocked && (
@@ -273,7 +270,7 @@ export function AppSidebar() {
               <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
             )}
             {!collapsed && !isLocked && badgeVal > 0 && (
-              <span className="ml-auto text-[10px] font-bold bg-primary/15 text-primary px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+              <span className="ml-auto text-[10px] font-bold bg-muted text-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                 {badgeVal}
               </span>
             )}
