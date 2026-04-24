@@ -250,6 +250,38 @@ export function ChatPanel({
 
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
+  // Send a quick reply as a sequence of blocks (text/image/audio/file) with delays
+  const sendQuickReplySequence = useCallback(async (qr: QuickReply) => {
+    const blocks = getQuickReplyBlocks(qr);
+    if (blocks.length === 0) return;
+    setShowQuickReplies(false);
+    setInput("");
+    const vars = { nome: conversation.name || "", telefone: conversation.phone || "" };
+
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      const delay = i === 0 ? 0 : (b.delayMs ?? 1500);
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+
+      try {
+        if (b.type === "text") {
+          const text = resolveVariables(b.content || "", vars);
+          if (text.trim()) onSendMessage?.(conversation.id, text);
+        } else if (b.mediaUrl) {
+          const res = await fetch(b.mediaUrl);
+          const blob = await res.blob();
+          const fileName = b.fileName || `${b.type}-${Date.now()}`;
+          const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
+          const caption = resolveVariables(b.content || "", vars);
+          onSendFile?.(conversation.id, file, caption || undefined);
+        }
+      } catch (err: any) {
+        toast.error(`Falha no bloco ${i + 1}`, { description: err.message });
+        break;
+      }
+    }
+  }, [conversation.id, conversation.name, conversation.phone, onSendMessage, onSendFile, setShowQuickReplies, setInput]);
+
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
 
   // Time in current status
