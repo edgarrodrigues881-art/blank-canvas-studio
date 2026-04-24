@@ -6,8 +6,12 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil, MoreHorizontal } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const STAGES = [
   { key: "novo",       label: "Novo Lead",   dot: "bg-blue-500",     ring: "ring-blue-500/20",   bg: "#eff6ff", fg: "#1d4ed8" },
@@ -124,6 +128,14 @@ export default function Pipeline() {
     if (idx < 0 || idx >= STAGES.length - 1) return null;
     return STAGES[idx + 1].key;
   };
+
+  const getPrevStage = (current: string) => {
+    const idx = STAGES.findIndex((s) => s.key === current);
+    if (idx <= 0) return null;
+    return STAGES[idx - 1].key;
+  };
+
+  const navigate = useNavigate();
 
   const totalValue = filtered.reduce((s, l) => s + (l.estimated_value || 0), 0);
   const isPerdido = (key: string) => key === "perdido";
@@ -254,6 +266,7 @@ export default function Pipeline() {
                       const val = currency(lead.estimated_value);
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
+                      const prevStage = getPrevStage(lead.pipeline_stage || "novo");
 
                       // Avatar — initials from name; if no name, 2 first letters of phone (without 55 prefix). Never show full number.
                       let initials = "?";
@@ -316,16 +329,48 @@ export default function Pipeline() {
                             (isHot || isWarm) && "border-y border-r border-border/30",
                           )}
                         >
-                          {/* "···" hover action — top right */}
-                          {nextStage && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); move(lead.id, nextStage); }}
-                              className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
-                              title="Avançar etapa"
-                            >
-                              <MoreHorizontal className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          {/* "···" hover menu — top right */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 data-[state=open]:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/60 text-muted-foreground"
+                                title="Ações"
+                              >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem
+                                disabled={!nextStage}
+                                onClick={() => nextStage && move(lead.id, nextStage)}
+                              >
+                                <ArrowRight className="w-3.5 h-3.5 mr-2" />
+                                Avançar etapa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={!prevStage}
+                                onClick={() => prevStage && move(lead.id, prevStage)}
+                              >
+                                <ArrowLeft className="w-3.5 h-3.5 mr-2" />
+                                Voltar etapa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => navigate(`/dashboard/conversations?phone=${encodeURIComponent(lead.phone)}`)}
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 mr-2" />
+                                Abrir conversa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => navigate(`/dashboard/leads?id=${lead.id}`)}
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-2" />
+                                Ver detalhes
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+
 
                           <div className="flex items-start gap-2.5">
                             {/* Avatar — photo if available, else initials */}
