@@ -77,6 +77,31 @@ function getAvatarGradient(name: string) {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
+// Detect if "name" is actually just the raw phone number (no real name yet)
+function isPhoneAsName(name?: string | null, phone?: string | null) {
+  if (!name) return true;
+  const n = name.replace(/\D/g, "");
+  const p = (phone || "").replace(/\D/g, "");
+  if (!n) return false;
+  // If the name is all digits, consider it a phone placeholder
+  if (/^\d+$/.test(name.trim())) return true;
+  // If digits-only version equals phone digits, it's a phone placeholder
+  if (n.length >= 8 && p.length >= 8 && (n === p || n.endsWith(p.slice(-8)) || p.endsWith(n.slice(-8)))) return true;
+  return false;
+}
+
+function displayName(name?: string | null, phone?: string | null) {
+  return isPhoneAsName(name, phone) ? (phone || "") : (name || "");
+}
+
+function avatarInitials(name?: string | null, phone?: string | null) {
+  if (isPhoneAsName(name, phone)) {
+    const digits = (phone || "").replace(/\D/g, "");
+    return digits.slice(-2) || "??";
+  }
+  return (name || "").trim().slice(0, 2).toUpperCase();
+}
+
 interface EditFormData {
   name: string;
   phone: string;
