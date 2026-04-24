@@ -713,7 +713,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
-          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[360px] min-h-[560px]">
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[360px] min-h-0">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
