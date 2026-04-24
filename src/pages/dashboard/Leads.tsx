@@ -203,6 +203,19 @@ export default function Leads() {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
+  /* ── auto-open detail when ?id= is present (e.g. from Pipeline) ── */
+  useEffect(() => {
+    if (!leads.length) return;
+    const params = new URLSearchParams(window.location.search);
+    const leadId = params.get("id");
+    if (!leadId) return;
+    const found = leads.find((l) => l.id === leadId);
+    if (found) {
+      setDetailLead(found);
+      setDetailTab("info");
+    }
+  }, [leads]);
+
   /* ── derived ── */
   const statusCounts = useMemo(() => STATUS_OPTIONS.reduce((acc, s) => {
     acc[s.value] = leads.filter((l) => (l.pipeline_stage || "novo") === s.value).length;
