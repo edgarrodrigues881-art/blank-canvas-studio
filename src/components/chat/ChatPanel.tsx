@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { formatDuration, formatFileSize } from "@/utils/formatters";
 import { getFileIcon } from "@/utils/fileHelpers";
-import { useQuickReplies, resolveVariables, QUICK_REPLY_CATEGORIES } from "@/hooks/chat/useQuickReplies";
+import { useQuickReplies, resolveVariables, getQuickReplyBlocks, QUICK_REPLY_CATEGORIES, type QuickReply } from "@/hooks/chat/useQuickReplies";
+import { toast } from "sonner";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/chat/useSendMessage";
 import { MessageBubble } from "./MessageBubble";
@@ -248,6 +249,38 @@ export function ChatPanel({
   } = send;
 
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
+
+  // Send a quick reply as a sequence of blocks (text/image/audio/file) with delays
+  const sendQuickReplySequence = useCallback(async (qr: QuickReply) => {
+    const blocks = getQuickReplyBlocks(qr);
+    if (blocks.length === 0) return;
+    setShowQuickReplies(false);
+    setInput("");
+    const vars = { nome: conversation.name || "", telefone: conversation.phone || "" };
+
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      const delay = i === 0 ? 0 : (b.delayMs ?? 1500);
+      if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+
+      try {
+        if (b.type === "text") {
+          const text = resolveVariables(b.content || "", vars);
+          if (text.trim()) onSendMessage?.(conversation.id, text);
+        } else if (b.mediaUrl) {
+          const res = await fetch(b.mediaUrl);
+          const blob = await res.blob();
+          const fileName = b.fileName || `${b.type}-${Date.now()}`;
+          const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
+          const caption = resolveVariables(b.content || "", vars);
+          onSendFile?.(conversation.id, file, caption || undefined);
+        }
+      } catch (err: any) {
+        toast.error(`Falha no bloco ${i + 1}`, { description: err.message });
+        break;
+      }
+    }
+  }, [conversation.id, conversation.name, conversation.phone, onSendMessage, onSendFile, setShowQuickReplies, setInput]);
 
   useEffect(() => { setCurrentStatus(conversation.attendingStatus); }, [conversation.id]);
 
@@ -585,9 +618,9 @@ export function ChatPanel({
               <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Respostas Rápidas</span>
             </div>
-            <button onClick={() => { setShowQuickReplies(false); setInput(""); setShowQRManager(true); }} className="text-[10px] text-primary hover:underline">
+            <a href="/dashboard/quick-replies" className="text-[10px] text-primary hover:underline">
               <Settings className="w-3.5 h-3.5 inline mr-0.5" />Gerenciar
-            </button>
+            </a>
           </div>
           <div className="px-2 pb-2 space-y-0.5 max-h-[240px] overflow-y-auto">
             {filteredQuickReplies.map((qr) => {

@@ -53,6 +53,7 @@ const AutosaveSchedule = lazyWithPreload(() => import("@/pages/dashboard/Autosav
 const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyList"));
 const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
+const QuickReplies = lazyWithPreload(() => import("@/pages/dashboard/QuickReplies"));
 const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
 const GroupLeadExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupLeadExtractor"));
 const GroupInviteExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupInviteExtractor"));
@@ -261,6 +262,7 @@ const App = () => (
                 <Route path="/dashboard/autoreply" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/flows" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/quick-replies" element={<ProtectedRoute><DashboardLayout><QuickReplies /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/contacts" element={<ProtectedRoute><DashboardLayout><Contacts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-extractor" element={<ProtectedRoute><DashboardLayout><GroupLeadExtractor /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-invite-extractor" element={<ProtectedRoute><DashboardLayout><GroupInviteExtractor /></DashboardLayout></ProtectedRoute>} />
