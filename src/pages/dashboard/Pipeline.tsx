@@ -546,6 +546,7 @@ export default function Pipeline() {
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
+                    overStageRef.current = null;
                     setOverStage(null);
                     // Stage reorder takes priority
                     if (stageDragKey && isCustomStage && stageDragKey !== stage.key) {
