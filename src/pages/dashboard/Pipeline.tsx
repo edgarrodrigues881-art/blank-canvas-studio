@@ -363,23 +363,41 @@ export default function Pipeline() {
       </Dialog>
 
       {/* Delete Stage Confirmation */}
-      <Dialog open={!!deleteStage} onOpenChange={(o) => !o && setDeleteStage(null)}>
+      <Dialog open={!!deleteStage} onOpenChange={(o) => { if (!o) { setDeleteStage(null); setMoveTargetKey(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Excluir etapa</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground py-2">
-            Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Os leads serão movidos para <span className="font-semibold text-foreground">Novo Lead</span>.
-          </p>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Escolha para qual etapa os leads serão movidos.
+            </p>
+            <div className="space-y-2">
+              <Label>Mover leads para</Label>
+              <Select value={moveTargetKey} onValueChange={setMoveTargetKey}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allStages.filter(s => s.key !== deleteStage?.key).map(s => (
+                    <SelectItem key={s.key} value={s.key}>
+                      {stageLabels[s.key] ?? s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setDeleteStage(null)}>
+            <Button variant="outline" onClick={() => { setDeleteStage(null); setMoveTargetKey(""); }}>
               Cancelar
             </Button>
             <Button
               variant="destructive"
+              disabled={!moveTargetKey || deletingStage}
               onClick={handleDeleteStage}
             >
-              Excluir
+              {deletingStage ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>
