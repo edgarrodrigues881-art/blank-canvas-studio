@@ -291,20 +291,22 @@
   }
 
   html {
-    transition: background-color 0.4s ease, color 0.4s ease;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  /* Smooth crossfade on theme switch — temporarily disable per-element transitions
-     to avoid stagger, and let the overlay handle the visual blend. */
+  /* Smooth crossfade on theme switch — sync ALL elements together so no
+     component lags behind with the previous theme color. */
   html.theme-switching,
   html.theme-switching * {
-    transition: background-color 0.4s ease, color 0.4s ease,
-                border-color 0.4s ease, fill 0.4s ease, stroke 0.4s ease !important;
+    transition: background-color 0.2s ease, color 0.2s ease,
+                border-color 0.2s ease, fill 0.2s ease, stroke 0.2s ease !important;
   }
 
+  /* Default per-element transitions — applied to every visible node so
+     theme swaps feel instant and uniform across sidebar, header, chat, etc. */
   *:not([data-state]) {
     transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-    transition-duration: 0.15s;
+    transition-duration: 0.2s;
     transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 

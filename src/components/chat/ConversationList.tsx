@@ -234,7 +234,7 @@ export function ConversationList({
       : Math.max(8, Math.min(contextPos.y + 6, window.innerHeight - 220));
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-background">
+    <div className="flex flex-col h-full bg-background transition-colors duration-200">
       {/* Search */}
       <div className="px-3 pt-3 pb-2 space-y-2.5">
         <div className="relative group/search">
@@ -442,11 +442,11 @@ export function ConversationList({
 
                         <div className="flex items-center justify-end min-w-[18px]">
                           {hasNewMessages ? (
-                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-neutral-700 text-white rounded-full flex items-center justify-center shrink-0">
+                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-muted-foreground/80 text-background rounded-full flex items-center justify-center shrink-0">
                               {c.unreadCount > 99 ? "99+" : c.unreadCount}
                             </span>
                           ) : isManualUnread ? (
-                            <span className="w-[10px] h-[10px] rounded-full bg-neutral-600 shrink-0" />
+                            <span className="w-[10px] h-[10px] rounded-full bg-muted-foreground/70 shrink-0" />
                           ) : activeStatus === "archived" && onUnarchive ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}
