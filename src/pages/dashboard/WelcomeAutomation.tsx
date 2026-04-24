@@ -353,7 +353,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[960px] w-[95vw] h-auto max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl fixed">
+      <DialogContent className="max-w-[1100px] w-[85vw] min-w-[900px] h-auto max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl fixed">
 
         {/* ═══════ HEADER ═══════ */}
         <DialogHeader className="relative px-7 pt-6 pb-5 shrink-0 bg-[hsl(0_0%_8%)]">
