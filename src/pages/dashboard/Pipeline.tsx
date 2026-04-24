@@ -19,12 +19,20 @@ import {
 import { Label } from "@/components/ui/label";
 
 const STAGE_COLORS = [
-  { key: "azul",    label: "Azul",    hex: "#3b82f6" },
-  { key: "ciano",   label: "Ciano",   hex: "#06b6d4" },
-  { key: "ambar",   label: "Âmbar",   hex: "#f59e0b" },
-  { key: "roxo",    label: "Roxo",    hex: "#8b5cf6" },
-  { key: "laranja", label: "Laranja", hex: "#f97316" },
-  { key: "verde",   label: "Verde",   hex: "#22c55e" },
+  { key: "azul",      label: "Azul",      hex: "#3b82f6" },
+  { key: "ciano",     label: "Ciano",     hex: "#06b6d4" },
+  { key: "ambar",     label: "Âmbar",     hex: "#f59e0b" },
+  { key: "roxo",      label: "Roxo",      hex: "#8b5cf6" },
+  { key: "laranja",   label: "Laranja",   hex: "#f97316" },
+  { key: "verde",     label: "Verde",     hex: "#22c55e" },
+  { key: "rosa",      label: "Rosa",      hex: "#ec4899" },
+  { key: "vermelho",  label: "Vermelho",  hex: "#ef4444" },
+  { key: "teal",      label: "Teal",      hex: "#14b8a6" },
+  { key: "indigo",    label: "Índigo",    hex: "#6366f1" },
+  { key: "lima",      label: "Lima",      hex: "#84cc16" },
+  { key: "fucsia",    label: "Fúcsia",    hex: "#d946ef" },
+  { key: "marrom",    label: "Marrom",    hex: "#92400e" },
+  { key: "cinza",     label: "Cinza",     hex: "#64748b" },
 ];
 
 const STAGES = [
