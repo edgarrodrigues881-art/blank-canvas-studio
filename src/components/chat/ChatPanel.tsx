@@ -657,7 +657,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border/40 dark:border-border/30 bg-card/70 backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)] transition-colors duration-200">
+      <div className="border-t border-border/40 dark:border-border/30 chat-input-grad backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)] transition-colors duration-200">
         {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
