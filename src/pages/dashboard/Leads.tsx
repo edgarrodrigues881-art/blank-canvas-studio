@@ -408,17 +408,6 @@ export default function Leads() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
-            <SelectValue placeholder="Prioridade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Prioridade</SelectItem>
-            {PRIORITY_OPTIONS.map((p) => (
-              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Select value={originFilter} onValueChange={setOriginFilter}>
           <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
             <SelectValue placeholder="Origem" />
