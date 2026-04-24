@@ -393,8 +393,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
 
+    log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+
     if (hasVisual && mediaUrl) {
       // Single-message image + text + buttons via uazapi /send/menu (imageButton field)
+      log.info(`[campaign-worker] /send/menu with imageButton -> ${mediaUrl.slice(0, 80)}`);
       await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, imageButton: mediaUrl, choices });
       return;
     }
