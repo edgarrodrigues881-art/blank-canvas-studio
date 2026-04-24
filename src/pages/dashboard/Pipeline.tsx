@@ -89,6 +89,23 @@ function timeShort(date: string | null) {
   } catch { return null; }
 }
 
+interface CustomStage {
+  id: string;
+  key: string;
+  label: string;
+  color: string;
+  position: number;
+}
+
+const COLOR_TO_PALETTE: Record<string, { bg: string; fg: string; dot: string }> = {
+  azul:    { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
+  ciano:   { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
+  ambar:   { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
+  roxo:    { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
+  laranja: { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
+  verde:   { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+};
+
 export default function Pipeline() {
   const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -106,8 +123,35 @@ export default function Pipeline() {
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
   const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+  const [customStages, setCustomStages] = useState<CustomStage[]>([]);
+  const [creatingStage, setCreatingStage] = useState(false);
 
   const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
+
+  // Build merged stage list: defaults (Novo..Negociacao) + custom + Fechado + Perdido at the end
+  const allStages = (() => {
+    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido");
+    const tail = STAGES.filter(s => s.key === "fechado" || s.key === "perdido");
+    const custom = customStages.map(c => {
+      const pal = COLOR_TO_PALETTE[c.color] || COLOR_TO_PALETTE.azul;
+      return { key: c.key, label: c.label, dot: pal.dot, ring: "", bg: pal.bg, fg: pal.fg };
+    });
+    return [...defaults, ...custom, ...tail];
+  })();
+
+  const fetchCustomStages = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("pipeline_stages")
+      .select("id,key,label,color,position")
+      .eq("user_id", user.id)
+      .order("position", { ascending: true });
+    if (error) {
+      console.error("[Pipeline] custom stages fetch error:", error);
+      return;
+    }
+    setCustomStages((data as CustomStage[]) || []);
+  }, [user]);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -125,7 +169,53 @@ export default function Pipeline() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { fetchLeads(); fetchCustomStages(); }, [fetchLeads, fetchCustomStages]);
+
+  const handleCreateStage = async () => {
+    if (!user || !newStageName.trim()) return;
+    setCreatingStage(true);
+    const label = newStageName.trim();
+    const baseKey = "custom_" + label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const key = `${baseKey}_${Date.now().toString(36)}`;
+    const maxPos = customStages.reduce((m, s) => Math.max(m, s.position), 0);
+    const { error } = await supabase.from("pipeline_stages").insert({
+      user_id: user.id, key, label, color: newStageColor, position: maxPos + 1,
+    } as any);
+    setCreatingStage(false);
+    if (error) {
+      toast.error("Erro ao criar etapa: " + error.message);
+      return;
+    }
+    toast.success(`Etapa "${label}" criada`);
+    setNewStageOpen(false);
+    await fetchCustomStages();
+  };
+
+  const handleDeleteStage = async () => {
+    if (!user || !deleteStage) return;
+    const key = deleteStage.key;
+    // Move leads first
+    const { error: moveErr } = await supabase
+      .from("service_contacts")
+      .update({ pipeline_stage: "novo" } as any)
+      .eq("user_id", user.id)
+      .eq("pipeline_stage", key);
+    if (moveErr) {
+      toast.error("Erro ao mover leads: " + moveErr.message);
+      return;
+    }
+    const { error: delErr } = await supabase
+      .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
+    if (delErr) {
+      toast.error("Erro ao excluir etapa: " + delErr.message);
+      return;
+    }
+    toast.success(`Etapa "${deleteStage.label}" excluída`);
+    setDeleteStage(null);
+    setCustomStages(prev => prev.filter(s => s.key !== key));
+    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: "novo" } : l));
+  };
+
 
   const responsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
 
