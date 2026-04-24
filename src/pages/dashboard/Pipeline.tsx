@@ -130,6 +130,7 @@ export default function Pipeline() {
   const [respFilter, setRespFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const dragRef = useRef<{ id: string; from: string } | null>(null);
+  const overStageRef = useRef<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [stageDragKey, setStageDragKey] = useState<string | null>(null);
