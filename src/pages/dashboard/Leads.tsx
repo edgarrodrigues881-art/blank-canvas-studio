@@ -70,13 +70,19 @@ const PRIORITY_OPTIONS = [
 ];
 
 const ORIGIN_OPTIONS = [
-  { value: "site", label: "Site", icon: Globe },
-  { value: "indicacao", label: "Indicação", icon: UserPlus },
-  { value: "google", label: "Google", icon: Search },
-  { value: "redes_sociais", label: "Redes Sociais", icon: Users },
-  { value: "evento", label: "Evento", icon: Calendar },
-  { value: "campanha", label: "Campanha", icon: Megaphone },
-  { value: "manual", label: "Manual", icon: User },
+  { value: "WhatsApp", label: "WhatsApp", icon: MessageSquare },
+  { value: "Instagram", label: "Instagram", icon: Users },
+  { value: "Facebook", label: "Facebook", icon: Users },
+  { value: "Site", label: "Site", icon: Globe },
+  { value: "Indicação", label: "Indicação", icon: UserPlus },
+  { value: "Google Ads", label: "Google Ads", icon: Search },
+  { value: "Meta Ads", label: "Meta Ads", icon: Megaphone },
+  { value: "TikTok", label: "TikTok", icon: Users },
+  { value: "LinkedIn", label: "LinkedIn", icon: Users },
+  { value: "Telefone", label: "Telefone", icon: Phone },
+  { value: "Email", label: "Email", icon: Mail },
+  { value: "Prospecção", label: "Prospecção", icon: Search },
+  { value: "Outro", label: "Outro", icon: User },
 ];
 
 /* ── avatar colors based on name hash ── */
@@ -112,7 +118,7 @@ function getPriorityConfig(priority: string | null) {
 }
 
 function getOriginConfig(origin: string | null) {
-  return ORIGIN_OPTIONS.find((o) => o.value === origin) || ORIGIN_OPTIONS[6];
+  return ORIGIN_OPTIONS.find((o) => o.value === origin) || { value: origin || "Outro", label: origin || "Outro", icon: User };
 }
 
 /* ── Detail Row helper ── */
@@ -214,7 +220,7 @@ export default function Leads() {
 
   const [form, setForm] = useState({
     name: "", phone: "", email: "", company: "", notes: "",
-    origin: "manual", pipeline_stage: "novo",
+    origin: "WhatsApp", pipeline_stage: "novo",
     interest: "", estimated_value: "", priority: "media",
     responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
   });
@@ -270,7 +276,7 @@ export default function Leads() {
     setEditing(null);
     setForm({
       name: "", phone: "", email: "", company: "", notes: "",
-      origin: "manual", pipeline_stage: "novo",
+      origin: "WhatsApp", pipeline_stage: "novo",
       interest: "", estimated_value: "", priority: "media",
       responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
     });
@@ -281,7 +287,7 @@ export default function Leads() {
     setEditing(l);
     setForm({
       name: l.name, phone: l.phone, email: l.email || "", company: l.company || "",
-      notes: l.notes || "", origin: l.origin || "manual",
+      notes: l.notes || "", origin: l.origin || "WhatsApp",
       pipeline_stage: l.pipeline_stage || "novo",
       interest: l.interest || "", estimated_value: l.estimated_value?.toString() || "",
       priority: l.priority || "media", responsible: l.responsible || "",
@@ -350,7 +356,7 @@ export default function Leads() {
       const cols = line.split(",").map((c) => c.trim());
       return {
         user_id: user.id, name: nameIdx >= 0 ? cols[nameIdx] || "" : "",
-        phone: cols[phoneIdx] || "", origin: "manual", status: "active",
+        phone: cols[phoneIdx] || "", origin: "WhatsApp", status: "active",
         pipeline_stage: "novo", tags: [] as string[], priority: "media",
       };
     });
