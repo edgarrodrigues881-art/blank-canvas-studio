@@ -482,31 +482,53 @@ export default function Pipeline() {
             const isStageDragOver = stageDragKey && stageOverKey === stage.key && stageDragKey !== stage.key && isCustomStage;
 
             return (
-              <div
-                key={stage.key}
-                className={cn(
-                  "flex flex-col shrink-0 h-full transition-all duration-200",
-                  lost ? "w-[180px]" : "w-[240px]",
-                  stageDragKey === stage.key && "opacity-40 scale-95",
-                  isStageDragOver && "ml-[120px]"
+              <div key={stage.key} className="flex h-full shrink-0 items-stretch">
+                {/* Drop indicator placeholder (only when reordering custom stages) */}
+                {isStageDragOver && (
+                  <div
+                    className="w-[240px] shrink-0 mr-3 rounded-xl border-2 border-dashed transition-all duration-150"
+                    style={{ borderColor: `${stage.fg}80`, backgroundColor: `${stage.fg}0d` }}
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (stageDragKey && stageDragKey !== stage.key) {
+                        reorderCustomStage(stageDragKey, stage.key);
+                      }
+                      setStageDragKey(null);
+                      setStageOverKey(null);
+                      setOverStage(null);
+                    }}
+                  />
                 )}
-                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); if (stageDragKey && isCustomStage) setStageOverKey(stage.key); }}
-                onDragLeave={() => { setOverStage(null); if (stageOverKey === stage.key) setStageOverKey(null); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setOverStage(null);
-                  // Stage reorder takes priority
-                  if (stageDragKey && isCustomStage && stageDragKey !== stage.key) {
-                    reorderCustomStage(stageDragKey, stage.key);
-                    setStageDragKey(null);
-                    setStageOverKey(null);
-                    return;
-                  }
-                  const id = e.dataTransfer.getData("text/plain");
-                  if (id && dragRef.current && dragRef.current.from !== stage.key) move(id, stage.key);
-                  dragRef.current = null;
-                }}
-              >
+                <div
+                  className={cn(
+                    "flex flex-col shrink-0 h-full transition-opacity duration-150",
+                    lost ? "w-[180px]" : "w-[240px]",
+                    stageDragKey === stage.key && "opacity-30"
+                  )}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (overStage !== stage.key) setOverStage(stage.key);
+                    if (stageDragKey && isCustomStage && stageOverKey !== stage.key) {
+                      setStageOverKey(stage.key);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setOverStage(null);
+                    // Stage reorder takes priority
+                    if (stageDragKey && isCustomStage && stageDragKey !== stage.key) {
+                      reorderCustomStage(stageDragKey, stage.key);
+                      setStageDragKey(null);
+                      setStageOverKey(null);
+                      return;
+                    }
+                    const id = e.dataTransfer.getData("text/plain");
+                    if (id && dragRef.current && dragRef.current.from !== stage.key) move(id, stage.key);
+                    dragRef.current = null;
+                  }}
+                >
                 {/* Column header */}
                 <div
                   draggable={isCustomStage && editingStageKey !== stage.key}
