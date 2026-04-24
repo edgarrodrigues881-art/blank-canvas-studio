@@ -610,10 +610,15 @@ export default function GroupCarouselDispatch() {
       }
     } finally { setSending(false); }
 
-    if (campaignId) {
+    if (campaignId && !aborted) {
       await supabase.from("campaigns").update({
         status: fail === selectedGroups.length ? "failed" : "completed",
         sent_count: ok, failed_count: fail, completed_at: new Date().toISOString(),
+      }).eq("id", campaignId);
+    } else if (campaignId && aborted) {
+      // Preserve user-set status (paused/cancelled), only update counters
+      await supabase.from("campaigns").update({
+        sent_count: ok, failed_count: fail,
       }).eq("id", campaignId);
     }
     if (ok > 0) toast.success(`Enviado para ${ok} grupo(s)`);
