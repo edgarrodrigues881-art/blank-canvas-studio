@@ -284,7 +284,7 @@ export default function Pipeline() {
                       const displayName = (!isPhoneDisplay && rawDisplay.length > 15)
                         ? `${rawDisplay.trim().split(/\s+/)[0]}...`
                         : rawDisplay;
-                      const val = currency(lead.estimated_value);
+                      
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
                       const prevStage = getPrevStage(lead.pipeline_stage || "novo");
