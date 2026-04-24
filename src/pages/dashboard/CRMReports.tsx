@@ -7,8 +7,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, ArrowUpRight, ArrowDownRight, DollarSign, Handshake, Users, TrendingUp, MessageCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, ComposedChart, Line, Area, Legend,
+  PieChart, Pie, Cell, ComposedChart, Bar, Line, Area, Legend,
 } from "recharts";
+import { TrendingDown } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, differenceInMinutes, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -564,7 +565,31 @@ export default function CRMReports() {
 
       {/* Charts row 1 — Leads vs Respostas (full) */}
       <Panel className="mb-3">
-        <SectionTitle>Leads vs Respostas</SectionTitle>
+        {(() => {
+          const totalLeads = activityData.reduce((s, d) => s + (d.leads || 0), 0);
+          const totalResponses = activityData.reduce((s, d) => s + (d.responses || 0), 0);
+          const isPositive = totalLeads >= totalResponses;
+          return (
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-[15px] font-medium text-foreground tracking-tight">Leads vs Respostas</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Atividade no período</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold ${
+                  isPositive ? "bg-blue-500/10 text-blue-500" : "bg-red-500/10 text-red-500"
+                }`}>
+                  {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                  {totalLeads > 0 ? "+" : ""}{totalLeads}
+                </div>
+                <div className="text-right">
+                  <p className="text-[22px] font-extrabold text-foreground leading-none tabular-nums">{totalLeads}</p>
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5">no período</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {isLoading ? (
           <Skeleton className="h-[260px] w-full" />
         ) : activityData.length === 0 ? (
@@ -573,20 +598,16 @@ export default function CRMReports() {
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart data={activityData} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
               <defs>
-                <linearGradient id="leadsFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="responsesFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                <linearGradient id="leadsBarGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.25} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.4} vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip
-                cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                 content={({ active, payload, label }) => {
                   if (!active || !payload?.length) return null;
                   return (
@@ -603,9 +624,9 @@ export default function CRMReports() {
                   );
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} iconType="line" />
-              <Area type="monotone" dataKey="leads" name="Novos Leads" stroke="#3b82f6" strokeWidth={2.5} fill="url(#leadsFill)" dot={false} activeDot={{ r: 4, fill: "#3b82f6", stroke: "hsl(var(--card))", strokeWidth: 2 }} />
-              <Area type="monotone" dataKey="responses" name="Respostas" stroke="#22c55e" strokeWidth={2.5} fill="url(#responsesFill)" dot={false} activeDot={{ r: 4, fill: "#22c55e", stroke: "hsl(var(--card))", strokeWidth: 2 }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} iconType="circle" />
+              <Bar dataKey="leads" name="Novos Leads" fill="url(#leadsBarGrad)" radius={[4, 4, 0, 0]} maxBarSize={36} />
+              <Line type="monotone" dataKey="responses" name="Respostas" stroke="#22c55e" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#22c55e", stroke: "hsl(var(--card))", strokeWidth: 2 }} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
