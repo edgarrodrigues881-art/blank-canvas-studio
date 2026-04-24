@@ -88,11 +88,16 @@ export default function Pipeline() {
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("service_contacts")
       .select("id,name,phone,company,interest,estimated_value,lead_temperature,responsible,pipeline_stage,last_message_at,created_at,avatar_url")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) {
+      console.error("[Pipeline] fetch error:", error);
+      toast.error("Erro ao carregar leads: " + error.message);
+    }
     setLeads((data as any[]) || []);
     setLoading(false);
   }, [user]);
