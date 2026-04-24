@@ -25,7 +25,10 @@ interface UseConversationActionsParams {
 
 function notifySendFailure(rawError?: string | null, deviceName?: string | null) {
   const feedback = getSendFailureFeedback(rawError, deviceName);
-  toast.error(feedback.title, { description: feedback.description });
+  toast(feedback.title, {
+    description: feedback.description,
+    icon: "⚠️",
+  });
   return feedback.shortReason;
 }
 
