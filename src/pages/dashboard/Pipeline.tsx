@@ -325,6 +325,8 @@ export default function Pipeline() {
   const move = async (id: string, to: string) => {
     const prev = leads;
     setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, pipeline_stage: to } : l)));
+    overStageRef.current = null;
+    setOverStage(null);
     const { error } = await supabase.from("service_contacts").update({ pipeline_stage: to } as any).eq("id", id);
     if (error) { setLeads(prev); toast.error("Erro ao mover"); }
   };
