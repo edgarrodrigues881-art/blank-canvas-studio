@@ -127,7 +127,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [aiDetectedIntent, setAiDetectedIntent] = useState<string | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
-    name: conversation.name,
+    name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
     phone: conversation.phone,
     email: conversation.email || "",
     company: "",
