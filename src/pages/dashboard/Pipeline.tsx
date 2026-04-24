@@ -178,15 +178,7 @@ export default function Pipeline() {
             {responsibles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-[140px] h-9 text-sm rounded-xl border-border/40 bg-muted/20 shadow-none">
-            <SelectValue placeholder="Etapa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {STAGES.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Stage filter removed — Kanban columns already represent stages */}
       </div>
 
       {/* Kanban */}
