@@ -414,7 +414,7 @@ export function ConversationList({
                         </span>
                         <span className={cn(
                           "text-right text-[10.5px] leading-tight whitespace-nowrap tabular-nums",
-                          hasNewMessages ? "text-emerald-500 font-semibold" : "text-muted-foreground/70"
+                          hasNewMessages ? "text-foreground font-semibold" : "text-muted-foreground/70"
                         )}>
                           {c.lastMessageAt ? formatDate(c.lastMessageAt) : ""}
                         </span>
