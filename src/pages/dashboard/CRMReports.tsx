@@ -16,13 +16,22 @@ import { useNavigate } from "react-router-dom";
 
 type Period = "7d" | "30d" | "90d" | "all";
 
-const PIPELINE_STAGES = [
-  { key: "novo", label: "Novo Lead" },
-  { key: "respondeu", label: "Respondeu" },
-  { key: "interessado", label: "Interessado" },
-  { key: "negociacao", label: "Negociação" },
-  { key: "fechado", label: "Fechado" },
+const DEFAULT_PIPELINE_STAGES = [
+  { key: "novo", label: "Novo Lead", color: "#3b82f6" },
+  { key: "respondeu", label: "Respondeu", color: "#06b6d4" },
+  { key: "interessado", label: "Interessado", color: "#f59e0b" },
+  { key: "agendado", label: "Agendado", color: "#8b5cf6" },
+  { key: "negociacao", label: "Negociação", color: "#f97316" },
+  { key: "fechado", label: "Fechado", color: "#22c55e" },
+  { key: "perdido", label: "Perdido", color: "#ef4444" },
 ];
+const DEFAULT_KEYS = new Set(DEFAULT_PIPELINE_STAGES.map(s => s.key));
+const TAIL_KEYS = new Set(["fechado", "perdido"]);
+
+const CUSTOM_COLOR_MAP: Record<string, string> = {
+  azul: "#3b82f6", ciano: "#06b6d4", ambar: "#f59e0b",
+  roxo: "#8b5cf6", laranja: "#f97316", verde: "#22c55e",
+};
 
 const TEMP_LABELS: Record<string, { label: string; color: string }> = {
   frio: { label: "Frio", color: "#9ca3af" }, // gray
