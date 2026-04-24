@@ -266,6 +266,7 @@ export default function Pipeline() {
                       const val = currency(lead.estimated_value);
                       const ago = timeShort(lead.last_message_at || lead.created_at);
                       const nextStage = getNextStage(lead.pipeline_stage || "novo");
+                      const prevStage = getPrevStage(lead.pipeline_stage || "novo");
 
                       // Avatar — initials from name; if no name, 2 first letters of phone (without 55 prefix). Never show full number.
                       let initials = "?";
