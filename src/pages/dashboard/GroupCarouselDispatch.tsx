@@ -407,7 +407,7 @@ export default function GroupCarouselDispatch() {
           message_content: storedHeaderText.trim() || null, media_url: trimmedMediaUrl || null,
           buttons: hasActiveButtons ? activeButtons as any : null,
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
-          device_id: selectedDevice, status: "processing", total_contacts: selectedGroups.length,
+          device_id: selectedDevice, status: "pending", total_contacts: selectedGroups.length,
           started_at: startedAt,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
@@ -427,11 +427,22 @@ export default function GroupCarouselDispatch() {
       );
       if (targetsErr) throw targetsErr;
 
+      // Trigger the SERVER-SIDE worker (fire-and-forget).
+      // The worker runs in the background and respects pause/cancel
+      // even if the user closes the browser tab.
+      const { error: invokeErr } = await supabase.functions.invoke("process-group-dispatch", {
+        body: { campaignId: campaign.id },
+      });
+      if (invokeErr) {
+        console.error("Failed to start worker:", invokeErr);
+        toast.warning("Campanha criada, mas o worker não respondeu. Tente reprocessar pela página de detalhes.");
+      }
+
       const campaignRoute = `/dashboard/campaign/${campaign.id}`;
       toast.success(
-        `${selectedGroups.length} grupo(s). Iniciando envio...`,
+        `${selectedGroups.length} grupo(s). Envio iniciado em segundo plano.`,
         {
-          description: "Campanha criada com sucesso!",
+          description: "A campanha continua mesmo se você fechar a aba.",
           action: {
             label: "Ver campanha",
             onClick: () => navigate(campaignRoute),
@@ -456,7 +467,6 @@ export default function GroupCarouselDispatch() {
       setProgress({ sent: 0, total: 0 });
 
       navigate(campaignRoute);
-      await wait(0);
     } catch (err: any) {
       if (campaignId) {
         await supabase.from("campaigns").update({
@@ -464,165 +474,10 @@ export default function GroupCarouselDispatch() {
           completed_at: new Date().toISOString(),
         }).eq("id", campaignId);
       }
-      toast.error("Erro ao criar campanha: " + (err?.message || "")); setSending(false); return;
+      toast.error("Erro ao criar campanha: " + (err?.message || ""));
+    } finally {
+      setSending(false);
     }
-
-    let ok = 0, fail = 0;
-    const results: SendResultItem[] = [];
-    const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
-    let sinceLastPause = 0;
-
-    // Helper: aborta envio se campanha foi pausada/cancelada/excluída
-    const checkCampaignStatus = async (): Promise<"continue" | "stop"> => {
-      if (!campaignId) return "stop";
-      const { data, error } = await supabase
-        .from("campaigns")
-        .select("status")
-        .eq("id", campaignId)
-        .maybeSingle();
-      if (error || !data) {
-        toast.warning("Campanha removida — envio interrompido.");
-        return "stop";
-      }
-      if (data.status === "paused") {
-        toast.info("Campanha pausada — envios interrompidos.");
-        return "stop";
-      }
-      if (["cancelled", "canceled", "failed", "completed"].includes(data.status)) {
-        toast.info(`Campanha ${data.status} — envios interrompidos.`);
-        return "stop";
-      }
-      return "continue";
-    };
-
-    // Helper: espera respeitando pause/cancel (verifica a cada 1s)
-    const waitWithCheck = async (ms: number): Promise<"continue" | "stop"> => {
-      const step = 1000;
-      let elapsed = 0;
-      while (elapsed < ms) {
-        const slice = Math.min(step, ms - elapsed);
-        await wait(slice);
-        elapsed += slice;
-        if ((await checkCampaignStatus()) === "stop") return "stop";
-      }
-      return "continue";
-    };
-
-    let aborted = false;
-    try {
-      for (let i = 0; i < selectedGroups.length; i++) {
-        // Check status BEFORE every group send
-        if ((await checkCampaignStatus()) === "stop") { aborted = true; break; }
-
-        const gid = selectedGroups[i];
-        const gname = groupNameMap.get(gid) || gid;
-        if (i > 0) {
-          if ((await waitWithCheck(rand(minDelay, maxDelay) * 1000)) === "stop") { aborted = true; break; }
-        }
-        sinceLastPause++;
-        if (sinceLastPause >= pauseEvery && i < selectedGroups.length - 1) {
-          const p = rand(pauseDurationMin, pauseDurationMax) * 1000;
-          toast.info(`Pausando por ${Math.round(p / 1000)}s...`);
-          if ((await waitWithCheck(p)) === "stop") { aborted = true; break; }
-          sinceLastPause = 0;
-        }
-
-        const plan = { text: dispatchType === "carousel" ? trimmedCarouselHeader : trimmedText, withExtras: true };
-
-        try {
-            let body: Record<string, any>;
-            if (dispatchType === "buttons" && activeButtons.length > 0) {
-              body = {
-                deviceId: selectedDevice,
-                groupJid: gid,
-                content: plan.text.trim(),
-                type: "buttons",
-                buttons: activeButtons,
-                ...(trimmedMediaUrl ? { mediaUrl: trimmedMediaUrl } : {}),
-              };
-            } else if (dispatchType !== "carousel") {
-              if (trimmedMediaUrl) {
-                body = {
-                  deviceId: selectedDevice,
-                  groupJid: gid,
-                  content: trimmedMediaUrl,
-                  caption: plan.text.trim() || undefined,
-                  type: detectMediaType(trimmedMediaUrl) || "image",
-                };
-              } else {
-                body = { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
-              }
-            } else {
-              body = touchedCards.length > 0
-                ? { deviceId: selectedDevice, groupJid: gid, headerText: plan.text.trim() || undefined, cards: serializeCarouselCards(touchedCards) }
-                : { deviceId: selectedDevice, groupJid: gid, content: plan.text.trim(), type: "text" };
-            }
-
-            // Inject mentionAll flag
-            if (mentionAll) {
-              body.mentionAll = true;
-            }
-
-            const res = await supabase.functions.invoke("group-carousel-send", { body });
-            if (res.error || res.data?.ok === false) {
-              let detailedError = res.data?.error;
-              const errorContext = (res.error as any)?.context;
-
-              if (!detailedError && errorContext && typeof errorContext.clone === "function") {
-                try {
-                  const errorPayload = await errorContext.clone().json();
-                  detailedError = errorPayload?.error || errorPayload?.message;
-                } catch {
-                  // ignore response body parse failures and fallback below
-                }
-              }
-
-              throw new Error(detailedError || res.error?.message || "Falha ao enviar.");
-            }
-
-          const sentAt = new Date().toISOString();
-          const resolvedName = res.data?.groupName || gname;
-          ok++;
-          results.push({ groupId: gid, groupName: resolvedName, status: "success", message: "Enviado com sucesso." });
-          const updateFields: Record<string, any> = {
-            status: "sent",
-            sent_at: sentAt,
-            error_message: null,
-            device_id: selectedDevice,
-          };
-          if (resolvedName && resolvedName !== gid && !resolvedName.includes("@g.us")) {
-            updateFields.name = resolvedName;
-          }
-          await supabase.from("campaign_contacts").update(updateFields as any).eq("campaign_id", campaignId).eq("phone", gid);
-        } catch (e) {
-          const errorMessage = e instanceof Error ? e.message : "Falha.";
-          fail++;
-          results.push({ groupId: gid, groupName: gname, status: "error", message: errorMessage });
-          await supabase.from("campaign_contacts").update({
-            status: "failed",
-            error_message: errorMessage,
-            device_id: selectedDevice,
-          } as any).eq("campaign_id", campaignId).eq("phone", gid);
-        }
-
-        setProgress({ sent: i + 1, total: selectedGroups.length });
-        setSendResults([...results]);
-      }
-    } finally { setSending(false); }
-
-    if (campaignId && !aborted) {
-      await supabase.from("campaigns").update({
-        status: fail === selectedGroups.length ? "failed" : "completed",
-        sent_count: ok, failed_count: fail, completed_at: new Date().toISOString(),
-      }).eq("id", campaignId);
-    } else if (campaignId && aborted) {
-      // Preserve user-set status (paused/cancelled), only update counters
-      await supabase.from("campaigns").update({
-        sent_count: ok, failed_count: fail,
-      }).eq("id", campaignId);
-    }
-    if (ok > 0) toast.success(`Enviado para ${ok} grupo(s)`);
-    if (fail > 0) toast.error(`Falha em ${fail} grupo(s)`);
   };
 
   const dtOpts: { value: DispatchType; label: string; icon: React.ReactNode; desc: string }[] = [
