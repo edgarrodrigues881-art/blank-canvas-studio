@@ -560,7 +560,7 @@ export default function Pipeline() {
                       {items.length}
                     </span>
                     {/* Hover actions — pencil for all stages; trash only for custom */}
-                    {editingStageKey !== stage.key && (
+                    {editingStageKey !== stage.key && !isFixedNovo && (
                       <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
                         <button
                           type="button"
