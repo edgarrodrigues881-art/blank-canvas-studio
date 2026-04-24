@@ -553,7 +553,11 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Nome</span>
-                  <span className="text-xs font-medium text-foreground">{conversation.name}</span>
+                  <span className="text-xs font-medium text-foreground">
+                    {isPhoneAsName(conversation.name, conversation.phone)
+                      ? <span className="italic text-muted-foreground/60">— sem nome —</span>
+                      : conversation.name}
+                  </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Telefone</span>
