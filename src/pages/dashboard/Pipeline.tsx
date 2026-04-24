@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, ArrowRightLeft, Pencil, MoreHorizontal, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -820,6 +820,31 @@ export default function Pipeline() {
                                 <ArrowLeft className="w-3.5 h-3.5 mr-2" />
                                 Voltar etapa
                               </DropdownMenuItem>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                  <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />
+                                  Transferir
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuPortal>
+                                  <DropdownMenuSubContent className="max-h-72 overflow-y-auto w-52">
+                                    {allStages.map((s) => {
+                                      const isCurrent = (lead.pipeline_stage || "novo") === s.key;
+                                      return (
+                                        <DropdownMenuItem
+                                          key={s.key}
+                                          disabled={isCurrent}
+                                          onClick={() => !isCurrent && move(lead.id, s.key)}
+                                        >
+                                          <span className={cn("w-2 h-2 rounded-full mr-2 shrink-0", s.dot)} />
+                                          <span className="truncate">{stageLabels[s.key] ?? s.label}</span>
+                                          {isCurrent && <span className="ml-auto text-[10px] text-muted-foreground">atual</span>}
+                                        </DropdownMenuItem>
+                                      );
+                                    })}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuPortal>
+                              </DropdownMenuSub>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => navigate(`/dashboard/conversations?phone=${encodeURIComponent(lead.phone)}`)}
                               >
