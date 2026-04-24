@@ -112,6 +112,19 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
   const [pipelineStage, setPipelineStage] = useState<string>("novo");
   const [pipelineStages, setPipelineStages] = useState<{ key: string; label: string }[]>([]);
+  const [universalTags, setUniversalTags] = useState<{ label: string; color: string | null }[]>([]);
+
+  // Load universal CRM tags (per user)
+  const loadUniversalTags = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("crm_user_tags" as any)
+      .select("label,color")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+    if (data) setUniversalTags(data as any);
+  };
+  useEffect(() => { loadUniversalTags(); }, [user]);
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
@@ -270,11 +283,35 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     });
   };
 
-  const addCustomTag = () => {
+  const addCustomTag = async () => {
     const tag = customTagInput.trim();
-    if (!tag || activeTags.includes(tag)) return;
-    toggleTag(tag);
+    if (!tag) return;
+    // Persist to universal tags catalog (per user)
+    if (user && !universalTags.some((t) => t.label.toLowerCase() === tag.toLowerCase())) {
+      const { error } = await supabase
+        .from("crm_user_tags" as any)
+        .insert({ user_id: user.id, label: tag } as any);
+      if (!error) {
+        setUniversalTags((prev) => [...prev, { label: tag, color: null }]);
+      } else if (!error.message?.includes("duplicate")) {
+        toast.error("Erro ao salvar tag: " + error.message);
+      }
+    }
+    if (!activeTags.includes(tag)) toggleTag(tag);
     setCustomTagInput("");
+  };
+
+  const removeUniversalTag = async (label: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("crm_user_tags" as any)
+      .delete()
+      .eq("user_id", user.id)
+      .eq("label", label);
+    if (!error) {
+      setUniversalTags((prev) => prev.filter((t) => t.label !== label));
+      toast.success("Tag removida do catálogo");
+    }
   };
 
   const handleEditSave = async () => {
@@ -690,7 +727,34 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               </div>
             )}
 
-            {/* Suggested tags removed — only custom tags */}
+            {/* Universal saved tags (per user) — click to apply */}
+            {universalTags.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-muted-foreground/80 font-semibold uppercase tracking-wider">Suas tags salvas</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {universalTags
+                    .filter((t) => !activeTags.some((a) => a.toLowerCase() === t.label.toLowerCase()))
+                    .map((t) => (
+                      <span
+                        key={t.label}
+                        className="group text-[10px] px-2 py-1 rounded-md font-medium border border-border/40 bg-muted/20 text-muted-foreground hover:bg-primary/10 hover:text-foreground hover:border-primary/30 transition-colors inline-flex items-center gap-1"
+                      >
+                        <button onClick={() => toggleTag(t.label)} className="cursor-pointer">
+                          + {t.label}
+                        </button>
+                        <button
+                          onClick={() => removeUniversalTag(t.label)}
+                          className="opacity-0 group-hover:opacity-100 hover:text-destructive ml-0.5 transition-opacity"
+                          title="Remover do catálogo"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
 
             {/* Custom tag input */}
             <div className="flex gap-1.5">

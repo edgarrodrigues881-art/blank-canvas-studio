@@ -2856,6 +2856,33 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_user_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          label: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       delay_profiles: {
         Row: {
           created_at: string
