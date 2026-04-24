@@ -70,13 +70,19 @@ const PRIORITY_OPTIONS = [
 ];
 
 const ORIGIN_OPTIONS = [
-  { value: "site", label: "Site", icon: Globe },
-  { value: "indicacao", label: "Indicação", icon: UserPlus },
-  { value: "google", label: "Google", icon: Search },
-  { value: "redes_sociais", label: "Redes Sociais", icon: Users },
-  { value: "evento", label: "Evento", icon: Calendar },
-  { value: "campanha", label: "Campanha", icon: Megaphone },
-  { value: "manual", label: "Manual", icon: User },
+  { value: "WhatsApp", label: "WhatsApp", icon: MessageSquare },
+  { value: "Instagram", label: "Instagram", icon: Users },
+  { value: "Facebook", label: "Facebook", icon: Users },
+  { value: "Site", label: "Site", icon: Globe },
+  { value: "Indicação", label: "Indicação", icon: UserPlus },
+  { value: "Google Ads", label: "Google Ads", icon: Search },
+  { value: "Meta Ads", label: "Meta Ads", icon: Megaphone },
+  { value: "TikTok", label: "TikTok", icon: Users },
+  { value: "LinkedIn", label: "LinkedIn", icon: Users },
+  { value: "Telefone", label: "Telefone", icon: Phone },
+  { value: "Email", label: "Email", icon: Mail },
+  { value: "Prospecção", label: "Prospecção", icon: Search },
+  { value: "Outro", label: "Outro", icon: User },
 ];
 
 /* ── avatar colors based on name hash ── */
