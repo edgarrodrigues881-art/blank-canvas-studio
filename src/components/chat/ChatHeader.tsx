@@ -122,7 +122,7 @@ export const ChatHeader = memo(function ChatHeader({
         <div className="relative shrink-0">
           <HeaderAvatar src={conversation.avatar_url} name={conversation.name} phone={conversation.phone} />
           {conversation.status === "online" && (
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-[1.5px] ring-card" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-foreground/70 rounded-full ring-[1.5px] ring-card" />
           )}
         </div>
 
