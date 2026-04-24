@@ -353,7 +353,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[960px] w-[95vw] h-auto max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl fixed">
+      <DialogContent className="max-w-[1100px] w-[85vw] min-w-[900px] h-auto max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0 bg-[hsl(0_0%_8%)] border-[hsl(0_0%_14%)] shadow-2xl fixed">
 
         {/* ═══════ HEADER ═══════ */}
         <DialogHeader className="relative px-7 pt-6 pb-5 shrink-0 bg-[hsl(0_0%_8%)]">
@@ -385,8 +385,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 60% form / 40% preview (min 320px), subtle divider ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,40%)] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 55% form / 45% preview ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[55%_45%] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Form panel ═══ */}
           <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] md:border-r md:border-[hsl(0_0%_13%)]">
@@ -713,7 +713,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
-          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[320px] min-h-0">
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[360px] min-h-[560px]">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
