@@ -209,6 +209,10 @@ export default function Pipeline() {
   const handleDeleteStage = async () => {
     if (!user || !deleteStage || !moveTargetKey) return;
     const key = deleteStage.key;
+    if (key === "novo") {
+      toast.error('A etapa "Novo Lead" é fixa e não pode ser excluída');
+      return;
+    }
     const target = moveTargetKey;
     if (target === key) {
       toast.error("Escolha uma etapa diferente");
