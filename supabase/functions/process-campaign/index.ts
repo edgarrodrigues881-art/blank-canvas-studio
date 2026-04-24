@@ -1329,14 +1329,34 @@ Deno.serve(async (req) => {
         try {
           const parsed = JSON.parse(campaign.media_url);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            mediaUrl = parsed[0].url || null;
+            mediaUrl = parsed[0]?.url || null;
           } else {
             mediaUrl = campaign.media_url;
           }
         } catch {
           mediaUrl = campaign.media_url;
         }
+        // Sanitize: trim and reject base64/data: payloads (imageButton needs a public URL)
+        if (typeof mediaUrl === "string") {
+          mediaUrl = mediaUrl.trim();
+          if (!/^https?:\/\//i.test(mediaUrl)) {
+            console.warn(JSON.stringify({
+              event: "media_url_invalid_dropped",
+              campaignId: campaign.id,
+              len: mediaUrl.length,
+              prefix: mediaUrl.slice(0, 32),
+            }));
+            mediaUrl = null;
+          }
+        }
       }
+      console.log(JSON.stringify({
+        event: "campaign_media_resolved",
+        campaignId: campaign.id,
+        hasMediaUrl: Boolean(mediaUrl),
+        mediaUrlPreview: mediaUrl ? mediaUrl.slice(0, 80) : null,
+        rawMediaFormat: campaign.media_url?.startsWith("[") ? "json_array" : (campaign.media_url ? "plain" : "none"),
+      }));
       const campaignButtons: CampaignButton[] = Array.isArray(campaign.buttons) ? campaign.buttons : [];
       const campaignCarouselCards = normalizeCarouselCards(campaign.carousel_cards);
       const msgType = campaign.message_type || "texto";
