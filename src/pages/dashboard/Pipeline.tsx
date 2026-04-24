@@ -466,7 +466,12 @@ export default function Pipeline() {
             return (
               <div
                 key={stage.key}
-                className={cn("flex flex-col shrink-0 h-full transition-transform", lost ? "w-[180px]" : "w-[240px]", stageDragKey === stage.key && "opacity-50")}
+                className={cn(
+                  "flex flex-col shrink-0 h-full transition-all duration-200",
+                  lost ? "w-[180px]" : "w-[240px]",
+                  stageDragKey === stage.key && "opacity-40 scale-95",
+                  isStageDragOver && "ml-[120px]"
+                )}
                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setOverStage(stage.key); if (stageDragKey && isCustomStage) setStageOverKey(stage.key); }}
                 onDragLeave={() => { setOverStage(null); if (stageOverKey === stage.key) setStageOverKey(null); }}
                 onDrop={(e) => {
