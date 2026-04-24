@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -385,8 +385,8 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
         </DialogHeader>
 
-        {/* ═══════ BODY — 55% form / 45% preview, subtle divider ═══════ */}
-        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[55fr_45fr] min-h-0 overflow-hidden">
+        {/* ═══════ BODY — 60% form / 40% preview (min 320px), subtle divider ═══════ */}
+        <div className="relative flex-1 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(320px,40%)] min-h-0 overflow-hidden">
 
           {/* ═══ COL 1: Form panel ═══ */}
           <div className="min-w-0 flex flex-col min-h-0 overflow-hidden bg-[hsl(0_0%_9%)] md:border-r md:border-[hsl(0_0%_13%)]">
@@ -713,7 +713,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
-          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden md:sticky md:top-0 md:self-start md:max-h-full">
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[320px] min-h-0">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
@@ -724,7 +724,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               }}
             />
 
-            <div className="relative flex items-center justify-end mb-4">
+            <div className="relative flex items-center justify-end mb-3 shrink-0">
               <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-[#9aa0a6]">
                 <span className="relative flex w-1.5 h-1.5">
                   <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_60%_50%)] opacity-75 animate-ping" />
@@ -734,22 +734,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </span>
             </div>
 
-            <div className="relative flex-1 min-h-0 flex items-start justify-center pt-2 overflow-hidden">
-              <div
-                key={JSON.stringify({
-                  t: payload.message_type,
-                  c: payload.message_content,
-                  m: payload.media_url,
-                  cards: payload.carousel_cards?.length,
-                })}
-                className="animate-in fade-in-0 duration-300 w-full h-full flex items-center justify-center"
-                style={{ maxHeight: "100%" }}
-              >
-                <div style={{ height: "clamp(300px, calc(90vh - 240px), 500px)" }} className="flex items-center justify-center">
-                  <MinimalPhonePreview payload={payload} height={Math.min(500, Math.max(300, typeof window !== "undefined" ? window.innerHeight - 240 : 500))} />
-                </div>
-              </div>
-            </div>
+            <ResponsivePhonePreview payload={payload} />
           </aside>
         </div>
 
@@ -1035,6 +1020,56 @@ export default function WelcomeAutomationPage() {
       <AutomationsList onOpen={setOpenId} onCreate={() => setCreateOpen(true)} />
       <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreated={id => setOpenId(id)} />
     </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// RESPONSIVE PHONE PREVIEW — measures container, fills space
+// ══════════════════════════════════════════════════════════
+function ResponsivePhonePreview({ payload }: { payload: WelcomeMessagePayload }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ w: rect.width, h: rect.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // Phone aspect ≈ 0.49 (w/h). Fit by both width and height of container.
+  const ASPECT = 0.49;
+  const padding = 16; // vertical breathing room
+  const maxByH = Math.max(0, size.h - padding);
+  const maxByW = Math.max(0, (size.w - 8) / ASPECT);
+  const phoneH = Math.max(280, Math.min(maxByH || 540, maxByW || 540));
+
+  return (
+    <div ref={containerRef} className="relative flex-1 min-h-0 w-full flex items-center justify-center">
+      {size.h > 0 && (
+        <div
+          key={JSON.stringify({
+            t: payload.message_type,
+            c: payload.message_content,
+            m: payload.media_url,
+            cards: payload.carousel_cards?.length,
+          })}
+          className="animate-in fade-in-0 duration-300 flex items-center justify-center"
+        >
+          <MinimalPhonePreview payload={payload} height={phoneH} />
+        </div>
+      )}
+    </div>
   );
 }
 
