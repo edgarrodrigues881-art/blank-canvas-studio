@@ -645,18 +645,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               </div>
             )}
 
-            {/* Suggested tags */}
-            <div className="flex flex-wrap gap-1.5">
-              {DEFAULT_CRM_TAGS.filter((tag) => !activeTags.some((t) => t.toLowerCase() === tag.label.toLowerCase())).map((tag) => (
-                <button
-                  key={tag.label}
-                  onClick={() => toggleTag(tag.label)}
-                  className="text-[10px] px-2 py-1 rounded-md font-semibold border border-dashed border-border/40 text-muted-foreground/60 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all cursor-pointer"
-                >
-                  + {tag.label}
-                </button>
-              ))}
-            </div>
+            {/* Suggested tags removed — only custom tags */}
 
             {/* Custom tag input */}
             <div className="flex gap-1.5">
