@@ -127,6 +127,30 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       });
   }, [conversation.phone]);
 
+  // Fetch persisted contact details (origin, company, email, observations)
+  useEffect(() => {
+    if (!user || !conversation.phone) return;
+    const digits = conversation.phone.replace(/\D/g, "");
+    supabase
+      .from("service_contacts")
+      .select("name, email, company, origin, notes")
+      .eq("user_id", user.id)
+      .like("phone", `%${digits.slice(-8)}%`)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setEditForm((prev) => ({
+          ...prev,
+          name: data.name || prev.name,
+          email: data.email || prev.email,
+          company: (data as any).company || prev.company,
+          origin: (data as any).origin || prev.origin,
+          observations: (data as any).notes || prev.observations,
+        }));
+      });
+  }, [user, conversation.phone, conversation.id]);
+
   // Reset edit form when conversation changes
   useEffect(() => {
     setIsEditing(false);
