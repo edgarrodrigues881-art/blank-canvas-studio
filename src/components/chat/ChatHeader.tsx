@@ -65,11 +65,11 @@ export const attendingStatusConfig: Record<
   AttendingStatus,
   { label: string; color: string; bg: string; dot: string; textStrong: string }
 > = {
-  nova: { label: "Nova", color: "text-blue-400", bg: "bg-blue-600/20 border-blue-500/40", dot: "bg-blue-500", textStrong: "text-blue-300" },
-  em_atendimento: { label: "Em Atendimento", color: "text-emerald-400", bg: "bg-emerald-600/20 border-emerald-500/40", dot: "bg-emerald-500", textStrong: "text-emerald-300" },
-  aguardando: { label: "Aguardando", color: "text-amber-400", bg: "bg-amber-600/20 border-amber-500/40", dot: "bg-amber-500 animate-pulse", textStrong: "text-amber-300" },
-  finalizado: { label: "Finalizado", color: "text-gray-400", bg: "bg-gray-600/20 border-gray-500/30", dot: "bg-gray-500", textStrong: "text-gray-400" },
-  pausado: { label: "Pausado", color: "text-orange-400", bg: "bg-orange-600/20 border-orange-500/40", dot: "bg-orange-500", textStrong: "text-orange-300" },
+  nova: { label: "Nova", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
+  em_atendimento: { label: "Em Atendimento", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
+  aguardando: { label: "Aguardando", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground animate-pulse", textStrong: "text-foreground" },
+  finalizado: { label: "Finalizado", color: "text-muted-foreground/70", bg: "bg-muted/30 border-border", dot: "bg-muted-foreground/60", textStrong: "text-muted-foreground" },
+  pausado: { label: "Pausado", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
 };
 
 export interface ChatHeaderProps {
@@ -122,7 +122,7 @@ export const ChatHeader = memo(function ChatHeader({
         <div className="relative shrink-0">
           <HeaderAvatar src={conversation.avatar_url} name={conversation.name} phone={conversation.phone} />
           {conversation.status === "online" && (
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-[1.5px] ring-card" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-foreground/70 rounded-full ring-[1.5px] ring-card" />
           )}
         </div>
 
@@ -156,9 +156,9 @@ export const ChatHeader = memo(function ChatHeader({
           {/* Presence / Typing subtitle */}
           <div className="h-[14px]">
             {conversation.status === "typing" ? (
-              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium animate-pulse">digitando...</span>
+              <span className="text-[10px] text-foreground/70 font-medium animate-pulse">digitando...</span>
             ) : conversation.status === "online" ? (
-              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">online</span>
+              <span className="text-[10px] text-foreground/70 font-medium">online</span>
             ) : conversation.lastMessageAt ? (
               <span className="text-[10px] text-muted-foreground/50">
                 visto por último às {format(new Date(conversation.lastMessageAt), "HH:mm")}
@@ -174,7 +174,7 @@ export const ChatHeader = memo(function ChatHeader({
               <UserX className="w-4 h-4" />
             </Button>
           ) : !conversation.assignedTo ? (
-            <Button variant="ghost" size="icon" className="w-8 h-8 text-emerald-500/70 hover:text-emerald-400 hover:bg-emerald-500/10" onClick={() => onAssign?.(conversation.id)} title="Assumir">
+            <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground hover:text-foreground" onClick={() => onAssign?.(conversation.id)} title="Assumir">
               <UserCheck className="w-4 h-4" />
             </Button>
           ) : null}
