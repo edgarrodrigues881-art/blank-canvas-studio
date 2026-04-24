@@ -261,10 +261,9 @@ export default function Leads() {
       l.company?.toLowerCase().includes(s);
     const stage = l.pipeline_stage || "novo";
     const matchStatus = statusFilter === "all" || stage === statusFilter;
-    const matchPriority = priorityFilter === "all" || (l.priority || "media") === priorityFilter;
     const matchOrigin = originFilter === "all" || l.origin === originFilter;
-    return matchSearch && matchStatus && matchPriority && matchOrigin;
-  }), [leads, search, statusFilter, priorityFilter, originFilter]);
+    return matchSearch && matchStatus && matchOrigin;
+  }), [leads, search, statusFilter, originFilter]);
 
   /* ── CRUD ── */
   const openNew = () => {
