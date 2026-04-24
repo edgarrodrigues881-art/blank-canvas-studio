@@ -753,6 +753,44 @@
 .quoted-highlight {
   animation: quoted-pulse 2s ease-out forwards;
 }
+
+/* ── Chat: vivid surfaces & bubbles ── */
+.chat-surface {
+  background-color: hsl(var(--chat-bg));
+  background-image:
+    radial-gradient(circle at 1px 1px, hsl(var(--chat-pattern) / 0.10) 1px, transparent 0),
+    linear-gradient(180deg, hsl(var(--chat-header-grad-from) / 0.5) 0%, hsl(var(--chat-bg)) 30%);
+  background-size: 24px 24px, 100% 100%;
+}
+.dark .chat-surface {
+  background-image:
+    radial-gradient(circle at 1px 1px, hsl(var(--chat-pattern) / 0.06) 1px, transparent 0),
+    linear-gradient(180deg, hsl(var(--chat-header-grad-from) / 0.6) 0%, hsl(var(--chat-bg)) 30%);
+}
+
+.chat-bubble-sent {
+  background-color: hsl(var(--chat-bubble-sent));
+  color: hsl(var(--chat-bubble-sent-fg));
+  box-shadow: 0 1px 2px hsl(152 65% 20% / 0.18), 0 4px 12px -6px hsl(152 65% 30% / 0.25);
+}
+.chat-bubble-received {
+  background-color: hsl(var(--chat-bubble-received));
+  color: hsl(var(--chat-bubble-received-fg));
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.04), 0 2px 8px -4px hsl(0 0% 0% / 0.06);
+}
+.dark .chat-bubble-received {
+  border-color: hsl(0 0% 100% / 0.04);
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.3);
+}
+
+.chat-header-grad {
+  background: linear-gradient(90deg, hsl(var(--chat-header-grad-from)) 0%, hsl(var(--chat-header-grad-to)) 100%);
+}
+
+.chat-input-grad {
+  background: linear-gradient(180deg, hsl(var(--chat-bg)) 0%, hsl(var(--chat-header-grad-from)) 100%);
+}
 /* ============================================================
    App-scoped Design System
    Applies ONLY to authenticated app (DashboardLayout).
