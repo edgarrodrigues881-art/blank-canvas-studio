@@ -701,7 +701,8 @@ export default function CRMReports() {
                       <div
                         className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{
-                          width: `${Math.max(pct, 6)}%`,
+                          width: `max(4px, ${Math.max(pct, 6)}%)`,
+                          minWidth: 4,
                           background: `linear-gradient(90deg, ${item.fill}, ${item.fill}dd)`,
                         }}
                       />
