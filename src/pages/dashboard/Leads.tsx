@@ -118,7 +118,7 @@ function getPriorityConfig(priority: string | null) {
 }
 
 function getOriginConfig(origin: string | null) {
-  return ORIGIN_OPTIONS.find((o) => o.value === origin) || ORIGIN_OPTIONS[6];
+  return ORIGIN_OPTIONS.find((o) => o.value === origin) || { value: origin || "Outro", label: origin || "Outro", icon: User };
 }
 
 /* ── Detail Row helper ── */
