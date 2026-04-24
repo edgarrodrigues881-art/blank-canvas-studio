@@ -42,33 +42,35 @@ function usePeriodRange(period: Period) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "#1a1a1a",
-  border: "1px solid #2a2a2a",
+  backgroundColor: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
   borderRadius: "4px",
   fontSize: 11,
-  color: "#fff",
+  color: "hsl(var(--foreground))",
 };
 
-// Premium dark metric card — Bloomberg style
+// Premium metric card — uses theme tokens
 function MetricCard({
   label,
   value,
+  valueClassName = "text-foreground",
   delta,
   loading,
 }: {
   label: string;
   value: string;
-  delta?: { value: number; positive?: boolean } | null;
+  valueClassName?: string;
+  delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
 }) {
   return (
-    <div className="bg-[#1a1a1a] border border-neutral-800 rounded-md p-4 flex flex-col justify-between min-h-[110px]">
-      <p className="text-[10.5px] uppercase tracking-[0.12em] text-neutral-500 font-medium">{label}</p>
+    <div className="bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200">
+      <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
       {loading ? (
-        <Skeleton className="h-8 w-24 mt-2 bg-neutral-800" />
+        <Skeleton className="h-8 w-24 mt-2" />
       ) : (
         <>
-          <p className="text-[32px] leading-none font-semibold text-white tracking-tight mt-2 tabular-nums">
+          <p className={`text-[32px] leading-none font-semibold tracking-tight mt-2 tabular-nums ${valueClassName}`}>
             {value}
           </p>
           {delta && (
@@ -89,7 +91,7 @@ function MetricCard({
 function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-4">
-      <h2 className="text-[15px] font-medium text-white tracking-tight">{children}</h2>
+      <h2 className="text-[15px] font-medium text-foreground tracking-tight">{children}</h2>
       {right}
     </div>
   );
@@ -97,7 +99,7 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-[#1a1a1a] border border-neutral-800 rounded-md p-5 ${className}`}>{children}</div>
+    <div className={`bg-card border border-border rounded-md p-5 transition-colors duration-200 ${className}`}>{children}</div>
   );
 }
 
