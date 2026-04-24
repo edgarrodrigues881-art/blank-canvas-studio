@@ -49,7 +49,7 @@ interface Lead {
   description: string | null;
 }
 
-const DEFAULT_STATUS_OPTIONS = [
+const DEFAULT_statusOptions = [
   { value: "novo", label: "Novo Lead", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
   { value: "respondeu", label: "Respondeu", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
   { value: "interessado", label: "Interessado", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
@@ -103,8 +103,8 @@ function getInitials(name: string) {
   return (name[0] || "?").toUpperCase();
 }
 
-function getStatusConfig(status: string | null, options: typeof DEFAULT_STATUS_OPTIONS = DEFAULT_STATUS_OPTIONS) {
-  return options.find((s) => s.value === status) || options[0] || DEFAULT_STATUS_OPTIONS[0];
+function getStatusConfig(status: string | null, options: typeof DEFAULT_statusOptions = DEFAULT_statusOptions) {
+  return options.find((s) => s.value === status) || options[0] || DEFAULT_statusOptions[0];
 }
 
 function getPriorityConfig(priority: string | null) {
@@ -184,7 +184,7 @@ export default function Leads() {
   const [editingInline, setEditingInline] = useState(false);
   const [detailTab, setDetailTab] = useState("info");
   const fileRef = useRef<HTMLInputElement>(null);
-  const [statusOptions, setStatusOptions] = useState(DEFAULT_STATUS_OPTIONS);
+  const [statusOptions, setStatusOptions] = useState(DEFAULT_statusOptions);
 
   // Load custom pipeline stages + respect hidden defaults (matches Pipeline page)
   useEffect(() => {
@@ -194,8 +194,8 @@ export default function Leads() {
       const raw = localStorage.getItem("pipeline_hidden_defaults");
       if (raw) hidden = new Set(JSON.parse(raw));
     } catch { /* ignore */ }
-    const head = DEFAULT_STATUS_OPTIONS.filter(s => s.value !== "fechado" && s.value !== "perdido" && !hidden.has(s.value));
-    const tail = DEFAULT_STATUS_OPTIONS.filter(s => (s.value === "fechado" || s.value === "perdido") && !hidden.has(s.value));
+    const head = DEFAULT_statusOptions.filter(s => s.value !== "fechado" && s.value !== "perdido" && !hidden.has(s.value));
+    const tail = DEFAULT_statusOptions.filter(s => (s.value === "fechado" || s.value === "perdido") && !hidden.has(s.value));
     supabase
       .from("pipeline_stages" as any)
       .select("key,label,position")
@@ -247,7 +247,7 @@ export default function Leads() {
   }, [leads]);
 
   /* ── derived ── */
-  const statusCounts = useMemo(() => STATUS_OPTIONS.reduce((acc, s) => {
+  const statusCounts = useMemo(() => statusOptions.reduce((acc, s) => {
     acc[s.value] = leads.filter((l) => (l.pipeline_stage || "novo") === s.value).length;
     return acc;
   }, {} as Record<string, number>), [leads]);
@@ -398,7 +398,7 @@ export default function Leads() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Status</SelectItem>
-            {STATUS_OPTIONS.map((s) => (
+            {statusOptions.map((s) => (
               <SelectItem key={s.value} value={s.value}>
                 <span className="flex items-center gap-2">
                   <span className={cn("w-2 h-2 rounded-full", s.dot)} />
@@ -642,7 +642,7 @@ export default function Leads() {
                           <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
                             <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              {STATUS_OPTIONS.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                              {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -758,7 +758,7 @@ export default function Leads() {
                     <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
                       <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {STATUS_OPTIONS.map((s) => (
+                        {statusOptions.map((s) => (
                           <SelectItem key={s.value} value={s.value}>
                             <span className="flex items-center gap-2"><span className={cn("w-2 h-2 rounded-full", s.dot)} />{s.label}</span>
                           </SelectItem>
@@ -912,7 +912,7 @@ export default function Leads() {
                 <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                    {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
