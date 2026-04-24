@@ -299,8 +299,8 @@ export default function Pipeline() {
                           .join("")
                           .toUpperCase() || "?";
                       } else if (lead.phone) {
-                        const digits = lead.phone.replace(/\D/g, "").replace(/^55/, "");
-                        initials = digits.slice(0, 2) || "?";
+                        const digits = lead.phone.replace(/\D/g, "");
+                        initials = digits.slice(-2) || "?";
                       }
                       const avatarPalette = ["#3b82f6", "#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ec4899", "#f97316", "#14b8a6", "#6366f1", "#ef4444"];
                       const avatarColor = avatarPalette[(initials.charCodeAt(0) || 0) % avatarPalette.length];
@@ -392,40 +392,23 @@ export default function Pipeline() {
 
 
                           <div className="flex items-start gap-2.5">
-                            {/* Avatar — photo if available, else initials */}
-                            {lead.avatar_url ? (
-                              <img
-                                src={lead.avatar_url}
-                                alt={displayName || "Lead"}
-                                className="h-8 w-8 rounded-full shrink-0 object-cover shadow-sm"
-                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                              />
-                            ) : (
-                              <div
-                                className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white shadow-sm"
-                                style={{ backgroundColor: avatarColor }}
-                              >
-                                {initials}
-                              </div>
-                            )}
+                            {/* Avatar — 36px circle, initials only (no photo, no emoji) */}
+                            <div
+                              className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-[12px] font-bold text-white shadow-sm uppercase"
+                              style={{ backgroundColor: avatarColor }}
+                            >
+                              {initials}
+                            </div>
 
                             <div className="min-w-0 flex-1">
-                              {/* Name + temp */}
+                              {/* Name */}
                               <div className="flex items-start justify-between gap-2 pr-5">
                                 <p className={cn(
-                                  "text-[13px] font-bold leading-snug truncate",
+                                  "text-[13px] font-bold leading-snug",
                                   lost ? "text-muted-foreground/60" : "text-foreground"
                                 )}>
                                   {displayName}
                                 </p>
-                                {temp && (
-                                  <span className={cn(
-                                    "text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0",
-                                    temp.cls
-                                  )}>
-                                    {temp.label}
-                                  </span>
-                                )}
                               </div>
 
                               {/* Phone (only if name shown) */}
