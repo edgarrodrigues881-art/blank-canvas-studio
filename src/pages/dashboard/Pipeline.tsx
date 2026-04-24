@@ -247,8 +247,27 @@ export default function Pipeline() {
     setDeletingStage(false);
   };
 
+  const reorderCustomStage = async (fromKey: string, toKey: string) => {
+    if (!user || fromKey === toKey) return;
+    const list = [...customStages].sort((a, b) => a.position - b.position);
+    const fromIdx = list.findIndex(s => s.key === fromKey);
+    const toIdx = list.findIndex(s => s.key === toKey);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    const reindexed = list.map((s, i) => ({ ...s, position: i + 1 }));
+    setCustomStages(reindexed);
+    // Persist new positions
+    await Promise.all(
+      reindexed.map(s =>
+        supabase.from("pipeline_stages")
+          .update({ position: s.position } as any)
+          .eq("user_id", user.id).eq("key", s.key)
+      )
+    );
+  };
 
-  const responsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
+
 
   const filtered = leads.filter((l) => {
     const q = search.toLowerCase();
