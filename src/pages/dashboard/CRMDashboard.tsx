@@ -295,6 +295,22 @@ const CRMDashboard = () => {
     staleTime: 60_000,
   });
 
+  const { data: customStages = [] } = useQuery({
+    queryKey: ["crm-dashboard-custom-stages", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("pipeline_stages")
+        .select("key,label,color,position")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
   const { data: scheduleCount = 0 } = useQuery({
     queryKey: ["crm-dashboard-schedules", user?.id],
     queryFn: async () => {
