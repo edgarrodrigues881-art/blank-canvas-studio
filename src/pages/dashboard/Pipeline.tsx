@@ -269,8 +269,14 @@ export default function Pipeline() {
                     )}
                     {items.map((lead) => {
                       const temp = TEMP_CONFIG[lead.lead_temperature || ""];
-                      const isHot = lead.lead_temperature === "quente";
-                      const isWarm = lead.lead_temperature === "morno";
+                      // Fallback: derive temperature from days since last activity if not set in DB
+                      const _lastTs = lead.last_message_at || lead.created_at;
+                      const _ageDays = _lastTs ? Math.floor((Date.now() - new Date(_lastTs).getTime()) / 86400000) : 0;
+                      const effectiveTemp = lead.lead_temperature
+                        ? lead.lead_temperature
+                        : _ageDays > 7 ? "quente" : _ageDays >= 3 ? "morno" : "frio";
+                      const isHot = effectiveTemp === "quente";
+                      const isWarm = effectiveTemp === "morno";
                       const hasName = lead.name && lead.name !== lead.phone;
                       const displayName = hasName ? lead.name : (lead.company || formatPhone(lead.phone));
                       const val = currency(lead.estimated_value);
