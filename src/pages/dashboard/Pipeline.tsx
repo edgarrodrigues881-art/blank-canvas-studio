@@ -330,7 +330,7 @@ export default function Pipeline() {
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
-                    {editingStageKey === stage.key ? (
+                    {editingStageKey === stage.key && !DEFAULT_STAGE_KEYS.has(stage.key) ? (
                       <input
                         autoFocus
                         value={editingStageDraft}
