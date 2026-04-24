@@ -94,6 +94,35 @@ function MessageTicks({ status }: { status?: "sent" | "delivered" | "read" }) {
   return null;
 }
 
+function ConvAvatar({ src, initials, alt, colorCls }: { src?: string | null; initials: string | null; alt: string; colorCls: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = !!src && !failed;
+  if (showImage) {
+    return (
+      <img
+        src={src!}
+        alt={alt}
+        onError={() => setFailed(true)}
+        className="w-11 h-11 rounded-full object-cover ring-1 ring-border/20 bg-muted"
+      />
+    );
+  }
+  if (initials) {
+    return (
+      <div className={cn("w-11 h-11 rounded-full flex items-center justify-center font-semibold text-[13px] tracking-tight", colorCls)}>
+        {initials}
+      </div>
+    );
+  }
+  return (
+    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v1h16v-1c0-4-4-6-8-6Z" />
+      </svg>
+    </div>
+  );
+}
+
 /** Highlight matching text portions */
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query || !text) return <>{text}</>;
@@ -356,23 +385,7 @@ export function ConversationList({
 
                     {/* Avatar */}
                     <div className="relative shrink-0">
-                      {c.avatar_url ? (
-                        <img
-                          src={c.avatar_url}
-                          alt={avatarLabel}
-                          className="w-11 h-11 rounded-full object-cover ring-1 ring-border/20"
-                        />
-                      ) : initials ? (
-                        <div className={cn("w-11 h-11 rounded-full flex items-center justify-center font-semibold text-[13px] tracking-tight", avatarCls)}>
-                          {initials}
-                        </div>
-                      ) : (
-                        <div className="w-11 h-11 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v1h16v-1c0-4-4-6-8-6Z" />
-                          </svg>
-                        </div>
-                      )}
+                      <ConvAvatar src={c.avatar_url} initials={initials} alt={avatarLabel} colorCls={avatarCls} />
                     </div>
 
                     {/* Content */}
