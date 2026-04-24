@@ -536,7 +536,10 @@ export default function Pipeline() {
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
-                    if (overStage !== stage.key) setOverStage(stage.key);
+                    if (overStageRef.current !== stage.key) {
+                      overStageRef.current = stage.key;
+                      setOverStage(stage.key);
+                    }
                     if (stageDragKey && isCustomStage && stageOverKey !== stage.key) {
                       setStageOverKey(stage.key);
                     }
