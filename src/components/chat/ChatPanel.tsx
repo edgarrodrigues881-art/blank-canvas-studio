@@ -629,8 +629,16 @@ export function ChatPanel({
                 nome: conversation.name || "",
                 telefone: conversation.phone || "",
               });
+              const hasBlocks = Array.isArray((qr as any).blocks) && (qr as any).blocks.length > 0;
               return (
-                <button key={qr.id} onClick={() => handleQuickReply(qr.content)} className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group">
+                <button
+                  key={qr.id}
+                  onClick={() => {
+                    if (hasBlocks) sendQuickReplySequence(qr as QuickReply);
+                    else handleQuickReply(qr.content);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                >
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-xs font-semibold text-foreground">/{qr.label}</span>
                     {catInfo && (
