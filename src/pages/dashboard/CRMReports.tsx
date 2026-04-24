@@ -298,24 +298,25 @@ export default function CRMReports() {
   }, [metrics.dailyMap]);
 
   const tempData = useMemo(() => {
+    const tempColors: Record<string, string> = { frio: "#3b82f6", morno: "#f59e0b", quente: "#ef4444" };
     return ["frio", "morno", "quente"].map(t => ({
       name: TEMP_LABELS[t]?.label || t,
       key: t,
       value: metrics.byTemp[t] || 0,
-      fill: TEMP_LABELS[t]?.color || "#9ca3af",
+      fill: tempColors[t],
       pct: metrics.total > 0 ? ((metrics.byTemp[t] || 0) / metrics.total * 100) : 0,
     }));
   }, [metrics]);
 
-  // Origin in monochrome shades — except dominant which is white
+  // Origin — WhatsApp blue dominant, others in cyan/violet/amber palette
   const originData = useMemo(() => {
     const entries = Object.entries(metrics.byOrigin)
       .map(([origin, count]) => ({ name: origin, value: count }))
       .sort((a, b) => b.value - a.value);
-    const grayShades = ["#a3a3a3", "#737373", "#525252", "#404040", "#2a2a2a"];
+    const palette = ["#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ef4444"];
     return entries.map((e, i) => ({
       ...e,
-      fill: i === 0 ? "#ffffff" : grayShades[(i - 1) % grayShades.length],
+      fill: /whats/i.test(e.name) || i === 0 ? "#3b82f6" : palette[(i - 1) % palette.length],
     }));
   }, [metrics.byOrigin]);
 
