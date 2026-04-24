@@ -131,6 +131,14 @@ export default function Pipeline() {
   const [creatingStage, setCreatingStage] = useState(false);
   const [hiddenDefaults, setHiddenDefaults] = useState<Set<string>>(() => {
     try {
+      const initialized = localStorage.getItem("pipeline_initialized_v2");
+      if (!initialized) {
+        // First-time setup: hide all default stages except "novo"
+        const defaults = ["respondeu","interessado","agendado","negociacao","fechado","perdido"];
+        localStorage.setItem("pipeline_hidden_defaults", JSON.stringify(defaults));
+        localStorage.setItem("pipeline_initialized_v2", "1");
+        return new Set(defaults);
+      }
       const raw = localStorage.getItem("pipeline_hidden_defaults");
       return new Set(raw ? (JSON.parse(raw) as string[]) : []);
     } catch { return new Set(); }
