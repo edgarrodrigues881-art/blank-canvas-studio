@@ -1599,31 +1599,20 @@ Deno.serve(async (req) => {
           return json({ ok: false, error: inspectedMedia.error }, 400);
         }
 
-        if (mediaType === "image") {
-          const imageButtonAttempts = buildButtonsAttempts(
-            baseUrl,
-            groupJid,
-            normalizedTextContent,
-            normalizedButtons,
-            inspectedMedia.normalizedUrl,
-          );
-
-          try {
-            await wrapSend(() => sendWithFallbacks(imageButtonAttempts, headers, groupJid));
-            return json({ ok: true, mode: "buttons_image", isRestricted, groupName });
-          } catch (error) {
-            console.warn(`[group-carousel] imageButton failed, falling back to split send: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        }
-
+        // CRITICAL: NEVER combine media + buttons in a single packet.
+        // The WhatsApp client of the recipient renders the combo as "Mensagem incompatível"
+        // (incompatible message) on many app versions. Always send in 2 separate steps.
+        // See: mem://integrations/whatsapp/uazapi-messaging-standards
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         await wrapSend(async () => {
           if (mediaType === "audio") {
+            // For audio (PTT), send the text/buttons message FIRST so context appears above the voice note
             await sendWithFallbacks(buttonAttempts, headers, groupJid);
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await sendWithFallbacks(mediaAttempts, headers, groupJid);
           } else {
+            // For image/video/document, send media first, then text+buttons
             await sendWithFallbacks(mediaAttempts, headers, groupJid);
             await new Promise((resolve) => setTimeout(resolve, 1500));
             await sendWithFallbacks(buttonAttempts, headers, groupJid);
