@@ -116,6 +116,8 @@ export default function Pipeline() {
   const dragRef = useRef<{ id: string; from: string } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [stageDragKey, setStageDragKey] = useState<string | null>(null);
+  const [stageOverKey, setStageOverKey] = useState<string | null>(null);
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0].key);
