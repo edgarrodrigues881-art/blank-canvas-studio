@@ -569,7 +569,7 @@ export function ChatPanel({
         >
           <ChevronDown className="w-5 h-5 text-foreground" />
           {newMsgCount > 0 && (
-            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 animate-in zoom-in-50 shadow-sm shadow-red-500/30">
+            <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center px-1 animate-in zoom-in-50">
               {newMsgCount > 99 ? "99+" : newMsgCount}
             </span>
           )}
