@@ -112,6 +112,19 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
   const [pipelineStage, setPipelineStage] = useState<string>("novo");
   const [pipelineStages, setPipelineStages] = useState<{ key: string; label: string }[]>([]);
+  const [universalTags, setUniversalTags] = useState<{ label: string; color: string | null }[]>([]);
+
+  // Load universal CRM tags (per user)
+  const loadUniversalTags = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("crm_user_tags" as any)
+      .select("label,color")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+    if (data) setUniversalTags(data as any);
+  };
+  useEffect(() => { loadUniversalTags(); }, [user]);
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
@@ -270,11 +283,35 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     });
   };
 
-  const addCustomTag = () => {
+  const addCustomTag = async () => {
     const tag = customTagInput.trim();
-    if (!tag || activeTags.includes(tag)) return;
-    toggleTag(tag);
+    if (!tag) return;
+    // Persist to universal tags catalog (per user)
+    if (user && !universalTags.some((t) => t.label.toLowerCase() === tag.toLowerCase())) {
+      const { error } = await supabase
+        .from("crm_user_tags" as any)
+        .insert({ user_id: user.id, label: tag } as any);
+      if (!error) {
+        setUniversalTags((prev) => [...prev, { label: tag, color: null }]);
+      } else if (!error.message?.includes("duplicate")) {
+        toast.error("Erro ao salvar tag: " + error.message);
+      }
+    }
+    if (!activeTags.includes(tag)) toggleTag(tag);
     setCustomTagInput("");
+  };
+
+  const removeUniversalTag = async (label: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("crm_user_tags" as any)
+      .delete()
+      .eq("user_id", user.id)
+      .eq("label", label);
+    if (!error) {
+      setUniversalTags((prev) => prev.filter((t) => t.label !== label));
+      toast.success("Tag removida do catálogo");
+    }
   };
 
   const handleEditSave = async () => {
