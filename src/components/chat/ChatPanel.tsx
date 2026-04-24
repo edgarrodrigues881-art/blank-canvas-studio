@@ -657,7 +657,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border/40 dark:border-border/30 bg-white dark:bg-card/50 backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="border-t border-border/40 dark:border-border/30 bg-card/70 backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)] transition-colors duration-200">
         {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
@@ -730,7 +730,7 @@ export function ChatPanel({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 rows={1}
-                className="w-full resize-none rounded-xl bg-slate-50 dark:bg-muted/15 border border-border/40 dark:border-border/30 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:bg-white dark:focus:bg-background shadow-sm transition-all duration-200"
+                className="w-full resize-none rounded-xl bg-muted/40 border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/30 focus:bg-background shadow-sm transition-all duration-200"
                 style={{ minHeight: "40px", maxHeight: "120px" }}
               />
             </div>
