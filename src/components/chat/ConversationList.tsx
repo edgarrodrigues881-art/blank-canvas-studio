@@ -442,11 +442,11 @@ export function ConversationList({
 
                         <div className="flex items-center justify-end min-w-[18px]">
                           {hasNewMessages ? (
-                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-foreground text-background rounded-full flex items-center justify-center shrink-0">
+                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-neutral-700 text-white rounded-full flex items-center justify-center shrink-0">
                               {c.unreadCount > 99 ? "99+" : c.unreadCount}
                             </span>
                           ) : isManualUnread ? (
-                            <span className="w-[10px] h-[10px] rounded-full bg-foreground shrink-0" />
+                            <span className="w-[10px] h-[10px] rounded-full bg-neutral-600 shrink-0" />
                           ) : activeStatus === "archived" && onUnarchive ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}

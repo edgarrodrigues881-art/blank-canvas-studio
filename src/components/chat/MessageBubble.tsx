@@ -714,8 +714,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
               : isSent
-                ? "bg-emerald-500/10 dark:bg-primary text-foreground dark:text-primary-foreground border border-emerald-500/20 dark:border-transparent rounded-2xl rounded-br-md shadow-sm"
-                : "bg-white dark:bg-card border border-border/40 dark:border-border/30 text-foreground rounded-2xl rounded-bl-md shadow-sm",
+                ? "bg-neutral-200 dark:bg-neutral-700 text-foreground dark:text-white border border-neutral-300/60 dark:border-neutral-600 rounded-2xl rounded-br-md shadow-sm"
+                : "bg-white dark:bg-neutral-800/80 border border-border/40 dark:border-neutral-700/60 text-foreground rounded-2xl rounded-bl-md shadow-sm",
             msg.status === "failed" && "opacity-70"
           )}
         >
