@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizePhoneKey } from "@/utils/formatters";
+import { supabase } from "@/integrations/supabase/client";
 
 const MIN_SIDEBAR_W = 220;
 const MAX_SIDEBAR_W = 500;
