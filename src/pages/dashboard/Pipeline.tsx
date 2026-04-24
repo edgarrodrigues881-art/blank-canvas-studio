@@ -402,10 +402,10 @@ export default function Pipeline() {
 
 
                           <div className="flex items-start gap-2.5">
-                            {/* Avatar — static gray, decorative only */}
+                            {/* Avatar — color reflects temperature (Frio=cinza, Morno=âmbar, Quente=vermelho) */}
                             <div
                               className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-[12px] font-bold uppercase"
-                              style={{ backgroundColor: "#e5e7eb", color: "#6b7280" }}
+                              style={{ backgroundColor: avatarBg, color: avatarFg }}
                             >
                               {initials}
                             </div>
