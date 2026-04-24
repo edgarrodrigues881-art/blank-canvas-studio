@@ -154,7 +154,46 @@
     --font-serif: 'Georgia', ui-serif, Cambria, 'Times New Roman', Times, serif;
   }
 
+  /* ── Chat / Conversations vivid palette (light) ── */
+  :root {
+    --chat-bg: 152 30% 97%;
+    --chat-pattern: 152 30% 80%;
+    --chat-bubble-sent: 152 65% 42%;
+    --chat-bubble-sent-fg: 0 0% 100%;
+    --chat-bubble-received: 0 0% 100%;
+    --chat-bubble-received-fg: 220 26% 11%;
+    --chat-accent: 152 65% 42%;
+    --chat-accent-soft: 152 65% 42% / 0.10;
+    --chat-header-grad-from: 152 40% 97%;
+    --chat-header-grad-to: 200 40% 97%;
+    --chat-status-new: 217 91% 60%;
+    --chat-status-attending: 152 65% 42%;
+    --chat-status-waiting: 38 92% 50%;
+    --chat-status-finalized: 220 9% 55%;
+    --chat-temperature-hot: 0 84% 60%;
+    --chat-temperature-warm: 38 92% 50%;
+    --chat-unread: 152 65% 42%;
+  }
+
   .dark {
+    --chat-bg: 220 22% 10%;
+    --chat-pattern: 152 30% 50%;
+    --chat-bubble-sent: 152 50% 32%;
+    --chat-bubble-sent-fg: 0 0% 100%;
+    --chat-bubble-received: 220 18% 16%;
+    --chat-bubble-received-fg: 220 14% 92%;
+    --chat-accent: 152 60% 50%;
+    --chat-accent-soft: 152 60% 50% / 0.14;
+    --chat-header-grad-from: 220 22% 13%;
+    --chat-header-grad-to: 200 22% 14%;
+    --chat-status-new: 217 91% 65%;
+    --chat-status-attending: 152 60% 55%;
+    --chat-status-waiting: 38 92% 58%;
+    --chat-status-finalized: 220 9% 55%;
+    --chat-temperature-hot: 0 80% 65%;
+    --chat-temperature-warm: 38 92% 60%;
+    --chat-unread: 152 60% 50%;
+
     --background: 230 15% 12%;
     --foreground: 220 15% 94%;
     --card: 230 14% 15%;
