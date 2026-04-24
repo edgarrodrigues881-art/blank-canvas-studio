@@ -13,11 +13,11 @@ export function getSendFailureFeedback(rawError?: string | null, deviceName?: st
   const trimmedDeviceName = deviceName?.trim();
   const deviceLabel = trimmedDeviceName ? ` do dispositivo ${trimmedDeviceName}` : "";
 
-  // 1) WhatsApp desconectado / sessão caiu
-  if (hasSignal(value, [/whatsapp disconnected/i, /session disconnected/i, /not connected/i, /not authenticated/i, /unauthorized/i, /qr code/i, /logout/i, /\bdisconnected\b/i, /desconectad/i, /session.*closed/i])) {
+  // 1) WhatsApp desconectado / sessão caiu / token inválido
+  if (hasSignal(value, [/whatsapp disconnected/i, /session disconnected/i, /not connected/i, /not authenticated/i, /unauthorized/i, /qr code/i, /logout/i, /\bdisconnected\b/i, /desconectad/i, /session.*closed/i, /invalid token/i, /token inv[aá]lid/i, /\b401\b/i, /token expired/i, /token expirad/i])) {
     return {
       title: "WhatsApp desconectado",
-      description: `O WhatsApp${deviceLabel} está desconectado. Vá em Dispositivos e reconecte o número escaneando o QR Code.`,
+      description: `O WhatsApp${deviceLabel} perdeu a conexão. Vá em Dispositivos e reconecte o número escaneando o QR Code novamente.`,
       shortReason: trimmedDeviceName
         ? `WhatsApp do dispositivo ${trimmedDeviceName} desconectado — reconecte em Dispositivos.`
         : "WhatsApp desconectado — reconecte em Dispositivos.",
