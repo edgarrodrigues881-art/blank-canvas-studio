@@ -1564,11 +1564,14 @@ Deno.serve(async (req) => {
 
             if (trimmedMediaUrl) {
               const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-              if (inspectedMedia.ok) {
-                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              // Skip extra media send when image is already embedded via imageButton
+              if (!(mediaType === "image" && buttonImageUrl)) {
+                const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+                if (inspectedMedia.ok) {
+                  const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                  await sendWithFallbacks(mediaAttempts, headers, groupJid);
+                }
               }
             }
           });
@@ -1581,11 +1584,14 @@ Deno.serve(async (req) => {
 
             if (trimmedMediaUrl) {
               const mediaType = detectMediaTypeFromUrl(trimmedMediaUrl);
-              const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
-              if (inspectedMedia.ok) {
-                const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
-                await new Promise((resolve) => setTimeout(resolve, 1500));
-                await sendWithFallbacks(mediaAttempts, headers, groupJid);
+              // Skip extra media send when image is already embedded via imageButton
+              if (!(mediaType === "image" && buttonImageUrl)) {
+                const inspectedMedia = await inspectMediaUrl(trimmedMediaUrl, mediaType);
+                if (inspectedMedia.ok) {
+                  const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                  await sendWithFallbacks(mediaAttempts, headers, groupJid);
+                }
               }
             }
           });
