@@ -246,6 +246,31 @@ export default function Pipeline() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Stage Confirmation */}
+      <Dialog open={!!deleteStage} onOpenChange={(o) => !o && setDeleteStage(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir etapa</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-2">
+            Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Os leads serão movidos para <span className="font-semibold text-foreground">Novo Lead</span>.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteStage(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                toast.success(`Etapa "${deleteStage?.label}" excluída`);
+                setDeleteStage(null);
+              }}
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
