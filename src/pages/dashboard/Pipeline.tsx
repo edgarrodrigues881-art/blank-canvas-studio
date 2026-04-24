@@ -502,7 +502,9 @@ export default function Pipeline() {
                         G: "#f59e0b", T: "#f59e0b",
                       };
                       const firstLetter = (initials[0] || "").toUpperCase();
-                      const avatarBg = letterColorMap[firstLetter] || "#6b7280";
+                      const palette = ["#3b82f6","#8b5cf6","#22c55e","#f97316","#06b6d4","#ec4899","#f59e0b"];
+                      const avatarBg = letterColorMap[firstLetter]
+                        || palette[(initials.charCodeAt(0) || 0) % palette.length];
                       const avatarFg = "#ffffff";
 
                       return (
