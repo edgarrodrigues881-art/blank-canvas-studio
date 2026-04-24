@@ -9,7 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, ComposedChart, Bar, Line, Area, Legend,
 } from "recharts";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingDown } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, differenceInMinutes, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
