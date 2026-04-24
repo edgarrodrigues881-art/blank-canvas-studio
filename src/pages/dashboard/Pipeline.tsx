@@ -205,28 +205,44 @@ export default function Pipeline() {
   };
 
   const handleDeleteStage = async () => {
-    if (!user || !deleteStage) return;
+    if (!user || !deleteStage || !moveTargetKey) return;
     const key = deleteStage.key;
+    const target = moveTargetKey;
+    if (target === key) {
+      toast.error("Escolha uma etapa diferente");
+      return;
+    }
+    setDeletingStage(true);
     // Move leads first
     const { error: moveErr } = await supabase
       .from("service_contacts")
-      .update({ pipeline_stage: "novo" } as any)
+      .update({ pipeline_stage: target } as any)
       .eq("user_id", user.id)
       .eq("pipeline_stage", key);
     if (moveErr) {
+      setDeletingStage(false);
       toast.error("Erro ao mover leads: " + moveErr.message);
       return;
     }
-    const { error: delErr } = await supabase
-      .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
-    if (delErr) {
-      toast.error("Erro ao excluir etapa: " + delErr.message);
-      return;
+    if (DEFAULT_STAGE_KEYS.has(key)) {
+      // Hide default stage locally (per-user persistence)
+      const next = new Set(hiddenDefaults); next.add(key);
+      persistHiddenDefaults(next);
+    } else {
+      const { error: delErr } = await supabase
+        .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
+      if (delErr) {
+        setDeletingStage(false);
+        toast.error("Erro ao excluir etapa: " + delErr.message);
+        return;
+      }
+      setCustomStages(prev => prev.filter(s => s.key !== key));
     }
     toast.success(`Etapa "${deleteStage.label}" excluída`);
+    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
     setDeleteStage(null);
-    setCustomStages(prev => prev.filter(s => s.key !== key));
-    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: "novo" } : l));
+    setMoveTargetKey("");
+    setDeletingStage(false);
   };
 
 
