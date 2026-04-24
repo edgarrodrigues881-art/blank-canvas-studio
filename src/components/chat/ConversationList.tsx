@@ -372,9 +372,9 @@ export function ConversationList({
                     className={cn(
                       "w-full flex items-center text-left transition-all duration-150 gap-3 px-4 py-3",
                       isSelected
-                        ? "bg-muted/40 border-l-[3px] border-l-border"
+                        ? "bg-[hsl(var(--chat-accent))]/8 border-l-[3px] border-l-[hsl(var(--chat-accent))]"
                         : "hover:bg-slate-100/80 dark:hover:bg-muted/20 border-l-[3px] border-l-transparent",
-                      selectionMode && selectedIds.has(c.id) && "bg-muted/40"
+                      selectionMode && selectedIds.has(c.id) && "bg-[hsl(var(--chat-accent))]/10"
                     )}
                   >
                     {selectionMode && (
@@ -442,11 +442,11 @@ export function ConversationList({
 
                         <div className="flex items-center justify-end min-w-[18px]">
                           {hasNewMessages ? (
-                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-muted-foreground/80 text-background rounded-full flex items-center justify-center shrink-0">
+                            <span className="min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold bg-[hsl(var(--chat-unread))] text-white rounded-full flex items-center justify-center shrink-0 shadow-sm shadow-[hsl(var(--chat-unread))]/30">
                               {c.unreadCount > 99 ? "99+" : c.unreadCount}
                             </span>
                           ) : isManualUnread ? (
-                            <span className="w-[10px] h-[10px] rounded-full bg-muted-foreground/70 shrink-0" />
+                            <span className="w-[10px] h-[10px] rounded-full bg-[hsl(var(--chat-unread))] shrink-0" />
                           ) : activeStatus === "archived" && onUnarchive ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); onUnarchive(c.id); }}

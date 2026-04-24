@@ -493,8 +493,8 @@ export function ChatPanel({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5 bg-slate-50/50 dark:bg-transparent"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--muted) / 0.08) 1px, transparent 0)", backgroundSize: "28px 28px", scrollBehavior: "smooth" }}
+        className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5 chat-surface"
+        style={{ scrollBehavior: "smooth" }}
       >
         {messages.map((msg, i) => {
           const msgDate = new Date(msg.timestamp);
@@ -657,7 +657,7 @@ export function ChatPanel({
       )}
 
       {/* Instance Selector + Input Area */}
-      <div className="border-t border-border/40 dark:border-border/30 bg-card/70 backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)] transition-colors duration-200">
+      <div className="border-t border-border/40 dark:border-border/30 chat-input-grad backdrop-blur-sm shrink-0 min-w-0 max-w-full pb-[env(safe-area-inset-bottom,0px)] transition-colors duration-200">
         {instances && instances.filter(i => i.deviceName).length > 1 && (
           <div className="flex items-center gap-1.5 px-4 pt-1.5 pb-0">
             <span className="text-[9px] text-muted-foreground/50 shrink-0">via:</span>
@@ -736,7 +736,7 @@ export function ChatPanel({
             </div>
 
             {input.trim() ? (
-              <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-emerald-500 dark:bg-primary text-white dark:text-primary-foreground hover:bg-emerald-600 dark:hover:bg-primary/90 shadow-md shadow-emerald-500/20 dark:shadow-primary/15 mb-0.5 transition-all duration-150" onClick={handleSend}>
+              <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-[hsl(var(--chat-accent))] text-white hover:bg-[hsl(var(--chat-accent))]/90 shadow-md shadow-[hsl(var(--chat-accent))]/25 mb-0.5 transition-all duration-150" onClick={handleSend}>
                 <Send className="w-4 h-4" />
               </Button>
             ) : (

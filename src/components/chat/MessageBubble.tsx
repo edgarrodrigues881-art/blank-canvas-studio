@@ -327,11 +327,11 @@ function VideoPlayer({ src }: { src: string }) {
 /* ─── Sub-components ─── */
 
 function StatusIcon({ status }: { status?: string }) {
-  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground/60 dark:text-primary-foreground/60" />;
-  if (status === "read") return <CheckCheck className="w-4 h-4 text-blue-500 dark:text-blue-300" />;
-  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
-  if (status === "sent") return <Check className="w-4 h-4 text-muted-foreground/70 dark:text-primary-foreground/70" />;
-  if (status === "failed") return <span className="text-[11px] text-red-400 font-bold">⚠</span>;
+  if (status === "sending") return <Loader2 className="w-3.5 h-3.5 animate-spin text-white/70" />;
+  if (status === "read") return <CheckCheck className="w-4 h-4 text-sky-300" />;
+  if (status === "delivered") return <CheckCheck className="w-4 h-4 text-white/75" />;
+  if (status === "sent") return <Check className="w-4 h-4 text-white/75" />;
+  if (status === "failed") return <span className="text-[11px] text-red-300 font-bold">⚠</span>;
   return null;
 }
 
@@ -341,7 +341,7 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
       "flex items-center gap-1 shrink-0 justify-end",
       inline ? "ml-2 self-end" : "mt-1",
     )}>
-      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-muted-foreground/55 dark:text-primary-foreground/55" : "text-muted-foreground/55")}>
+      <span className={cn("text-[10px] leading-none", msg.type === "sent" ? "text-white/70" : "text-muted-foreground/55")}>
         {format(new Date(msg.timestamp), "HH:mm")}
       </span>
       {msg.type === "sent" && <StatusIcon status={msg.status} />}
@@ -714,8 +714,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
               : isSent
-                ? "bg-muted text-foreground border border-border rounded-2xl rounded-br-md shadow-sm transition-colors duration-200"
-                : "bg-card text-foreground border border-border rounded-2xl rounded-bl-md shadow-sm transition-colors duration-200",
+                ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
+                : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
             msg.status === "failed" && "opacity-70"
           )}
         >

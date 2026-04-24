@@ -65,10 +65,10 @@ export const attendingStatusConfig: Record<
   AttendingStatus,
   { label: string; color: string; bg: string; dot: string; textStrong: string }
 > = {
-  nova: { label: "Nova", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
-  em_atendimento: { label: "Em Atendimento", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
-  aguardando: { label: "Aguardando", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground animate-pulse", textStrong: "text-foreground" },
-  finalizado: { label: "Finalizado", color: "text-muted-foreground/70", bg: "bg-muted/30 border-border", dot: "bg-muted-foreground/60", textStrong: "text-muted-foreground" },
+  nova: { label: "Nova", color: "text-[hsl(var(--chat-status-new))]", bg: "bg-[hsl(var(--chat-status-new))]/10 border-[hsl(var(--chat-status-new))]/25", dot: "bg-[hsl(var(--chat-status-new))]", textStrong: "text-foreground" },
+  em_atendimento: { label: "Em Atendimento", color: "text-[hsl(var(--chat-status-attending))]", bg: "bg-[hsl(var(--chat-status-attending))]/10 border-[hsl(var(--chat-status-attending))]/25", dot: "bg-[hsl(var(--chat-status-attending))]", textStrong: "text-foreground" },
+  aguardando: { label: "Aguardando", color: "text-[hsl(var(--chat-status-waiting))]", bg: "bg-[hsl(var(--chat-status-waiting))]/10 border-[hsl(var(--chat-status-waiting))]/25", dot: "bg-[hsl(var(--chat-status-waiting))] animate-pulse", textStrong: "text-foreground" },
+  finalizado: { label: "Finalizado", color: "text-[hsl(var(--chat-status-finalized))]", bg: "bg-muted/40 border-border", dot: "bg-[hsl(var(--chat-status-finalized))]", textStrong: "text-muted-foreground" },
   pausado: { label: "Pausado", color: "text-muted-foreground", bg: "bg-muted/40 border-border", dot: "bg-muted-foreground", textStrong: "text-foreground" },
 };
 
@@ -113,7 +113,7 @@ export const ChatHeader = memo(function ChatHeader({
   return (
     <>
       {/* Header bar — clean, aligned */}
-      <div className="border-b border-border/40 dark:border-border/30 flex items-center px-3 py-1.5 gap-2.5 shrink-0 bg-card/80 backdrop-blur-sm h-[48px] overflow-hidden transition-colors duration-200">
+      <div className="border-b border-border/40 dark:border-border/30 flex items-center px-3 py-1.5 gap-2.5 shrink-0 chat-header-grad backdrop-blur-sm h-[48px] overflow-hidden transition-colors duration-200">
         <Button variant="ghost" size="icon" className="md:hidden w-7 h-7 shrink-0" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
@@ -134,12 +134,13 @@ export const ChatHeader = memo(function ChatHeader({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className={cn(
-                  "flex items-center gap-1 px-1.5 py-px rounded-md text-[10px] font-medium transition-colors shrink-0 hover:opacity-80",
-                  currentStatusCfg.color
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all shrink-0 hover:opacity-90 border",
+                  currentStatusCfg.color,
+                  currentStatusCfg.bg
                 )}>
                   <span className={cn("w-1.5 h-1.5 rounded-full", currentStatusCfg.dot)} />
                   {currentStatusCfg.label}
-                  <ChevronDown className="w-2.5 h-2.5 opacity-50" />
+                  <ChevronDown className="w-2.5 h-2.5 opacity-60" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="min-w-[160px]">
