@@ -10,13 +10,13 @@ import { Search, Building2, User, Clock, Eye, ArrowRight, Pencil } from "lucide-
 import { cn } from "@/lib/utils";
 
 const STAGES = [
-  { key: "novo", label: "Novo Lead", dot: "bg-blue-500", ring: "ring-blue-500/20" },
-  { key: "respondeu", label: "Respondeu", dot: "bg-cyan-500", ring: "ring-cyan-500/20" },
-  { key: "interessado", label: "Interessado", dot: "bg-amber-500", ring: "ring-amber-500/20" },
-  { key: "agendado", label: "Agendado", dot: "bg-indigo-500", ring: "ring-indigo-500/20" },
-  { key: "negociacao", label: "Negociação", dot: "bg-purple-500", ring: "ring-purple-500/20" },
-  { key: "fechado", label: "Fechado", dot: "bg-emerald-500", ring: "ring-emerald-500/20" },
-  { key: "perdido", label: "Perdido", dot: "bg-red-500/60", ring: "ring-red-500/10" },
+  { key: "novo",       label: "Novo Lead",   dot: "bg-blue-500",     ring: "ring-blue-500/20",   bg: "#eff6ff", fg: "#1d4ed8" },
+  { key: "respondeu",  label: "Respondeu",   dot: "bg-cyan-500",     ring: "ring-cyan-500/20",   bg: "#ecfeff", fg: "#0e7490" },
+  { key: "interessado",label: "Interessado", dot: "bg-amber-500",    ring: "ring-amber-500/20",  bg: "#fffbeb", fg: "#92400e" },
+  { key: "agendado",   label: "Agendado",    dot: "bg-violet-500",   ring: "ring-violet-500/20", bg: "#f5f3ff", fg: "#5b21b6" },
+  { key: "negociacao", label: "Negociação",  dot: "bg-orange-500",   ring: "ring-orange-500/20", bg: "#fff7ed", fg: "#c2410c" },
+  { key: "fechado",    label: "Fechado",     dot: "bg-emerald-500",  ring: "ring-emerald-500/20",bg: "#f0fdf4", fg: "#15803d" },
+  { key: "perdido",    label: "Perdido",     dot: "bg-red-500/60",   ring: "ring-red-500/10",    bg: "#fef2f2", fg: "#991b1b" },
 ] as const;
 
 interface Lead {
@@ -194,19 +194,39 @@ export default function Pipeline() {
                 }}
               >
                 {/* Column header */}
-                <div className={cn("px-2.5 mb-2 shrink-0", lost && "opacity-60")}>
+                <div
+                  className={cn(
+                    "px-3 py-2.5 mb-2 shrink-0 rounded-xl border",
+                    lost && "opacity-60"
+                  )}
+                  style={{
+                    backgroundColor: stage.bg,
+                    borderColor: `${stage.fg}1f`,
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
-                    <span className="text-[12px] font-semibold text-foreground uppercase tracking-wider">
+                    <span
+                      className="text-[11.5px] font-bold uppercase tracking-wider"
+                      style={{ color: stage.fg }}
+                    >
                       {stage.label}
                     </span>
-                    <span className="ml-auto text-[11px] font-bold text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded-md tabular-nums">
+                    <span
+                      className="ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums"
+                      style={{ color: stage.fg, backgroundColor: `${stage.fg}1a` }}
+                    >
                       {items.length}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground/50 mt-0.5 tabular-nums">
-                    {items.length} {items.length === 1 ? "lead" : "leads"}{total > 0 ? ` · ${currencyShort(total)}` : ""}
-                  </p>
+                  {total > 0 && (
+                    <p
+                      className="text-[11px] font-semibold mt-1 tabular-nums"
+                      style={{ color: stage.fg }}
+                    >
+                      {currencyShort(total)}
+                    </p>
+                  )}
                 </div>
 
                 {/* Column body */}
