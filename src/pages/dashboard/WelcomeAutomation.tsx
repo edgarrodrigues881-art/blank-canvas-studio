@@ -1024,6 +1024,56 @@ export default function WelcomeAutomationPage() {
 }
 
 // ══════════════════════════════════════════════════════════
+// RESPONSIVE PHONE PREVIEW — measures container, fills space
+// ══════════════════════════════════════════════════════════
+function ResponsivePhonePreview({ payload }: { payload: WelcomeMessagePayload }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({ w: rect.width, h: rect.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  // Phone aspect ≈ 0.49 (w/h). Fit by both width and height of container.
+  const ASPECT = 0.49;
+  const padding = 16; // vertical breathing room
+  const maxByH = Math.max(0, size.h - padding);
+  const maxByW = Math.max(0, (size.w - 8) / ASPECT);
+  const phoneH = Math.max(280, Math.min(maxByH || 540, maxByW || 540));
+
+  return (
+    <div ref={containerRef} className="relative flex-1 min-h-0 w-full flex items-center justify-center">
+      {size.h > 0 && (
+        <div
+          key={JSON.stringify({
+            t: payload.message_type,
+            c: payload.message_content,
+            m: payload.media_url,
+            cards: payload.carousel_cards?.length,
+          })}
+          className="animate-in fade-in-0 duration-300 flex items-center justify-center"
+        >
+          <MinimalPhonePreview payload={payload} height={phoneH} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
 // MINIMAL PHONE PREVIEW — sleek frame, WhatsApp dark chat
 // ══════════════════════════════════════════════════════════
 function MinimalPhonePreview({ payload, height = 540 }: { payload: WelcomeMessagePayload; height?: number }) {
