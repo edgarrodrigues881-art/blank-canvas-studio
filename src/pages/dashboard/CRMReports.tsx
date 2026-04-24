@@ -54,17 +54,22 @@ function MetricCard({
   label,
   value,
   valueClassName = "text-foreground",
+  accentColor,
   delta,
   loading,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  accentColor?: string;
   delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
 }) {
   return (
-    <div className="bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200">
+    <div className="relative bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200 overflow-hidden">
+      {accentColor && (
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accentColor }} />
+      )}
       <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
       {loading ? (
         <Skeleton className="h-8 w-24 mt-2" />
