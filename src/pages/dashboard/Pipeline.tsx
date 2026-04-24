@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle } from "lucide-react";
+import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, Pencil, MoreHorizontal, MessageCircle, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import {
