@@ -546,24 +546,36 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
               <GitBranch className="w-3.5 h-3.5" /> Pipeline
             </h4>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs h-9 border-primary/30 text-primary hover:bg-primary/10"
-              onClick={() => {
-                const stage = conversation.pipelineStage || "novo";
-                supabase
-                  .from("conversations")
-                  .update({ pipeline_stage: stage } as any)
-                  .eq("id", conversation.id)
-                  .then(() => {
-                    toast.success("Lead movido para o Pipeline!");
-                  });
+            <Select
+              value={pipelineStage}
+              onValueChange={async (newStage) => {
+                const prev = pipelineStage;
+                setPipelineStage(newStage);
+                if (!user || !conversation.phone) return;
+                const digits = conversation.phone.replace(/\D/g, "");
+                const { error } = await supabase
+                  .from("service_contacts")
+                  .update({ pipeline_stage: newStage } as any)
+                  .eq("user_id", user.id)
+                  .like("phone", `%${digits.slice(-8)}%`);
+                if (error) {
+                  setPipelineStage(prev);
+                  toast.error("Erro ao mover etapa");
+                } else {
+                  const label = pipelineStages.find(s => s.key === newStage)?.label || newStage;
+                  toast.success(`Movido para: ${label}`);
+                }
               }}
             >
-              <ArrowRight className="w-3.5 h-3.5" />
-              {conversation.pipelineStage ? `Etapa: ${conversation.pipelineStage}` : "Mover para Pipeline"}
-            </Button>
+              <SelectTrigger className="w-full h-9 text-xs">
+                <SelectValue placeholder="Selecione a etapa" />
+              </SelectTrigger>
+              <SelectContent>
+                {pipelineStages.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* ── AI INTERESSE DETECTADO ── */}
