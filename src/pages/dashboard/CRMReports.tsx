@@ -618,41 +618,31 @@ export default function CRMReports() {
           {isLoading ? (
             <Skeleton className="h-[220px] w-full" />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
-                const widthPct = Math.max((stage.value / maxValue) * 100, 6);
+                const pct = Math.round((stage.value / maxValue) * 100);
                 const stageColors = ["#3b82f6", "#06b6d4", "#f59e0b", "#8b5cf6", "#22c55e"];
                 const color = stageColors[i] ?? "#3b82f6";
                 return (
-                  <div key={stage.name}>
-                    {i > 0 && stage.dropPct > 0 && (
-                      <div className="ml-[110px] mb-1 flex items-center gap-1">
-                        <ArrowDownRight className={`h-2.5 w-2.5 ${stage.dropPct > 50 ? "text-red-500" : "text-muted-foreground"}`} />
-                        <span className={`text-[10px] font-medium tabular-nums ${stage.dropPct > 50 ? "text-red-500" : "text-muted-foreground"}`}>
-                          -{stage.dropPct.toFixed(0)}%
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-muted-foreground w-[100px] shrink-0 text-right">{stage.name}</span>
-                      <div className="flex-1">
-                        <div
-                          className="h-8 rounded-md flex items-center px-3 transition-all duration-500 shadow-sm"
-                          style={{
-                            width: `${widthPct}%`,
-                            background: `linear-gradient(90deg, ${color} 0%, ${color}cc 100%)`,
-                          }}
-                        >
-                          <span className="text-[12px] font-bold text-white tabular-nums">{stage.value}</span>
-                        </div>
-                      </div>
-                      {metrics.total > 0 && (
-                        <span className="text-[10.5px] text-muted-foreground w-[40px] shrink-0 text-right tabular-nums">
-                          {((stage.value / metrics.total) * 100).toFixed(0)}%
-                        </span>
-                      )}
+                  <div
+                    key={stage.name}
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300 hover:bg-muted/20"
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: color }} />
+                    <span className="text-xs text-muted-foreground w-24 shrink-0 truncate font-medium">{stage.name}</span>
+                    <div className="flex-1 h-3 bg-muted/25 rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: `${Math.max(pct, 6)}%`,
+                          background: `linear-gradient(90deg, ${color}, ${color}dd)`,
+                        }}
+                      />
                     </div>
+                    <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">
+                      {stage.value}
+                    </span>
                   </div>
                 );
               })}
