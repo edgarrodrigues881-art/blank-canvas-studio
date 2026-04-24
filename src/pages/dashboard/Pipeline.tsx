@@ -105,6 +105,9 @@ export default function Pipeline() {
   const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
+  const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+
+  const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
