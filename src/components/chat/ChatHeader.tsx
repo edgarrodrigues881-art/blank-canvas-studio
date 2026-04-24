@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   ArrowLeft,
   MoreVertical,
@@ -23,6 +23,43 @@ import {
 import { type Conversation, type AttendingStatus } from "./types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+
+function getInitials(name?: string | null, phone?: string): string | null {
+  const n = (name || "").trim();
+  if (!n || n === phone) return null;
+  const parts = n.split(/\s+/).filter(Boolean).slice(0, 2);
+  const letters = parts.map((p) => p[0]?.toUpperCase() ?? "").join("");
+  return letters || n.slice(0, 2).toUpperCase();
+}
+
+function HeaderAvatar({ src, name, phone }: { src?: string | null; name: string; phone: string }) {
+  const [failed, setFailed] = useState(false);
+  const initials = getInitials(name, phone);
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        onError={() => setFailed(true)}
+        className="w-8 h-8 rounded-full object-cover ring-1 ring-border/20 bg-muted"
+      />
+    );
+  }
+  if (initials) {
+    return (
+      <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center">
+        <span className="text-[10px] font-bold text-muted-foreground">{initials}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v1h16v-1c0-4-4-6-8-6Z" />
+      </svg>
+    </div>
+  );
+}
 
 export const attendingStatusConfig: Record<
   AttendingStatus,
@@ -83,13 +120,7 @@ export const ChatHeader = memo(function ChatHeader({
 
         {/* Avatar — compact 32px */}
         <div className="relative shrink-0">
-          {conversation.avatar_url ? (
-            <img src={conversation.avatar_url} alt={conversation.name} className="w-8 h-8 rounded-full object-cover ring-1 ring-border/20" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-muted-foreground">{conversation.name.slice(0, 2).toUpperCase()}</span>
-            </div>
-          )}
+          <HeaderAvatar src={conversation.avatar_url} name={conversation.name} phone={conversation.phone} />
           {conversation.status === "online" && (
             <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-[1.5px] ring-card" />
           )}
