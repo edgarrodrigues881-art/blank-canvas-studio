@@ -392,10 +392,10 @@ export default function Pipeline() {
 
 
                           <div className="flex items-start gap-2.5">
-                            {/* Avatar — 36px circle, initials only (no photo, no emoji) */}
+                            {/* Avatar — static gray, decorative only */}
                             <div
-                              className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-[12px] font-bold text-white shadow-sm uppercase"
-                              style={{ backgroundColor: avatarColor }}
+                              className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center text-[12px] font-bold uppercase"
+                              style={{ backgroundColor: "#e5e7eb", color: "#6b7280" }}
                             >
                               {initials}
                             </div>
