@@ -1016,8 +1016,25 @@ export default function Leads() {
           </DialogHeader>
           <div className="space-y-5 py-2">
             <p className="text-xs text-muted-foreground">
-              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em CSV.
+              Selecione os filtros desejados. Deixe vazio para exportar todos. O arquivo será gerado em <span className="font-semibold text-foreground">.xlsx</span> (Excel) com os dados separados em colunas.
             </p>
+
+            {/* Nome da planilha */}
+            <div className="space-y-2">
+              <Label htmlFor="export-name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Nome da planilha
+              </Label>
+              <Input
+                id="export-name"
+                value={exportName}
+                onChange={(e) => setExportName(e.target.value)}
+                placeholder="Ex: Leads Quentes Janeiro"
+                maxLength={60}
+              />
+              <p className="text-[11px] text-muted-foreground/70">
+                Esse nome será usado como nome do arquivo e da aba dentro do Excel.
+              </p>
+            </div>
 
             {/* Origem */}
             <div className="space-y-2">
@@ -1116,8 +1133,8 @@ export default function Leads() {
             <Button variant="outline" onClick={() => { setExportOrigins([]); setExportStages([]); setExportTags([]); }}>
               Limpar filtros
             </Button>
-            <Button onClick={handleExport} className="gap-1.5">
-              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            <Button onClick={handleExport} className="gap-1.5" disabled={!exportName.trim()}>
+              <Download className="w-3.5 h-3.5" /> Exportar Excel
             </Button>
           </DialogFooter>
         </DialogContent>
