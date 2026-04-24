@@ -450,14 +450,24 @@ const Conversations = () => {
                 {availableInstances.length >= 1 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="!h-[28px] rounded-lg text-[11px] gap-1.5 border-border/40 text-muted-foreground hover:text-foreground px-2">
-                        <Smartphone className="w-3 h-3" />
-                        {filterInstanceIds.length === 0
-                          ? "Instância"
-                          : filterInstanceIds.length === 1
-                            ? availableInstances.find((i) => i.id === filterInstanceIds[0])?.name || "Instância"
-                            : `${filterInstanceIds.length} instâncias`}
-                        <ChevronDown className="w-3 h-3" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative w-8 h-8 text-muted-foreground hover:text-foreground"
+                        title={
+                          filterInstanceIds.length === 0
+                            ? "Filtrar por instância"
+                            : filterInstanceIds.length === 1
+                              ? availableInstances.find((i) => i.id === filterInstanceIds[0])?.name || "Instância"
+                              : `${filterInstanceIds.length} instâncias selecionadas`
+                        }
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        {filterInstanceIds.length > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                            {filterInstanceIds.length}
+                          </span>
+                        )}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-[180px]">
