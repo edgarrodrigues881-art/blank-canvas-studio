@@ -630,6 +630,124 @@ Deno.serve(async (req) => {
       aiReply = aiReply.replace(/<!--SCHEDULE:.*?-->/s, "").trim();
     }
 
+    // 9d. Auto-tagging — apply tags to service_contacts
+    const tagsMatch = aiReply.match(/<!--TAGS:(\[.*?\])-->/s);
+    if (tagsMatch && phoneDigits) {
+      try {
+        const newTags: string[] = JSON.parse(tagsMatch[1]);
+        if (Array.isArray(newTags) && newTags.length > 0) {
+          const cleanTags = newTags
+            .map((t) => String(t).toLowerCase().trim().replace(/\s+/g, "-").slice(0, 30))
+            .filter(Boolean)
+            .slice(0, 5);
+          const { data: sc } = await admin
+            .from("service_contacts")
+            .select("id, tags")
+            .eq("user_id", user_id)
+            .like("phone", `%${phoneDigits}%`)
+            .limit(1)
+            .maybeSingle();
+          if (sc) {
+            const merged = Array.from(new Set([...(sc.tags || []), ...cleanTags]));
+            await admin.from("service_contacts").update({ tags: merged }).eq("id", sc.id);
+          }
+        }
+      } catch (e) { console.error("tags parse:", e); }
+      aiReply = aiReply.replace(/<!--TAGS:.*?-->/s, "").trim();
+    }
+
+    // 9e. AI-detected DISPATCH (pending approval)
+    const dispatchMatch = aiReply.match(/<!--DISPATCH:(.*?)-->/s);
+    if (dispatchMatch) {
+      try {
+        const d = JSON.parse(dispatchMatch[1]);
+        if (d.date && d.time && d.content) {
+          const scheduledFor = new Date(`${d.date}T${d.time}:00-03:00`);
+          const contactPhone = (remote_jid || "").replace(/@.*/, "").replace(/\D/g, "");
+          let leadId: string | null = null;
+          if (phoneDigits) {
+            const { data: sc } = await admin.from("service_contacts").select("id").eq("user_id", user_id).like("phone", `%${phoneDigits}%`).limit(1).maybeSingle();
+            leadId = sc?.id || null;
+          }
+          await admin.from("ai_scheduled_dispatches").insert({
+            user_id,
+            contact_id: leadId,
+            contact_name: leadMemory.contact_name || contact_name || null,
+            contact_phone: contactPhone,
+            device_id: device_id || null,
+            message_content: d.content,
+            scheduled_for: scheduledFor.toISOString(),
+            detected_from_message: (message_content || "").substring(0, 500),
+            status: "pending",
+          });
+        }
+      } catch (e) { console.error("dispatch parse:", e); }
+      aiReply = aiReply.replace(/<!--DISPATCH:.*?-->/s, "").trim();
+    }
+
+    // 9f. AI smart ALERT
+    const alertMatch = aiReply.match(/<!--ALERT:(.*?)-->/s);
+    if (alertMatch && alertsConfig?.enabled !== false) {
+      try {
+        const a = JSON.parse(alertMatch[1]);
+        const allowedTypes = ["human_request", "closing_opportunity"];
+        const typeAllowed =
+          (a.type === "human_request" && alertsConfig?.alert_human_request !== false) ||
+          (a.type === "closing_opportunity" && alertsConfig?.alert_closing_opportunity !== false);
+        if (allowedTypes.includes(a.type) && typeAllowed && a.title && a.description) {
+          const contactPhone = (remote_jid || "").replace(/@.*/, "").replace(/\D/g, "");
+          let leadId: string | null = null;
+          if (phoneDigits) {
+            const { data: sc } = await admin.from("service_contacts").select("id").eq("user_id", user_id).like("phone", `%${phoneDigits}%`).limit(1).maybeSingle();
+            leadId = sc?.id || null;
+          }
+          const severity = a.type === "closing_opportunity" ? "high" : "high";
+          const { data: alertRow } = await admin.from("ai_smart_alerts").insert({
+            user_id,
+            contact_id: leadId,
+            contact_name: leadMemory.contact_name || contact_name || null,
+            contact_phone: contactPhone,
+            alert_type: a.type,
+            severity,
+            title: String(a.title).substring(0, 120),
+            description: String(a.description).substring(0, 500),
+            context_message: (message_content || "").substring(0, 500),
+            ai_reasoning: a.reasoning ? String(a.reasoning).substring(0, 300) : null,
+            status: "unread",
+          }).select("id").single();
+
+          // Send WhatsApp notification if configured
+          if (alertsConfig?.notify_whatsapp && alertsConfig?.whatsapp_device_id && alertsConfig?.whatsapp_target_phone && alertRow?.id) {
+            try {
+              const labelMap: Record<string, string> = {
+                human_request: "🙋 PEDIU HUMANO",
+                closing_opportunity: "🔥 OPORTUNIDADE DE FECHAMENTO",
+              };
+              const waMsg = `${labelMap[a.type] || "⚠ ALERTA"}\n\n*${a.title}*\n\n${a.description}\n\n📱 ${leadMemory.contact_name || contactPhone}\n☎ ${contactPhone}`;
+              const waRes = await fetch(`${supabaseUrl}/functions/v1/chat-send`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  device_id: alertsConfig.whatsapp_device_id,
+                  to: alertsConfig.whatsapp_target_phone,
+                  content: waMsg,
+                  user_id,
+                }),
+              });
+              if (waRes.ok) {
+                await admin.from("ai_smart_alerts").update({ whatsapp_sent: true, whatsapp_sent_at: new Date().toISOString() }).eq("id", alertRow.id);
+              } else {
+                await admin.from("ai_smart_alerts").update({ whatsapp_error: `HTTP ${waRes.status}` }).eq("id", alertRow.id);
+              }
+            } catch (waErr: any) {
+              await admin.from("ai_smart_alerts").update({ whatsapp_error: waErr.message?.substring(0, 200) }).eq("id", alertRow.id);
+            }
+          }
+        }
+      } catch (e) { console.error("alert parse:", e); }
+      aiReply = aiReply.replace(/<!--ALERT:.*?-->/s, "").trim();
+    }
+
     // 10. Apply delay (simulate typing)
     if (settings.simulate_typing) {
       const minDelay = (settings.min_delay_seconds || 1) * 1000;
