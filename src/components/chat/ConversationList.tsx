@@ -313,8 +313,17 @@ export function ConversationList({
               const isManualUnread = c.unreadCount < 0;
               const hasNewMessages = c.unreadCount > 0;
               const displayName = c.name && c.name !== c.phone ? c.name : null;
-              const avatarLabel = displayName || c.phone;
-              const avatarCls = getAvatarColor(avatarLabel);
+              const avatarLabel = displayName || formatPhone(c.phone);
+              const avatarCls = displayName ? getAvatarColor(displayName) : "";
+              const initials = displayName
+                ? displayName
+                    .trim()
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0]?.toUpperCase() ?? "")
+                    .join("") || displayName.slice(0, 2).toUpperCase()
+                : null;
               const mediaPreview = getMessagePreview(c.lastMessage);
               const matchedTags = trimmedQuery
                 ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
