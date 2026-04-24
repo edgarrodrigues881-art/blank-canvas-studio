@@ -381,14 +381,25 @@ export default function CRMReports() {
     return items;
   }, [todayPanel, metrics]);
 
+  const funnelStages = useMemo(() => {
+    const defaultsHead = DEFAULT_PIPELINE_STAGES.filter(s => !TAIL_KEYS.has(s.key) && !hiddenDefaults.has(s.key));
+    const tail = DEFAULT_PIPELINE_STAGES.filter(s => TAIL_KEYS.has(s.key) && !hiddenDefaults.has(s.key));
+    const customs = customStages.map(c => ({
+      key: c.key,
+      label: c.label,
+      color: CUSTOM_COLOR_MAP[c.color] || "#3b82f6",
+    }));
+    return [...defaultsHead, ...customs, ...tail];
+  }, [customStages, hiddenDefaults]);
+
   const funnelData = useMemo(() => {
-    return PIPELINE_STAGES.map((s, i, arr) => {
+    return funnelStages.map((s, i, arr) => {
       const count = metrics.byStage[s.key] || 0;
       const prevCount = i > 0 ? (metrics.byStage[arr[i - 1].key] || 0) : metrics.total;
       const dropPct = prevCount > 0 ? ((1 - count / prevCount) * 100) : 0;
-      return { name: s.label, value: count, dropPct: i > 0 ? dropPct : 0 };
+      return { name: s.label, value: count, dropPct: i > 0 ? dropPct : 0, color: s.color };
     });
-  }, [metrics]);
+  }, [metrics, funnelStages]);
 
   const activityData = useMemo(() => {
     return Object.values(metrics.dailyMap)
