@@ -636,13 +636,8 @@ export default function Leads() {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <FieldLabel>Prioridade</FieldLabel>
-                          <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
+                          <FieldLabel>Responsável</FieldLabel>
+                          <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
                         </div>
                         <div className="space-y-1.5">
                           <FieldLabel>Responsável</FieldLabel>
