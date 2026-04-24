@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/select";
 import {
   Search, Plus, Upload, Trash2, Pencil, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
-  MessageSquare, Globe, Megaphone, Users, UserPlus, Clock,
+  MessageSquare, Globe, Megaphone, Users, UserPlus, Clock, Download, Tag as TagIcon,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { format, formatDistanceToNow } from "date-fns";
