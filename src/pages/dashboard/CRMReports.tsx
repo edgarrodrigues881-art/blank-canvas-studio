@@ -342,7 +342,7 @@ export default function CRMReports() {
   const insightBorderClass = {
     alert: "border-l-red-500",
     warning: "border-l-amber-500",
-    opportunity: "border-l-white",
+    opportunity: "border-l-foreground",
   };
 
   return (
