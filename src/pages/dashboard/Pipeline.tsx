@@ -774,12 +774,14 @@ export default function Pipeline() {
                           draggable
                           onDragStart={(e) => {
                             dragRef.current = { id: lead.id, from: lead.pipeline_stage || "novo" };
+                            overStageRef.current = lead.pipeline_stage || "novo";
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
                             setDraggingId(lead.id);
                           }}
                           onDragEnd={() => {
                             setDraggingId(null);
+                            overStageRef.current = null;
                             setOverStage(null);
                           }}
                           style={cardStyle}
