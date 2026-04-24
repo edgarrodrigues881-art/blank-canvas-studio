@@ -220,7 +220,7 @@ export default function Leads() {
 
   const [form, setForm] = useState({
     name: "", phone: "", email: "", company: "", notes: "",
-    origin: "manual", pipeline_stage: "novo",
+    origin: "WhatsApp", pipeline_stage: "novo",
     interest: "", estimated_value: "", priority: "media",
     responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
   });
@@ -276,7 +276,7 @@ export default function Leads() {
     setEditing(null);
     setForm({
       name: "", phone: "", email: "", company: "", notes: "",
-      origin: "manual", pipeline_stage: "novo",
+      origin: "WhatsApp", pipeline_stage: "novo",
       interest: "", estimated_value: "", priority: "media",
       responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
     });
@@ -287,7 +287,7 @@ export default function Leads() {
     setEditing(l);
     setForm({
       name: l.name, phone: l.phone, email: l.email || "", company: l.company || "",
-      notes: l.notes || "", origin: l.origin || "manual",
+      notes: l.notes || "", origin: l.origin || "WhatsApp",
       pipeline_stage: l.pipeline_stage || "novo",
       interest: l.interest || "", estimated_value: l.estimated_value?.toString() || "",
       priority: l.priority || "media", responsible: l.responsible || "",
@@ -356,7 +356,7 @@ export default function Leads() {
       const cols = line.split(",").map((c) => c.trim());
       return {
         user_id: user.id, name: nameIdx >= 0 ? cols[nameIdx] || "" : "",
-        phone: cols[phoneIdx] || "", origin: "manual", status: "active",
+        phone: cols[phoneIdx] || "", origin: "WhatsApp", status: "active",
         pipeline_stage: "novo", tags: [] as string[], priority: "media",
       };
     });
