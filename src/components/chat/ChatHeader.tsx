@@ -156,9 +156,9 @@ export const ChatHeader = memo(function ChatHeader({
           {/* Presence / Typing subtitle */}
           <div className="h-[14px]">
             {conversation.status === "typing" ? (
-              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium animate-pulse">digitando...</span>
+              <span className="text-[10px] text-foreground/70 font-medium animate-pulse">digitando...</span>
             ) : conversation.status === "online" ? (
-              <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">online</span>
+              <span className="text-[10px] text-foreground/70 font-medium">online</span>
             ) : conversation.lastMessageAt ? (
               <span className="text-[10px] text-muted-foreground/50">
                 visto por último às {format(new Date(conversation.lastMessageAt), "HH:mm")}
