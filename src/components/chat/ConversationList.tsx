@@ -313,8 +313,17 @@ export function ConversationList({
               const isManualUnread = c.unreadCount < 0;
               const hasNewMessages = c.unreadCount > 0;
               const displayName = c.name && c.name !== c.phone ? c.name : null;
-              const avatarLabel = displayName || c.phone;
-              const avatarCls = getAvatarColor(avatarLabel);
+              const avatarLabel = displayName || formatPhone(c.phone);
+              const avatarCls = displayName ? getAvatarColor(displayName) : "";
+              const initials = displayName
+                ? displayName
+                    .trim()
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0]?.toUpperCase() ?? "")
+                    .join("") || displayName.slice(0, 2).toUpperCase()
+                : null;
               const mediaPreview = getMessagePreview(c.lastMessage);
               const matchedTags = trimmedQuery
                 ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
@@ -353,9 +362,15 @@ export function ConversationList({
                           alt={avatarLabel}
                           className="w-11 h-11 rounded-full object-cover ring-1 ring-border/20"
                         />
-                      ) : (
+                      ) : initials ? (
                         <div className={cn("w-11 h-11 rounded-full flex items-center justify-center font-semibold text-[13px] tracking-tight", avatarCls)}>
-                          {avatarLabel.slice(0, 2).toUpperCase()}
+                          {initials}
+                        </div>
+                      ) : (
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v1h16v-1c0-4-4-6-8-6Z" />
+                          </svg>
                         </div>
                       )}
                     </div>
