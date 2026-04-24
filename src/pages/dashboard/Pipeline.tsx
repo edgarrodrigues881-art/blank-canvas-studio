@@ -397,14 +397,7 @@ export default function Pipeline() {
                       </div>
                     )}
                   </div>
-                  {total > 0 && (
-                    <p
-                      className="text-[11px] font-semibold mt-1 tabular-nums"
-                      style={{ color: stage.fg }}
-                    >
-                      {currencyShort(total)}
-                    </p>
-                  )}
+                  {/* total value removed */}
                 </div>
 
                 {/* Column body */}
