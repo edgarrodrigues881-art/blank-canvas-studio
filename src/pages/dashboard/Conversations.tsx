@@ -249,21 +249,45 @@ const Conversations = () => {
     }
   }, [selectedInstances, selectedInstanceId]);
 
+  // All user devices (fallback when there are no conversations yet)
+  const [userDevices, setUserDevices] = useState<{ id: string; name: string; number: string }[]>([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("devices")
+        .select("id, name, phone_number")
+        .eq("user_id", user.id);
+      if (cancelled || !data) return;
+      setUserDevices(
+        data.map((d: any) => ({ id: d.id, name: d.name || d.id.slice(0, 8), number: d.phone_number || "" }))
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
   // Extract unique instances for filter chips (deduplicated by name)
   const availableInstances = useMemo(() => {
     const map = new Map<string, { id: string; name: string; number: string }>();
     activeRealConvs.forEach((c) => {
       if (c.device_id && !map.has(c.device_id)) {
         const name = c.deviceName || c.device_id.slice(0, 8);
-        // Skip if we already have an instance with the same name
         const existing = Array.from(map.values());
         if (!existing.some((e) => e.name === name)) {
           map.set(c.device_id, { id: c.device_id, name, number: "" });
         }
       }
     });
+    // Fallback: include all user devices when no conversations carry device info
+    if (map.size === 0) {
+      userDevices.forEach((d) => {
+        const existing = Array.from(map.values());
+        if (!existing.some((e) => e.name === d.name)) map.set(d.id, d);
+      });
+    }
     return Array.from(map.values());
-  }, [activeRealConvs]);
+  }, [activeRealConvs, userDevices]);
 
   const filteredConversations = useMemo(() => {
     let list = groupedConversations;
