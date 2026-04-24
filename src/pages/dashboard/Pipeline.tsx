@@ -157,6 +157,14 @@ export default function Pipeline() {
             {filtered.length} leads · {currency(totalValue) || "R$ 0"}
           </p>
         </div>
+        <Button
+          size="sm"
+          onClick={() => toast.info("Em breve: criação de etapas customizadas")}
+          className="gap-1.5 h-9 rounded-xl"
+        >
+          <Plus className="w-4 h-4" />
+          Nova etapa
+        </Button>
       </div>
 
       {/* Filters */}
