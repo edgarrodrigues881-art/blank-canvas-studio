@@ -31,6 +31,7 @@ interface Lead {
   pipeline_stage: string | null;
   last_message_at: string | null;
   created_at: string;
+  avatar_url: string | null;
 }
 
 const TEMP_CONFIG: Record<string, { label: string; cls: string; glow?: string }> = {
@@ -84,7 +85,7 @@ export default function Pipeline() {
     if (!user) return;
     const { data } = await supabase
       .from("service_contacts")
-      .select("id,name,phone,company,interest,estimated_value,lead_temperature,responsible,pipeline_stage,last_message_at,created_at")
+      .select("id,name,phone,company,interest,estimated_value,lead_temperature,responsible,pipeline_stage,last_message_at,created_at,avatar_url")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setLeads((data as any[]) || []);
