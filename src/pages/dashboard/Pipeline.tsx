@@ -209,6 +209,10 @@ export default function Pipeline() {
   const handleDeleteStage = async () => {
     if (!user || !deleteStage || !moveTargetKey) return;
     const key = deleteStage.key;
+    if (key === "novo") {
+      toast.error('A etapa "Novo Lead" é fixa e não pode ser excluída');
+      return;
+    }
     const target = moveTargetKey;
     if (target === key) {
       toast.error("Escolha uma etapa diferente");
@@ -456,6 +460,7 @@ export default function Pipeline() {
             const isOver = overStage === stage.key;
             const lost = isPerdido(stage.key);
             const isCustomStage = !DEFAULT_STAGE_KEYS.has(stage.key);
+            const isFixedNovo = stage.key === "novo";
             const isStageDragOver = stageDragKey && stageOverKey === stage.key && stageDragKey !== stage.key && isCustomStage;
 
             return (
@@ -559,7 +564,7 @@ export default function Pipeline() {
                       {items.length}
                     </span>
                     {/* Hover actions — pencil for all stages; trash only for custom */}
-                    {editingStageKey !== stage.key && (
+                    {editingStageKey !== stage.key && !isFixedNovo && (
                       <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
                         <button
                           type="button"
