@@ -737,9 +737,6 @@ export default function Leads() {
                           <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
                           {statusCfg.label}
                         </Badge>
-                        <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full px-2.5", priorityCfg.color)}>
-                          {priorityCfg.label}
-                        </Badge>
                       </div>
                     </div>
                   </div>
