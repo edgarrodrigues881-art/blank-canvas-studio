@@ -19,12 +19,20 @@ import {
 import { Label } from "@/components/ui/label";
 
 const STAGE_COLORS = [
-  { key: "azul",    label: "Azul",    hex: "#3b82f6" },
-  { key: "ciano",   label: "Ciano",   hex: "#06b6d4" },
-  { key: "ambar",   label: "Âmbar",   hex: "#f59e0b" },
-  { key: "roxo",    label: "Roxo",    hex: "#8b5cf6" },
-  { key: "laranja", label: "Laranja", hex: "#f97316" },
-  { key: "verde",   label: "Verde",   hex: "#22c55e" },
+  { key: "azul",      label: "Azul",      hex: "#3b82f6" },
+  { key: "ciano",     label: "Ciano",     hex: "#06b6d4" },
+  { key: "ambar",     label: "Âmbar",     hex: "#f59e0b" },
+  { key: "roxo",      label: "Roxo",      hex: "#8b5cf6" },
+  { key: "laranja",   label: "Laranja",   hex: "#f97316" },
+  { key: "verde",     label: "Verde",     hex: "#22c55e" },
+  { key: "rosa",      label: "Rosa",      hex: "#ec4899" },
+  { key: "vermelho",  label: "Vermelho",  hex: "#ef4444" },
+  { key: "teal",      label: "Teal",      hex: "#14b8a6" },
+  { key: "indigo",    label: "Índigo",    hex: "#6366f1" },
+  { key: "lima",      label: "Lima",      hex: "#84cc16" },
+  { key: "fucsia",    label: "Fúcsia",    hex: "#d946ef" },
+  { key: "marrom",    label: "Marrom",    hex: "#92400e" },
+  { key: "cinza",     label: "Cinza",     hex: "#64748b" },
 ];
 
 const STAGES = [
@@ -98,12 +106,20 @@ interface CustomStage {
 }
 
 const COLOR_TO_PALETTE: Record<string, { bg: string; fg: string; dot: string }> = {
-  azul:    { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
-  ciano:   { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
-  ambar:   { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
-  roxo:    { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
-  laranja: { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
-  verde:   { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+  azul:     { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
+  ciano:    { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
+  ambar:    { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
+  roxo:     { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
+  laranja:  { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
+  verde:    { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+  rosa:     { bg: "#fdf2f8", fg: "#be185d", dot: "bg-pink-500" },
+  vermelho: { bg: "#fef2f2", fg: "#b91c1c", dot: "bg-red-500" },
+  teal:     { bg: "#f0fdfa", fg: "#0f766e", dot: "bg-teal-500" },
+  indigo:   { bg: "#eef2ff", fg: "#4338ca", dot: "bg-indigo-500" },
+  lima:     { bg: "#f7fee7", fg: "#4d7c0f", dot: "bg-lime-500" },
+  fucsia:   { bg: "#fdf4ff", fg: "#a21caf", dot: "bg-fuchsia-500" },
+  marrom:   { bg: "#fef3c7", fg: "#78350f", dot: "bg-amber-800" },
+  cinza:    { bg: "#f1f5f9", fg: "#334155", dot: "bg-slate-500" },
 };
 
 export default function Pipeline() {
