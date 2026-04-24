@@ -324,13 +324,10 @@ export default function Pipeline() {
               Cancelar
             </Button>
             <Button
-              disabled={!newStageName.trim()}
-              onClick={() => {
-                toast.success(`Etapa "${newStageName.trim()}" criada`);
-                setNewStageOpen(false);
-              }}
+              disabled={!newStageName.trim() || creatingStage}
+              onClick={handleCreateStage}
             >
-              Criar
+              {creatingStage ? "Criando..." : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
