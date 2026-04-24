@@ -615,16 +615,24 @@ export default function CRMReports() {
           <div className="h-[160px] flex items-center justify-center text-[12px] text-muted-foreground">Sem dados no período</div>
         ) : (
           <div className="flex items-center gap-8">
-            <ResponsiveContainer width="35%" height={200}>
-              <PieChart>
-                <Pie data={originData} cx="50%" cy="50%" innerRadius={48} outerRadius={80} paddingAngle={2} dataKey="value" stroke="hsl(var(--card))" strokeWidth={2}>
-                  {originData.map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative" style={{ width: 220, height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={originData} cx="50%" cy="50%" innerRadius={62} outerRadius={100} paddingAngle={2} dataKey="value" stroke="hsl(var(--card))" strokeWidth={2}>
+                    {originData.map((entry, index) => (
+                      <Cell key={index} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[24px] font-bold text-foreground tabular-nums leading-none">
+                  {originData.reduce((sum, o) => sum + o.value, 0)}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total</span>
+              </div>
+            </div>
             <div className="flex-1 space-y-2.5">
               {originData.map((o) => (
                 <div key={o.name} className="flex items-center justify-between text-[12px]">
