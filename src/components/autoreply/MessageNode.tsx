@@ -1,12 +1,20 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { MessageSquare, Image, Clock, FileText } from "lucide-react";
+import { MessageSquare, Image, Clock, FileText, Mic, Paperclip, Link2 } from "lucide-react";
 import type { FlowNodeData } from "./types";
 
 export function MessageNode({ data, selected }: NodeProps) {
   const d = data as FlowNodeData;
-  const hasImage = !!d.imageUrl;
+  const mediaType = d.mediaType || (d.imageUrl ? "image" : "none");
   const hasButtons = d.buttons && d.buttons.length > 0;
   const isUsingModel = !!d.templateId;
+
+  const mediaMeta: Record<string, { icon: any; label: string }> = {
+    image: { icon: Image, label: "Imagem" },
+    audio: { icon: Mic, label: "Áudio" },
+    file: { icon: Paperclip, label: d.fileName || "Arquivo" },
+    dynamic_url: { icon: Link2, label: `Mídia dinâmica (${d.dynamicMediaKind || "auto"})` },
+  };
+  const media = mediaType !== "none" ? mediaMeta[mediaType] : null;
 
   return (
     <div
@@ -51,12 +59,12 @@ export function MessageNode({ data, selected }: NodeProps) {
       </div>
 
       {/* Body */}
-      {(hasImage || d.text) && (
+      {(media || d.text) && (
         <div className="px-3 pb-2 space-y-0.5">
-          {hasImage && (
+          {media && (
             <div className="flex items-center gap-1 text-[9px] text-muted-foreground/40">
-              <Image className="w-2.5 h-2.5" />
-              <span>Imagem</span>
+              <media.icon className="w-2.5 h-2.5" />
+              <span className="truncate">{media.label}</span>
             </div>
           )}
           {d.text && (
