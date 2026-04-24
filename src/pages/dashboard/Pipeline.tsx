@@ -359,7 +359,16 @@ export default function Pipeline() {
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
-                        {/* Default 7 stages cannot be deleted */}
+                        {!DEFAULT_STAGE_KEYS.has(stage.key) && (
+                          <button
+                            type="button"
+                            title="Excluir etapa"
+                            onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
+                            className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
