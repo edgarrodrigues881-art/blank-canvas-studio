@@ -381,6 +381,8 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: user?.email !== "edgarrodrigues881@gmail.com" })}
+                  {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
+                  {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
                   {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3 })}
                 </SidebarMenu>
               </SidebarGroupContent>
