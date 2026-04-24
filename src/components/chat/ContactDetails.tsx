@@ -232,7 +232,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setAiInterest(conversation.aiInterest || null);
     setSavedOrigin("WhatsApp");
     setEditForm({
-      name: conversation.name,
+      name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
