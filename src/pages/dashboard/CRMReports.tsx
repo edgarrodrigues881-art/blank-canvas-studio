@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  PieChart, Pie, Cell, ComposedChart, Line, Area, Legend,
 } from "recharts";
 import { format, subDays, startOfDay, endOfDay, differenceInMinutes, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -488,15 +488,42 @@ export default function CRMReports() {
           <div className="h-[260px] flex items-center justify-center text-[12px] text-muted-foreground">Sem dados no período</div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={activityData} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" vertical={false} />
+            <ComposedChart data={activityData} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
+              <defs>
+                <linearGradient id="leadsFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="responsesFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" strokeOpacity={0.5} vertical={false} />
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }} />
+              <Tooltip
+                cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  return (
+                    <div className="rounded-md border border-border bg-card/95 backdrop-blur-sm px-3 py-2 shadow-lg">
+                      <p className="text-[10.5px] uppercase tracking-wider text-muted-foreground mb-1.5">{label}</p>
+                      {payload.map((entry: any) => (
+                        <div key={entry.dataKey} className="flex items-center gap-2 text-[12px]">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                          <span className="text-muted-foreground">{entry.name}</span>
+                          <span className="text-foreground font-semibold tabular-nums ml-auto">{entry.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }}
+              />
               <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} iconType="line" />
-              <Line type="monotone" dataKey="leads" name="Novos Leads" stroke="hsl(var(--foreground))" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "hsl(var(--foreground))" }} />
-              <Line type="monotone" dataKey="responses" name="Respostas" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "hsl(var(--muted-foreground))" }} />
-            </LineChart>
+              <Area type="monotone" dataKey="leads" name="Novos Leads" stroke="#3b82f6" strokeWidth={2.5} fill="url(#leadsFill)" dot={false} activeDot={{ r: 4, fill: "#3b82f6", stroke: "hsl(var(--card))", strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="responses" name="Respostas" stroke="#22c55e" strokeWidth={2.5} fill="url(#responsesFill)" dot={false} activeDot={{ r: 4, fill: "#22c55e", stroke: "hsl(var(--card))", strokeWidth: 2 }} />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </Panel>
