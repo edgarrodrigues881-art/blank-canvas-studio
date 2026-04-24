@@ -136,7 +136,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     const digits = conversation.phone.replace(/\D/g, "");
     supabase
       .from("service_contacts")
-      .select("name, email, company, origin, notes")
+      .select("name, email, company, origin, notes, pipeline_stage")
       .eq("user_id", user.id)
       .like("phone", `%${digits.slice(-8)}%`)
       .limit(1)
@@ -145,6 +145,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         if (!data) return;
         const nextOrigin = (data as any).origin || "WhatsApp";
         setSavedOrigin(nextOrigin);
+        setPipelineStage((data as any).pipeline_stage || "novo");
         setEditForm((prev) => ({
           ...prev,
           name: data.name || prev.name,
@@ -155,6 +156,36 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
         }));
       });
   }, [user, conversation.phone, conversation.id]);
+
+  // Fetch available pipeline stages (defaults visible + custom)
+  useEffect(() => {
+    if (!user) return;
+    const DEFAULTS = [
+      { key: "novo", label: "Novo Lead" },
+      { key: "respondeu", label: "Respondeu" },
+      { key: "interessado", label: "Interessado" },
+      { key: "agendado", label: "Agendado" },
+      { key: "negociacao", label: "Negociação" },
+      { key: "fechado", label: "Fechado" },
+      { key: "perdido", label: "Perdido" },
+    ];
+    let hidden = new Set<string>();
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      if (raw) hidden = new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+    const head = DEFAULTS.filter(s => s.key !== "fechado" && s.key !== "perdido" && !hidden.has(s.key));
+    const tail = DEFAULTS.filter(s => (s.key === "fechado" || s.key === "perdido") && !hidden.has(s.key));
+    supabase
+      .from("pipeline_stages")
+      .select("key,label,position")
+      .eq("user_id", user.id)
+      .order("position", { ascending: true })
+      .then(({ data }) => {
+        const custom = (data || []).map((c: any) => ({ key: c.key, label: c.label }));
+        setPipelineStages([...head, ...custom, ...tail]);
+      });
+  }, [user]);
 
   // Reset edit form when conversation changes
   useEffect(() => {
