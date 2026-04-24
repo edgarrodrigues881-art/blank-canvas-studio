@@ -42,33 +42,35 @@ function usePeriodRange(period: Period) {
 }
 
 const tooltipStyle = {
-  backgroundColor: "#1a1a1a",
-  border: "1px solid #2a2a2a",
+  backgroundColor: "hsl(var(--card))",
+  border: "1px solid hsl(var(--border))",
   borderRadius: "4px",
   fontSize: 11,
-  color: "#fff",
+  color: "hsl(var(--foreground))",
 };
 
-// Premium dark metric card — Bloomberg style
+// Premium metric card — uses theme tokens
 function MetricCard({
   label,
   value,
+  valueClassName = "text-foreground",
   delta,
   loading,
 }: {
   label: string;
   value: string;
-  delta?: { value: number; positive?: boolean } | null;
+  valueClassName?: string;
+  delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
 }) {
   return (
-    <div className="bg-[#1a1a1a] border border-neutral-800 rounded-md p-4 flex flex-col justify-between min-h-[110px]">
-      <p className="text-[10.5px] uppercase tracking-[0.12em] text-neutral-500 font-medium">{label}</p>
+    <div className="bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200">
+      <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
       {loading ? (
-        <Skeleton className="h-8 w-24 mt-2 bg-neutral-800" />
+        <Skeleton className="h-8 w-24 mt-2" />
       ) : (
         <>
-          <p className="text-[32px] leading-none font-semibold text-white tracking-tight mt-2 tabular-nums">
+          <p className={`text-[32px] leading-none font-semibold tracking-tight mt-2 tabular-nums ${valueClassName}`}>
             {value}
           </p>
           {delta && (
@@ -89,7 +91,7 @@ function MetricCard({
 function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-4">
-      <h2 className="text-[15px] font-medium text-white tracking-tight">{children}</h2>
+      <h2 className="text-[15px] font-medium text-foreground tracking-tight">{children}</h2>
       {right}
     </div>
   );
@@ -97,7 +99,7 @@ function SectionTitle({ children, right }: { children: React.ReactNode; right?: 
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-[#1a1a1a] border border-neutral-800 rounded-md p-5 ${className}`}>{children}</div>
+    <div className={`bg-card border border-border rounded-md p-5 transition-colors duration-200 ${className}`}>{children}</div>
   );
 }
 
@@ -340,27 +342,27 @@ export default function CRMReports() {
   const insightBorderClass = {
     alert: "border-l-red-500",
     warning: "border-l-amber-500",
-    opportunity: "border-l-white",
+    opportunity: "border-l-foreground",
   };
 
   return (
-    <div className="bg-[#0f0f0f] min-h-screen -m-4 p-6 text-white">
+    <div className="bg-background min-h-screen -m-4 p-6 text-foreground transition-colors duration-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-white">Performance de Vendas</h1>
-          <p className="text-[12px] text-neutral-500 mt-1">Métricas, funil e insights para tomada de decisão</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Performance de Vendas</h1>
+          <p className="text-[12px] text-muted-foreground mt-1">Métricas, funil e insights para tomada de decisão</p>
         </div>
         {/* Period pill selector */}
-        <div className="flex items-center gap-1 bg-[#1a1a1a] border border-neutral-800 rounded-full p-1">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-full p-1">
           {(Object.keys(periodLabel) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`text-[11px] px-3 py-1.5 rounded-full transition-all font-medium ${
+              className={`text-[11px] px-3 py-1.5 rounded-full transition-all font-medium border ${
                 period === p
-                  ? "bg-neutral-800 text-white border border-neutral-700"
-                  : "text-neutral-500 hover:text-neutral-300"
+                  ? "bg-muted text-foreground border-border"
+                  : "bg-transparent text-muted-foreground border-transparent hover:text-foreground"
               }`}
             >
               {periodLabel[p]}
@@ -371,9 +373,23 @@ export default function CRMReports() {
 
       {/* Primary KPI row — 4 cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <MetricCard label="Receita Fechada" value={formatCurrency(metrics.totalClosedValue)} loading={isLoading} />
-        <MetricCard label="Em Negociação" value={formatCurrency(metrics.totalEstimatedValue)} loading={isLoading} />
-        <MetricCard label="Total de Leads" value={metrics.total.toLocaleString("pt-BR")} loading={isLoading} />
+        <MetricCard
+          label="Receita Fechada"
+          value={formatCurrency(metrics.totalClosedValue)}
+          valueClassName="text-emerald-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          label="Em Negociação"
+          value={formatCurrency(metrics.totalEstimatedValue)}
+          valueClassName="text-blue-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          label="Total de Leads"
+          value={metrics.total.toLocaleString("pt-BR")}
+          loading={isLoading}
+        />
         <MetricCard
           label="Taxa de Conversão"
           value={`${metrics.conversionRate.toFixed(1)}%`}
@@ -389,12 +405,14 @@ export default function CRMReports() {
         <MetricCard
           label="Leads Esquecidos"
           value={metrics.forgottenLeads.toLocaleString("pt-BR")}
+          valueClassName="text-amber-500"
           delta={metrics.forgottenLeads > 0 ? { value: (metrics.forgottenLeads / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
         <MetricCard
           label="Leads Perdidos"
           value={metrics.lost.toLocaleString("pt-BR")}
+          valueClassName="text-red-500"
           delta={metrics.lost > 0 ? { value: (metrics.lost / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
@@ -419,15 +437,15 @@ export default function CRMReports() {
                 <Checkbox
                   checked={!!checkedItems[item.key]}
                   onCheckedChange={() => toggleCheck(item.key)}
-                  className="shrink-0 h-4 w-4 rounded-[3px] border-neutral-600 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black"
+                  className="shrink-0 h-4 w-4 rounded-[3px] border-border data-[state=checked]:bg-foreground data-[state=checked]:border-foreground data-[state=checked]:text-background"
                 />
                 <span className={`text-[12.5px] flex-1 ${
-                  checkedItems[item.key] ? "line-through text-neutral-600" : "text-white"
+                  checkedItems[item.key] ? "line-through text-muted-foreground/60" : "text-foreground"
                 }`}>
                   {item.label}
                 </span>
                 {item.value > 0 && !checkedItems[item.key] && (
-                  <span className="text-[10.5px] font-semibold tabular-nums px-2 py-0.5 rounded bg-neutral-800 text-white border border-neutral-700">
+                  <span className="text-[10.5px] font-semibold tabular-nums px-2 py-0.5 rounded bg-muted text-foreground border border-border">
                     {item.value}
                   </span>
                 )}
@@ -443,12 +461,12 @@ export default function CRMReports() {
             {insights.map((insight, i) => (
               <div
                 key={i}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm bg-[#222] border-l-2 ${insightBorderClass[insight.type]}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm bg-muted/40 border-l-2 ${insightBorderClass[insight.type]}`}
               >
-                <p className="text-[12.5px] leading-snug flex-1 text-neutral-200">{insight.text}</p>
+                <p className="text-[12.5px] leading-snug flex-1 text-foreground/85">{insight.text}</p>
                 {insight.action && (
                   <button
-                    className="flex items-center gap-1 text-[11px] font-medium text-neutral-400 hover:text-white transition-colors shrink-0"
+                    className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
                     onClick={() => navigate(insight.action!.route)}
                   >
                     {insight.action.label}
@@ -465,19 +483,19 @@ export default function CRMReports() {
       <Panel className="mb-3">
         <SectionTitle>Leads vs Respostas</SectionTitle>
         {isLoading ? (
-          <Skeleton className="h-[260px] w-full bg-neutral-800" />
+          <Skeleton className="h-[260px] w-full" />
         ) : activityData.length === 0 ? (
-          <div className="h-[260px] flex items-center justify-center text-[12px] text-neutral-500">Sem dados no período</div>
+          <div className="h-[260px] flex items-center justify-center text-[12px] text-muted-foreground">Sem dados no período</div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={activityData} margin={{ left: -10, right: 10, top: 5, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="#262626" vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#737373" }} axisLine={{ stroke: "#262626" }} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "#737373" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: "#404040", strokeWidth: 1 }} />
-              <Legend wrapperStyle={{ fontSize: 11, color: "#a3a3a3" }} iconType="line" />
-              <Line type="monotone" dataKey="leads" name="Novos Leads" stroke="#ffffff" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "#fff" }} />
-              <Line type="monotone" dataKey="responses" name="Respostas" stroke="#666666" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "#999" }} />
+              <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={{ stroke: "hsl(var(--border))" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} cursor={{ stroke: "hsl(var(--muted-foreground))", strokeWidth: 1 }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} iconType="line" />
+              <Line type="monotone" dataKey="leads" name="Novos Leads" stroke="hsl(var(--foreground))" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "hsl(var(--foreground))" }} />
+              <Line type="monotone" dataKey="responses" name="Respostas" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} dot={false} activeDot={{ r: 4, fill: "hsl(var(--muted-foreground))" }} />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -488,37 +506,37 @@ export default function CRMReports() {
         <Panel className="lg:col-span-2">
           <SectionTitle>Funil de Conversão</SectionTitle>
           {isLoading ? (
-            <Skeleton className="h-[220px] w-full bg-neutral-800" />
+            <Skeleton className="h-[220px] w-full" />
           ) : (
             <div className="space-y-3">
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
                 const widthPct = Math.max((stage.value / maxValue) * 100, 6);
-                // gradient white to gray based on position (later stages = darker)
-                const intensity = 1 - (i / Math.max(funnelData.length - 1, 1)) * 0.65;
-                const bg = `linear-gradient(90deg, rgba(255,255,255,${intensity}) 0%, rgba(180,180,180,${intensity * 0.7}) 100%)`;
+                // gradient: foreground → muted-foreground using opacity to play with both themes
+                const intensity = 1 - (i / Math.max(funnelData.length - 1, 1)) * 0.55;
+                const bg = `linear-gradient(90deg, hsl(var(--foreground) / ${intensity}) 0%, hsl(var(--muted-foreground) / ${intensity * 0.75}) 100%)`;
                 return (
                   <div key={stage.name}>
                     {i > 0 && stage.dropPct > 0 && (
                       <div className="ml-[110px] mb-1 flex items-center gap-1">
-                        <ArrowDownRight className={`h-2.5 w-2.5 ${stage.dropPct > 50 ? "text-red-500" : "text-neutral-500"}`} />
-                        <span className={`text-[10px] font-medium tabular-nums ${stage.dropPct > 50 ? "text-red-500" : "text-neutral-500"}`}>
+                        <ArrowDownRight className={`h-2.5 w-2.5 ${stage.dropPct > 50 ? "text-red-500" : "text-muted-foreground"}`} />
+                        <span className={`text-[10px] font-medium tabular-nums ${stage.dropPct > 50 ? "text-red-500" : "text-muted-foreground"}`}>
                           -{stage.dropPct.toFixed(0)}%
                         </span>
                       </div>
                     )}
                     <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-neutral-400 w-[100px] shrink-0 text-right">{stage.name}</span>
+                      <span className="text-[11px] text-muted-foreground w-[100px] shrink-0 text-right">{stage.name}</span>
                       <div className="flex-1">
                         <div
                           className="h-7 rounded-sm flex items-center px-3 transition-all duration-500"
                           style={{ width: `${widthPct}%`, background: bg }}
                         >
-                          <span className="text-[11px] font-semibold text-black tabular-nums">{stage.value}</span>
+                          <span className="text-[11px] font-semibold text-background tabular-nums">{stage.value}</span>
                         </div>
                       </div>
                       {metrics.total > 0 && (
-                        <span className="text-[10.5px] text-neutral-500 w-[40px] shrink-0 text-right tabular-nums">
+                        <span className="text-[10.5px] text-muted-foreground w-[40px] shrink-0 text-right tabular-nums">
                           {((stage.value / metrics.total) * 100).toFixed(0)}%
                         </span>
                       )}
@@ -533,19 +551,19 @@ export default function CRMReports() {
         <Panel>
           <SectionTitle>Qualidade dos Leads</SectionTitle>
           {isLoading ? (
-            <Skeleton className="h-[200px] w-full bg-neutral-800" />
+            <Skeleton className="h-[200px] w-full" />
           ) : (
             <div className="space-y-4">
               {tempData.map((item) => (
                 <div key={item.name}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11.5px] text-neutral-300 font-medium">{item.name}</span>
+                    <span className="text-[11.5px] text-foreground/85 font-medium">{item.name}</span>
                     <div className="flex items-center gap-1.5 tabular-nums">
-                      <span className="text-[13px] font-semibold text-white">{item.value}</span>
-                      <span className="text-[10px] text-neutral-500">({item.pct.toFixed(0)}%)</span>
+                      <span className="text-[13px] font-semibold text-foreground">{item.value}</span>
+                      <span className="text-[10px] text-muted-foreground">({item.pct.toFixed(0)}%)</span>
                     </div>
                   </div>
-                  <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-1 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${Math.max(item.pct, 1)}%`, backgroundColor: item.fill }}
@@ -562,14 +580,14 @@ export default function CRMReports() {
       <Panel>
         <SectionTitle>Leads por Origem</SectionTitle>
         {isLoading ? (
-          <Skeleton className="h-[200px] w-full bg-neutral-800" />
+          <Skeleton className="h-[200px] w-full" />
         ) : originData.length === 0 ? (
-          <div className="h-[160px] flex items-center justify-center text-[12px] text-neutral-500">Sem dados no período</div>
+          <div className="h-[160px] flex items-center justify-center text-[12px] text-muted-foreground">Sem dados no período</div>
         ) : (
           <div className="flex items-center gap-8">
             <ResponsiveContainer width="35%" height={200}>
               <PieChart>
-                <Pie data={originData} cx="50%" cy="50%" innerRadius={48} outerRadius={80} paddingAngle={2} dataKey="value" stroke="#0f0f0f" strokeWidth={2}>
+                <Pie data={originData} cx="50%" cy="50%" innerRadius={48} outerRadius={80} paddingAngle={2} dataKey="value" stroke="hsl(var(--card))" strokeWidth={2}>
                   {originData.map((entry, index) => (
                     <Cell key={index} fill={entry.fill} />
                   ))}
@@ -582,9 +600,9 @@ export default function CRMReports() {
                 <div key={o.name} className="flex items-center justify-between text-[12px]">
                   <div className="flex items-center gap-2.5">
                     <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: o.fill }} />
-                    <span className="text-neutral-300">{o.name}</span>
+                    <span className="text-foreground/85">{o.name}</span>
                   </div>
-                  <span className="font-semibold tabular-nums text-white">{o.value}</span>
+                  <span className="font-semibold tabular-nums text-foreground">{o.value}</span>
                 </div>
               ))}
             </div>
