@@ -419,12 +419,16 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             ) : (
               <div className={cn("w-[72px] h-[72px] rounded-full bg-gradient-to-br flex items-center justify-center ring-2 ring-border", gradient)}>
                 <span className="text-xl font-bold text-white">
-                  {(isEditing ? editForm.name : conversation.name).slice(0, 2).toUpperCase()}
+                  {avatarInitials(isEditing ? editForm.name : conversation.name, conversation.phone)}
                 </span>
               </div>
             )}
             <div>
-              <p className="text-sm font-bold text-foreground">{isEditing ? editForm.name || conversation.name : conversation.name}</p>
+              <p className="text-sm font-bold text-foreground">
+                {isEditing
+                  ? (editForm.name?.trim() || conversation.phone)
+                  : displayName(conversation.name, conversation.phone)}
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">{isEditing ? editForm.phone || conversation.phone : conversation.phone}</p>
             </div>
 
