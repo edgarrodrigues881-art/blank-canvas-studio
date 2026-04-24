@@ -109,6 +109,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     origin: "WhatsApp",
     observations: "",
   });
+  const [savedOrigin, setSavedOrigin] = useState("WhatsApp");
 
   // Fetch AI lead memory for this conversation
   useEffect(() => {
@@ -140,12 +141,14 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return;
+        const nextOrigin = (data as any).origin || "WhatsApp";
+        setSavedOrigin(nextOrigin);
         setEditForm((prev) => ({
           ...prev,
           name: data.name || prev.name,
           email: data.email || prev.email,
           company: (data as any).company || prev.company,
-          origin: (data as any).origin || prev.origin,
+          origin: nextOrigin,
           observations: (data as any).notes || prev.observations,
         }));
       });
@@ -156,6 +159,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setIsEditing(false);
     setLeadTemp(conversation.leadTemperature || "frio");
     setAiInterest(conversation.aiInterest || null);
+    setSavedOrigin("WhatsApp");
     setEditForm({
       name: conversation.name,
       phone: conversation.phone,
