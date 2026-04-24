@@ -354,9 +354,8 @@ export default function Pipeline() {
                           className={cn(
                             "group/card relative rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
                             "transition-shadow duration-150",
-                            !isDragging && "hover:shadow-md hover:shadow-black/5",
-                            !isHot && !isWarm && "bg-card border border-border/40 hover:border-border/60",
-                            (isHot || isWarm) && "border-y border-r border-border/30",
+                            "bg-card border border-border/40",
+                            !isDragging && "hover:shadow-md hover:shadow-black/5 hover:border-border/60",
                           )}
                         >
                           {/* "···" hover menu — top right */}
