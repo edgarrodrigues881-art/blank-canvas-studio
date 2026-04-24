@@ -54,17 +54,22 @@ function MetricCard({
   label,
   value,
   valueClassName = "text-foreground",
+  accentColor,
   delta,
   loading,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  accentColor?: string;
   delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
 }) {
   return (
-    <div className="bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200">
+    <div className="relative bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200 overflow-hidden">
+      {accentColor && (
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accentColor }} />
+      )}
       <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
       {loading ? (
         <Skeleton className="h-8 w-24 mt-2" />
@@ -377,23 +382,29 @@ export default function CRMReports() {
         <MetricCard
           label="Receita Fechada"
           value={formatCurrency(metrics.totalClosedValue)}
-          valueClassName="text-emerald-500"
+          valueClassName="text-[#22c55e]"
+          accentColor="#22c55e"
           loading={isLoading}
         />
         <MetricCard
           label="Em Negociação"
           value={formatCurrency(metrics.totalEstimatedValue)}
-          valueClassName="text-blue-500"
+          valueClassName="text-[#3b82f6]"
+          accentColor="#3b82f6"
           loading={isLoading}
         />
         <MetricCard
           label="Total de Leads"
           value={metrics.total.toLocaleString("pt-BR")}
+          valueClassName="text-[#8b5cf6]"
+          accentColor="#8b5cf6"
           loading={isLoading}
         />
         <MetricCard
           label="Taxa de Conversão"
           value={`${metrics.conversionRate.toFixed(1)}%`}
+          valueClassName="text-[#06b6d4]"
+          accentColor="#06b6d4"
           delta={metrics.conversionRate > 0 ? { value: metrics.conversionRate, positive: metrics.conversionRate > 5 } : null}
           loading={isLoading}
         />
@@ -401,19 +412,33 @@ export default function CRMReports() {
 
       {/* Secondary KPI row — 4 cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <MetricCard label="Taxa de Resposta" value={`${metrics.responseRate.toFixed(1)}%`} loading={isLoading} />
-        <MetricCard label="Tempo Médio Resposta" value={formatResponseTime(metrics.avgResponseMin)} loading={isLoading} />
+        <MetricCard
+          label="Taxa de Resposta"
+          value={`${metrics.responseRate.toFixed(1)}%`}
+          valueClassName="text-[#f59e0b]"
+          accentColor="#f59e0b"
+          loading={isLoading}
+        />
+        <MetricCard
+          label="Tempo Médio Resposta"
+          value={formatResponseTime(metrics.avgResponseMin)}
+          valueClassName="text-neutral-400"
+          accentColor="#525252"
+          loading={isLoading}
+        />
         <MetricCard
           label="Leads Esquecidos"
           value={metrics.forgottenLeads.toLocaleString("pt-BR")}
-          valueClassName="text-amber-500"
+          valueClassName="text-[#f97316]"
+          accentColor="#f97316"
           delta={metrics.forgottenLeads > 0 ? { value: (metrics.forgottenLeads / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
         <MetricCard
           label="Leads Perdidos"
           value={metrics.lost.toLocaleString("pt-BR")}
-          valueClassName="text-red-500"
+          valueClassName="text-[#ef4444]"
+          accentColor="#ef4444"
           delta={metrics.lost > 0 ? { value: (metrics.lost / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
