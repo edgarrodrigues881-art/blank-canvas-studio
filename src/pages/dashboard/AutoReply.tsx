@@ -21,12 +21,15 @@ import { EndNode } from "@/components/autoreply/EndNode";
 import { DelayNode } from "@/components/autoreply/DelayNode";
 import { ConditionNode } from "@/components/autoreply/ConditionNode";
 import { AINode } from "@/components/autoreply/AINode";
+import { ActionNode } from "@/components/autoreply/ActionNode";
+import { WaitResponseNode } from "@/components/autoreply/WaitResponseNode";
+import { RandomNode } from "@/components/autoreply/RandomNode";
 import { FlowSidebar } from "@/components/autoreply/FlowSidebar";
 import { EditPanel } from "@/components/autoreply/EditPanel";
 import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData } from "@/components/autoreply/types";
-import { nextNodeId, nextBtnId } from "@/components/autoreply/types";
-import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug } from "lucide-react";
+import { nextNodeId, nextBtnId, nextBranchId } from "@/components/autoreply/types";
+import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug, Wand2, MessageCircleReply, Shuffle } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -38,6 +41,9 @@ const nodeTypes = {
   delayNode: DelayNode,
   conditionNode: ConditionNode,
   aiNode: AINode,
+  actionNode: ActionNode,
+  waitResponseNode: WaitResponseNode,
+  randomNode: RandomNode,
   endNode: EndNode,
 };
 
