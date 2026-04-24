@@ -207,28 +207,33 @@ export default function Pipeline() {
   };
 
   const handleDeleteStage = async () => {
-    if (!user || !deleteStage || !moveTargetKey) return;
+    if (!user || !deleteStage) return;
     const key = deleteStage.key;
     if (key === "novo") {
       toast.error('A etapa "Novo Lead" é fixa e não pode ser excluída');
       return;
     }
+    const stageLeadCount = leads.filter(l => (l.pipeline_stage || "novo") === key).length;
+    const hasLeads = stageLeadCount > 0;
+    if (hasLeads && !moveTargetKey) return;
     const target = moveTargetKey;
-    if (target === key) {
+    if (hasLeads && target === key) {
       toast.error("Escolha uma etapa diferente");
       return;
     }
     setDeletingStage(true);
-    // Move leads first
-    const { error: moveErr } = await supabase
-      .from("service_contacts")
-      .update({ pipeline_stage: target } as any)
-      .eq("user_id", user.id)
-      .eq("pipeline_stage", key);
-    if (moveErr) {
-      setDeletingStage(false);
-      toast.error("Erro ao mover leads: " + moveErr.message);
-      return;
+    // Move leads only if there are any
+    if (hasLeads) {
+      const { error: moveErr } = await supabase
+        .from("service_contacts")
+        .update({ pipeline_stage: target } as any)
+        .eq("user_id", user.id)
+        .eq("pipeline_stage", key);
+      if (moveErr) {
+        setDeletingStage(false);
+        toast.error("Erro ao mover leads: " + moveErr.message);
+        return;
+      }
     }
     if (DEFAULT_STAGE_KEYS.has(key)) {
       // Hide default stage locally (per-user persistence)
@@ -245,7 +250,9 @@ export default function Pipeline() {
       setCustomStages(prev => prev.filter(s => s.key !== key));
     }
     toast.success(`Etapa "${deleteStage.label}" excluída`);
-    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
+    if (hasLeads) {
+      setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
+    }
     setDeleteStage(null);
     setMoveTargetKey("");
     setDeletingStage(false);
@@ -394,38 +401,49 @@ export default function Pipeline() {
           <DialogHeader>
             <DialogTitle>Excluir etapa</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Escolha para qual etapa os leads serão movidos.
-            </p>
-            <div className="space-y-2">
-              <Label>Mover leads para</Label>
-              <Select value={moveTargetKey} onValueChange={setMoveTargetKey}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma etapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  {allStages.filter(s => s.key !== deleteStage?.key).map(s => (
-                    <SelectItem key={s.key} value={s.key}>
-                      {stageLabels[s.key] ?? s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => { setDeleteStage(null); setMoveTargetKey(""); }}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!moveTargetKey || deletingStage}
-              onClick={handleDeleteStage}
-            >
-              {deletingStage ? "Excluindo..." : "Excluir"}
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const stageLeadCount = deleteStage ? leads.filter(l => (l.pipeline_stage || "novo") === deleteStage.key).length : 0;
+            const hasLeads = stageLeadCount > 0;
+            return (
+              <>
+                <div className="space-y-4 py-2">
+                  <p className="text-sm text-muted-foreground">
+                    Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>?
+                    {hasLeads ? " Escolha para qual etapa os leads serão movidos." : " Esta etapa não possui leads."}
+                  </p>
+                  {hasLeads && (
+                    <div className="space-y-2">
+                      <Label>Mover leads para</Label>
+                      <Select value={moveTargetKey} onValueChange={setMoveTargetKey}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma etapa" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allStages.filter(s => s.key !== deleteStage?.key).map(s => (
+                            <SelectItem key={s.key} value={s.key}>
+                              {stageLabels[s.key] ?? s.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter className="gap-2 sm:gap-2">
+                  <Button variant="outline" onClick={() => { setDeleteStage(null); setMoveTargetKey(""); }}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={(hasLeads && !moveTargetKey) || deletingStage}
+                    onClick={handleDeleteStage}
+                  >
+                    {deletingStage ? "Excluindo..." : "Excluir"}
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
       {/* Filters */}
