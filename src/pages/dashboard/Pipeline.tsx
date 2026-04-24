@@ -308,11 +308,12 @@ export default function Pipeline() {
                           }}
                           style={cardStyle}
                           className={cn(
-                            "group/card relative rounded-xl border border-border/40 px-3 py-2.5 cursor-grab active:cursor-grabbing",
+                            "group/card relative rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
                             "transition-all duration-150",
-                            "hover:shadow-md hover:shadow-black/5 hover:border-border/60",
+                            "hover:shadow-md hover:shadow-black/5",
                             "active:scale-[0.97]",
-                            !isHot && !isWarm && "bg-card",
+                            !isHot && !isWarm && "bg-card border border-border/40 hover:border-border/60",
+                            (isHot || isWarm) && "border-y border-r border-border/30",
                           )}
                         >
                           {/* "···" hover action — top right */}
