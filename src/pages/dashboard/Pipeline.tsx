@@ -123,15 +123,28 @@ export default function Pipeline() {
   const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
   const [editingStageDraft, setEditingStageDraft] = useState("");
   const [deleteStage, setDeleteStage] = useState<{ key: string; label: string } | null>(null);
+  const [moveTargetKey, setMoveTargetKey] = useState<string>("");
+  const [deletingStage, setDeletingStage] = useState(false);
   const [customStages, setCustomStages] = useState<CustomStage[]>([]);
   const [creatingStage, setCreatingStage] = useState(false);
+  const [hiddenDefaults, setHiddenDefaults] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
 
   const DEFAULT_STAGE_KEYS = new Set(["novo","respondeu","interessado","agendado","negociacao","fechado","perdido"]);
 
+  const persistHiddenDefaults = (next: Set<string>) => {
+    setHiddenDefaults(new Set(next));
+    try { localStorage.setItem("pipeline_hidden_defaults", JSON.stringify([...next])); } catch {}
+  };
+
   // Build merged stage list: defaults (Novo..Negociacao) + custom + Fechado + Perdido at the end
   const allStages = (() => {
-    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido");
-    const tail = STAGES.filter(s => s.key === "fechado" || s.key === "perdido");
+    const defaults = STAGES.filter(s => s.key !== "fechado" && s.key !== "perdido" && !hiddenDefaults.has(s.key));
+    const tail = STAGES.filter(s => (s.key === "fechado" || s.key === "perdido") && !hiddenDefaults.has(s.key));
     const custom = customStages.map(c => {
       const pal = COLOR_TO_PALETTE[c.color] || COLOR_TO_PALETTE.azul;
       return { key: c.key, label: c.label, dot: pal.dot, ring: "", bg: pal.bg, fg: pal.fg };
@@ -192,28 +205,44 @@ export default function Pipeline() {
   };
 
   const handleDeleteStage = async () => {
-    if (!user || !deleteStage) return;
+    if (!user || !deleteStage || !moveTargetKey) return;
     const key = deleteStage.key;
+    const target = moveTargetKey;
+    if (target === key) {
+      toast.error("Escolha uma etapa diferente");
+      return;
+    }
+    setDeletingStage(true);
     // Move leads first
     const { error: moveErr } = await supabase
       .from("service_contacts")
-      .update({ pipeline_stage: "novo" } as any)
+      .update({ pipeline_stage: target } as any)
       .eq("user_id", user.id)
       .eq("pipeline_stage", key);
     if (moveErr) {
+      setDeletingStage(false);
       toast.error("Erro ao mover leads: " + moveErr.message);
       return;
     }
-    const { error: delErr } = await supabase
-      .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
-    if (delErr) {
-      toast.error("Erro ao excluir etapa: " + delErr.message);
-      return;
+    if (DEFAULT_STAGE_KEYS.has(key)) {
+      // Hide default stage locally (per-user persistence)
+      const next = new Set(hiddenDefaults); next.add(key);
+      persistHiddenDefaults(next);
+    } else {
+      const { error: delErr } = await supabase
+        .from("pipeline_stages").delete().eq("user_id", user.id).eq("key", key);
+      if (delErr) {
+        setDeletingStage(false);
+        toast.error("Erro ao excluir etapa: " + delErr.message);
+        return;
+      }
+      setCustomStages(prev => prev.filter(s => s.key !== key));
     }
     toast.success(`Etapa "${deleteStage.label}" excluída`);
+    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: target } : l));
     setDeleteStage(null);
-    setCustomStages(prev => prev.filter(s => s.key !== key));
-    setLeads(prev => prev.map(l => l.pipeline_stage === key ? { ...l, pipeline_stage: "novo" } : l));
+    setMoveTargetKey("");
+    setDeletingStage(false);
   };
 
 
@@ -334,23 +363,41 @@ export default function Pipeline() {
       </Dialog>
 
       {/* Delete Stage Confirmation */}
-      <Dialog open={!!deleteStage} onOpenChange={(o) => !o && setDeleteStage(null)}>
+      <Dialog open={!!deleteStage} onOpenChange={(o) => { if (!o) { setDeleteStage(null); setMoveTargetKey(""); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Excluir etapa</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground py-2">
-            Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Os leads serão movidos para <span className="font-semibold text-foreground">Novo Lead</span>.
-          </p>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir a etapa <span className="font-semibold text-foreground">{deleteStage?.label}</span>? Escolha para qual etapa os leads serão movidos.
+            </p>
+            <div className="space-y-2">
+              <Label>Mover leads para</Label>
+              <Select value={moveTargetKey} onValueChange={setMoveTargetKey}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allStages.filter(s => s.key !== deleteStage?.key).map(s => (
+                    <SelectItem key={s.key} value={s.key}>
+                      {stageLabels[s.key] ?? s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setDeleteStage(null)}>
+            <Button variant="outline" onClick={() => { setDeleteStage(null); setMoveTargetKey(""); }}>
               Cancelar
             </Button>
             <Button
               variant="destructive"
+              disabled={!moveTargetKey || deletingStage}
               onClick={handleDeleteStage}
             >
-              Excluir
+              {deletingStage ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -484,16 +531,14 @@ export default function Pipeline() {
                         >
                           <Pencil className="w-3 h-3" />
                         </button>
-                        {!DEFAULT_STAGE_KEYS.has(stage.key) && (
-                          <button
-                            type="button"
-                            title="Excluir etapa"
-                            onClick={() => setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label })}
-                            className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          title="Excluir etapa"
+                          onClick={() => { setMoveTargetKey(""); setDeleteStage({ key: stage.key, label: stageLabels[stage.key] ?? stage.label }); }}
+                          className="p-1 rounded-md hover:bg-red-500/10 transition-colors text-red-600"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     )}
                   </div>
