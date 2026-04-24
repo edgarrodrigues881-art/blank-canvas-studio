@@ -425,7 +425,7 @@ function FlowCanvas() {
   );
 
   const createNodeFromMenu = useCallback(
-    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode") => {
+    (type: "messageNode" | "endNode" | "delayNode" | "conditionNode" | "aiNode" | "actionNode" | "waitResponseNode" | "randomNode") => {
       if (!dropMenu) return;
 
       rememberHistory();
@@ -441,6 +441,18 @@ function FlowCanvas() {
         data = { label: "Condição", conditions: [] };
       } else if (type === "aiNode") {
         data = { label: "Resposta IA", aiPrompt: "", aiModel: "gpt-4o" };
+      } else if (type === "actionNode") {
+        data = { label: "Ações", actions: [] };
+      } else if (type === "waitResponseNode") {
+        data = { label: "Esperar resposta", waitTimeoutSeconds: 0, saveReplyAs: "" };
+      } else if (type === "randomNode") {
+        data = {
+          label: "Randomizador",
+          randomBranches: [
+            { id: nextBranchId(), label: "Caminho A", weight: 50 },
+            { id: nextBranchId(), label: "Caminho B", weight: 50 },
+          ],
+        };
       } else {
         data = {
           label: "Nova Mensagem",
@@ -449,6 +461,7 @@ function FlowCanvas() {
           imageCaption: "",
           delay: 0,
           buttons: [],
+          mediaType: "none",
         };
       }
 
