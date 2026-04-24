@@ -348,10 +348,7 @@ export default function Pipeline() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                toast.success(`Etapa "${deleteStage?.label}" excluída`);
-                setDeleteStage(null);
-              }}
+              onClick={handleDeleteStage}
             >
               Excluir
             </Button>
