@@ -713,7 +713,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
           </div>
 
           {/* ═══ COL 2: Persistent preview — sticky, hidden on short screens ═══ */}
-          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-6 py-6 overflow-hidden md:sticky md:top-0 md:self-start md:max-h-full">
+          <aside className="welcome-preview-panel relative hidden md:flex flex-col bg-[hsl(0_0%_5.5%)] px-5 py-5 md:sticky md:top-0 md:self-start md:max-h-full min-w-[320px] min-h-0">
             {/* Soft green radial glow behind phone */}
             <div
               aria-hidden
@@ -724,7 +724,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               }}
             />
 
-            <div className="relative flex items-center justify-end mb-4">
+            <div className="relative flex items-center justify-end mb-3 shrink-0">
               <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-[#9aa0a6]">
                 <span className="relative flex w-1.5 h-1.5">
                   <span className="absolute inline-flex w-full h-full rounded-full bg-[hsl(152_60%_50%)] opacity-75 animate-ping" />
@@ -734,22 +734,7 @@ function CreateDialog({ open, onClose, onCreated }: { open: boolean; onClose: ()
               </span>
             </div>
 
-            <div className="relative flex-1 min-h-0 flex items-start justify-center pt-2 overflow-hidden">
-              <div
-                key={JSON.stringify({
-                  t: payload.message_type,
-                  c: payload.message_content,
-                  m: payload.media_url,
-                  cards: payload.carousel_cards?.length,
-                })}
-                className="animate-in fade-in-0 duration-300 w-full h-full flex items-center justify-center"
-                style={{ maxHeight: "100%" }}
-              >
-                <div style={{ height: "clamp(300px, calc(90vh - 240px), 500px)" }} className="flex items-center justify-center">
-                  <MinimalPhonePreview payload={payload} height={Math.min(500, Math.max(300, typeof window !== "undefined" ? window.innerHeight - 240 : 500))} />
-                </div>
-              </div>
-            </div>
+            <ResponsivePhonePreview payload={payload} />
           </aside>
         </div>
 
