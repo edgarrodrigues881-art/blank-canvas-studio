@@ -472,16 +472,59 @@ export default function GroupCarouselDispatch() {
     const pauseEvery = rand(pauseEveryMin, pauseEveryMax);
     let sinceLastPause = 0;
 
+    // Helper: aborta envio se campanha foi pausada/cancelada/excluída
+    const checkCampaignStatus = async (): Promise<"continue" | "stop"> => {
+      if (!campaignId) return "stop";
+      const { data, error } = await supabase
+        .from("campaigns")
+        .select("status")
+        .eq("id", campaignId)
+        .maybeSingle();
+      if (error || !data) {
+        toast.warning("Campanha removida — envio interrompido.");
+        return "stop";
+      }
+      if (data.status === "paused") {
+        toast.info("Campanha pausada — envios interrompidos.");
+        return "stop";
+      }
+      if (["cancelled", "canceled", "failed", "completed"].includes(data.status)) {
+        toast.info(`Campanha ${data.status} — envios interrompidos.`);
+        return "stop";
+      }
+      return "continue";
+    };
+
+    // Helper: espera respeitando pause/cancel (verifica a cada 1s)
+    const waitWithCheck = async (ms: number): Promise<"continue" | "stop"> => {
+      const step = 1000;
+      let elapsed = 0;
+      while (elapsed < ms) {
+        const slice = Math.min(step, ms - elapsed);
+        await wait(slice);
+        elapsed += slice;
+        if ((await checkCampaignStatus()) === "stop") return "stop";
+      }
+      return "continue";
+    };
+
+    let aborted = false;
     try {
       for (let i = 0; i < selectedGroups.length; i++) {
+        // Check status BEFORE every group send
+        if ((await checkCampaignStatus()) === "stop") { aborted = true; break; }
+
         const gid = selectedGroups[i];
         const gname = groupNameMap.get(gid) || gid;
-        if (i > 0) await wait(rand(minDelay, maxDelay) * 1000);
+        if (i > 0) {
+          if ((await waitWithCheck(rand(minDelay, maxDelay) * 1000)) === "stop") { aborted = true; break; }
+        }
         sinceLastPause++;
         if (sinceLastPause >= pauseEvery && i < selectedGroups.length - 1) {
           const p = rand(pauseDurationMin, pauseDurationMax) * 1000;
           toast.info(`Pausando por ${Math.round(p / 1000)}s...`);
-          await wait(p); sinceLastPause = 0;
+          if ((await waitWithCheck(p)) === "stop") { aborted = true; break; }
+          sinceLastPause = 0;
         }
 
         const plan = { text: dispatchType === "carousel" ? trimmedCarouselHeader : trimmedText, withExtras: true };
@@ -567,10 +610,15 @@ export default function GroupCarouselDispatch() {
       }
     } finally { setSending(false); }
 
-    if (campaignId) {
+    if (campaignId && !aborted) {
       await supabase.from("campaigns").update({
         status: fail === selectedGroups.length ? "failed" : "completed",
         sent_count: ok, failed_count: fail, completed_at: new Date().toISOString(),
+      }).eq("id", campaignId);
+    } else if (campaignId && aborted) {
+      // Preserve user-set status (paused/cancelled), only update counters
+      await supabase.from("campaigns").update({
+        sent_count: ok, failed_count: fail,
       }).eq("id", campaignId);
     }
     if (ok > 0) toast.success(`Enviado para ${ok} grupo(s)`);
