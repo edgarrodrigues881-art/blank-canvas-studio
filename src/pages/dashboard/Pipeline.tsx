@@ -130,6 +130,7 @@ export default function Pipeline() {
   const [respFilter, setRespFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const dragRef = useRef<{ id: string; from: string } | null>(null);
+  const overStageRef = useRef<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [stageDragKey, setStageDragKey] = useState<string | null>(null);
@@ -324,6 +325,8 @@ export default function Pipeline() {
   const move = async (id: string, to: string) => {
     const prev = leads;
     setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, pipeline_stage: to } : l)));
+    overStageRef.current = null;
+    setOverStage(null);
     const { error } = await supabase.from("service_contacts").update({ pipeline_stage: to } as any).eq("id", id);
     if (error) { setLeads(prev); toast.error("Erro ao mover"); }
   };
@@ -533,13 +536,17 @@ export default function Pipeline() {
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
-                    if (overStage !== stage.key) setOverStage(stage.key);
+                    if (overStageRef.current !== stage.key) {
+                      overStageRef.current = stage.key;
+                      setOverStage(stage.key);
+                    }
                     if (stageDragKey && isCustomStage && stageOverKey !== stage.key) {
                       setStageOverKey(stage.key);
                     }
                   }}
                   onDrop={(e) => {
                     e.preventDefault();
+                    overStageRef.current = null;
                     setOverStage(null);
                     // Stage reorder takes priority
                     if (stageDragKey && isCustomStage && stageDragKey !== stage.key) {
@@ -767,12 +774,14 @@ export default function Pipeline() {
                           draggable
                           onDragStart={(e) => {
                             dragRef.current = { id: lead.id, from: lead.pipeline_stage || "novo" };
+                            overStageRef.current = lead.pipeline_stage || "novo";
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
                             setDraggingId(lead.id);
                           }}
                           onDragEnd={() => {
                             setDraggingId(null);
+                            overStageRef.current = null;
                             setOverStage(null);
                           }}
                           style={cardStyle}
