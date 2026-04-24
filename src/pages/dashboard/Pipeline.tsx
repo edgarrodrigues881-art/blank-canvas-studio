@@ -332,9 +332,19 @@ export default function Pipeline() {
                         cardStyle.boxShadow = "0 4px 12px -2px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.06)";
                       }
 
-                      // Avatar color by temperature
-                      const avatarBg = isHot ? "#fee2e2" : isWarm ? "#fef3c7" : "#e5e7eb";
-                      const avatarFg = isHot ? "#991b1b" : isWarm ? "#92400e" : "#6b7280";
+                      // Avatar bg by first letter of name
+                      const letterColorMap: Record<string, string> = {
+                        A: "#3b82f6", H: "#3b82f6", N: "#3b82f6", U: "#3b82f6",
+                        B: "#8b5cf6", I: "#8b5cf6", O: "#8b5cf6", V: "#8b5cf6",
+                        C: "#22c55e", J: "#22c55e", P: "#22c55e", W: "#22c55e",
+                        D: "#f97316", K: "#f97316", Q: "#f97316", X: "#f97316",
+                        E: "#06b6d4", L: "#06b6d4", R: "#06b6d4", Y: "#06b6d4",
+                        F: "#ec4899", M: "#ec4899", S: "#ec4899", Z: "#ec4899",
+                        G: "#f59e0b", T: "#f59e0b",
+                      };
+                      const firstLetter = (initials[0] || "").toUpperCase();
+                      const avatarBg = letterColorMap[firstLetter] || "#6b7280";
+                      const avatarFg = "#ffffff";
 
                       return (
                         <div
