@@ -49,7 +49,7 @@ interface Lead {
   description: string | null;
 }
 
-const STATUS_OPTIONS = [
+const DEFAULT_STATUS_OPTIONS = [
   { value: "novo", label: "Novo Lead", dot: "bg-blue-500", badge: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
   { value: "respondeu", label: "Respondeu", dot: "bg-cyan-500", badge: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20" },
   { value: "interessado", label: "Interessado", dot: "bg-amber-500", badge: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
@@ -58,6 +58,9 @@ const STATUS_OPTIONS = [
   { value: "fechado", label: "Fechado", dot: "bg-emerald-500", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
   { value: "perdido", label: "Perdido", dot: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/20" },
 ];
+
+// Mutable list updated at runtime to include custom pipeline_stages from the user
+let STATUS_OPTIONS = [...DEFAULT_STATUS_OPTIONS];
 
 const PRIORITY_OPTIONS = [
   { value: "baixa", label: "Baixa", color: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/20" },
