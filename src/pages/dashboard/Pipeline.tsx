@@ -537,10 +537,7 @@ export default function Pipeline() {
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
-                    if (overStageRef.current !== stage.key) {
-                      overStageRef.current = stage.key;
-                      setOverStage(stage.key);
-                    }
+                    // Skip global state updates during card drag — they cause re-renders that block the drag
                     if (stageDragKey && isCustomStage && stageOverKey !== stage.key) {
                       setStageOverKey(stage.key);
                     }
