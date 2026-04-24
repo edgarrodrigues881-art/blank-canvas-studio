@@ -736,7 +736,7 @@ export function ChatPanel({
             </div>
 
             {input.trim() ? (
-              <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-emerald-500 dark:bg-primary text-white dark:text-primary-foreground hover:bg-emerald-600 dark:hover:bg-primary/90 shadow-md shadow-emerald-500/20 dark:shadow-primary/15 mb-0.5 transition-all duration-150" onClick={handleSend}>
+              <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-[hsl(var(--chat-accent))] text-white hover:bg-[hsl(var(--chat-accent))]/90 shadow-md shadow-[hsl(var(--chat-accent))]/25 mb-0.5 transition-all duration-150" onClick={handleSend}>
                 <Send className="w-4 h-4" />
               </Button>
             ) : (
