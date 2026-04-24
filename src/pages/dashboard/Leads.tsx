@@ -59,8 +59,8 @@ const DEFAULT_STATUS_OPTIONS = [
   { value: "perdido", label: "Perdido", dot: "bg-red-500", badge: "bg-red-500/15 text-red-400 border-red-500/20" },
 ];
 
-// Mutable list updated at runtime to include custom pipeline_stages from the user
-let STATUS_OPTIONS = [...DEFAULT_STATUS_OPTIONS];
+const CUSTOM_BADGE = "bg-slate-500/15 text-slate-400 border-slate-500/20";
+const CUSTOM_DOT = "bg-slate-500";
 
 const PRIORITY_OPTIONS = [
   { value: "baixa", label: "Baixa", color: "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/20" },
