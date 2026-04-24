@@ -696,8 +696,7 @@ export default function CRMReports() {
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
                 const pct = Math.round((stage.value / maxValue) * 100);
-                const stageColors = ["#3b82f6", "#06b6d4", "#f59e0b", "#8b5cf6", "#22c55e"];
-                const color = stageColors[i] ?? "#3b82f6";
+                const color = stage.color || "#3b82f6";
                 return (
                   <div
                     key={stage.name}
