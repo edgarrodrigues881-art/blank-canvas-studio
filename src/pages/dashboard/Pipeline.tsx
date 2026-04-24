@@ -84,6 +84,7 @@ export default function Pipeline() {
   const [stageFilter, setStageFilter] = useState("all");
   const dragRef = useRef<{ id: string; from: string } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -246,10 +247,14 @@ export default function Pipeline() {
                 <div
                   className={cn(
                     "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto transition-all duration-200 pipeline-column-scroll",
-                    "bg-muted/15 border border-border/30",
+                    "border",
                     lost && "opacity-50",
-                    isOver && "bg-primary/[0.06] border-primary/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.1)]"
                   )}
+                  style={
+                    isOver
+                      ? { backgroundColor: `${stage.fg}14`, borderColor: `${stage.fg}55`, boxShadow: `inset 0 0 0 1px ${stage.fg}33` }
+                      : { backgroundColor: "hsl(var(--muted) / 0.15)", borderColor: "hsl(var(--border) / 0.3)" }
+                  }
                 >
                   <div className="space-y-2">
                     {items.length === 0 && !loading && (
@@ -304,11 +309,16 @@ export default function Pipeline() {
                         "text-muted-foreground/40";
 
                       // Card bg/border by temperature
+                      const isDragging = draggingId === lead.id;
                       const cardStyle: React.CSSProperties = isHot
                         ? { backgroundColor: "#fff1f2", borderLeft: "3px solid #ef4444" }
                         : isWarm
                         ? { backgroundColor: "#fffbeb", borderLeft: "3px solid #f59e0b" }
                         : {};
+                      if (isDragging) {
+                        cardStyle.opacity = 0.95;
+                        cardStyle.boxShadow = "0 4px 12px -2px rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.06)";
+                      }
 
                       return (
                         <div
@@ -318,13 +328,17 @@ export default function Pipeline() {
                             dragRef.current = { id: lead.id, from: lead.pipeline_stage || "novo" };
                             e.dataTransfer.effectAllowed = "move";
                             e.dataTransfer.setData("text/plain", lead.id);
+                            setDraggingId(lead.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingId(null);
+                            setOverStage(null);
                           }}
                           style={cardStyle}
                           className={cn(
                             "group/card relative rounded-xl px-3 py-2.5 cursor-grab active:cursor-grabbing",
-                            "transition-all duration-150",
-                            "hover:shadow-md hover:shadow-black/5",
-                            "active:scale-[0.97]",
+                            "transition-shadow duration-150",
+                            !isDragging && "hover:shadow-md hover:shadow-black/5",
                             !isHot && !isWarm && "bg-card border border-border/40 hover:border-border/60",
                             (isHot || isWarm) && "border-y border-r border-border/30",
                           )}
