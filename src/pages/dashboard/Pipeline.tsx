@@ -574,9 +574,9 @@ export default function Pipeline() {
                     isCustomStage && "cursor-grab active:cursor-grabbing",
                     isStageDragOver && "ring-2 ring-offset-1 scale-[1.02]"
                   )}
-                  style={{
-                    backgroundColor: stage.bg,
-                    borderColor: `${stage.fg}1f`,
+                   style={{
+                    backgroundColor: `${stage.fg}1a`,
+                    borderColor: `${stage.fg}40`,
                     ...(isStageDragOver ? { boxShadow: `0 0 0 2px ${stage.fg}66` } : {}),
                   }}
                 >
