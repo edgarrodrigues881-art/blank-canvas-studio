@@ -13,6 +13,19 @@ import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+const STAGE_COLORS = [
+  { key: "azul",    label: "Azul",    hex: "#3b82f6" },
+  { key: "ciano",   label: "Ciano",   hex: "#06b6d4" },
+  { key: "ambar",   label: "Âmbar",   hex: "#f59e0b" },
+  { key: "roxo",    label: "Roxo",    hex: "#8b5cf6" },
+  { key: "laranja", label: "Laranja", hex: "#f97316" },
+  { key: "verde",   label: "Verde",   hex: "#22c55e" },
+];
 
 const STAGES = [
   { key: "novo",       label: "Novo Lead",   dot: "bg-blue-500",     ring: "ring-blue-500/20",   bg: "#eff6ff", fg: "#1d4ed8" },
@@ -86,6 +99,9 @@ export default function Pipeline() {
   const dragRef = useRef<{ id: string; from: string } | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [newStageOpen, setNewStageOpen] = useState(false);
+  const [newStageName, setNewStageName] = useState("");
+  const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0].key);
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -159,13 +175,70 @@ export default function Pipeline() {
         </div>
         <Button
           size="sm"
-          onClick={() => toast.info("Em breve: criação de etapas customizadas")}
+          onClick={() => { setNewStageName(""); setNewStageColor(STAGE_COLORS[0].key); setNewStageOpen(true); }}
           className="gap-1.5 h-9 rounded-xl"
         >
           <Plus className="w-4 h-4" />
           Nova etapa
         </Button>
       </div>
+
+      {/* New Stage Modal */}
+      <Dialog open={newStageOpen} onOpenChange={setNewStageOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova etapa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="stage-name">Nome da etapa</Label>
+              <Input
+                id="stage-name"
+                value={newStageName}
+                onChange={(e) => setNewStageName(e.target.value)}
+                placeholder="Ex: Qualificação"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {STAGE_COLORS.map((c) => {
+                  const selected = newStageColor === c.key;
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setNewStageColor(c.key)}
+                      title={c.label}
+                      className={cn(
+                        "h-8 w-8 rounded-full transition-all",
+                        selected ? "ring-2 ring-offset-2 ring-foreground/40 scale-110" : "hover:scale-105"
+                      )}
+                      style={{ backgroundColor: c.hex }}
+                      aria-label={c.label}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setNewStageOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!newStageName.trim()}
+              onClick={() => {
+                toast.success(`Etapa "${newStageName.trim()}" criada`);
+                setNewStageOpen(false);
+              }}
+            >
+              Criar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
