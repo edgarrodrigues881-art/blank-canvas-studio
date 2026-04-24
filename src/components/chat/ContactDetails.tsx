@@ -54,10 +54,12 @@ const DEFAULT_CRM_TAGS = [
 ];
 
 const statusLabels: Record<AttendingStatus, { label: string; color: string; dot: string }> = {
-  nova: { label: "Nova", color: "text-blue-400", dot: "bg-blue-400" },
-  em_atendimento: { label: "Em Atendimento", color: "text-emerald-400", dot: "bg-emerald-400" },
-  aguardando: { label: "Aguardando", color: "text-amber-400", dot: "bg-amber-400" },
-  finalizado: { label: "Finalizado", color: "text-muted-foreground", dot: "bg-muted-foreground/50" },
+  nova: { label: "Nova", color: "text-muted-foreground", dot: "bg-muted-foreground" },
+  em_atendimento: { label: "Em Atendimento", color: "text-muted-foreground", dot: "bg-muted-foreground" },
+  aguardando: { label: "Aguardando", color: "text-muted-foreground", dot: "bg-muted-foreground animate-pulse" },
+  finalizado: { label: "Finalizado", color: "text-muted-foreground/70", dot: "bg-muted-foreground/50" },
+  pausado: { label: "Pausado", color: "text-muted-foreground", dot: "bg-muted-foreground" },
+};
   pausado: { label: "Pausado", color: "text-orange-400", dot: "bg-orange-400" },
 };
 
