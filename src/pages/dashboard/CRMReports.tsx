@@ -236,6 +236,29 @@ export default function CRMReports() {
     staleTime: 120_000,
   });
 
+  const { data: customStages = [] } = useQuery({
+    queryKey: ["crm-report-pipeline-stages", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("pipeline_stages")
+        .select("key,label,color,position")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data || []) as Array<{ key: string; label: string; color: string; position: number }>;
+    },
+    enabled: !!user,
+    staleTime: 120_000,
+  });
+
+  const hiddenDefaults = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("pipeline_hidden_defaults");
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set<string>(); }
+  }, []);
+
   const isLoading = loadingLeads || loadingConv;
 
   const metrics = useMemo(() => {
