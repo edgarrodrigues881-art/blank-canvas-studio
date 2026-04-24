@@ -368,7 +368,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
 
   const handleEditCancel = () => {
     setEditForm({
-      name: conversation.name,
+      name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
