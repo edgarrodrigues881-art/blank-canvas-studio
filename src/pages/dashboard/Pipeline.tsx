@@ -267,6 +267,7 @@ export default function Pipeline() {
     );
   };
 
+  const responsibles = [...new Set(leads.map((l) => l.responsible).filter(Boolean))] as string[];
 
 
   const filtered = leads.filter((l) => {
