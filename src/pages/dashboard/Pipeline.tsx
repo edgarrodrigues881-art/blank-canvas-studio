@@ -102,6 +102,9 @@ export default function Pipeline() {
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0].key);
+  const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
+  const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
+  const [editingStageDraft, setEditingStageDraft] = useState("");
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
