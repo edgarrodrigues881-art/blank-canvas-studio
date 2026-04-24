@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend,
+  PieChart, Pie, Cell, ComposedChart, Line, Area, Legend,
 } from "recharts";
 import { format, subDays, startOfDay, endOfDay, differenceInMinutes, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
