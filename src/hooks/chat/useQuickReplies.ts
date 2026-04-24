@@ -2,12 +2,27 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
+export type QuickReplyBlockType = "text" | "image" | "audio" | "file";
+
+export interface QuickReplyBlock {
+  type: QuickReplyBlockType;
+  /** Texto do bloco (para text, ou legenda da mídia) */
+  content?: string;
+  /** URL da mídia (image/audio/file) */
+  mediaUrl?: string;
+  /** Nome original do arquivo (para "file") */
+  fileName?: string;
+  /** Delay em ms ANTES de enviar este bloco (0 = imediato) */
+  delayMs?: number;
+}
+
 export interface QuickReply {
   id: string;
   label: string;
   content: string;
   category: string;
   sort_order: number;
+  blocks?: QuickReplyBlock[];
 }
 
 export const QUICK_REPLY_CATEGORIES = [
@@ -29,6 +44,14 @@ export function resolveVariables(
   return result;
 }
 
+/** Returns the effective sequence of blocks for a quick reply.
+ *  If `blocks` is empty, falls back to a single text block from `content`. */
+export function getQuickReplyBlocks(qr: QuickReply): QuickReplyBlock[] {
+  if (Array.isArray(qr.blocks) && qr.blocks.length > 0) return qr.blocks;
+  if (qr.content) return [{ type: "text", content: qr.content, delayMs: 0 }];
+  return [];
+}
+
 export function useQuickReplies() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -40,33 +63,42 @@ export function useQuickReplies() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quick_replies")
-        .select("id, label, content, category, sort_order")
+        .select("id, label, content, category, sort_order, blocks")
         .eq("user_id", user!.id)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data as any[]).map((d) => ({
         ...d,
         category: d.category || "geral",
+        blocks: Array.isArray(d.blocks) ? d.blocks : [],
       })) as QuickReply[];
     },
   });
 
   const upsert = useMutation({
-    mutationFn: async (r: { id?: string; label: string; content: string; category?: string; sort_order?: number }) => {
+    mutationFn: async (r: {
+      id?: string;
+      label: string;
+      content: string;
+      category?: string;
+      sort_order?: number;
+      blocks?: QuickReplyBlock[];
+    }) => {
+      const payload: any = {
+        label: r.label,
+        content: r.content,
+        category: r.category || "geral",
+        blocks: r.blocks ?? [],
+      };
       if (r.id) {
-        const { error } = await supabase
-          .from("quick_replies")
-          .update({ label: r.label, content: r.content, category: r.category || "geral" } as any)
-          .eq("id", r.id);
+        const { error } = await supabase.from("quick_replies").update(payload).eq("id", r.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("quick_replies").insert({
           user_id: user!.id,
-          label: r.label,
-          content: r.content,
-          category: r.category || "geral",
+          ...payload,
           sort_order: r.sort_order ?? replies.length,
-        } as any);
+        });
         if (error) throw error;
       }
     },
