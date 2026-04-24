@@ -247,10 +247,14 @@ export default function Pipeline() {
                 <div
                   className={cn(
                     "flex-1 min-h-0 rounded-xl p-2 overflow-y-auto transition-all duration-200 pipeline-column-scroll",
-                    "bg-muted/15 border border-border/30",
+                    "border",
                     lost && "opacity-50",
-                    isOver && "bg-primary/[0.06] border-primary/30 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.1)]"
                   )}
+                  style={
+                    isOver
+                      ? { backgroundColor: `${stage.fg}14`, borderColor: `${stage.fg}55`, boxShadow: `inset 0 0 0 1px ${stage.fg}33` }
+                      : { backgroundColor: "hsl(var(--muted) / 0.15)", borderColor: "hsl(var(--border) / 0.3)" }
+                  }
                 >
                   <div className="space-y-2">
                     {items.length === 0 && !loading && (
