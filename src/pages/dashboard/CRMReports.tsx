@@ -346,23 +346,23 @@ export default function CRMReports() {
   };
 
   return (
-    <div className="bg-[#0f0f0f] min-h-screen -m-4 p-6 text-white">
+    <div className="bg-background min-h-screen -m-4 p-6 text-foreground transition-colors duration-200">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-white">Performance de Vendas</h1>
-          <p className="text-[12px] text-neutral-500 mt-1">Métricas, funil e insights para tomada de decisão</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Performance de Vendas</h1>
+          <p className="text-[12px] text-muted-foreground mt-1">Métricas, funil e insights para tomada de decisão</p>
         </div>
         {/* Period pill selector */}
-        <div className="flex items-center gap-1 bg-[#1a1a1a] border border-neutral-800 rounded-full p-1">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-full p-1">
           {(Object.keys(periodLabel) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`text-[11px] px-3 py-1.5 rounded-full transition-all font-medium ${
+              className={`text-[11px] px-3 py-1.5 rounded-full transition-all font-medium border ${
                 period === p
-                  ? "bg-neutral-800 text-white border border-neutral-700"
-                  : "text-neutral-500 hover:text-neutral-300"
+                  ? "bg-muted text-foreground border-border"
+                  : "bg-transparent text-muted-foreground border-transparent hover:text-foreground"
               }`}
             >
               {periodLabel[p]}
@@ -373,9 +373,23 @@ export default function CRMReports() {
 
       {/* Primary KPI row — 4 cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <MetricCard label="Receita Fechada" value={formatCurrency(metrics.totalClosedValue)} loading={isLoading} />
-        <MetricCard label="Em Negociação" value={formatCurrency(metrics.totalEstimatedValue)} loading={isLoading} />
-        <MetricCard label="Total de Leads" value={metrics.total.toLocaleString("pt-BR")} loading={isLoading} />
+        <MetricCard
+          label="Receita Fechada"
+          value={formatCurrency(metrics.totalClosedValue)}
+          valueClassName="text-emerald-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          label="Em Negociação"
+          value={formatCurrency(metrics.totalEstimatedValue)}
+          valueClassName="text-blue-500"
+          loading={isLoading}
+        />
+        <MetricCard
+          label="Total de Leads"
+          value={metrics.total.toLocaleString("pt-BR")}
+          loading={isLoading}
+        />
         <MetricCard
           label="Taxa de Conversão"
           value={`${metrics.conversionRate.toFixed(1)}%`}
@@ -391,12 +405,14 @@ export default function CRMReports() {
         <MetricCard
           label="Leads Esquecidos"
           value={metrics.forgottenLeads.toLocaleString("pt-BR")}
+          valueClassName="text-amber-500"
           delta={metrics.forgottenLeads > 0 ? { value: (metrics.forgottenLeads / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
         <MetricCard
           label="Leads Perdidos"
           value={metrics.lost.toLocaleString("pt-BR")}
+          valueClassName="text-red-500"
           delta={metrics.lost > 0 ? { value: (metrics.lost / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
         />
@@ -421,15 +437,15 @@ export default function CRMReports() {
                 <Checkbox
                   checked={!!checkedItems[item.key]}
                   onCheckedChange={() => toggleCheck(item.key)}
-                  className="shrink-0 h-4 w-4 rounded-[3px] border-neutral-600 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black"
+                  className="shrink-0 h-4 w-4 rounded-[3px] border-border data-[state=checked]:bg-foreground data-[state=checked]:border-foreground data-[state=checked]:text-background"
                 />
                 <span className={`text-[12.5px] flex-1 ${
-                  checkedItems[item.key] ? "line-through text-neutral-600" : "text-white"
+                  checkedItems[item.key] ? "line-through text-muted-foreground/60" : "text-foreground"
                 }`}>
                   {item.label}
                 </span>
                 {item.value > 0 && !checkedItems[item.key] && (
-                  <span className="text-[10.5px] font-semibold tabular-nums px-2 py-0.5 rounded bg-neutral-800 text-white border border-neutral-700">
+                  <span className="text-[10.5px] font-semibold tabular-nums px-2 py-0.5 rounded bg-muted text-foreground border border-border">
                     {item.value}
                   </span>
                 )}
@@ -445,12 +461,12 @@ export default function CRMReports() {
             {insights.map((insight, i) => (
               <div
                 key={i}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm bg-[#222] border-l-2 ${insightBorderClass[insight.type]}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-sm bg-muted/40 border-l-2 ${insightBorderClass[insight.type]}`}
               >
-                <p className="text-[12.5px] leading-snug flex-1 text-neutral-200">{insight.text}</p>
+                <p className="text-[12.5px] leading-snug flex-1 text-foreground/85">{insight.text}</p>
                 {insight.action && (
                   <button
-                    className="flex items-center gap-1 text-[11px] font-medium text-neutral-400 hover:text-white transition-colors shrink-0"
+                    className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors shrink-0"
                     onClick={() => navigate(insight.action!.route)}
                   >
                     {insight.action.label}
