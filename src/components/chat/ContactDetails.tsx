@@ -77,6 +77,31 @@ function getAvatarGradient(name: string) {
   return avatarColors[Math.abs(hash) % avatarColors.length];
 }
 
+// Detect if "name" is actually just the raw phone number (no real name yet)
+function isPhoneAsName(name?: string | null, phone?: string | null) {
+  if (!name) return true;
+  const n = name.replace(/\D/g, "");
+  const p = (phone || "").replace(/\D/g, "");
+  if (!n) return false;
+  // If the name is all digits, consider it a phone placeholder
+  if (/^\d+$/.test(name.trim())) return true;
+  // If digits-only version equals phone digits, it's a phone placeholder
+  if (n.length >= 8 && p.length >= 8 && (n === p || n.endsWith(p.slice(-8)) || p.endsWith(n.slice(-8)))) return true;
+  return false;
+}
+
+function displayName(name?: string | null, phone?: string | null) {
+  return isPhoneAsName(name, phone) ? (phone || "") : (name || "");
+}
+
+function avatarInitials(name?: string | null, phone?: string | null) {
+  if (isPhoneAsName(name, phone)) {
+    const digits = (phone || "").replace(/\D/g, "");
+    return digits.slice(-2) || "??";
+  }
+  return (name || "").trim().slice(0, 2).toUpperCase();
+}
+
 interface EditFormData {
   name: string;
   phone: string;
@@ -102,7 +127,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
   const [aiDetectedIntent, setAiDetectedIntent] = useState<string | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
-    name: conversation.name,
+    name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
     phone: conversation.phone,
     email: conversation.email || "",
     company: "",
@@ -207,7 +232,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
     setAiInterest(conversation.aiInterest || null);
     setSavedOrigin("WhatsApp");
     setEditForm({
-      name: conversation.name,
+      name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
@@ -343,7 +368,7 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
 
   const handleEditCancel = () => {
     setEditForm({
-      name: conversation.name,
+      name: isPhoneAsName(conversation.name, conversation.phone) ? "" : conversation.name,
       phone: conversation.phone,
       email: conversation.email || "",
       company: "",
@@ -394,12 +419,16 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
             ) : (
               <div className={cn("w-[72px] h-[72px] rounded-full bg-gradient-to-br flex items-center justify-center ring-2 ring-border", gradient)}>
                 <span className="text-xl font-bold text-white">
-                  {(isEditing ? editForm.name : conversation.name).slice(0, 2).toUpperCase()}
+                  {avatarInitials(isEditing ? editForm.name : conversation.name, conversation.phone)}
                 </span>
               </div>
             )}
             <div>
-              <p className="text-sm font-bold text-foreground">{isEditing ? editForm.name || conversation.name : conversation.name}</p>
+              <p className="text-sm font-bold text-foreground">
+                {isEditing
+                  ? (editForm.name?.trim() || conversation.phone)
+                  : displayName(conversation.name, conversation.phone)}
+              </p>
               <p className="text-xs text-muted-foreground mt-0.5">{isEditing ? editForm.phone || conversation.phone : conversation.phone}</p>
             </div>
 
@@ -524,7 +553,11 @@ export function ContactDetails({ conversation, onClose, onTagsChange }: ContactD
               <div className="space-y-2.5">
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Nome</span>
-                  <span className="text-xs font-medium text-foreground">{conversation.name}</span>
+                  <span className="text-xs font-medium text-foreground">
+                    {isPhoneAsName(conversation.name, conversation.phone)
+                      ? <span className="italic text-muted-foreground/60">— sem nome —</span>
+                      : conversation.name}
+                  </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-[11px] text-muted-foreground w-16 shrink-0 pt-0.5">Telefone</span>

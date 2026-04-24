@@ -129,7 +129,7 @@ export const ChatHeader = memo(function ChatHeader({
         {/* Name + Presence / Typing */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-foreground truncate">{conversation.name}</p>
+            <p className="text-[13px] font-semibold text-foreground truncate">{(conversation.name && conversation.name.replace(/\D/g, "") !== conversation.phone.replace(/\D/g, "") && !/^\d+$/.test(conversation.name.trim())) ? conversation.name : conversation.phone}</p>
             <span className="text-muted-foreground/30 text-xs">·</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
