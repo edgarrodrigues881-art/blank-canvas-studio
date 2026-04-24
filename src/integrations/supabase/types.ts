@@ -4602,6 +4602,7 @@ export type Database = {
       }
       quick_replies: {
         Row: {
+          blocks: Json
           category: string | null
           content: string
           created_at: string
@@ -4612,6 +4613,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blocks?: Json
           category?: string | null
           content: string
           created_at?: string
@@ -4622,6 +4624,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blocks?: Json
           category?: string | null
           content?: string
           created_at?: string
