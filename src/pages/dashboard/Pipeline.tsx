@@ -299,8 +299,8 @@ export default function Pipeline() {
                           .join("")
                           .toUpperCase() || "?";
                       } else if (lead.phone) {
-                        const digits = lead.phone.replace(/\D/g, "").replace(/^55/, "");
-                        initials = digits.slice(0, 2) || "?";
+                        const digits = lead.phone.replace(/\D/g, "");
+                        initials = digits.slice(-2) || "?";
                       }
                       const avatarPalette = ["#3b82f6", "#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ec4899", "#f97316", "#14b8a6", "#6366f1", "#ef4444"];
                       const avatarColor = avatarPalette[(initials.charCodeAt(0) || 0) % avatarPalette.length];
