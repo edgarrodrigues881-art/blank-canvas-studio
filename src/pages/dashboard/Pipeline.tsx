@@ -106,12 +106,20 @@ interface CustomStage {
 }
 
 const COLOR_TO_PALETTE: Record<string, { bg: string; fg: string; dot: string }> = {
-  azul:    { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
-  ciano:   { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
-  ambar:   { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
-  roxo:    { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
-  laranja: { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
-  verde:   { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+  azul:     { bg: "#eff6ff", fg: "#1d4ed8", dot: "bg-blue-500" },
+  ciano:    { bg: "#ecfeff", fg: "#0e7490", dot: "bg-cyan-500" },
+  ambar:    { bg: "#fffbeb", fg: "#92400e", dot: "bg-amber-500" },
+  roxo:     { bg: "#f5f3ff", fg: "#5b21b6", dot: "bg-violet-500" },
+  laranja:  { bg: "#fff7ed", fg: "#c2410c", dot: "bg-orange-500" },
+  verde:    { bg: "#f0fdf4", fg: "#15803d", dot: "bg-emerald-500" },
+  rosa:     { bg: "#fdf2f8", fg: "#be185d", dot: "bg-pink-500" },
+  vermelho: { bg: "#fef2f2", fg: "#b91c1c", dot: "bg-red-500" },
+  teal:     { bg: "#f0fdfa", fg: "#0f766e", dot: "bg-teal-500" },
+  indigo:   { bg: "#eef2ff", fg: "#4338ca", dot: "bg-indigo-500" },
+  lima:     { bg: "#f7fee7", fg: "#4d7c0f", dot: "bg-lime-500" },
+  fucsia:   { bg: "#fdf4ff", fg: "#a21caf", dot: "bg-fuchsia-500" },
+  marrom:   { bg: "#fef3c7", fg: "#78350f", dot: "bg-amber-800" },
+  cinza:    { bg: "#f1f5f9", fg: "#334155", dot: "bg-slate-500" },
 };
 
 export default function Pipeline() {
