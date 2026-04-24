@@ -381,7 +381,7 @@ export default function Pipeline() {
       {/* Kanban */}
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden -mx-1 px-1 pipeline-scroll">
         <div className="inline-flex gap-3 h-full pb-2" style={{ minWidth: "1200px" }}>
-          {STAGES.map((stage) => {
+          {allStages.map((stage) => {
             const items = grouped[stage.key];
             const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
             const isOver = overStage === stage.key;
