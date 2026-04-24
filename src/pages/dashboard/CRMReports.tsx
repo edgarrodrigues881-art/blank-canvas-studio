@@ -298,24 +298,25 @@ export default function CRMReports() {
   }, [metrics.dailyMap]);
 
   const tempData = useMemo(() => {
+    const tempColors: Record<string, string> = { frio: "#3b82f6", morno: "#f59e0b", quente: "#ef4444" };
     return ["frio", "morno", "quente"].map(t => ({
       name: TEMP_LABELS[t]?.label || t,
       key: t,
       value: metrics.byTemp[t] || 0,
-      fill: TEMP_LABELS[t]?.color || "#9ca3af",
+      fill: tempColors[t],
       pct: metrics.total > 0 ? ((metrics.byTemp[t] || 0) / metrics.total * 100) : 0,
     }));
   }, [metrics]);
 
-  // Origin in monochrome shades — except dominant which is white
+  // Origin — WhatsApp blue dominant, others in cyan/violet/amber palette
   const originData = useMemo(() => {
     const entries = Object.entries(metrics.byOrigin)
       .map(([origin, count]) => ({ name: origin, value: count }))
       .sort((a, b) => b.value - a.value);
-    const grayShades = ["#a3a3a3", "#737373", "#525252", "#404040", "#2a2a2a"];
+    const palette = ["#06b6d4", "#8b5cf6", "#f59e0b", "#22c55e", "#ef4444"];
     return entries.map((e, i) => ({
       ...e,
-      fill: i === 0 ? "#ffffff" : grayShades[(i - 1) % grayShades.length],
+      fill: /whats/i.test(e.name) || i === 0 ? "#3b82f6" : palette[(i - 1) % palette.length],
     }));
   }, [metrics.byOrigin]);
 
@@ -588,13 +589,13 @@ export default function CRMReports() {
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11.5px] text-foreground/85 font-medium">{item.name}</span>
                     <div className="flex items-center gap-1.5 tabular-nums">
-                      <span className="text-[13px] font-semibold text-foreground">{item.value}</span>
-                      <span className="text-[10px] text-muted-foreground">({item.pct.toFixed(0)}%)</span>
+                      <span className="text-[13px] font-bold text-foreground">{item.value}</span>
+                      <span className="text-[11px] font-bold text-muted-foreground">({item.pct.toFixed(0)}%)</span>
                     </div>
                   </div>
-                  <div className="h-1 bg-muted rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-700"
+                      className="h-full rounded transition-all duration-700"
                       style={{ width: `${Math.max(item.pct, 1)}%`, backgroundColor: item.fill }}
                     />
                   </div>
@@ -614,16 +615,24 @@ export default function CRMReports() {
           <div className="h-[160px] flex items-center justify-center text-[12px] text-muted-foreground">Sem dados no período</div>
         ) : (
           <div className="flex items-center gap-8">
-            <ResponsiveContainer width="35%" height={200}>
-              <PieChart>
-                <Pie data={originData} cx="50%" cy="50%" innerRadius={48} outerRadius={80} paddingAngle={2} dataKey="value" stroke="hsl(var(--card))" strokeWidth={2}>
-                  {originData.map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative" style={{ width: 220, height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={originData} cx="50%" cy="50%" innerRadius={62} outerRadius={100} paddingAngle={2} dataKey="value" stroke="hsl(var(--card))" strokeWidth={2}>
+                    {originData.map((entry, index) => (
+                      <Cell key={index} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[24px] font-bold text-foreground tabular-nums leading-none">
+                  {originData.reduce((sum, o) => sum + o.value, 0)}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total</span>
+              </div>
+            </div>
             <div className="flex-1 space-y-2.5">
               {originData.map((o) => (
                 <div key={o.name} className="flex items-center justify-between text-[12px]">
