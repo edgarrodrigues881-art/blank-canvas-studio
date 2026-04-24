@@ -102,6 +102,9 @@ export default function Pipeline() {
   const [newStageOpen, setNewStageOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const [newStageColor, setNewStageColor] = useState(STAGE_COLORS[0].key);
+  const [stageLabels, setStageLabels] = useState<Record<string, string>>({});
+  const [editingStageKey, setEditingStageKey] = useState<string | null>(null);
+  const [editingStageDraft, setEditingStageDraft] = useState("");
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
@@ -299,31 +302,63 @@ export default function Pipeline() {
                 >
                   <div className="flex items-center gap-2">
                     <span className={cn("w-2 h-2 rounded-full shrink-0", stage.dot)} />
+                    {editingStageKey === stage.key ? (
+                      <input
+                        autoFocus
+                        value={editingStageDraft}
+                        onChange={(e) => setEditingStageDraft(e.target.value)}
+                        onBlur={() => {
+                          const v = editingStageDraft.trim();
+                          if (v) setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                          setEditingStageKey(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const v = editingStageDraft.trim();
+                            if (v) setStageLabels((p) => ({ ...p, [stage.key]: v }));
+                            setEditingStageKey(null);
+                          } else if (e.key === "Escape") {
+                            setEditingStageKey(null);
+                          }
+                        }}
+                        className="flex-1 min-w-0 bg-white/70 border border-black/10 rounded px-1.5 py-0.5 text-[11.5px] font-bold uppercase tracking-wider outline-none focus:ring-1"
+                        style={{ color: stage.fg }}
+                      />
+                    ) : (
+                      <span
+                        className="text-[11.5px] font-bold uppercase tracking-wider truncate"
+                        style={{ color: stage.fg }}
+                      >
+                        {stageLabels[stage.key] ?? stage.label}
+                      </span>
+                    )}
                     <span
-                      className="text-[11.5px] font-bold uppercase tracking-wider truncate"
-                      style={{ color: stage.fg }}
-                    >
-                      {stage.label}
-                    </span>
-                    <span
-                      className="ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums group-hover/header:hidden"
+                      className={cn(
+                        "ml-auto text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums",
+                        editingStageKey !== stage.key && "group-hover/header:hidden"
+                      )}
                       style={{ color: stage.fg, backgroundColor: `${stage.fg}1a` }}
                     >
                       {items.length}
                     </span>
                     {/* Hover actions — pencil always; trash only for custom stages (none default) */}
-                    <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        title="Renomear etapa"
-                        onClick={() => toast.info(`Renomear "${stage.label}"`)}
-                        className="p-1 rounded-md hover:bg-black/5 transition-colors"
-                        style={{ color: stage.fg }}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </button>
-                      {/* Default 7 stages cannot be deleted */}
-                    </div>
+                    {editingStageKey !== stage.key && (
+                      <div className="ml-auto hidden group-hover/header:flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          title="Renomear etapa"
+                          onClick={() => {
+                            setEditingStageDraft(stageLabels[stage.key] ?? stage.label);
+                            setEditingStageKey(stage.key);
+                          }}
+                          className="p-1 rounded-md hover:bg-black/5 transition-colors"
+                          style={{ color: stage.fg }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        {/* Default 7 stages cannot be deleted */}
+                      </div>
+                    )}
                   </div>
                   {total > 0 && (
                     <p
