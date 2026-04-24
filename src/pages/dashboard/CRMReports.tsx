@@ -692,7 +692,7 @@ export default function CRMReports() {
           {isLoading ? (
             <Skeleton className="h-[220px] w-full" />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
               {funnelData.map((stage, i) => {
                 const maxValue = Math.max(...funnelData.map(s => s.value), 1);
                 const pct = Math.round((stage.value / maxValue) * 100);
