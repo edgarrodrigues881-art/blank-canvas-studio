@@ -677,23 +677,31 @@ export default function CRMReports() {
             <Skeleton className="h-[200px] w-full" />
           ) : (
             <div className="space-y-4">
-              {tempData.map((item) => (
-                <div key={item.name}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11.5px] text-foreground/85 font-medium">{item.name}</span>
-                    <div className="flex items-center gap-1.5 tabular-nums">
-                      <span className="text-[13px] font-bold text-foreground">{item.value}</span>
-                      <span className="text-[11px] font-bold text-muted-foreground">({item.pct.toFixed(0)}%)</span>
+              {tempData.map((item) => {
+                const maxVal = Math.max(...tempData.map(t => t.value), 1);
+                const pct = Math.round((item.value / maxVal) * 100);
+                return (
+                  <div
+                    key={item.name}
+                    className="flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-300 hover:bg-muted/20"
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ background: item.fill }} />
+                    <span className="text-xs text-muted-foreground w-16 shrink-0 truncate font-medium">{item.name}</span>
+                    <div className="flex-1 h-3 bg-muted/25 rounded-full overflow-hidden shadow-inner">
+                      <div
+                        className="h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{
+                          width: `${Math.max(pct, 6)}%`,
+                          background: `linear-gradient(90deg, ${item.fill}, ${item.fill}dd)`,
+                        }}
+                      />
                     </div>
+                    <span className="text-xs font-extrabold text-foreground tabular-nums w-10 text-right">
+                      {item.value}
+                    </span>
                   </div>
-                  <div className="h-2 bg-muted rounded overflow-hidden">
-                    <div
-                      className="h-full rounded transition-all duration-700"
-                      style={{ width: `${Math.max(item.pct, 1)}%`, backgroundColor: item.fill }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Panel>
@@ -720,7 +728,7 @@ export default function CRMReports() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[24px] font-bold text-foreground tabular-nums leading-none">
+                <span className="text-[28px] font-bold text-foreground tabular-nums leading-none">
                   {originData.reduce((sum, o) => sum + o.value, 0)}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">Total</span>
@@ -730,7 +738,7 @@ export default function CRMReports() {
               {originData.map((o) => (
                 <div key={o.name} className="flex items-center justify-between text-[12px]">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: o.fill }} />
+                    <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: o.fill }} />
                     <span className="text-foreground/85">{o.name}</span>
                   </div>
                   <span className="font-semibold tabular-nums text-foreground">{o.value}</span>
