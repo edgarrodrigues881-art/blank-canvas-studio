@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ArrowDownRight, DollarSign, Handshake, Users, TrendingUp, MessageCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, ComposedChart, Line, Area, Legend,
@@ -49,45 +49,100 @@ const tooltipStyle = {
   color: "hsl(var(--foreground))",
 };
 
-// Premium metric card — uses theme tokens
+// Featured big card — blue gradient, white text (matches CRM Dashboard "Total de Leads" hero)
+function FeaturedMetricCard({
+  label,
+  value,
+  icon: Icon,
+  deltaLabel,
+  loading,
+}: {
+  label: string;
+  value: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  deltaLabel?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div
+      className="relative rounded-xl p-5 flex flex-col justify-between min-h-[160px] overflow-hidden text-white shadow-md"
+      style={{ background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)" }}
+    >
+      <div className="flex items-start justify-between">
+        <p className="text-[11px] uppercase tracking-[0.14em] font-medium text-white/80">{label}</p>
+        <div className="h-9 w-9 rounded-lg bg-white/15 flex items-center justify-center backdrop-blur-sm">
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+      </div>
+      {loading ? (
+        <Skeleton className="h-10 w-40 mt-2 bg-white/20" />
+      ) : (
+        <div className="mt-3">
+          <p className="text-[34px] leading-none font-bold tracking-tight tabular-nums text-white">
+            {value}
+          </p>
+          {deltaLabel && (
+            <div className="flex items-center gap-1 mt-3 text-[12px] font-medium text-white/90">
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              {deltaLabel}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Compact metric card — white bg, colored icon + soft border, value + colored delta
 function MetricCard({
   label,
   value,
-  valueClassName = "text-foreground",
+  icon: Icon,
   accentColor,
   delta,
   loading,
 }: {
   label: string;
   value: string;
-  valueClassName?: string;
-  accentColor?: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  accentColor: string;
   delta?: { value: number; positive?: boolean; label?: string } | null;
   loading?: boolean;
 }) {
   return (
-    <div className="relative bg-card border border-border rounded-md p-4 flex flex-col justify-between min-h-[110px] transition-colors duration-200 overflow-hidden">
-      {accentColor && (
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accentColor }} />
-      )}
-      <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
-      {loading ? (
-        <Skeleton className="h-8 w-24 mt-2" />
-      ) : (
-        <>
-          <p className={`text-[32px] leading-none font-semibold tracking-tight mt-2 tabular-nums ${valueClassName}`}>
-            {value}
-          </p>
-          {delta && (
-            <div className={`flex items-center gap-1 mt-2 text-[11px] font-medium tabular-nums ${
-              delta.positive ? "text-emerald-500" : "text-red-500"
-            }`}>
-              {delta.positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              {Math.abs(delta.value).toFixed(1)}%
-            </div>
-          )}
-        </>
-      )}
+    <div
+      className="relative bg-card rounded-xl p-4 flex flex-col justify-between min-h-[130px] transition-colors duration-200 overflow-hidden shadow-sm"
+      style={{ border: `1px solid ${accentColor}33` }}
+    >
+      <div className="flex items-start justify-between">
+        <div
+          className="h-9 w-9 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: `${accentColor}1a` }}
+        >
+          <Icon className="h-[18px] w-[18px]" style={{ color: accentColor }} />
+        </div>
+      </div>
+      <div className="mt-2">
+        <p className="text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground font-medium">{label}</p>
+        {loading ? (
+          <Skeleton className="h-7 w-20 mt-2" />
+        ) : (
+          <>
+            <p className="text-[24px] leading-tight font-semibold tracking-tight mt-1 tabular-nums text-foreground">
+              {value}
+            </p>
+            {delta && (
+              <div
+                className="flex items-center gap-1 mt-1 text-[11px] font-medium tabular-nums"
+                style={{ color: delta.positive ? "#22c55e" : accentColor }}
+              >
+                {delta.positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                {delta.label ?? `${Math.abs(delta.value).toFixed(1)}%`}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -377,59 +432,61 @@ export default function CRMReports() {
         </div>
       </div>
 
-      {/* Primary KPI row — 4 cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <MetricCard
-          label="Receita Fechada"
-          value={formatCurrency(metrics.totalClosedValue)}
-          valueClassName="text-[#22c55e]"
-          accentColor="#22c55e"
-          loading={isLoading}
-        />
+      {/* KPI row 1 — Featured (col-span-2 wide) + 3 small */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <div className="md:col-span-2">
+          <FeaturedMetricCard
+            label="Receita Fechada"
+            value={formatCurrency(metrics.totalClosedValue)}
+            icon={DollarSign}
+            deltaLabel={metrics.totalClosedValue > 0 ? `+${formatCurrency(metrics.totalClosedValue)} no período` : undefined}
+            loading={isLoading}
+          />
+        </div>
         <MetricCard
           label="Em Negociação"
           value={formatCurrency(metrics.totalEstimatedValue)}
-          valueClassName="text-[#3b82f6]"
-          accentColor="#3b82f6"
+          icon={Handshake}
+          accentColor="#06b6d4"
           loading={isLoading}
         />
         <MetricCard
           label="Total de Leads"
           value={metrics.total.toLocaleString("pt-BR")}
-          valueClassName="text-[#8b5cf6]"
-          accentColor="#8b5cf6"
+          icon={Users}
+          accentColor="#3b82f6"
           loading={isLoading}
         />
         <MetricCard
           label="Taxa de Conversão"
           value={`${metrics.conversionRate.toFixed(1)}%`}
-          valueClassName="text-[#06b6d4]"
-          accentColor="#06b6d4"
+          icon={TrendingUp}
+          accentColor="#8b5cf6"
           delta={metrics.conversionRate > 0 ? { value: metrics.conversionRate, positive: metrics.conversionRate > 5 } : null}
           loading={isLoading}
         />
       </div>
 
-      {/* Secondary KPI row — 4 cards */}
+      {/* KPI row 2 — 4 small cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <MetricCard
           label="Taxa de Resposta"
           value={`${metrics.responseRate.toFixed(1)}%`}
-          valueClassName="text-[#f59e0b]"
+          icon={MessageCircle}
           accentColor="#f59e0b"
           loading={isLoading}
         />
         <MetricCard
           label="Tempo Médio Resposta"
           value={formatResponseTime(metrics.avgResponseMin)}
-          valueClassName="text-neutral-400"
-          accentColor="#525252"
+          icon={Clock}
+          accentColor="#6b7280"
           loading={isLoading}
         />
         <MetricCard
           label="Leads Esquecidos"
           value={metrics.forgottenLeads.toLocaleString("pt-BR")}
-          valueClassName="text-[#f97316]"
+          icon={AlertTriangle}
           accentColor="#f97316"
           delta={metrics.forgottenLeads > 0 ? { value: (metrics.forgottenLeads / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
@@ -437,7 +494,7 @@ export default function CRMReports() {
         <MetricCard
           label="Leads Perdidos"
           value={metrics.lost.toLocaleString("pt-BR")}
-          valueClassName="text-[#ef4444]"
+          icon={XCircle}
           accentColor="#ef4444"
           delta={metrics.lost > 0 ? { value: (metrics.lost / Math.max(metrics.total, 1)) * 100, positive: false } : null}
           loading={isLoading}
