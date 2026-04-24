@@ -176,7 +176,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  
   const [originFilter, setOriginFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
@@ -261,10 +261,9 @@ export default function Leads() {
       l.company?.toLowerCase().includes(s);
     const stage = l.pipeline_stage || "novo";
     const matchStatus = statusFilter === "all" || stage === statusFilter;
-    const matchPriority = priorityFilter === "all" || (l.priority || "media") === priorityFilter;
     const matchOrigin = originFilter === "all" || l.origin === originFilter;
-    return matchSearch && matchStatus && matchPriority && matchOrigin;
-  }), [leads, search, statusFilter, priorityFilter, originFilter]);
+    return matchSearch && matchStatus && matchOrigin;
+  }), [leads, search, statusFilter, originFilter]);
 
   /* ── CRUD ── */
   const openNew = () => {
@@ -405,17 +404,6 @@ export default function Leads() {
                   {s.label} ({statusCounts[s.value] || 0})
                 </span>
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[140px] h-10 rounded-xl bg-muted/30 border-border/50 text-xs">
-            <SelectValue placeholder="Prioridade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Prioridade</SelectItem>
-            {PRIORITY_OPTIONS.map((p) => (
-              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -647,13 +635,8 @@ export default function Leads() {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <FieldLabel>Prioridade</FieldLabel>
-                          <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
+                          <FieldLabel>Responsável</FieldLabel>
+                          <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
                         </div>
                         <div className="space-y-1.5">
                           <FieldLabel>Responsável</FieldLabel>
@@ -747,9 +730,6 @@ export default function Leads() {
                         <Badge variant="outline" className={cn("text-xs font-medium rounded-full px-3 py-1", statusCfg.badge)}>
                           <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
                           {statusCfg.label}
-                        </Badge>
-                        <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full px-2.5", priorityCfg.color)}>
-                          {priorityCfg.label}
                         </Badge>
                       </div>
                     </div>
@@ -906,25 +886,14 @@ export default function Leads() {
                 <Input value={form.estimated_value} onChange={(e) => setForm({ ...form, estimated_value: e.target.value })} placeholder="15000" type="number" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Prioridade</Label>
-                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Necessidade do cliente</Label>
