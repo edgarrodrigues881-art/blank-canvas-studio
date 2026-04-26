@@ -17,6 +17,7 @@ const API_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MIN_MS = 10_000;
 const RETRY_DELAY_MAX_MS = 30_000;
+const PRIVATE_MEDIA_TEXT_DELAY_MS = 120;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 const SEND_ENDPOINT_PREFIXES = ["/send/", "/chat/", "/message/"];
 const UAZAPI_FAILURE_STATUSES = new Set(["error", "failed", "fail", "not_found", "not_exists", "invalid", "unauthorized", "disconnected", "timeout", "rate_limited"]);
@@ -199,6 +200,19 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
       return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
     } catch (e2) {
       if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, caption, viewOnce: false });
+      throw e2;
+    }
+  }
+}
+
+async function sendPlainMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string) {
+  try {
+    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+  } catch {
+    try {
+      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+    } catch (e2) {
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, viewOnce: false });
       throw e2;
     }
   }
