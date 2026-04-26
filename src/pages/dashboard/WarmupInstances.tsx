@@ -1228,13 +1228,10 @@ const WarmupInstances = () => {
   const handleWarningOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowWarning(false);
-      if (agreedResponsibility) {
-        try { localStorage.setItem(WARNING_DISMISS_KEY, "true"); } catch {}
-      } else {
-        navigate("/dashboard");
-      }
+      // Uma vez fechado neste navegador, nunca mais aparece
+      try { localStorage.setItem(WARNING_DISMISS_KEY, "true"); } catch {}
     }
-  }, [agreedResponsibility, navigate]);
+  }, []);
 
   const handleNavigate = useCallback((path: string) => {
     navigate(activeFolderId ? `${path}?folder=${activeFolderId}` : path);
