@@ -2516,16 +2516,17 @@ const Devices = () => {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={(open) => { if (!open) closeEditDialog(); else setEditOpen(true); }}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/40 bg-card">
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-emerald-500/20 bg-card">
           {/* Header */}
-          <div className="relative px-6 pt-6 pb-4 border-b border-border/20">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent pointer-events-none" />
+          <div className="relative px-6 pt-6 pb-4 border-b border-emerald-500/15 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.18] via-emerald-500/[0.04] to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
             <div className="relative flex items-center gap-4">
               {editHeaderPhoto ? (
-                <img src={editHeaderPhoto} alt="" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-primary/20 shrink-0" />
+                <img src={editHeaderPhoto} alt="" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-emerald-400/40 shrink-0" />
               ) : (
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <Pencil className="w-5 h-5 text-primary" />
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 ring-1 ring-emerald-400/30 flex items-center justify-center shrink-0">
+                  <Pencil className="w-5 h-5 text-emerald-300" />
                 </div>
               )}
               <div className="min-w-0">
