@@ -95,11 +95,16 @@ export const ActivityChart = React.memo(function ActivityChart({
     return { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays };
   }, [data]);
 
-  // Inject avg line value into each point so Recharts can render the line
-  const chartData = useMemo(
-    () => data.map((d) => ({ ...d, avg: avgPerDay })),
-    [data, avgPerDay]
-  );
+  // Inject avg line value + a tiny baseline marker for zero-days
+  const chartData = useMemo(() => {
+    // baseline = ~1.2% of peak, so it shows as a thin line at the axis
+    const baselineHeight = peakValue > 0 ? Math.max(peakValue * 0.012, 1) : 0;
+    return data.map((d) => ({
+      ...d,
+      avg: avgPerDay,
+      baseline: (d.entregas || 0) === 0 ? baselineHeight : 0,
+    }));
+  }, [data, avgPerDay, peakValue]);
 
   // Smart X axis: avoid label overlap on long periods
   const xInterval =
