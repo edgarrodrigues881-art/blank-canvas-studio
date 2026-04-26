@@ -263,10 +263,44 @@ function buildCarouselChoice(button: any): string | null {
   return rawValue ? `${text}|${rawValue}` : text;
 }
 
+function buildPlainButtonLines(buttons: Array<Partial<CampaignButton>> = []): string[] {
+  return buttons
+    .map(b => {
+      const label = (b.text || "").trim();
+      if (!label) return "";
+      const type = (b.type || "reply").toLowerCase();
+      const value = (b.value || "").trim();
+      if (type === "url" && value) {
+        const url = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+        return `${label}: ${url}`;
+      }
+      if ((type === "phone" || type === "call") && value) return `${label}: ${value}`;
+      if (type === "copy" && value) return `${label}: ${value}`;
+      return value ? `${label}: ${value}` : label;
+    })
+    .filter(Boolean);
+}
+
 async function sendCarouselMessage(baseUrl: string, token: string, phone: string, body: string, cards: CarouselCard[]) {
   const normalized = normalizeCarouselCards(cards);
   if (normalized.length === 0) throw new Error("Carrossel sem cards configurados.");
   const primaryText = body?.trim() || null;
+  const isGroupTarget = phone.endsWith("@g.us");
+
+  if (!isGroupTarget) {
+    for (let i = 0; i < normalized.length; i++) {
+      const card = normalized[i];
+      const mediaUrl = card.mediaUrl?.trim();
+      const cardText = [i === 0 ? primaryText : null, card.text?.trim(), ...buildPlainButtonLines(card.buttons || [])]
+        .filter(Boolean)
+        .join("\n\n");
+      if (mediaUrl) await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, detectMediaType(mediaUrl), cardText);
+      else if (cardText) await sendTextWithFallback(baseUrl, token, phone, cardText);
+      if (i < normalized.length - 1) await sleep(800 + Math.random() * 800);
+    }
+    return;
+  }
+
   const hasUrlButtons = normalized.some(card => (card.buttons || []).some((button: any) => (button.type || "").toLowerCase() === "url"));
 
   const payload = {
