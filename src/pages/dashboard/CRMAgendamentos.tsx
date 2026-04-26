@@ -966,7 +966,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                     <button
                       type="button"
                       onClick={() => handleMediaPick("audio")}
-                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary text-xs text-primary transition-colors"
+                      className="sched-chip sched-chip-emerald"
                     >
                       <Mic className="w-3.5 h-3.5" /> Áudio
                     </button>
