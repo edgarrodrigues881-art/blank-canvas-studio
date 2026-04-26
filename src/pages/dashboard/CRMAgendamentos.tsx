@@ -1146,18 +1146,20 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-              <div className="bg-emerald-600 px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+            <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 overflow-hidden shadow-[0_10px_40px_-20px_hsl(var(--background)/0.9)]">
+              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3 border-b border-emerald-900/40">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-emerald-400 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
+                  {contactInitial}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{selectedContact?.name || "Contato"}</p>
-                  <p className="text-[10px] text-white/70">online</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{selectedContact?.name || "Contato"}</p>
+                  <p className="text-[10px] text-white/70 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 inline-block" /> online
+                  </p>
                 </div>
               </div>
 
-              <div className="bg-[hsl(var(--background))] min-h-[350px] p-4 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
+              <div className="bg-[hsl(var(--background))] min-h-[360px] p-5 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
                 {previewMessage.trim() || mediaPreview ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%]">
