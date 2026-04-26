@@ -427,16 +427,16 @@ export default function GroupCarouselDispatch() {
       );
       if (targetsErr) throw targetsErr;
 
-      // Trigger the SERVER-SIDE worker (fire-and-forget).
+      // Trigger the SERVER-SIDE worker (true fire-and-forget).
       // The worker runs in the background and respects pause/cancel
-      // even if the user closes the browser tab.
-      const { error: invokeErr } = await supabase.functions.invoke("process-group-dispatch", {
-        body: { campaignId: campaign.id },
-      });
-      if (invokeErr) {
-        console.error("Failed to start worker:", invokeErr);
-        toast.warning("Campanha criada, mas o worker não respondeu. Tente reprocessar pela página de detalhes.");
-      }
+      // even if the user closes the browser tab. We don't await the
+      // response — a 503/timeout from cold-boot doesn't mean failure.
+      supabase.functions
+        .invoke("process-group-dispatch", { body: { campaignId: campaign.id } })
+        .catch((err) => {
+          // Silently log — the worker will be picked up by the watchdog/self-continue loop
+          console.warn("[group-dispatch] invoke returned non-200 (worker likely already running):", err);
+        });
 
       const campaignRoute = `/dashboard/campaign/${campaign.id}`;
       toast.success(
