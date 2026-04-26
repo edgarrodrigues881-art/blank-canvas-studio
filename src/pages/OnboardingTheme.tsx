@@ -41,6 +41,8 @@ const OnboardingTheme = () => {
     root.classList.add(choice);
     try {
       localStorage.setItem("theme", choice);
+      // Marca como escolhido imediatamente — uma vez selecionado, nunca mais pergunta
+      localStorage.setItem(THEME_CHOSEN_KEY, "1");
     } catch {}
   };
 
