@@ -694,65 +694,36 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const previewMessage = resolveVars(messageContent, selectedContact);
   const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
-  // Step completion (visual progress only — does not block actions)
-  const steps = [
-    { n: 1, label: "Destinatário", done: !!selectedContact },
-    { n: 2, label: "Mensagem", done: !!messageContent.trim() },
-    { n: 3, label: "Botões", done: buttons.length > 0, optional: true },
-    { n: 4, label: "Agendamento", done: !!(date && time) },
-    { n: 5, label: "Preview", done: !!(selectedContact && messageContent.trim() && date && time) },
-  ];
-
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-6 bg-muted/20 min-h-screen">
+    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl text-muted-foreground hover:text-foreground" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Configure e agende uma mensagem em poucos passos</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 text-xs rounded-xl text-muted-foreground hover:text-foreground" onClick={onBack}>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
+            onClick={onBack}
+          >
             Cancelar
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="gap-2 h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:shadow-none"
+            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {editing ? "Salvar alterações" : "Agendar Disparo"}
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {editing ? "Salvar" : "Agendar Disparo"}
           </Button>
         </div>
-      </div>
-
-      {/* Stepper */}
-      <div className="hidden md:flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 shadow-sm">
-        {steps.map((s, i) => (
-          <div key={s.n} className="flex items-center gap-2.5 flex-1 last:flex-none">
-            <div className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-colors shrink-0",
-              s.done
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground border border-border"
-            )}>
-              {s.done ? <CheckCircle2 className="w-3.5 h-3.5" /> : s.n}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={cn("text-xs font-medium truncate leading-none", s.done ? "text-foreground" : "text-muted-foreground")}>
-                {s.label}
-              </p>
-              {s.optional && <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mt-0.5 leading-none">Opcional</p>}
-            </div>
-            {i < steps.length - 1 && (
-              <div className={cn("h-px w-6 lg:w-10 shrink-0", s.done ? "bg-primary/40" : "bg-border")} />
-            )}
-          </div>
-        ))}
       </div>
 
       {/* 2-column layout */}
@@ -761,13 +732,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
           <div>
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">1</span>
+              <div className="flex items-center gap-2">
+                <User className="w-[18px] h-[18px] text-emerald-500" />
                 <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Escolha para quem enviar a mensagem</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
             </div>
 
             {selectedContact ? (
@@ -859,14 +830,14 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Mensagem */}
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">2</span>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-[18px] h-[18px] text-emerald-500" />
                   <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Escreva o que será enviado pelo WhatsApp</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escreva o que será enviado pelo WhatsApp</p>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -1053,16 +1024,15 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Botões interativos */}
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">3</span>
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
                   <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-medium">Opcional</span>
-                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/60 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Adicione opções de resposta rápida para o contato</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
                 <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
@@ -1148,82 +1118,48 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Agendamento */}
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div>
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">4</span>
+              <div className="flex items-center gap-2">
+                <CalendarClock className="w-[18px] h-[18px] text-primary" />
                 <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Defina quando a mensagem será enviada automaticamente</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
-            {/* Quick preset cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { key: "in1h" as const, label: "Em 1 hora", hint: "Disparo rápido" },
-                { key: "tomorrow9" as const, label: "Amanhã 9h", hint: "Manhã" },
-                { key: "tomorrow14" as const, label: "Amanhã 14h", hint: "Tarde" },
-                { key: "in2d" as const, label: "Em 2 dias", hint: "Mais tarde" },
-              ].map(preset => {
-                const active = activeScheduleChip === preset.key;
-                return (
-                  <button
-                    key={preset.key}
-                    type="button"
-                    onClick={() => applyQuickSchedule(preset.key)}
-                    className={cn(
-                      "rounded-xl border p-3 text-left transition-all group",
-                      active
-                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
-                        : "border-border bg-background hover:border-primary/40 hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Clock className={cn("w-3.5 h-3.5", active ? "text-primary" : "text-muted-foreground")} />
-                      <span className={cn("text-[11px] uppercase tracking-wider font-medium", active ? "text-primary" : "text-muted-foreground")}>
-                        {preset.hint}
-                      </span>
-                    </div>
-                    <p className={cn("text-sm font-semibold", active ? "text-primary" : "text-foreground")}>
-                      {preset.label}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Manual date/time */}
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Ou escolha data e hora</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Data</Label>
+                <div className="relative mt-1">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                   <Input
                     type="date"
                     value={date}
                     onChange={e => { setDate(e.target.value); setActiveScheduleChip(null); }}
-                    className="h-11 pl-10 bg-background border-border"
+                    className="h-10 pl-9 bg-background border-border"
                   />
                 </div>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
+              <div className="relative">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hora</Label>
+                <div className="relative mt-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                   <Input
                     type="time"
                     value={time}
                     onChange={e => { setTime(e.target.value); setActiveScheduleChip(null); }}
-                    className="h-11 pl-10 bg-background border-border"
+                    className="h-10 pl-9 bg-background border-border"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Instance */}
             <div>
-              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 mb-2">
-                <Wifi className="w-3.5 h-3.5" /> Instância de envio
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+                <Wifi className="w-3 h-3" /> Instância de envio
               </Label>
               <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
-                <SelectTrigger className="h-11 bg-background border-border">
+                <SelectTrigger className="h-10 mt-1 bg-background border-border">
                   <SelectValue placeholder="Automático" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1241,7 +1177,34 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   })}
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground mt-1.5">Deixe em automático para o sistema escolher a melhor conexão</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Deixe em automático para o sistema escolher a melhor conexão disponível</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">Atalhos rápidos:</span>
+              {[
+                { key: "in1h" as const, label: "Hoje + 1h" },
+                { key: "tomorrow9" as const, label: "Amanhã 9h" },
+                { key: "tomorrow14" as const, label: "Amanhã 14h" },
+                { key: "in2d" as const, label: "Em 2 dias" },
+              ].map(chip => {
+                const active = activeScheduleChip === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => applyQuickSchedule(chip.key)}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-3 h-7 rounded-full border text-[11px] font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-background border-primary/40 text-primary hover:bg-primary/10"
+                    )}
+                  >
+                    <Clock className="w-3 h-3" /> {chip.label}
+                  </button>
+                );
+              })}
             </div>
 
             {countdown && (
@@ -1258,7 +1221,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Templates */}
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-4 shadow-sm">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-4 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center gap-2">
               <FileText className="w-[18px] h-[18px] text-indigo-400" />
               <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
@@ -1319,12 +1282,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
-          <div className="sticky top-6 space-y-3">
-            <div className="flex items-center gap-2.5 px-1">
-              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">5</span>
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Preview</h2>
-              <span className="text-[10px] text-muted-foreground ml-auto">Como aparecerá no WhatsApp</span>
-            </div>
+          <div className="sticky top-6">
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
               <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
