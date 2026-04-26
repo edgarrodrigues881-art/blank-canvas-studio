@@ -14,14 +14,18 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface WarmupPoint {
   label: string;
-  volume: number;
+  volume?: number;
   entregas: number;
   entregasPrev?: number;
-  crescimento: number;
+  crescimento?: number;
 }
 
 interface Props {
   data: WarmupPoint[];
+  /** Optional title override (e.g. "30 dias", "Tudo") */
+  periodLabel?: string;
+  /** Optional slot rendered in the top-right (e.g. PeriodPicker) */
+  headerRight?: React.ReactNode;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
