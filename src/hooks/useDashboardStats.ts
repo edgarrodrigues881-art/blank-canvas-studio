@@ -22,6 +22,7 @@ export interface WarmupEvolutionPoint {
   label: string;
   volume: number;
   entregas: number;
+  entregasPrev: number; // same weekday volume from previous week (for comparison)
   crescimento: number;
 }
 
