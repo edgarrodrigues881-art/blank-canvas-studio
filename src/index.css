@@ -399,6 +399,125 @@
       hsl(215 28% 11%) 100%
     );
   }
+
+  /* ── Scheduling page (CRMAgendamentos) — premium surfaces ── */
+  .sched-page {
+    background:
+      radial-gradient(1100px 520px at 12% -10%, hsl(152 80% 45% / 0.05), transparent 60%),
+      radial-gradient(900px 480px at 95% 0%, hsl(221 83% 60% / 0.05), transparent 60%),
+      hsl(220 20% 97%);
+  }
+  :is(.dark) .sched-page {
+    background:
+      radial-gradient(1100px 520px at 12% -10%, hsl(152 80% 45% / 0.07), transparent 60%),
+      radial-gradient(900px 480px at 95% 0%, hsl(221 83% 60% / 0.07), transparent 60%),
+      hsl(220 18% 7%);
+  }
+
+  .sched-card {
+    background-color: #ffffff;
+    border: 1px solid hsl(220 16% 90%);
+    border-radius: 16px;
+    box-shadow:
+      0 1px 0 0 hsl(220 30% 96%) inset,
+      0 1px 2px 0 hsl(220 25% 20% / 0.04),
+      0 8px 24px -12px hsl(220 40% 30% / 0.10);
+    transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+  }
+  .sched-card:hover {
+    border-color: hsl(220 16% 86%);
+    box-shadow:
+      0 1px 0 0 hsl(220 30% 96%) inset,
+      0 2px 4px 0 hsl(220 25% 20% / 0.05),
+      0 14px 32px -12px hsl(220 40% 30% / 0.14);
+  }
+  :is(.dark) .sched-card {
+    background-color: hsl(220 18% 10%);
+    border-color: hsl(220 14% 18%);
+    box-shadow:
+      0 1px 0 0 hsl(220 14% 16%) inset,
+      0 1px 2px 0 hsl(0 0% 0% / 0.4),
+      0 12px 28px -12px hsl(0 0% 0% / 0.55);
+  }
+  :is(.dark) .sched-card:hover {
+    border-color: hsl(220 14% 22%);
+  }
+
+  /* Primary CTA — vibrant green with depth */
+  .sched-cta-primary {
+    background-image: linear-gradient(180deg, hsl(152 76% 46%), hsl(152 80% 38%));
+    color: #fff;
+    box-shadow:
+      0 1px 0 0 hsl(152 90% 70% / 0.4) inset,
+      0 6px 14px -4px hsl(152 76% 38% / 0.45),
+      0 12px 28px -10px hsl(152 76% 38% / 0.35);
+    transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  }
+  .sched-cta-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow:
+      0 1px 0 0 hsl(152 90% 75% / 0.5) inset,
+      0 10px 22px -6px hsl(152 76% 38% / 0.55),
+      0 18px 36px -10px hsl(152 76% 38% / 0.4);
+  }
+  .sched-cta-primary:active:not(:disabled) {
+    transform: translateY(0);
+    filter: brightness(0.97);
+    box-shadow:
+      0 1px 2px 0 hsl(152 76% 30% / 0.4) inset,
+      0 2px 6px -2px hsl(152 76% 38% / 0.4);
+  }
+
+  /* Secondary outline / ghost */
+  .sched-btn-secondary {
+    background-color: transparent;
+    border: 1px solid hsl(220 16% 86%);
+    color: hsl(220 20% 25%);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  }
+  .sched-btn-secondary:hover {
+    background-color: hsl(220 20% 96%);
+    border-color: hsl(220 16% 78%);
+    color: hsl(220 26% 11%);
+    transform: translateY(-1px);
+  }
+  :is(.dark) .sched-btn-secondary {
+    border-color: hsl(220 14% 22%);
+    color: hsl(220 14% 80%);
+  }
+  :is(.dark) .sched-btn-secondary:hover {
+    background-color: hsl(220 14% 14%);
+    border-color: hsl(220 14% 30%);
+    color: hsl(0 0% 98%);
+  }
+
+  .sched-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: hsl(220 26% 11%);
+  }
+  :is(.dark) .sched-section-title {
+    color: hsl(0 0% 98%);
+  }
+
+  .sched-section-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(180deg, hsl(152 76% 92%), hsl(152 76% 86%));
+    color: hsl(152 76% 30%);
+    border: 1px solid hsl(152 60% 80%);
+  }
+  :is(.dark) .sched-section-icon {
+    background: linear-gradient(180deg, hsl(152 60% 18%), hsl(152 60% 14%));
+    color: hsl(152 76% 70%);
+    border-color: hsl(152 50% 26%);
+  }
 }
 
 /* ── QR Code loading animations ── */
