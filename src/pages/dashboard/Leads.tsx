@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { List as VirtualList } from "react-window";
+import { List as VirtualList, type RowComponentProps } from "react-window";
 
 /* ── types ── */
 interface Lead {
@@ -261,7 +261,7 @@ interface LeadVirtualRowProps {
   onClick: (lead: Lead) => void;
 }
 
-function LeadVirtualRow({ index, style, leads, statusOptions, onClick }: { index: number; style: CSSProperties } & LeadVirtualRowProps): ReactElement | null {
+function LeadVirtualRow({ index, style, leads, statusOptions, onClick }: RowComponentProps<LeadVirtualRowProps>): ReactElement | null {
   const lead = leads[index];
   if (!lead) return null;
 
