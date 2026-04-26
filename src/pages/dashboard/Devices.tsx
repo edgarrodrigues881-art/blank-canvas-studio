@@ -743,6 +743,7 @@ const Devices = () => {
       return ` (${Date.now().toString().slice(-4)})`;
     })();
     const formatName = (idx: number) => `${bulkPrefix} ${idx}${collisionSuffix}`;
+    const effectivePrefix = `${bulkPrefix}${collisionSuffix ? collisionSuffix : ""}`;
 
     setBulkOpen(false);
 
