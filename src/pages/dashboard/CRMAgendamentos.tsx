@@ -698,7 +698,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const steps = [
     { n: 1, label: "Destinatário", done: !!selectedContact },
     { n: 2, label: "Mensagem", done: !!messageContent.trim() },
-    { n: 3, label: "Mídia", done: !!mediaPreview, optional: true },
+    { n: 3, label: "Botões", done: buttons.length > 0, optional: true },
     { n: 4, label: "Agendamento", done: !!(date && time) },
     { n: 5, label: "Preview", done: !!(selectedContact && messageContent.trim() && date && time) },
   ];
