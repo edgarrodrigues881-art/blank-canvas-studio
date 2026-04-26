@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, QrCode, Link2, Pencil, Power, Trash2, Smartphone, CheckCircle2, XCircle, Loader2, Shield, RefreshCw, Key, ChevronDown, Layers, UserCircle, Camera, Search, Flame, AlertTriangle, Activity, Eye, EyeOff, Lock, WifiOff, Ban, ShieldAlert, Zap, LayoutGrid, List, Heart, RotateCcw, TestTube, Plug,
+  Plus, QrCode, Link2, Pencil, Power, Trash2, Smartphone, CheckCircle2, XCircle, Loader2, Shield, RefreshCw, Key, ChevronDown, Layers, UserCircle, Camera, Search, Flame, AlertTriangle, Activity, Eye, EyeOff, Lock, WifiOff, Ban, ShieldAlert, Zap, LayoutGrid, List, Heart, RotateCcw, TestTube, Plug, Tag, Hash, ArrowLeft, ArrowRight, Sparkles, Check,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
