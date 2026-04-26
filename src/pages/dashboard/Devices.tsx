@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, QrCode, Link2, Pencil, Power, Trash2, Smartphone, CheckCircle2, XCircle, Loader2, Shield, RefreshCw, Key, ChevronDown, Layers, UserCircle, Camera, Search, Flame, AlertTriangle, Activity, Eye, EyeOff, Lock, WifiOff, Ban, ShieldAlert, Zap, LayoutGrid, List, Heart, RotateCcw, TestTube, Plug, Tag, Hash, ArrowLeft, ArrowRight, Sparkles, Check,
+  Plus, QrCode, Link2, Pencil, Power, Trash2, Smartphone, CheckCircle2, XCircle, Loader2, Shield, RefreshCw, Key, ChevronDown, Layers, UserCircle, Camera, Search, Flame, AlertTriangle, Activity, Eye, EyeOff, Lock, WifiOff, Ban, ShieldAlert, Zap, LayoutGrid, List, Heart, RotateCcw, TestTube, Plug,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -150,7 +150,6 @@ const Devices = () => {
   const [bulkSelectedProxies, setBulkSelectedProxies] = useState<string[]>([]);
   const [bulkNoProxyCount, setBulkNoProxyCount] = useState(0);
   const bulkTotalCount = bulkUseProxy ? bulkSelectedProxies.length : (bulkCount || 0);
-  const [bulkStep, setBulkStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Selection for bulk delete
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
@@ -2144,7 +2143,7 @@ const Devices = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => {
                         if (!canCreateInstance) { if (planState !== "active") setPlanGateOpen(true); else setLimitGateOpen(true); return; }
-                        setBulkOpen(true); setBulkStep(1); setBulkPrefix("Instância"); setBulkCount(1); setBulkUseProxy(false); setBulkSelectedProxies([]); setBulkNoProxyCount(0);
+                        setBulkOpen(true); setBulkPrefix("Instância"); setBulkCount(1); setBulkUseProxy(false); setBulkSelectedProxies([]); setBulkNoProxyCount(0);
                       }}>
                         <Layers className="w-3.5 h-3.5 mr-2" /> Criar em massa
                       </DropdownMenuItem>
@@ -2280,136 +2279,89 @@ const Devices = () => {
             <div
               key={d.id}
               className={cn(
-                "group relative rounded-2xl border overflow-hidden transition-all duration-200",
-                "bg-card shadow-sm hover:shadow-xl hover:-translate-y-[1px]",
+                "group relative rounded-2xl border overflow-hidden transition-all duration-150",
+                "bg-card shadow-sm hover:shadow-lg",
                 smartStatus === 'online'
-                  ? "border-emerald-500/25 hover:border-emerald-500/50 hover:shadow-emerald-500/10"
-                  : "border-border/30 hover:border-border/60"
+                  ? "border-primary/15 hover:border-primary/30 hover:shadow-primary/5"
+                  : "border-border/30 hover:border-border/50"
               )}
             >
-              {/* Status-tinted gradient header */}
-              <div
-                className={cn(
-                  "relative px-4 pt-4 pb-3 border-b",
-                  smartStatus === 'online'
-                    ? "border-emerald-500/15 bg-gradient-to-br from-emerald-500/[0.18] via-emerald-500/[0.06] to-transparent"
-                    : "border-border/20 bg-gradient-to-br from-rose-500/[0.10] via-rose-500/[0.03] to-transparent"
-                )}
-              >
-                {/* Top accent line */}
+              {/* Top accent line */}
+              <div className={cn(
+                "h-[2px] w-full",
+                smartStatus === 'online' ? "bg-primary/60" : "bg-border/30"
+              )} />
+
+              {/* Status badge */}
+              <div className="px-4 pt-3.5">
                 <div className={cn(
-                  "absolute top-0 left-0 right-0 h-[2px]",
-                  smartStatus === 'online'
-                    ? "bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
-                    : "bg-gradient-to-r from-transparent via-rose-400/60 to-transparent"
-                )} />
-
-                <div className="flex items-center gap-3">
-                  {/* Avatar with pulsing ring */}
-                  <div className="relative shrink-0">
-                    {smartStatus === 'online' && (
-                      <span className="absolute inset-0 rounded-full bg-emerald-400/40 animate-ping opacity-40" />
-                    )}
-                    <div className={cn(
-                      "relative w-12 h-12 rounded-full flex items-center justify-center",
-                      "ring-[2.5px] ring-offset-2 ring-offset-card",
-                      smartStatus === 'online' ? "ring-emerald-400/60" : "ring-rose-400/30"
-                    )}>
-                      {d.profile_picture ? (
-                        <img
-                          src={withAvatarRefresh(d.profile_picture)}
-                          className="w-12 h-12 rounded-full object-cover"
-                          alt={d.name}
-                          onError={(e) => {
-                            const img = e.target as HTMLImageElement;
-                            img.style.display = 'none';
-                            const fallback = img.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div
-                        className={cn(
-                          "w-12 h-12 rounded-full flex items-center justify-center",
-                          smartStatus === 'online' ? "bg-emerald-500/20" : "bg-rose-500/15"
-                        )}
-                        style={{ display: d.profile_picture ? 'none' : 'flex' }}
-                      >
-                        <Smartphone className={cn(
-                          "w-5 h-5",
-                          smartStatus === 'online' ? "text-emerald-300" : "text-rose-300/70"
-                        )} />
-                      </div>
-                    </div>
-                    {/* Status dot on avatar */}
-                    <span className={cn(
-                      "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-card",
-                      smartStatus === 'online'
-                        ? "bg-emerald-400 shadow-[0_0_8px_hsl(152,69%,53%)]"
-                        : "bg-rose-400"
-                    )} />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className={cn(
-                        "text-[9px] font-bold uppercase tracking-widest",
-                        smartStatus === 'online' ? "text-emerald-300" : "text-rose-300/80"
-                      )}>
-                        {ss.label}
-                      </span>
-                    </div>
-                    <p
-                      className="text-[14px] font-bold text-foreground truncate leading-tight"
-                      title={d.name}
-                    >
-                      {d.name}
-                    </p>
-                    {d.number ? (
-                      <p className="text-[11px] text-muted-foreground/80 mt-0.5 font-medium tabular-nums">
-                        {formatPhone(d.number)}
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        ID: {(() => { const m = d.name.match(/(\d+)/); return m ? m[1] : devices.indexOf(d) + 1; })()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Mini stats inline */}
-              <div className="px-4 py-2.5 grid grid-cols-3 gap-1 border-b border-border/20">
-                <div className="flex flex-col items-center justify-center py-1 rounded-lg">
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest opacity-100",
+                  smartStatus === 'online' ? "text-primary bg-primary/8" : "text-muted-foreground bg-muted/30"
+                )}>
                   <span className={cn(
-                    "text-[10px] font-bold tabular-nums leading-none",
-                    healthScore >= 80 ? "text-emerald-300" : healthScore >= 50 ? "text-amber-300" : "text-rose-300"
-                  )}>
-                    {healthScore}%
-                  </span>
-                  <span className="text-[9px] text-muted-foreground/60 mt-1 uppercase tracking-wider">Saúde</span>
-                </div>
-                <div className="flex flex-col items-center justify-center py-1 rounded-lg border-x border-border/20">
-                  <span className="text-[10px] font-bold tabular-nums text-foreground/90 leading-none">
-                    {assignedProxy ? "Sim" : "—"}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground/60 mt-1 uppercase tracking-wider">Proxy</span>
-                </div>
-                <div className="flex flex-col items-center justify-center py-1 rounded-lg">
-                  <span className="text-[10px] font-bold text-foreground/90 leading-none truncate max-w-full px-1">
-                    {lastActivity.replace("há ", "").replace("cerca de ", "~")}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground/60 mt-1 uppercase tracking-wider">Atividade</span>
+                    "w-[5px] h-[5px] rounded-full shrink-0",
+                    smartStatus === 'online' ? "bg-primary shadow-[0_0_6px_hsl(var(--primary)/0.5)]" : "bg-muted-foreground/40"
+                  )} />
+                  {ss.label.toUpperCase()}
                 </div>
               </div>
 
-              {/* Actions — hierarchy: primary CTA + secondary icon-only */}
-              <div className="px-4 pb-4 pt-3 flex items-center gap-2">
+              {/* Avatar + Info */}
+              <div className="px-4 pt-5 pb-3 flex items-center gap-4">
+                <div className={cn(
+                  "w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0",
+                  "ring-[2.5px] ring-offset-2 ring-offset-card",
+                  smartStatus === 'online' ? "ring-primary/40" : "ring-border/30"
+                )}>
+                  {d.profile_picture ? (
+                    <img
+                      src={withAvatarRefresh(d.profile_picture)}
+                      className="w-[52px] h-[52px] rounded-full object-cover"
+                      alt={d.name}
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                        const fallback = img.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={cn(
+                      "w-[52px] h-[52px] rounded-full flex items-center justify-center",
+                      smartStatus === 'online' ? "bg-primary/8" : "bg-muted/30"
+                    )}
+                    style={{ display: d.profile_picture ? 'none' : 'flex' }}
+                  >
+                    <Smartphone className={cn("w-5 h-5", smartStatus === 'online' ? "text-primary" : "text-muted-foreground/40")} />
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[15px] font-bold text-foreground truncate leading-tight"
+                    title={d.name}
+                  >
+                    {d.name}
+                  </p>
+                  {d.number && (
+                    <p className="text-[11px] text-muted-foreground mt-1 tracking-wide font-sans my-[9px] border-0 opacity-100 font-semibold">
+                      {formatPhone(d.number)}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/50 mt-1">
+                    ID: {(() => { const m = d.name.match(/(\d+)/); return m ? m[1] : devices.indexOf(d) + 1; })()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="px-4 pb-4 space-y-2">
                 {d.status === "Ready" ? (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-[11px] h-9 gap-1.5 rounded-lg font-semibold border-destructive/30 text-destructive hover:bg-destructive/10"
+                    className="w-full text-[11px] h-9 gap-1.5 rounded-lg font-semibold border-destructive/20 text-destructive hover:bg-destructive/8"
                     onClick={() => openLogout(d)}
                   >
                     <Power className="w-3.5 h-3.5" /> Desconectar
@@ -2417,52 +2369,47 @@ const Devices = () => {
                 ) : (
                   <Button
                     size="sm"
-                    className={cn(
-                      "flex-1 text-[11px] h-9 gap-1.5 rounded-lg font-bold",
-                      "bg-emerald-500 hover:bg-emerald-400 text-emerald-950",
-                      "shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]",
-                      "transition-all"
-                    )}
+                    className="w-full text-[11px] h-9 gap-1.5 rounded-lg font-semibold"
                     onClick={() => openConnect(d)}
                   >
                     {hadPreviousConnection ? <RefreshCw className="w-3.5 h-3.5" /> : <Plug className="w-3.5 h-3.5" />}
                     {hadPreviousConnection ? "Reconectar" : "Conectar"}
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  title="Editar"
-                  onClick={() => {
-                    setEditingDevice(d);
-                    setEditName(d.name);
-                    setEditProxyValue(d.proxy_id || "none");
-                    setWpName("");
-                    setWpPhotoUrl(d.profile_picture || "");
-                    setWpPhotoBase64("");
-                    setWpRemovePhoto(false);
-                    setEditOpen(true);
-                  }}
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-lg text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                  title="Excluir"
-                  onClick={() => {
-                    if (d.status === "Ready") {
-                      setDeleteSingleDevice(d);
-                      setDeleteSingleOpen(true);
-                    } else {
-                      handleDelete(d.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-[11px] h-9 gap-1.5 rounded-lg font-semibold border-border/30"
+                    onClick={() => {
+                      setEditingDevice(d);
+                      setEditName(d.name);
+                      setEditProxyValue(d.proxy_id || "none");
+                      setWpName("");
+                      setWpPhotoUrl(d.profile_picture || "");
+                      setWpPhotoBase64("");
+                      setWpRemovePhoto(false);
+                      setEditOpen(true);
+                    }}
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-[11px] h-9 gap-1.5 rounded-lg font-semibold border-destructive/20 text-destructive hover:bg-destructive/8"
+                    onClick={() => {
+                      if (d.status === "Ready") {
+                        setDeleteSingleDevice(d);
+                        setDeleteSingleOpen(true);
+                      } else {
+                        handleDelete(d.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Excluir
+                  </Button>
+                </div>
               </div>
             </div>
           );
@@ -2517,17 +2464,16 @@ const Devices = () => {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={(open) => { if (!open) closeEditDialog(); else setEditOpen(true); }}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-emerald-500/20 bg-card">
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/40 bg-card">
           {/* Header */}
-          <div className="relative px-6 pt-6 pb-4 border-b border-emerald-500/15 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.18] via-emerald-500/[0.04] to-transparent pointer-events-none" />
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+          <div className="relative px-6 pt-6 pb-4 border-b border-border/20">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-transparent pointer-events-none" />
             <div className="relative flex items-center gap-4">
               {editHeaderPhoto ? (
-                <img src={editHeaderPhoto} alt="" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-emerald-400/40 shrink-0" />
+                <img src={editHeaderPhoto} alt="" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-primary/20 shrink-0" />
               ) : (
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 ring-1 ring-emerald-400/30 flex items-center justify-center shrink-0">
-                  <Pencil className="w-5 h-5 text-emerald-300" />
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <Pencil className="w-5 h-5 text-primary" />
                 </div>
               )}
               <div className="min-w-0">
@@ -2621,7 +2567,7 @@ const Devices = () => {
 
             <div className="flex items-center gap-3 pt-1">
               <Button variant="outline" className="flex-1 h-11 rounded-xl font-semibold border-border/40 text-foreground" onClick={closeEditDialog}>Cancelar</Button>
-              <Button className="flex-1 h-11 rounded-xl font-bold bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]" onClick={handleEdit} disabled={!editName.trim()}>Salvar</Button>
+              <Button className="flex-1 h-11 rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20" onClick={handleEdit} disabled={!editName.trim()}>Salvar</Button>
             </div>
           </div>
         </DialogContent>
@@ -3103,274 +3049,143 @@ const Devices = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk create wizard */}
+      {/* Bulk create dialog */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden border-emerald-500/20 bg-card">
+        <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
           {/* Header */}
-          <div className="relative px-6 pt-6 pb-5 border-b border-emerald-500/15 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.18] via-emerald-500/[0.04] to-transparent pointer-events-none" />
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-emerald-500/20 ring-1 ring-emerald-400/30 flex items-center justify-center shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]">
-                  <Sparkles className="h-5 w-5 text-emerald-300" />
-                </div>
-                <div>
-                  <DialogTitle className="text-[15px] font-bold tracking-tight text-foreground">Criar instâncias em massa</DialogTitle>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Etapa {bulkStep} de 4 · {["Identificação", "Quantidade", "Proxy", "Revisão"][bulkStep - 1]}</p>
-                </div>
+          <div className="px-6 pt-6 pb-4 border-b border-border/30">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Layers className="h-5 w-5 text-primary" />
               </div>
-
-              {/* Stepper */}
-              <div className="flex items-center gap-1.5">
-                {[
-                  { n: 1, label: "Nome", icon: Tag },
-                  { n: 2, label: "Quantidade", icon: Hash },
-                  { n: 3, label: "Proxy", icon: Shield },
-                  { n: 4, label: "Revisão", icon: Check },
-                ].map((s, idx) => {
-                  const StepIcon = s.icon;
-                  const isActive = bulkStep === s.n;
-                  const isDone = bulkStep > s.n;
-                  return (
-                    <div key={s.n} className="flex items-center flex-1 last:flex-initial">
-                      <div className="flex items-center gap-1.5">
-                        <div className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0",
-                          isDone && "bg-emerald-500 text-emerald-950 shadow-[0_0_10px_-2px_hsl(152,69%,53%/0.7)]",
-                          isActive && "bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-400/60",
-                          !isActive && !isDone && "bg-muted/30 text-muted-foreground/50"
-                        )}>
-                          {isDone ? <Check className="w-3.5 h-3.5" /> : <StepIcon className="w-3.5 h-3.5" />}
-                        </div>
-                        <span className={cn(
-                          "text-[10px] font-semibold uppercase tracking-wider hidden sm:inline",
-                          isActive && "text-emerald-200",
-                          isDone && "text-emerald-400",
-                          !isActive && !isDone && "text-muted-foreground/50"
-                        )}>
-                          {s.label}
-                        </span>
-                      </div>
-                      {idx < 3 && (
-                        <div className={cn(
-                          "flex-1 h-[2px] mx-2 rounded-full transition-colors",
-                          isDone ? "bg-emerald-400/60" : "bg-border/30"
-                        )} />
-                      )}
-                    </div>
-                  );
-                })}
+              <div>
+                <DialogTitle className="text-[15px] font-semibold tracking-tight">Criar instâncias</DialogTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Configure e crie múltiplas instâncias de uma vez</p>
               </div>
             </div>
           </div>
 
-          {/* Step content */}
-          <div className="px-6 py-6 min-h-[260px]">
-            {bulkStep === 1 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-emerald-400" /> Prefixo do nome
-                  </Label>
-                  <Input
-                    value={bulkPrefix}
-                    onChange={e => setBulkPrefix(e.target.value)}
-                    placeholder="Ex: Instância, Chip, WhatsApp"
-                    className="h-11 text-sm rounded-xl border-border/50 focus:border-emerald-400/60 focus:ring-emerald-400/20"
-                    autoFocus
-                  />
-                </div>
-                <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-3.5">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold mb-2">Pré-visualização</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[1, 2, 3].map(n => (
-                      <span key={n} className="text-[11px] px-2.5 py-1 rounded-md bg-card border border-emerald-500/20 text-foreground font-medium">
-                        {bulkPrefix || "Instância"} {n}
-                      </span>
-                    ))}
-                    <span className="text-[11px] px-2.5 py-1 text-muted-foreground/50">...</span>
-                  </div>
+          <div className="px-6 py-5 space-y-5">
+            {/* 1. Nome */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-foreground">Prefixo do nome</Label>
+              <Input
+                value={bulkPrefix}
+                onChange={e => setBulkPrefix(e.target.value)}
+                placeholder="Ex: Instância"
+                className="h-10 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground/60 flex items-center gap-1">
+                <span>→</span> {bulkPrefix} 1, {bulkPrefix} 2, {bulkPrefix} 3...
+              </p>
+            </div>
+
+            {/* 2. Quantidade */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-foreground">Quantidade</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, maxInstancesAllowed - devices.length)}
+                  value={bulkCount || ""}
+                  placeholder="1"
+                  onChange={e => {
+                    const remaining = Math.max(1, maxInstancesAllowed - devices.length);
+                    const raw = e.target.value;
+                    if (raw === "") { setBulkCount(""); return; }
+                    const parsed = parseInt(raw);
+                    if (isNaN(parsed)) return;
+                    setBulkCount(Math.min(remaining, Math.max(1, parsed)));
+                  }}
+                  className="h-10 w-20 text-sm text-center"
+                />
+                <div className="flex-1 text-[11px] text-muted-foreground/50">
+                  <span className="text-foreground/70 font-medium">{Math.max(0, maxInstancesAllowed - devices.length)}</span> disponíveis de {maxInstancesAllowed}
                 </div>
               </div>
-            )}
+            </div>
 
-            {bulkStep === 2 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Hash className="w-3.5 h-3.5 text-emerald-400" /> Quantas instâncias criar?
-                  </Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={Math.max(1, maxInstancesAllowed - devices.length)}
-                      value={bulkCount || ""}
-                      placeholder="1"
-                      onChange={e => {
-                        const remaining = Math.max(1, maxInstancesAllowed - devices.length);
-                        const raw = e.target.value;
-                        if (raw === "") { setBulkCount(""); return; }
-                        const parsed = parseInt(raw);
-                        if (isNaN(parsed)) return;
-                        setBulkCount(Math.min(remaining, Math.max(1, parsed)));
-                      }}
-                      className="h-12 w-24 text-lg font-bold text-center rounded-xl border-border/50 focus:border-emerald-400/60 focus:ring-emerald-400/20 tabular-nums"
-                      autoFocus
-                    />
-                    <div className="flex-1 px-4 py-3 rounded-xl bg-muted/20 border border-border/30">
-                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-bold">Limite do plano</p>
-                      <p className="text-sm text-foreground mt-0.5">
-                        <span className="font-bold text-emerald-300 tabular-nums">{Math.max(0, maxInstancesAllowed - devices.length)}</span>
-                        <span className="text-muted-foreground/70"> de {maxInstancesAllowed} disponíveis</span>
-                      </p>
-                    </div>
+            {/* 3. Proxy toggle */}
+            <div className="rounded-xl border border-border/30 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <Shield className="h-4 w-4 text-primary/70" />
+                  <div>
+                    <p className="text-xs font-medium text-foreground">Vincular proxy</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Atribuir proxies automaticamente</p>
                   </div>
                 </div>
-
-                {/* Quick presets */}
-                <div className="flex flex-wrap gap-1.5">
-                  {[1, 5, 10, 20].filter(n => n <= Math.max(1, maxInstancesAllowed - devices.length)).map(n => (
-                    <button
-                      key={n}
-                      onClick={() => setBulkCount(n)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all",
-                        bulkCount === n
-                          ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/50"
-                          : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                      )}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+                <Switch
+                  checked={bulkUseProxy}
+                  onCheckedChange={(checked) => {
+                    setBulkUseProxy(checked);
+                    if (!checked) setBulkSelectedProxies([]);
+                  }}
+                />
               </div>
-            )}
 
-            {bulkStep === 3 && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-border/30 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-br from-emerald-500/[0.06] to-transparent">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center ring-1 ring-emerald-400/25">
-                        <Shield className="h-4 w-4 text-emerald-300" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-foreground">Vincular proxy</p>
-                        <p className="text-[11px] text-muted-foreground">Atribuir proxies automaticamente</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={bulkUseProxy}
-                      onCheckedChange={(checked) => {
-                        setBulkUseProxy(checked);
-                        if (!checked) setBulkSelectedProxies([]);
-                      }}
-                    />
+              {/* 4. Proxy list */}
+              {bulkUseProxy && (
+                <div className="border-t border-border/20 px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">Proxies disponíveis</span>
+                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                      {bulkSelectedProxies.length} selecionada{bulkSelectedProxies.length !== 1 ? "s" : ""}
+                    </Badge>
                   </div>
-
-                  {bulkUseProxy && (
-                    <div className="border-t border-border/20 px-4 py-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-muted-foreground font-medium">Proxies disponíveis</span>
-                        <Badge className="text-[10px] h-5 px-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-                          {bulkSelectedProxies.length} selecionada{bulkSelectedProxies.length !== 1 ? "s" : ""}
-                        </Badge>
-                      </div>
-                      <div className="max-h-[180px] overflow-y-auto space-y-1 rounded-lg bg-muted/10 p-1.5">
-                        {availableProxies.length === 0 ? (
-                          <p className="text-[11px] text-muted-foreground text-center py-4">Nenhuma proxy disponível</p>
-                        ) : (
-                          <>
-                            <div
-                              className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
-                              onClick={() => {
-                                if (bulkSelectedProxies.length === availableProxies.length) {
-                                  setBulkSelectedProxies([]);
-                                } else {
-                                  setBulkSelectedProxies(availableProxies.map(p => p.id));
-                                }
-                              }}
-                            >
-                              <Checkbox checked={bulkSelectedProxies.length === availableProxies.length && availableProxies.length > 0} />
-                              <span className="text-xs font-semibold">Selecionar todas</span>
-                            </div>
-                            {availableProxies.map(p => (
-                              <div
-                                key={p.id}
-                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
-                                onClick={() => toggleBulkProxy(p.id)}
-                              >
-                                <Checkbox checked={bulkSelectedProxies.includes(p.id)} />
-                                <span className="text-xs font-mono text-muted-foreground">{p.label}</span>
-                              </div>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-muted-foreground/60">
-                        Cada proxy selecionada cria 1 instância automaticamente
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {!bulkUseProxy && (
-                  <p className="text-[11px] text-muted-foreground/70 text-center">
-                    Sem proxy vinculada — você poderá vincular depois individualmente
+                  <div className="max-h-[180px] overflow-y-auto space-y-1 rounded-lg bg-muted/5 p-1.5">
+                    {availableProxies.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">Nenhuma proxy disponível</p>
+                    ) : (
+                      <>
+                        <div
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                          onClick={() => {
+                            if (bulkSelectedProxies.length === availableProxies.length) {
+                              setBulkSelectedProxies([]);
+                            } else {
+                              setBulkSelectedProxies(availableProxies.map(p => p.id));
+                            }
+                          }}
+                        >
+                          <Checkbox checked={bulkSelectedProxies.length === availableProxies.length && availableProxies.length > 0} />
+                          <span className="text-xs font-medium">Selecionar todas</span>
+                        </div>
+                        {availableProxies.map(p => (
+                          <div
+                            key={p.id}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                            onClick={() => toggleBulkProxy(p.id)}
+                          >
+                            <Checkbox checked={bulkSelectedProxies.includes(p.id)} />
+                            <span className="text-xs font-mono text-muted-foreground">{p.label}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/40">
+                    Cada proxy selecionada cria 1 instância automaticamente
                   </p>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
-            {bulkStep === 4 && (
-              <div className="space-y-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-bold">Confirme antes de criar</p>
-
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Tag className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Prefixo</span>
-                    </div>
-                    <p className="text-sm font-bold text-foreground truncate">{bulkPrefix || "Instância"}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Hash className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Total</span>
-                    </div>
-                    <p className="text-sm font-bold text-foreground tabular-nums">{bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3 col-span-2">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Shield className="w-3 h-3 text-emerald-400" />
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Proxy</span>
-                    </div>
-                    <p className="text-sm font-bold text-foreground">
-                      {bulkUseProxy
-                        ? `${bulkSelectedProxies.length} proxy${bulkSelectedProxies.length !== 1 ? "ies" : ""} vinculada${bulkSelectedProxies.length !== 1 ? "s" : ""}`
-                        : "Sem proxy vinculada"}
+            {/* Summary */}
+            {bulkTotalCount > 0 && (
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/15">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {bulkUseProxy ? `${bulkSelectedProxies.length} com proxy vinculada` : "Sem proxy vinculada"}
                     </p>
                   </div>
-                </div>
-
-                {/* Live preview */}
-                <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.08] to-transparent p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold mb-2">Serão criadas</p>
-                  <div className="flex flex-wrap gap-1">
-                    {Array.from({ length: Math.min(bulkTotalCount, 8) }, (_, i) => i + 1).map(n => (
-                      <span key={n} className="text-[10px] px-2 py-0.5 rounded-md bg-card border border-emerald-500/25 text-foreground font-medium">
-                        {bulkPrefix || "Instância"} {n}
-                      </span>
-                    ))}
-                    {bulkTotalCount > 8 && (
-                      <span className="text-[10px] px-2 py-0.5 text-emerald-300 font-bold">
-                        +{bulkTotalCount - 8} mais
-                      </span>
-                    )}
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Smartphone className="h-4 w-4 text-primary" />
                   </div>
                 </div>
               </div>
@@ -3378,40 +3193,14 @@ const Devices = () => {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-border/30 flex items-center justify-between gap-3 bg-muted/5">
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (bulkStep === 1) setBulkOpen(false);
-                else setBulkStep((bulkStep - 1) as 1 | 2 | 3 | 4);
-              }}
-              className="h-10 px-4 text-sm gap-1.5"
-            >
-              {bulkStep === 1 ? "Cancelar" : <><ArrowLeft className="h-3.5 w-3.5" /> Voltar</>}
+          <div className="px-6 py-4 border-t border-border/30 flex items-center justify-end gap-3">
+            <Button variant="ghost" onClick={() => setBulkOpen(false)} className="h-10 px-5 text-sm">
+              Cancelar
             </Button>
-
-            {bulkStep < 4 ? (
-              <Button
-                onClick={() => setBulkStep((bulkStep + 1) as 1 | 2 | 3 | 4)}
-                disabled={
-                  (bulkStep === 1 && !bulkPrefix.trim()) ||
-                  (bulkStep === 2 && (!bulkCount || bulkCount < 1)) ||
-                  (bulkStep === 3 && bulkUseProxy && bulkSelectedProxies.length === 0)
-                }
-                className="h-10 px-5 text-sm font-bold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]"
-              >
-                Continuar <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            ) : (
-              <Button
-                onClick={handleBulkCreate}
-                disabled={bulkTotalCount === 0}
-                className="h-10 px-5 text-sm font-bold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_22px_-4px_hsl(152,69%,53%/0.7)]"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
-              </Button>
-            )}
+            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2">
+              <Plus className="h-4 w-4" />
+              Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
