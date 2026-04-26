@@ -227,6 +227,12 @@ async function sendPrivateMediaThenText(baseUrl: string, token: string, phone: s
   }
 }
 
+async function sendPrivateMediaThenMenu(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
+  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+  await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
+  return await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+}
+
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
 interface CarouselCard { id?: string; position?: number; text?: string; mediaUrl?: string; mediaType?: string | null; buttons?: any[]; }
 
