@@ -145,6 +145,8 @@ export const ActivityChart = React.memo(function ActivityChart({
                 axisLine={false}
                 tickLine={false}
                 dy={8}
+                interval={xInterval}
+                minTickGap={20}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -152,7 +154,7 @@ export const ActivityChart = React.memo(function ActivityChart({
                 tickLine={false}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }} />
-              {/* Previous week (dashed reference line, no fill) */}
+              {/* Previous period (dashed reference line, no fill) */}
               <Area
                 type="monotone"
                 dataKey="entregasPrev"
@@ -160,19 +162,19 @@ export const ActivityChart = React.memo(function ActivityChart({
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 fill="transparent"
-                name="Semana anterior"
+                name="Período anterior"
                 dot={false}
                 activeDot={{ r: 4, fill: PREV, stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
-              {/* Current week */}
+              {/* Current period */}
               <Area
                 type="monotone"
                 dataKey="entregas"
                 stroke={ACCENT}
                 strokeWidth={2.5}
                 fill="url(#gradEntregas)"
-                name="Esta semana"
-                dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
+                name="Período atual"
+                dot={data.length <= 15 ? { r: 3, fill: ACCENT, strokeWidth: 0 } : false}
                 activeDot={{ r: 6, fill: ACCENT, stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
             </AreaChart>
