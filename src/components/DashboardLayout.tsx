@@ -185,6 +185,9 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Profile menu */}
+            <HeaderProfileMenu />
           </header>
           <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto p-2.5 sm:p-5 md:p-8 has-[.flow-builder-fullscreen]:!p-0 has-[.flow-builder-fullscreen]:!overflow-hidden">
             {showMaintenance ? (
