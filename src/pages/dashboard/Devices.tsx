@@ -2262,14 +2262,14 @@ const Devices = () => {
               </Button>
             );
           } else if (hadPreviousConnection) {
-            connectionButton = (
-              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5" onClick={() => openConnect(d)}>
+             connectionButton = (
+              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => openConnect(d)}>
                 <RefreshCw className="w-2.5 h-2.5" /> Reconectar
               </Button>
             );
           } else {
             connectionButton = (
-              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5" onClick={() => openConnect(d)}>
+              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => openConnect(d)}>
                 <Link2 className="w-2.5 h-2.5" /> Conectar
               </Button>
             );
@@ -2369,7 +2369,7 @@ const Devices = () => {
                 ) : (
                   <Button
                     size="sm"
-                    className="w-full text-[11px] h-9 gap-1.5 rounded-lg font-semibold"
+                    className="w-full text-[11px] h-9 gap-1.5 rounded-lg font-semibold bg-emerald-500 hover:bg-emerald-600 text-white"
                     onClick={() => openConnect(d)}
                   >
                     {hadPreviousConnection ? <RefreshCw className="w-3.5 h-3.5" /> : <Plug className="w-3.5 h-3.5" />}
@@ -2456,7 +2456,7 @@ const Devices = () => {
             </div>
             <div className="flex items-center gap-3 pt-1">
               <Button variant="outline" className="flex-1 h-11 rounded-xl font-semibold" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button className="flex-1 h-11 rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground" onClick={handleCreate} disabled={!instanceName.trim()}>Criar</Button>
+              <Button className="flex-1 h-11 rounded-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white" onClick={handleCreate} disabled={!instanceName.trim()}>Criar</Button>
             </div>
           </div>
         </DialogContent>
@@ -2703,7 +2703,7 @@ const Devices = () => {
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2">
-                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
+                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
                     <QrCode className="w-4 h-4" /> QR Code
                   </Button>
                   <Button variant="outline" className="flex-1 h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy("code"); }}>
@@ -2719,16 +2719,16 @@ const Devices = () => {
                 <div className="relative w-[272px] h-[272px]">
                   {/* Loading state */}
                   <div
-                    className={`absolute inset-0 w-64 h-64 m-auto rounded-2xl flex flex-col items-center justify-center border border-primary/20 bg-gradient-to-b from-primary/[0.03] to-transparent overflow-hidden transition-all duration-500 ease-out ${
+                    className={`absolute inset-0 w-64 h-64 m-auto rounded-2xl flex flex-col items-center justify-center border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.06] to-transparent overflow-hidden transition-all duration-500 ease-out ${
                       !qrCodeBase64 && !connectError ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
                     }`}
                   >
                     <div
-                      className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent rounded-full"
+                      className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/80 to-transparent rounded-full"
                       style={{ animation: "scanLine 2.5s ease-in-out infinite" }}
                     />
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4" style={{ animation: "qrPulse 2s ease-in-out infinite" }}>
-                      <QrCode className="w-8 h-8 text-primary" />
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mb-4" style={{ animation: "qrPulse 2s ease-in-out infinite" }}>
+                      <QrCode className="w-8 h-8 text-emerald-500" />
                     </div>
                     <p className="text-sm font-semibold text-foreground">
                       {qrLoadingStage === "init" ? "Inicializando sessão..." : qrLoadingStage === "connecting" ? "Conectando ao WhatsApp..." : "Gerando QR Code..."}
@@ -2792,7 +2792,7 @@ const Devices = () => {
                 {/* Sync button */}
                 <Button
                   variant="outline"
-                  className="gap-2 h-9 text-sm w-full"
+                  className="gap-2 h-9 text-sm w-full border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
                   onClick={async () => {
                     try {
                       const result = await callApi({ action: "status", deviceId: connectingDevice!.id });
@@ -3197,7 +3197,7 @@ const Devices = () => {
             <Button variant="ghost" onClick={() => setBulkOpen(false)} className="h-10 px-5 text-sm">
               Cancelar
             </Button>
-            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2">
+            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
               <Plus className="h-4 w-4" />
               Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
             </Button>
