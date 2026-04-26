@@ -57,7 +57,12 @@ export default {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			},
-  			success: 'hsl(var(--success))'
+  			success: 'hsl(var(--success))',
+			crm: {
+				primary: 'hsl(var(--crm-primary))',
+				secondary: 'hsl(var(--crm-secondary))',
+				accent: 'hsl(var(--crm-accent))'
+			}
   		},
   		borderRadius: {
   			lg: 'var(--radius)',

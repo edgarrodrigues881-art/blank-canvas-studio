@@ -6,6 +6,10 @@ import {
   Settings2,
   Loader2,
   ChevronRight,
+  Copy,
+  Eye,
+  EyeOff,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +29,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { useIntegrationSettings } from "@/hooks/useIntegrationSettings";
+import { cn } from "@/lib/utils";
 
 type Integration = {
   id: string;
@@ -40,6 +48,12 @@ type Integration = {
     description: string;
     defaultOn?: boolean;
   }[];
+  configFields?: {
+    key: string;
+    label: string;
+    placeholder?: string;
+    type?: string;
+  }[];
 };
 
 const INTEGRATIONS: Integration[] = [
@@ -48,8 +62,12 @@ const INTEGRATIONS: Integration[] = [
     name: "Google Drive",
     description: "Use o Google Drive como base de conhecimento para sua IA e armazene mídias automaticamente.",
     logo: "/google-drive.png",
-    accent: "text-blue-500",
+    accent: "from-blue-500 to-blue-600",
     bg: "bg-blue-500/5",
+    configFields: [
+      { key: "token", label: "Token de Acesso Google", placeholder: "Cole seu token aqui", type: "password" },
+      { key: "drive_folder_id", label: "ID da Pasta (opcional)", placeholder: "ID da pasta no Drive" },
+    ],
     automations: [
       {
         id: "ai_knowledge_base",
@@ -70,8 +88,13 @@ const INTEGRATIONS: Integration[] = [
     name: "Google Sheets",
     description: "Sincronize leads e histórico de mensagens com suas planilhas em tempo real.",
     logo: "/google-sheets.png",
-    accent: "text-emerald-500",
+    accent: "from-emerald-500 to-emerald-600",
     bg: "bg-emerald-500/5",
+    configFields: [
+      { key: "token", label: "Token de Acesso Google", placeholder: "Cole seu token aqui", type: "password" },
+      { key: "sheet_id", label: "ID da Planilha", placeholder: "ID da sua planilha" },
+      { key: "sheet_range", label: "Intervalo (opcional)", placeholder: "Ex: Sheet1!A1:Z" },
+    ],
     automations: [
       {
         id: "save_leads_messages",
@@ -91,8 +114,12 @@ const INTEGRATIONS: Integration[] = [
     name: "Notion",
     description: "Organize seus leads e histórico de interações em páginas estruturadas no Notion.",
     logo: "/notion.png",
-    accent: "text-foreground",
-    bg: "bg-muted/30",
+    accent: "from-slate-700 to-slate-800",
+    bg: "bg-slate-500/5",
+    configFields: [
+      { key: "token", label: "Token de Acesso Notion", placeholder: "Cole seu token aqui", type: "password" },
+      { key: "notion_database_id", label: "ID do Banco de Dados", placeholder: "ID do seu banco de dados" },
+    ],
     automations: [
       {
         id: "page_per_lead",
@@ -104,132 +131,162 @@ const INTEGRATIONS: Integration[] = [
   },
 ];
 
-const STORAGE_KEY = "crm.integrations.connected";
-const AUTOMATIONS_KEY = "crm.integrations.automations";
-
-function loadJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function CrmIntegrations() {
-  const [connected, setConnected] = useState<Record<string, boolean>>(() =>
-    loadJSON<Record<string, boolean>>(STORAGE_KEY, {})
-  );
-  const [automations, setAutomations] = useState<Record<string, Record<string, boolean>>>(() =>
-    loadJSON<Record<string, Record<string, boolean>>>(AUTOMATIONS_KEY, {})
-  );
+  const { integrations, loading, saving, saveIntegration, disconnectIntegration, isConnected, isAutomationEnabled, toggleAutomation } = useIntegrationSettings();
   const [active, setActive] = useState<Integration | null>(null);
   const [mode, setMode] = useState<"connect" | "configure">("connect");
   const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
-  const persistConnected = (next: Record<string, boolean>) => {
-    setConnected(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
-
-  const persistAutomations = (next: Record<string, Record<string, boolean>>) => {
-    setAutomations(next);
-    localStorage.setItem(AUTOMATIONS_KEY, JSON.stringify(next));
-  };
-
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!active) return;
     setSubmitting(true);
-    setTimeout(() => {
-      persistConnected({ ...connected, [active.id]: true });
-      setSubmitting(false);
+
+    try {
+      await saveIntegration(active.id, {
+        is_connected: true,
+        token: formData.token,
+        sheet_id: formData.sheet_id,
+        sheet_range: formData.sheet_range,
+        notion_database_id: formData.notion_database_id,
+        drive_folder_id: formData.drive_folder_id,
+      });
+
       setMode("configure");
+      setFormData({});
       toast({
         title: "Conectado com sucesso!",
         description: `${active.name} agora está integrado ao seu CRM.`,
       });
-    }, 1500);
+    } catch (err) {
+      toast({
+        title: "Erro ao conectar",
+        description: "Verifique seus dados e tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const toggleAutomation = (integrationId: string, autoId: string, val: boolean) => {
-    const current = automations[integrationId] || {};
-    const next = { ...automations, [integrationId]: { ...current, [autoId]: val } };
-    persistAutomations(next);
+  const handleDisconnect = async () => {
+    if (!active) return;
+    setSubmitting(true);
+
+    try {
+      await disconnectIntegration(active.id);
+      setActive(null);
+      toast({
+        title: "Desconectado",
+        description: `${active.name} foi desconectado.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Erro ao desconectar",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const getAutoState = (it: Integration) => {
-    const saved = automations[it.id];
-    if (saved) return saved;
-    return Object.fromEntries(it.automations.map(a => [a.id, !!a.defaultOn]));
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado!" });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="container max-w-6xl py-8 space-y-8 animate-in fade-in duration-500">
+    <div className="container max-w-7xl py-8 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Integrações</h1>
+        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-500 via-emerald-500 to-slate-500 bg-clip-text text-transparent">
+          Integrações
+        </h1>
         <p className="text-muted-foreground text-lg">
-          Conecte suas ferramentas favoritas para automatizar seu fluxo de trabalho.
+          Conecte suas ferramentas favoritas para automatizar seu fluxo de trabalho. Cada integração é individual e segura.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-max">
         {INTEGRATIONS.map((it) => {
-          const isConnected = connected[it.id];
+          const config = integrations[it.id];
+          const connected = config?.is_connected || false;
+
           return (
-            <Card 
-              key={it.id} 
-              className="group relative overflow-hidden border-border/50 bg-card hover:shadow-2xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300"
+            <Card
+              key={it.id}
+              className={cn(
+                "group relative overflow-hidden border-2 transition-all duration-300 hover:shadow-2xl cursor-pointer",
+                connected
+                  ? "border-emerald-500/30 bg-emerald-500/5"
+                  : "border-border/50 hover:border-primary/30 bg-card"
+              )}
+              onClick={() => {
+                setActive(it);
+                setMode(connected ? "configure" : "connect");
+                setFormData(config || {});
+              }}
             >
-              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${it.bg}`} />
-              
+              <div className={cn("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500", it.bg)} />
+
               <CardHeader className="relative space-y-4 pb-4">
                 <div className="flex justify-between items-start">
-                  <div className="h-14 w-14 rounded-2xl bg-white p-2.5 shadow-sm border border-border/50 group-hover:scale-110 transition-transform duration-300">
+                  <div className={cn(
+                    "h-16 w-16 rounded-2xl bg-white p-3 shadow-lg border-2 group-hover:scale-110 transition-transform duration-300",
+                    connected ? "border-emerald-500/30" : "border-border/50"
+                  )}>
                     <img src={it.logo} alt={it.name} className="h-full w-full object-contain" />
                   </div>
-                  <Badge 
-                    variant={isConnected ? "default" : "secondary"}
-                    className={isConnected ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-muted text-muted-foreground"}
+                  <Badge
+                    className={cn(
+                      "font-semibold text-xs px-3 py-1",
+                      connected
+                        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0"
+                        : "bg-muted text-muted-foreground border border-border/50"
+                    )}
                   >
-                    {isConnected ? "Conectado" : "Disponível"}
+                    {connected ? "✓ Conectado" : "Disponível"}
                   </Badge>
                 </div>
                 <div>
-                  <CardTitle className="text-xl font-bold">{it.name}</CardTitle>
+                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    {it.name}
+                  </CardTitle>
                   <CardDescription className="mt-2 leading-relaxed min-h-[60px]">
                     {it.description}
                   </CardDescription>
                 </div>
               </CardHeader>
 
-              <CardContent className="relative pt-0">
-                <div className="space-y-3 mb-6">
+              <CardContent className="relative pt-0 space-y-4">
+                <div className="space-y-2">
                   {it.automations.slice(0, 2).map((auto) => (
                     <div key={auto.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="h-1 w-1 rounded-full bg-primary/40" />
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
                       {auto.title}
                     </div>
                   ))}
                 </div>
 
-                {isConnected ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full group/btn border-border/50 hover:bg-secondary transition-colors"
-                    onClick={() => { setActive(it); setMode("configure"); }}
-                  >
-                    <Settings2 className="mr-2 h-4 w-4 text-muted-foreground group-hover/btn:rotate-90 transition-transform duration-500" />
-                    Configurar
-                  </Button>
-                ) : (
-                  <Button 
-                    className="w-full shadow-lg shadow-primary/10 group/btn"
-                    onClick={() => { setActive(it); setMode("connect"); }}
-                  >
-                    Conectar
-                    <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                  </Button>
-                )}
+                <Button
+                  className={cn(
+                    "w-full font-semibold transition-all duration-300 group/btn",
+                    connected
+                      ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-500/20"
+                  )}
+                >
+                  {connected ? "Gerenciar" : "Conectar"}
+                  <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                </Button>
               </CardContent>
             </Card>
           );
@@ -237,12 +294,12 @@ export default function CrmIntegrations() {
       </div>
 
       <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent className="sm:max-w-[500px] border-border/50 shadow-2xl">
+        <DialogContent className="sm:max-w-[600px] border-2 border-border/50 shadow-2xl">
           {active && (
             <>
               <DialogHeader className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-2xl bg-white p-3 shadow-md border border-border/50">
+                  <div className="h-16 w-16 rounded-2xl bg-white p-3 shadow-md border-2 border-border/50">
                     <img src={active.logo} alt={active.name} className="h-full w-full object-contain" />
                   </div>
                   <div>
@@ -250,76 +307,133 @@ export default function CrmIntegrations() {
                       {mode === "configure" ? `Configurar ${active.name}` : `Conectar ao ${active.name}`}
                     </DialogTitle>
                     <DialogDescription>
-                      {mode === "configure" 
-                        ? "Gerencie as automações ativas para esta integração."
-                        : "Siga os passos para autorizar o acesso do CRM."}
+                      {mode === "configure"
+                        ? "Gerencie as automações e configurações desta integração."
+                        : "Forneça suas credenciais para conectar com segurança."}
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="py-6">
+              <div className="py-6 space-y-6">
                 {mode === "configure" ? (
-                  <div className="space-y-4">
-                    {active.automations.map((a) => {
-                      const state = getAutoState(active);
-                      const enabled = !!state[a.id];
-                      return (
-                        <div
-                          key={a.id}
-                          className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-4 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="space-y-1">
-                            <p className="text-sm font-semibold">{a.title}</p>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              {a.description}
-                            </p>
+                  <>
+                    <div className="space-y-4">
+                      <div className="text-sm font-semibold text-foreground">Automações Ativas</div>
+                      {active.automations.map((a) => {
+                        const enabled = isAutomationEnabled(active.id, a.id);
+                        return (
+                          <div
+                            key={a.id}
+                            className="flex items-start justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-4 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="space-y-1 flex-1">
+                              <p className="text-sm font-semibold">{a.title}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                {a.description}
+                              </p>
+                            </div>
+                            <Switch
+                              checked={enabled}
+                              onCheckedChange={(v) => toggleAutomation(active.id, a.id, v)}
+                            />
                           </div>
-                          <Switch
-                            checked={enabled}
-                            onCheckedChange={(v) => toggleAutomation(active.id, a.id, v)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-primary/10 bg-primary/5 p-6 text-center space-y-4">
-                    <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Plug className="h-6 w-6 text-primary" />
+                        );
+                      })}
                     </div>
-                    <p className="text-sm text-muted-foreground px-4">
-                      Você será redirecionado para a página de autorização oficial do <strong>{active.name}</strong> para permitir que o CRM sincronize seus dados com segurança.
-                    </p>
+
+                    <div className="border-t pt-4 space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Informações da Conexão</div>
+                      {integrations[active.id]?.token && (
+                        <div className="rounded-lg bg-muted/40 p-3 flex items-center justify-between">
+                          <div className="text-xs text-muted-foreground">Token salvo com segurança</div>
+                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                            ✓ Ativo
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-4">
+                    {active.configFields?.map((field) => (
+                      <div key={field.key} className="space-y-2">
+                        <Label className="text-sm font-semibold">{field.label}</Label>
+                        <div className="relative">
+                          <Input
+                            type={showPasswords[field.key] ? "text" : field.type || "text"}
+                            placeholder={field.placeholder}
+                            value={formData[field.key] || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                [field.key]: e.target.value,
+                              }))
+                            }
+                            className="pr-10 border-2 border-border/50 focus:border-primary/50"
+                          />
+                          {field.type === "password" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowPasswords((prev) => ({
+                                  ...prev,
+                                  [field.key]: !prev[field.key],
+                                }))
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            >
+                              {showPasswords[field.key] ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                      <p className="font-semibold text-foreground mb-2">🔒 Segurança</p>
+                      <p>Seus tokens são criptografados e armazenados com segurança. Nunca compartilhamos seus dados.</p>
+                    </div>
                   </div>
                 )}
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 {mode === "configure" ? (
-                  <Button 
-                    className="w-full"
-                    onClick={() => { 
-                      toast({ title: "Configurações salvas" }); 
-                      setActive(null); 
-                    }}
-                  >
-                    Salvar e Fechar
-                  </Button>
+                  <>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDisconnect}
+                      disabled={submitting}
+                      className="gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Desconectar
+                    </Button>
+                    <Button
+                      onClick={() => setActive(null)}
+                      variant="outline"
+                    >
+                      Fechar
+                    </Button>
+                  </>
                 ) : (
                   <div className="flex w-full gap-3">
                     <Button variant="ghost" className="flex-1" onClick={() => setActive(null)}>
                       Cancelar
                     </Button>
-                    <Button 
-                      className="flex-[2]" 
-                      onClick={handleConnect} 
+                    <Button
+                      className="flex-[2] bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold"
+                      onClick={handleConnect}
                       disabled={submitting}
                     >
                       {submitting ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Autorizando...</>
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Conectando...</>
                       ) : (
-                        <><ExternalLink className="mr-2 h-4 w-4" /> Autorizar Acesso</>
+                        <><CheckCircle2 className="mr-2 h-4 w-4" /> Conectar Agora</>
                       )}
                     </Button>
                   </div>
