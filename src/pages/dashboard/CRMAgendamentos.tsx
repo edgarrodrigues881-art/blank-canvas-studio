@@ -1193,12 +1193,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                     key={chip.key}
                     type="button"
                     onClick={() => applyQuickSchedule(chip.key)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-3 h-7 rounded-full border text-[11px] font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-background border-primary/40 text-primary hover:bg-primary/10"
-                    )}
+                    data-active={active}
+                    className="sched-chip"
                   >
                     <Clock className="w-3 h-3" /> {chip.label}
                   </button>
