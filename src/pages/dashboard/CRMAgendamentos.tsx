@@ -694,36 +694,65 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const previewMessage = resolveVars(messageContent, selectedContact);
   const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
+  // Step completion (visual progress only — does not block actions)
+  const steps = [
+    { n: 1, label: "Destinatário", done: !!selectedContact },
+    { n: 2, label: "Mensagem", done: !!messageContent.trim() },
+    { n: 3, label: "Mídia", done: !!mediaPreview, optional: true },
+    { n: 4, label: "Agendamento", done: !!(date && time) },
+    { n: 5, label: "Preview", done: !!(selectedContact && messageContent.trim() && date && time) },
+  ];
+
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
+    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-6 bg-muted/20 min-h-screen">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl text-muted-foreground hover:text-foreground" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Configure e agende uma mensagem em poucos passos</p>
         </div>
-        <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
-            onClick={onBack}
-          >
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs rounded-xl text-muted-foreground hover:text-foreground" onClick={onBack}>
             Cancelar
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
+            className="gap-2 h-10 px-5 text-sm font-semibold rounded-xl text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:shadow-none"
           >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            {editing ? "Salvar" : "Agendar Disparo"}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {editing ? "Salvar alterações" : "Agendar Disparo"}
           </Button>
         </div>
+      </div>
+
+      {/* Stepper */}
+      <div className="hidden md:flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 shadow-sm">
+        {steps.map((s, i) => (
+          <div key={s.n} className="flex items-center gap-2.5 flex-1 last:flex-none">
+            <div className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold transition-colors shrink-0",
+              s.done
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground border border-border"
+            )}>
+              {s.done ? <CheckCircle2 className="w-3.5 h-3.5" /> : s.n}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className={cn("text-xs font-medium truncate leading-none", s.done ? "text-foreground" : "text-muted-foreground")}>
+                {s.label}
+              </p>
+              {s.optional && <p className="text-[9px] text-muted-foreground/70 uppercase tracking-wider mt-0.5 leading-none">Opcional</p>}
+            </div>
+            {i < steps.length - 1 && (
+              <div className={cn("h-px w-6 lg:w-10 shrink-0", s.done ? "bg-primary/40" : "bg-border")} />
+            )}
+          </div>
+        ))}
       </div>
 
       {/* 2-column layout */}
