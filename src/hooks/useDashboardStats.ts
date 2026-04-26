@@ -229,7 +229,7 @@ export function useDashboardStats() {
         const totalEntregas = dayData.sent + chipCount + groupCount;
         const totalVol = dayData.total + chipCount + groupCount;
 
-        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, crescimento: 0 };
+        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, entregasPrev: prevByDow[i] || 0, crescimento: 0 };
       });
 
       for (let i = 1; i < warmupEvolution.length; i++) {
