@@ -1349,11 +1349,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
   };
   const draft = useRef(loadDraft());
 
-  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 10);
-  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 30);
-  const [pauseAfter, setPauseAfter] = useState(draft.current?.pauseAfter ?? 0);
-  const [pauseDuration, setPauseDuration] = useState(draft.current?.pauseDuration ?? 30);
-  const [rotateAfter, setRotateAfter] = useState(draft.current?.rotateAfter ?? 0);
+  const [minDelay, setMinDelay] = useState(draft.current?.minDelay ?? 40);
+  const [maxDelay, setMaxDelay] = useState(draft.current?.maxDelay ?? 90);
+  const [pauseAfter, setPauseAfter] = useState(draft.current?.pauseAfter ?? 10);
+  const [pauseDuration, setPauseDuration] = useState(draft.current?.pauseDuration ?? 300);
+  const [rotateAfter, setRotateAfter] = useState(draft.current?.rotateAfter ?? 5);
 
   // Persist draft to localStorage
   useEffect(() => {
@@ -1373,11 +1373,11 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
     setHasImported(false);
     setValidationResult(null);
     setParticipantCheck(null);
-    setMinDelay(10);
-    setMaxDelay(30);
-    setPauseAfter(0);
-    setPauseDuration(30);
-    setRotateAfter(0);
+    setMinDelay(40);
+    setMaxDelay(90);
+    setPauseAfter(10);
+    setPauseDuration(300);
+    setRotateAfter(5);
     setStep("import");
     setCompletedSteps(new Set());
     toast.success("Rascunho limpo");
