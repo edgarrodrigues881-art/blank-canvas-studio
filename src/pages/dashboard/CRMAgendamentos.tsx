@@ -22,7 +22,8 @@ import {
   Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
   Link2, Calendar, User, X, UserPlus, ArrowLeft, Save, FileText,
   Download, Variable, ExternalLink, MessageSquare, Reply,
-  Image as ImageIcon, FileAudio, FileType, Sparkles, Eye
+  Image as ImageIcon, FileAudio, FileType, Sparkles, Eye,
+  Paperclip, Mic, Video, Wifi
 } from "lucide-react";
 
 /* ─── types ─── */
@@ -485,9 +486,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
   const [messageContent, setMessageContent] = useState("");
   const [buttons, setButtons] = useState<Array<{ type: "url" | "reply"; text: string; value: string }>>([]);
-  const [mediaPreview, setMediaPreview] = useState<{ kind: "image" | "audio" | "document"; name: string; url: string; size: number } | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{ kind: "image" | "audio" | "document" | "video"; name: string; url: string; size: number } | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
-  const [mediaKindRequest, setMediaKindRequest] = useState<"image" | "audio" | "document">("image");
+  const [mediaKindRequest, setMediaKindRequest] = useState<"image" | "audio" | "document" | "video">("image");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -496,7 +497,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const messageOverLimit = messageLength > MESSAGE_LIMIT;
   const messageNearLimit = messageLength > 900;
 
-  const handleMediaPick = (kind: "image" | "audio" | "document") => {
+  const handleMediaPick = (kind: "image" | "audio" | "document" | "video") => {
     setMediaKindRequest(kind);
     requestAnimationFrame(() => mediaInputRef.current?.click());
   };
@@ -558,11 +559,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
     const mi = String(target.getMinutes()).padStart(2, "0");
     setDate(`${yyyy}-${mm}-${dd}`);
     setTime(`${hh}:${mi}`);
+    setActiveScheduleChip(preset);
   };
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [deviceId, setDeviceId] = useState("");
+  const [activeScheduleChip, setActiveScheduleChip] = useState<"in1h" | "tomorrow9" | "tomorrow14" | "in2d" | null>(null);
 
   const [templateName, setTemplateName] = useState("");
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -730,9 +733,12 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Destinatário */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-          <div className="flex items-center gap-2">
-              <User className="w-[18px] h-[18px] text-emerald-400" />
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+          <div>
+              <div className="flex items-center gap-2">
+                <User className="w-[18px] h-[18px] text-emerald-500" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
             </div>
 
             {selectedContact ? (
@@ -825,25 +831,67 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Mensagem */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-[18px] h-[18px] text-emerald-400" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-[18px] h-[18px] text-emerald-500" />
+                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escreva o que será enviado pelo WhatsApp</p>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200">
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50">
                     <Variable className="w-3 h-3" /> Variáveis
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-48 p-1" align="end">
-                  <p className="px-2 py-1.5 text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Inserir no cursor</p>
-                  {["nome", "empresa", "telefone", "variavel1", "variavel2"].map(v => (
-                    <button key={v} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-accent/50 transition-colors text-left" onClick={() => insertVariable(v)}>
-                      <Variable className="w-3 h-3 text-primary shrink-0" />
-                      <span className="font-mono text-foreground">{`{${v}}`}</span>
-                    </button>
-                  ))}
+                <PopoverContent
+                  className="w-80 p-0 rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
+                  align="end"
+                >
+                  <div className="px-4 py-3 border-b border-border/60 bg-muted/30">
+                    <p className="text-sm font-semibold text-foreground">Inserir variável</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Clique para adicionar no cursor da mensagem</p>
+                  </div>
+                  <div className="max-h-[320px] overflow-y-auto py-2">
+                    {[
+                      {
+                        category: "Contato",
+                        items: [
+                          { key: "nome", desc: "Nome do destinatário" },
+                          { key: "telefone", desc: "Telefone do contato" },
+                          { key: "empresa", desc: "Empresa vinculada ao contato" },
+                        ],
+                      },
+                      {
+                        category: "Sistema",
+                        items: [
+                          { key: "variavel1", desc: "Campo personalizado 1" },
+                          { key: "variavel2", desc: "Campo personalizado 2" },
+                        ],
+                      },
+                    ].map(group => (
+                      <div key={group.category} className="px-2 pb-1">
+                        <p className="px-2 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{group.category}</p>
+                        <div className="space-y-0.5">
+                          {group.items.map(it => (
+                            <button
+                              key={it.key}
+                              type="button"
+                              className="w-full flex items-start gap-2.5 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                              onClick={() => insertVariable(it.key)}
+                            >
+                              <Variable className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                              <div className="min-w-0 flex-1">
+                                <p className="font-mono text-xs text-foreground">{`{${it.key}}`}</p>
+                                <p className="text-[11px] text-muted-foreground leading-snug">{it.desc}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
@@ -861,32 +909,83 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             />
 
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("image")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" /> Imagem
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("document")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileType className="w-3.5 h-3.5" /> PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("audio")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileAudio className="w-3.5 h-3.5" /> Áudio
-                </button>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border bg-muted/40 hover:bg-accent hover:border-primary/40 text-xs text-foreground transition-colors"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" /> Mídia
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-1.5 rounded-xl border border-border bg-popover shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("image")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Imagem</p>
+                        <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("document")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-red-500/10 flex items-center justify-center">
+                        <FileType className="w-4 h-4 text-red-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">PDF</p>
+                        <p className="text-[10px] text-muted-foreground">Documento .pdf</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("video")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center">
+                        <Video className="w-4 h-4 text-indigo-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Vídeo</p>
+                        <p className="text-[10px] text-muted-foreground">MP4, MOV</p>
+                      </div>
+                    </button>
+                  </PopoverContent>
+                </Popover>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("audio")}
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary text-xs text-primary transition-colors"
+                    >
+                      <Mic className="w-3.5 h-3.5" /> Áudio
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Gravar áudio (simula gravação ao vivo no WhatsApp)
+                  </TooltipContent>
+                </Tooltip>
+
                 <input
                   ref={mediaInputRef}
                   type="file"
-                  accept={mediaKindRequest === "image" ? "image/*" : mediaKindRequest === "audio" ? "audio/*" : "application/pdf"}
+                  accept={
+                    mediaKindRequest === "image" ? "image/*" :
+                    mediaKindRequest === "audio" ? "audio/*" :
+                    mediaKindRequest === "video" ? "video/*" :
+                    "application/pdf"
+                  }
                   className="hidden"
                   onChange={handleMediaSelected}
                 />
@@ -903,9 +1002,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-muted/10 p-3">
                 {mediaPreview.kind === "image" ? (
                   <img src={mediaPreview.url} alt={mediaPreview.name} className="w-14 h-14 rounded-lg object-cover border border-border/30" />
+                ) : mediaPreview.kind === "video" ? (
+                  <video src={mediaPreview.url} className="w-14 h-14 rounded-lg object-cover border border-border/30" />
                 ) : (
                   <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    {mediaPreview.kind === "audio" ? <FileAudio className="w-6 h-6 text-primary" /> : <FileType className="w-6 h-6 text-primary" />}
+                    {mediaPreview.kind === "audio" ? <Mic className="w-6 h-6 text-primary" /> : <FileType className="w-6 h-6 text-primary" />}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
@@ -924,14 +1025,17 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Botões interativos */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ExternalLink className="w-[18px] h-[18px] text-indigo-400" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
-                <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
+                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
+                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={addButton}>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
                 </Button>
               )}
@@ -1015,59 +1119,92 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Agendamento */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="w-[18px] h-[18px] text-indigo-400" />
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
+            <div>
+              <div className="flex items-center gap-2">
+                <CalendarClock className="w-[18px] h-[18px] text-primary" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">Data</Label>
-                <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-9 mt-1" />
+            <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Data</Label>
+                <div className="relative mt-1">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={e => { setDate(e.target.value); setActiveScheduleChip(null); }}
+                    className="h-10 pl-9 bg-background border-border"
+                  />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Hora</Label>
-                <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="h-9 mt-1" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Instância</Label>
-                <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
-                  <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Automático" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Automático</SelectItem>
-                    {devices.map(d => {
-                      const online = ["Ready", "Connected", "authenticated"].includes(d.status);
-                      return (
-                        <SelectItem key={d.id} value={d.id}>
-                          <span className="flex items-center gap-2">
-                            <span className={cn("w-1.5 h-1.5 rounded-full", online ? "bg-emerald-400" : "bg-muted-foreground")} />
-                            {d.name}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+              <div className="relative">
+                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hora</Label>
+                <div className="relative mt-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="time"
+                    value={time}
+                    onChange={e => { setTime(e.target.value); setActiveScheduleChip(null); }}
+                    className="h-10 pl-9 bg-background border-border"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mr-1">Atalhos:</span>
+            <div>
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+                <Wifi className="w-3 h-3" /> Instância de envio
+              </Label>
+              <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
+                <SelectTrigger className="h-10 mt-1 bg-background border-border">
+                  <SelectValue placeholder="Automático" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automático (escolher melhor)</SelectItem>
+                  {devices.map(d => {
+                    const online = ["Ready", "Connected", "authenticated"].includes(d.status);
+                    return (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className={cn("w-1.5 h-1.5 rounded-full", online ? "bg-emerald-500" : "bg-muted-foreground")} />
+                          {d.name}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">Deixe em automático para o sistema escolher a melhor conexão disponível</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">Atalhos rápidos:</span>
               {[
                 { key: "in1h" as const, label: "Hoje + 1h" },
                 { key: "tomorrow9" as const, label: "Amanhã 9h" },
                 { key: "tomorrow14" as const, label: "Amanhã 14h" },
                 { key: "in2d" as const, label: "Em 2 dias" },
-              ].map(chip => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => applyQuickSchedule(chip.key)}
-                  className="inline-flex items-center gap-1 px-2.5 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
-                >
-                  <Clock className="w-3 h-3" /> {chip.label}
-                </button>
-              ))}
+              ].map(chip => {
+                const active = activeScheduleChip === chip.key;
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => applyQuickSchedule(chip.key)}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-3 h-7 rounded-full border text-[11px] font-medium transition-colors",
+                      active
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-background border-primary/40 text-primary hover:bg-primary/10"
+                    )}
+                  >
+                    <Clock className="w-3 h-3" /> {chip.label}
+                  </button>
+                );
+              })}
             </div>
 
             {countdown && (
@@ -1146,9 +1283,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 overflow-hidden shadow-[0_10px_40px_-20px_hsl(var(--background)/0.9)]">
-              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3 border-b border-emerald-900/40">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-emerald-400 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
+              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
                   {contactInitial}
                 </div>
                 <div className="min-w-0">
@@ -1159,22 +1296,25 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 </div>
               </div>
 
-              <div className="bg-[hsl(var(--background))] min-h-[360px] p-5 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
+              <div className="bg-muted/40 min-h-[420px] p-5 flex flex-col">
                 {previewMessage.trim() || mediaPreview ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%]">
-                      <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-2 py-2 space-y-1.5">
+                      <div className="bg-emerald-500/15 border border-emerald-500/25 rounded-2xl rounded-tr-md px-2 py-2 space-y-1.5 shadow-sm">
                         {mediaPreview && mediaPreview.kind === "image" && (
-                          <img src={mediaPreview.url} alt={mediaPreview.name} className="rounded-lg w-full max-h-56 object-cover" />
+                          <img src={mediaPreview.url} alt={mediaPreview.name} className="rounded-xl w-full max-h-56 object-cover" />
+                        )}
+                        {mediaPreview && mediaPreview.kind === "video" && (
+                          <video src={mediaPreview.url} controls className="rounded-xl w-full max-h-56" />
                         )}
                         {mediaPreview && mediaPreview.kind === "audio" && (
-                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2 py-1.5">
-                            <FileAudio className="w-4 h-4 text-primary shrink-0" />
+                          <div className="flex items-center gap-2 bg-background/60 rounded-lg px-2 py-1.5">
+                            <Mic className="w-4 h-4 text-primary shrink-0" />
                             <audio src={mediaPreview.url} controls className="h-7 w-full" />
                           </div>
                         )}
                         {mediaPreview && mediaPreview.kind === "document" && (
-                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2.5 py-2">
+                          <div className="flex items-center gap-2 bg-background/60 rounded-lg px-2.5 py-2">
                             <FileType className="w-5 h-5 text-primary shrink-0" />
                             <div className="min-w-0">
                               <p className="text-xs font-medium text-foreground truncate">{mediaPreview.name}</p>
@@ -1188,7 +1328,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                         )}
 
                         {buttons.filter(b => b.text).length > 0 && (
-                          <div className="pt-1.5 border-t border-emerald-500/10 space-y-1">
+                          <div className="pt-1.5 border-t border-emerald-500/15 space-y-1">
                             {buttons.filter(b => b.text).map((btn, i) => (
                               <div key={i} className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-primary cursor-pointer hover:underline">
                                 {btn.type === "url" ? <ExternalLink className="w-3 h-3" /> : <Reply className="w-3 h-3" />}
@@ -1198,17 +1338,19 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                           </div>
                         )}
 
-                        <p className="text-[10px] text-muted-foreground/60 text-right px-1.5">
-                          {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/50" />
+                        <p className="text-[10px] text-muted-foreground/70 text-right px-1.5">
+                          {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/60" />
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full py-16">
-                    <div className="text-center space-y-2">
-                      <MessageSquare className="w-8 h-8 text-muted-foreground/20 mx-auto" />
-                      <p className="text-xs text-muted-foreground/40">Digite uma mensagem para ver o preview</p>
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mx-auto">
+                        <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Digite uma mensagem para ver o preview</p>
                     </div>
                   </div>
                 )}
