@@ -977,7 +977,7 @@ export default function Leads() {
                   </div>
                   <div className="flex items-center gap-2 mt-4">
                     <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
-                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((s) => (
                           <SelectItem key={s.value} value={s.value}>
