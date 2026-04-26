@@ -695,32 +695,31 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
+    <div className="sched-page min-h-full p-5 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-300" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
+          <h1 className="text-2xl md:text-[28px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
+          <p className="text-xs text-muted-foreground mt-1">Envio individual inteligente</p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <Button
-            variant="outline"
             size="sm"
-            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
+            className="sched-btn-secondary gap-1.5 text-xs rounded-xl h-10 px-4"
             onClick={onBack}
           >
             Cancelar
           </Button>
           <Button
-            size="sm"
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
+            className="sched-cta-primary gap-2 text-sm font-semibold rounded-xl h-11 px-6"
           >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {editing ? "Salvar" : "Agendar Disparo"}
           </Button>
         </div>
