@@ -397,13 +397,50 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** isGroup=${isGroupTarget} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
-      // Estratégia unificada (grupo + 1:1): /send/media + /send/menu em mensagens separadas.
-      // imageButton causa "versão incompatível" tanto em grupos quanto em alguns dispositivos 1:1.
-      // O envio em 2 etapas é compatível com 100% dos WhatsApps (Android, iPhone, Web).
-      log.info(`[campaign-worker] ${isGroupTarget ? 'group' : '1:1'} target -> /send/media (image) + /send/menu (buttons) separately`);
-      await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
-      await sleep(800 + Math.random() * 800);
-      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+      if (isGroupTarget) {
+        // Grupos: estratégia validada — imagem + menu de botões em mensagens separadas (funciona 100%).
+        log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (buttons) separately`);
+        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
+        await sleep(800 + Math.random() * 800);
+        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+      } else {
+        // 1:1 (privado): /send/menu type:button gera "versão incompatível" em Android comum.
+        // Solução: imagem com a copy COMO LEGENDA + botões anexados ao texto como linhas formatadas
+        // (URLs viram link clicável azul automaticamente; valores de copy/reply ficam como texto).
+        // Isso renderiza em 100% dos WhatsApps sem o aviso de versão.
+        const buttonLines = (buttons || [])
+          .map(b => {
+            const label = (b.text || "").trim();
+            if (!label) return "";
+            const type = (b.type || "reply").toLowerCase();
+            const value = (b.value || "").trim();
+            if (type === "url" && value) {
+              const url = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+              return `👉 ${label}: ${url}`;
+            }
+            if ((type === "phone" || type === "call") && value) {
+              return `📞 ${label}: ${value}`;
+            }
+            if (type === "copy" && value) {
+              return `📋 ${label}: ${value}`;
+            }
+            return `▶️ ${label}`;
+          })
+          .filter(Boolean);
+
+        const fullCaption = buttonLines.length > 0
+          ? `${text}\n\n${buttonLines.join("\n")}`
+          : text;
+
+        log.info(`[campaign-worker] 1:1 target -> /send/media with caption + inline buttons (no /send/menu)`);
+        await uazapiRequest(baseUrl, token, "/send/media", {
+          number: phone,
+          type: mediaType || "image",
+          file: mediaUrl,
+          caption: fullCaption,
+          ...(mediaType === "image" ? { compress: false } : {}),
+        });
+      }
       return;
     }
     await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
