@@ -2944,7 +2944,7 @@ const Devices = () => {
                     Voltar
                   </Button>
                   <Button
-                    className="flex-1 h-11 text-sm font-semibold"
+                    className="flex-1 h-11 text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white"
                     disabled={!isValid}
                     onClick={handleRequestCode}
                   >
