@@ -559,6 +559,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
     const mi = String(target.getMinutes()).padStart(2, "0");
     setDate(`${yyyy}-${mm}-${dd}`);
     setTime(`${hh}:${mi}`);
+    setActiveScheduleChip(preset);
   };
 
   const [date, setDate] = useState("");
