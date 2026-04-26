@@ -6,9 +6,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   Bar,
-  BarChart,
+  Line,
+  ComposedChart,
   CartesianGrid,
   Cell,
+  ReferenceLine,
 } from "recharts";
 import { Activity } from "lucide-react";
 
@@ -30,14 +32,16 @@ interface Props {
 }
 
 const ACCENT = "hsl(152, 76%, 50%)";
-const ACCENT_DIM = "hsl(152, 30%, 45%)";
+const ACCENT_DIM = "hsl(152, 20%, 40%)";
+const AVG_LINE = "hsl(48, 95%, 60%)";
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, avg }: any) => {
   if (!active || !payload?.length) return null;
-  const value = Number(payload[0]?.value || 0);
+  const value = Number(payload.find((p: any) => p.dataKey === "entregas")?.value || 0);
+  const diff = avg > 0 ? Math.round(((value - avg) / avg) * 100) : 0;
   return (
-    <div className="bg-popover/95 border border-border/60 rounded-xl px-3.5 py-2.5 shadow-2xl backdrop-blur-md">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold mb-1 capitalize">
+    <div className="bg-popover/95 border border-border/60 rounded-xl px-3.5 py-2.5 shadow-2xl backdrop-blur-md min-w-[160px]">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold mb-1.5 capitalize">
         {label}
       </p>
       <div className="flex items-baseline gap-1.5">
@@ -48,8 +52,21 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <span className="text-base font-bold text-foreground tabular-nums">
           {value.toLocaleString("pt-BR")}
         </span>
-        <span className="text-[11px] text-muted-foreground">mensagens</span>
+        <span className="text-[11px] text-muted-foreground">msgs</span>
       </div>
+      {avg > 0 && (
+        <div className="mt-1 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
+          <span className="text-muted-foreground/70">vs média</span>
+          <span
+            className={`font-semibold tabular-nums ${
+              diff >= 0 ? "text-emerald-300" : "text-rose-300"
+            }`}
+          >
+            {diff >= 0 ? "+" : ""}
+            {diff}%
+          </span>
+        </div>
+      )}
     </div>
   );
 };
@@ -59,19 +76,30 @@ export const ActivityChart = React.memo(function ActivityChart({
   periodLabel = "7 dias",
   headerRight,
 }: Props) {
-  const { totalEntregas, peakValue, peakLabel } = useMemo(() => {
-    const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
+  const { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays } = useMemo(() => {
+    let totalEntregas = 0;
     let peakValue = 0;
     let peakLabel = "";
+    let activeDays = 0;
     data.forEach((d) => {
       const v = d.entregas || 0;
+      totalEntregas += v;
       if (v > peakValue) {
         peakValue = v;
         peakLabel = d.label;
       }
+      if (v > 0) activeDays++;
     });
-    return { totalEntregas, peakValue, peakLabel };
+    // Average computed only on active days for a more useful baseline
+    const avgPerDay = activeDays > 0 ? Math.round(totalEntregas / activeDays) : 0;
+    return { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays };
   }, [data]);
+
+  // Inject avg line value into each point so Recharts can render the line
+  const chartData = useMemo(
+    () => data.map((d) => ({ ...d, avg: avgPerDay })),
+    [data, avgPerDay]
+  );
 
   // Smart X axis: avoid label overlap on long periods
   const xInterval =
@@ -83,15 +111,13 @@ export const ActivityChart = React.memo(function ActivityChart({
       ? 1
       : 0;
 
-  // Bar sizing — thinner for longer periods
+  // Thin bars — sparkline-like
   const barSize =
-    data.length > 60 ? 4 : data.length > 30 ? 6 : data.length > 15 ? 10 : 22;
-  const barRadius: [number, number, number, number] =
-    data.length > 30 ? [2, 2, 0, 0] : [4, 4, 0, 0];
+    data.length > 60 ? 3 : data.length > 30 ? 5 : data.length > 15 ? 8 : 14;
 
   return (
     <Card className="relative border-border/50 bg-card w-full col-span-full overflow-hidden">
-      {/* Subtle ambient glow behind the card content */}
+      {/* Subtle ambient glow */}
       <div
         className="pointer-events-none absolute inset-0 opacity-60"
         style={{
@@ -132,9 +158,29 @@ export const ActivityChart = React.memo(function ActivityChart({
                 </span>
               )}
             </div>
+
+            {/* Inline legend */}
+            <div className="mt-2 flex items-center gap-4 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="w-2.5 h-2.5 rounded-sm"
+                  style={{ background: ACCENT }}
+                />
+                Entregas/dia
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="w-3.5 h-[2px] rounded-full"
+                  style={{
+                    background: AVG_LINE,
+                    boxShadow: `0 0 6px ${AVG_LINE}`,
+                  }}
+                />
+                Média ({avgPerDay.toLocaleString("pt-BR")}/dia · {activeDays} ativos)
+              </span>
+            </div>
           </div>
 
-          {/* Right slot (PeriodPicker etc) */}
           {headerRight && <div className="flex items-center gap-2">{headerRight}</div>}
         </div>
       </CardHeader>
@@ -142,28 +188,24 @@ export const ActivityChart = React.memo(function ActivityChart({
       <CardContent className="relative pt-2">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
+            <ComposedChart
+              data={chartData}
               margin={{ top: 18, right: 14, left: -10, bottom: 0 }}
-              barCategoryGap={data.length > 30 ? "15%" : "25%"}
+              barCategoryGap={data.length > 30 ? "20%" : "35%"}
             >
               <defs>
-                <linearGradient id="gradBar" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ACCENT} stopOpacity={1} />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.35} />
-                </linearGradient>
-                <linearGradient id="gradBarPeak" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(152, 90%, 65%)" stopOpacity={1} />
+                <linearGradient id="gradBarThin" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(152, 90%, 60%)" stopOpacity={1} />
                   <stop offset="100%" stopColor={ACCENT} stopOpacity={0.55} />
                 </linearGradient>
-                <linearGradient id="gradBarDim" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ACCENT_DIM} stopOpacity={0.55} />
-                  <stop offset="100%" stopColor={ACCENT_DIM} stopOpacity={0.18} />
+                <linearGradient id="gradBarPeakThin" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(152, 100%, 75%)" stopOpacity={1} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.7} />
                 </linearGradient>
-                <filter id="barGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <filter id="peakGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2" result="b" />
                   <feMerge>
-                    <feMergeNode in="blur" />
+                    <feMergeNode in="b" />
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
@@ -172,7 +214,7 @@ export const ActivityChart = React.memo(function ActivityChart({
               <CartesianGrid
                 strokeDasharray="2 6"
                 stroke="hsl(var(--border))"
-                opacity={0.25}
+                opacity={0.2}
                 vertical={false}
               />
               <XAxis
@@ -194,37 +236,57 @@ export const ActivityChart = React.memo(function ActivityChart({
                 }
               />
               <Tooltip
-                content={<CustomTooltip />}
+                content={<CustomTooltip avg={avgPerDay} />}
                 cursor={{ fill: "hsl(var(--foreground))", opacity: 0.04 }}
               />
 
+              {/* Reference line label — sits at avg */}
+              {avgPerDay > 0 && (
+                <ReferenceLine
+                  y={avgPerDay}
+                  stroke={AVG_LINE}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.4}
+                  ifOverflow="extendDomain"
+                />
+              )}
+
               <Bar
                 dataKey="entregas"
-                name="Mensagens"
-                radius={barRadius}
+                name="Entregas"
+                radius={[3, 3, 0, 0]}
                 maxBarSize={barSize}
                 isAnimationActive
                 animationDuration={650}
               >
-                {data.map((d, i) => {
+                {chartData.map((d, i) => {
                   const v = d.entregas || 0;
                   const isPeak = v === peakValue && peakValue > 0;
-                  const isZero = v === 0;
-                  const fill = isZero
-                    ? "url(#gradBarDim)"
-                    : isPeak
-                    ? "url(#gradBarPeak)"
-                    : "url(#gradBar)";
+                  const fill = isPeak ? "url(#gradBarPeakThin)" : "url(#gradBarThin)";
                   return (
                     <Cell
                       key={`c-${i}`}
-                      fill={fill}
-                      style={isPeak ? { filter: "url(#barGlow)" } : undefined}
+                      fill={v === 0 ? ACCENT_DIM : fill}
+                      fillOpacity={v === 0 ? 0.2 : 1}
+                      style={isPeak ? { filter: "url(#peakGlow)" } : undefined}
                     />
                   );
                 })}
               </Bar>
-            </BarChart>
+
+              {/* Average line on top — solid, glowing */}
+              <Line
+                type="monotone"
+                dataKey="avg"
+                stroke={AVG_LINE}
+                strokeWidth={1.5}
+                strokeDasharray="5 4"
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+                name="Média"
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
