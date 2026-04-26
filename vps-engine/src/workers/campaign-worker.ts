@@ -397,17 +397,13 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** isGroup=${isGroupTarget} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
-      if (isGroupTarget) {
-        // Grupos: imageButton causa "versão incompatível". Enviar imagem (sem caption) + menu de botões em mensagens separadas.
-        log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (buttons) separately`);
-        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
-        await sleep(800 + Math.random() * 800);
-        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
-      } else {
-        // 1:1: imageButton funciona normalmente (single message)
-        log.info(`[campaign-worker] /send/menu with imageButton -> ${mediaUrl.slice(0, 80)}`);
-        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, imageButton: mediaUrl, choices });
-      }
+      // Estratégia unificada (grupo + 1:1): /send/media + /send/menu em mensagens separadas.
+      // imageButton causa "versão incompatível" tanto em grupos quanto em alguns dispositivos 1:1.
+      // O envio em 2 etapas é compatível com 100% dos WhatsApps (Android, iPhone, Web).
+      log.info(`[campaign-worker] ${isGroupTarget ? 'group' : '1:1'} target -> /send/media (image) + /send/menu (buttons) separately`);
+      await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
+      await sleep(800 + Math.random() * 800);
+      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       return;
     }
     await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
