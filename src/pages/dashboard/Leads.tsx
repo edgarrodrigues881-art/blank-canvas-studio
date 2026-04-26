@@ -277,20 +277,23 @@ const VirtualizedLeadList = memo(function VirtualizedLeadList({ leads, statusOpt
   const [height, setHeight] = useState(LEAD_LIST_MIN_HEIGHT);
 
   useEffect(() => {
+    let frame = 0;
     const measure = () => {
-      const top = containerRef.current?.getBoundingClientRect().top ?? 0;
-      const available = window.innerHeight - top - LEAD_LIST_BOTTOM_OFFSET;
-      setHeight(Math.max(LEAD_LIST_MIN_HEIGHT, available));
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const top = containerRef.current?.getBoundingClientRect().top ?? 0;
+        const available = window.innerHeight - top - LEAD_LIST_BOTTOM_OFFSET;
+        const nextHeight = Math.max(LEAD_LIST_MIN_HEIGHT, Math.floor(available));
+        setHeight((current) => current === nextHeight ? current : nextHeight);
+      });
     };
 
     measure();
     window.addEventListener("resize", measure);
-    const observer = containerRef.current ? new ResizeObserver(measure) : null;
-    if (containerRef.current) observer?.observe(containerRef.current);
 
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
-      observer?.disconnect();
     };
   }, []);
 
