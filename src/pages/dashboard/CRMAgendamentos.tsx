@@ -903,32 +903,83 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             />
 
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("image")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" /> Imagem
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("document")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileType className="w-3.5 h-3.5" /> PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMediaPick("audio")}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileAudio className="w-3.5 h-3.5" /> Áudio
-                </button>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border bg-muted/40 hover:bg-accent hover:border-primary/40 text-xs text-foreground transition-colors"
+                    >
+                      <Paperclip className="w-3.5 h-3.5" /> Mídia
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-1.5 rounded-xl border border-border bg-popover shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("image")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Imagem</p>
+                        <p className="text-[10px] text-muted-foreground">JPG, PNG, WebP</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("document")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-red-500/10 flex items-center justify-center">
+                        <FileType className="w-4 h-4 text-red-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">PDF</p>
+                        <p className="text-[10px] text-muted-foreground">Documento .pdf</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("video")}
+                      className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-accent transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-md bg-indigo-500/10 flex items-center justify-center">
+                        <Video className="w-4 h-4 text-indigo-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-foreground">Vídeo</p>
+                        <p className="text-[10px] text-muted-foreground">MP4, MOV</p>
+                      </div>
+                    </button>
+                  </PopoverContent>
+                </Popover>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => handleMediaPick("audio")}
+                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary text-xs text-primary transition-colors"
+                    >
+                      <Mic className="w-3.5 h-3.5" /> Áudio
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Gravar áudio (simula gravação ao vivo no WhatsApp)
+                  </TooltipContent>
+                </Tooltip>
+
                 <input
                   ref={mediaInputRef}
                   type="file"
-                  accept={mediaKindRequest === "image" ? "image/*" : mediaKindRequest === "audio" ? "audio/*" : "application/pdf"}
+                  accept={
+                    mediaKindRequest === "image" ? "image/*" :
+                    mediaKindRequest === "audio" ? "audio/*" :
+                    mediaKindRequest === "video" ? "video/*" :
+                    "application/pdf"
+                  }
                   className="hidden"
                   onChange={handleMediaSelected}
                 />
