@@ -564,6 +564,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [deviceId, setDeviceId] = useState("");
+  const [activeScheduleChip, setActiveScheduleChip] = useState<"in1h" | "tomorrow9" | "tomorrow14" | "in2d" | null>(null);
 
   const [templateName, setTemplateName] = useState("");
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
