@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { useCrmSync } from "@/hooks/useCrmSync";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -180,6 +181,7 @@ function timeShort(date: string | null) {
 
 export default function Leads() {
   const { user } = useAuth();
+  const { syncToSheets, syncToNotion } = useCrmSync();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -403,12 +405,39 @@ export default function Leads() {
     if (editing) {
       const { error } = await supabase.from("service_contacts").update(payload).eq("id", editing.id);
       if (error) { toast.error("Erro ao atualizar lead"); return; }
+      
+      // Sincronização em segundo plano
+      syncToSheets({
+        name: payload.name,
+        phone: payload.phone,
+        status: payload.pipeline_stage || "novo",
+        origin: payload.origin,
+        timestamp: new Date().toISOString()
+      });
+
       toast.success("Lead atualizado!");
     } else {
       payload.status = "active";
       payload.tags = [];
       const { error } = await supabase.from("service_contacts").insert(payload);
       if (error) { toast.error("Erro ao criar lead"); return; }
+      
+      // Sincronização em segundo plano para novos leads
+      syncToSheets({
+        name: payload.name,
+        phone: payload.phone,
+        status: payload.pipeline_stage || "novo",
+        origin: payload.origin,
+        timestamp: new Date().toISOString()
+      });
+
+      syncToNotion({
+        name: payload.name,
+        phone: payload.phone,
+        content: `Novo lead criado via CRM. Origem: ${payload.origin}`,
+        type: "lead"
+      });
+
       toast.success("Lead criado!");
     }
     setDialogOpen(false);

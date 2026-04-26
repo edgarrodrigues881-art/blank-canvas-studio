@@ -18,8 +18,9 @@ import {
   FileText, File, Power, Target, Zap, Activity, Circle, Timer, MessageSquare,
   UserCheck, PhoneCall, LifeBuoy, Users, Flame, Snowflake, TrendingUp,
   Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
-  Package, DollarSign, Star, HelpCircle, Search, Lightbulb, Shield
+  Package, DollarSign, Star, HelpCircle, Search, Lightbulb, Shield, ChevronRight
 } from "lucide-react";
+import { useCrmSync } from "@/hooks/useCrmSync";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
 import { AISimulator } from "@/components/ai/AISimulator";
@@ -210,7 +211,8 @@ const AISettings = () => {
   const [kbFaq, setKbFaq] = useState("");
   const [kbPreview, setKbPreview] = useState("");
   const [generatingPreview, setGeneratingPreview] = useState(false);
-  const [kbTab, setKbTab] = useState<"structured" | "upload">("structured");
+  const [kbTab, setKbTab] = useState<"structured" | "upload" | "drive">("structured");
+  const { isConnected, isAutomationEnabled } = useCrmSync();
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState("pdf");
@@ -1518,6 +1520,14 @@ const AISettings = () => {
             >
               Upload de arquivos
             </button>
+            <button
+              onClick={() => setKbTab("drive")}
+              className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+                kbTab === "drive" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Google Drive
+            </button>
           </div>
 
           {kbTab === "structured" && (
@@ -1592,6 +1602,54 @@ const AISettings = () => {
                     <Label className="text-xs text-primary font-medium">Preview — Como a IA responderia</Label>
                   </div>
                   <p className="text-sm text-foreground/80 whitespace-pre-line leading-relaxed">{kbPreview}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {kbTab === "drive" && (
+            <div className="space-y-6 py-4">
+              {isConnected("google_drive") && isAutomationEnabled("google_drive", "ai_knowledge_base") ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                      <ShieldCheck className="h-6 w-6 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-500">Google Drive Conectado</p>
+                      <p className="text-xs text-muted-foreground">A IA está sincronizando automaticamente com sua pasta do Drive.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pastas Sincronizadas</Label>
+                    <div className="rounded-lg border border-border/50 bg-muted/30 p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span className="text-sm">Base de Conhecimento CRM</span>
+                      </div>
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Ativo</Badge>
+                    </div>
+                  </div>
+
+                  <Button variant="outline" className="w-full gap-2">
+                    <Settings2 className="h-4 w-4" /> Gerenciar Pastas no Drive
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center space-y-4 py-6">
+                  <div className="mx-auto h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
+                    <Building2 className="h-8 w-8 text-muted-foreground/40" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-semibold text-lg">Sincronize com Google Drive</p>
+                    <p className="text-sm text-muted-foreground px-8 leading-relaxed">
+                      Conecte seu Google Drive na aba de <strong>Integrações</strong> para que a IA possa ler seus PDFs, documentos e planilhas automaticamente.
+                    </p>
+                  </div>
+                  <Button onClick={() => window.location.href = "/dashboard/crm-integrations"} className="gap-2">
+                    Ir para Integrações <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
             </div>

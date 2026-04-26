@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useCrmSync } from "@/hooks/useCrmSync";
 import type { RealMessage } from "./useConversations";
 import type { MessagesRealtimeParams } from "./realtime-types";
 
@@ -27,6 +28,8 @@ export function useMessagesRealtime({
   updateStatus,
   notifyTabs,
 }: MessagesRealtimeParams) {
+  const { syncToSheets, syncToNotion } = useCrmSync();
+
   useEffect(() => {
     if (!user) return;
 
@@ -118,6 +121,25 @@ export function useMessagesRealtime({
           }
 
           if (newMsg.direction === "received") {
+            const currentConv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
+            
+            // Sincronização em segundo plano para mensagens recebidas
+            syncToSheets({
+              name: currentConv?.name || "Cliente",
+              phone: currentConv?.phone || "",
+              lastMessage: newMsg.content || "",
+              status: currentConv?.attending_status || "nova",
+              origin: "WhatsApp",
+              timestamp: newMsg.created_at
+            });
+
+            syncToNotion({
+              name: currentConv?.name || "Cliente",
+              phone: currentConv?.phone || "",
+              content: newMsg.content || "",
+              type: "message"
+            });
+
             if (!isOpenConversation) {
               notifAudio.currentTime = 0;
               notifAudio.play().catch(() => {});

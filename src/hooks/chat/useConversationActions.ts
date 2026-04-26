@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCrmSync } from "@/hooks/useCrmSync";
 import { getSendFailureFeedback } from "@/lib/chatSendFeedback";
 import type { RealConversation, RealMessage } from "./useConversations";
 
@@ -54,6 +55,7 @@ export function useConversationActions({
   archivedConversations,
   messages,
 }: UseConversationActionsParams) {
+  const { syncToSheets, syncToNotion } = useCrmSync();
 
   const markConversationGroupAsRead = useCallback(async (convId: string) => {
     const ids = getConversationIdsForSameContact(convId);
@@ -197,6 +199,23 @@ export function useConversationActions({
     }
     if (dbMsg) {
       setMessages((prev) => prev.map((m) => m.id === tempId ? { ...m, id: dbMsg.id } : m));
+      
+      // Sincronização em segundo plano para mensagens enviadas
+      syncToSheets({
+        name: conv.name || "Cliente",
+        phone: conv.phone || "",
+        lastMessage: content,
+        status: conv.attending_status || "nova",
+        origin: "WhatsApp",
+        timestamp: now
+      });
+
+      syncToNotion({
+        name: conv.name || "Cliente",
+        phone: conv.phone || "",
+        content: content,
+        type: "message"
+      });
     }
 
     const apiOk = apiResult.status === "fulfilled" && apiResult.value?.sent;
