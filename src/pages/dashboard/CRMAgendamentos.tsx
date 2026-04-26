@@ -423,7 +423,7 @@ function DetailModal({ open, onOpenChange, item, deviceName, onEdit, onSendNow, 
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-primary" /></div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-[18px] h-[18px] text-emerald-400" /></div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">{item.contact_name || "Sem nome"}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{formatPhone(item.contact_phone)}</p>
@@ -689,21 +689,34 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   };
 
   const previewMessage = resolveVars(messageContent, selectedContact);
+  const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onBack}>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-foreground">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground">Envio individual inteligente</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onBack}>Cancelar</Button>
-          <Button size="sm" onClick={handleSave} disabled={!canSave || saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs">
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
+            onClick={onBack}
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!canSave || saving}
+            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
+          >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             {editing ? "Salvar" : "Agendar Disparo"}
           </Button>
@@ -711,21 +724,21 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
       </div>
 
       {/* 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* LEFT — 3 cols */}
-        <div className="lg:col-span-3 space-y-5">
+        <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
           <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Destinatário</h2>
+              <User className="w-[18px] h-[18px] text-emerald-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
             </div>
 
             {selectedContact ? (
               <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 text-primary" />
+                  <User className="w-[18px] h-[18px] text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{selectedContact.name}</p>
@@ -811,15 +824,15 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Mensagem */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Mensagem</h2>
+                <MessageSquare className="w-[18px] h-[18px] text-emerald-400" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200">
                     <Variable className="w-3 h-3" /> Variáveis
                   </Button>
                 </PopoverTrigger>
@@ -842,8 +855,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               placeholder="Digite sua mensagem..."
               rows={5}
               className={cn(
-                "resize-y min-h-[120px] text-sm",
-                messageOverLimit && "border-red-500/60 focus-visible:ring-red-500/40"
+                "resize-y min-h-[160px] text-[14px] leading-relaxed rounded-xl border-border/50 bg-background/40 px-4 py-3 placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/60 focus-visible:shadow-[0_0_0_4px_hsl(152_76%_40%/0.08)] transition-shadow",
+                messageOverLimit && "border-red-500/60 focus-visible:ring-red-500/40 focus-visible:border-red-500/60 focus-visible:shadow-[0_0_0_4px_hsl(0_84%_60%/0.10)]"
               )}
             />
 
@@ -910,15 +923,15 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Botões interativos */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Botões</h2>
+                <ExternalLink className="w-[18px] h-[18px] text-indigo-400" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
                 <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" onClick={addButton}>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
                 </Button>
               )}
@@ -1001,10 +1014,10 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Agendamento */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center gap-2">
-              <CalendarClock className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Agendamento</h2>
+              <CalendarClock className="w-[18px] h-[18px] text-indigo-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -1071,17 +1084,17 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Templates */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-3">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-4 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Templates</h2>
+              <FileText className="w-[18px] h-[18px] text-indigo-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowSaveTemplate(true)}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-emerald-400/30 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-400/50 hover:text-emerald-200" onClick={() => setShowSaveTemplate(true)}>
                 <Save className="w-3.5 h-3.5" /> Salvar template
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowLoadTemplate(true)}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={() => setShowLoadTemplate(true)}>
                 <Download className="w-3.5 h-3.5" /> Usar template
               </Button>
             </div>
@@ -1123,7 +1136,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           <Dialog open={showLoadTemplate} onOpenChange={setShowLoadTemplate}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base"><FileText className="w-4 h-4 text-primary" /> Usar Template</DialogTitle>
+                <DialogTitle className="flex items-center gap-2 text-base"><FileText className="w-[18px] h-[18px] text-indigo-400" /> Usar Template</DialogTitle>
               </DialogHeader>
               <TemplateLoaderModal userId={user?.id} onSelect={(content) => { setMessageContent(content); setShowLoadTemplate(false); }} />
             </DialogContent>
@@ -1133,18 +1146,20 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-              <div className="bg-emerald-600 px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+            <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 overflow-hidden shadow-[0_10px_40px_-20px_hsl(var(--background)/0.9)]">
+              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3 border-b border-emerald-900/40">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-emerald-400 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
+                  {contactInitial}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{selectedContact?.name || "Contato"}</p>
-                  <p className="text-[10px] text-white/70">online</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{selectedContact?.name || "Contato"}</p>
+                  <p className="text-[10px] text-white/70 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 inline-block" /> online
+                  </p>
                 </div>
               </div>
 
-              <div className="bg-[hsl(var(--background))] min-h-[350px] p-4 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
+              <div className="bg-[hsl(var(--background))] min-h-[360px] p-5 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
                 {previewMessage.trim() || mediaPreview ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%]">
