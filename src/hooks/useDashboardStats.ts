@@ -89,7 +89,17 @@ export function useDashboardStats() {
       const weekStartISO = `${mondayStr}T00:00:00-03:00`;
       const weekEndISO = `${sundayStr}T23:59:59.999-03:00`;
 
-      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, logCountsRes] = await Promise.all([
+      // Previous week (Monday to Sunday) — for comparison line on chart
+      const prevMonday = new Date(monday);
+      prevMonday.setDate(monday.getDate() - 7);
+      const prevSunday = new Date(monday);
+      prevSunday.setDate(monday.getDate() - 1);
+      const prevMondayStr = prevMonday.toLocaleDateString("en-CA");
+      const prevSundayStr = prevSunday.toLocaleDateString("en-CA");
+      const prevWeekStartISO = `${prevMondayStr}T00:00:00-03:00`;
+      const prevWeekEndISO = `${prevSundayStr}T23:59:59.999-03:00`;
+
+      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, logCountsRes, prevDailyStatsRes, prevLogCountsRes] = await Promise.all([
         supabase
           .from("devices")
           .select("id, name, number, status, proxy_id, profile_picture")
@@ -104,6 +114,12 @@ export function useDashboardStats() {
           p_user_id: user!.id,
           p_start: weekStartISO,
           p_end: weekEndISO,
+        }),
+        supabase.from("warmup_daily_stats").select("stat_date, messages_sent").eq("user_id", user!.id).gte("stat_date", prevMondayStr).lte("stat_date", prevSundayStr),
+        supabase.rpc("get_daily_log_counts", {
+          p_user_id: user!.id,
+          p_start: prevWeekStartISO,
+          p_end: prevWeekEndISO,
         }),
       ]);
 
