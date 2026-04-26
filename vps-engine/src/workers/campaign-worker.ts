@@ -392,13 +392,22 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
+    const isGroupTarget = phone.endsWith("@g.us");
 
-    log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+    log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** isGroup=${isGroupTarget} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
-      // Single-message image + text + buttons via uazapi /send/menu (imageButton field)
-      log.info(`[campaign-worker] /send/menu with imageButton -> ${mediaUrl.slice(0, 80)}`);
-      await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, imageButton: mediaUrl, choices });
+      if (isGroupTarget) {
+        // Grupos: imageButton causa "versão incompatível". Enviar imagem (sem caption) + menu de botões em mensagens separadas.
+        log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (buttons) separately`);
+        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
+        await sleep(800 + Math.random() * 800);
+        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+      } else {
+        // 1:1: imageButton funciona normalmente (single message)
+        log.info(`[campaign-worker] /send/menu with imageButton -> ${mediaUrl.slice(0, 80)}`);
+        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, imageButton: mediaUrl, choices });
+      }
       return;
     }
     await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
