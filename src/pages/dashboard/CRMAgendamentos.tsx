@@ -1223,12 +1223,12 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-emerald-400/30 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-400/50 hover:text-emerald-200" onClick={() => setShowSaveTemplate(true)}>
+              <button type="button" className="sched-chip sched-chip-emerald" onClick={() => setShowSaveTemplate(true)}>
                 <Save className="w-3.5 h-3.5" /> Salvar template
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={() => setShowLoadTemplate(true)}>
+              </button>
+              <button type="button" className="sched-chip sched-chip-indigo" onClick={() => setShowLoadTemplate(true)}>
                 <Download className="w-3.5 h-3.5" /> Usar template
-              </Button>
+              </button>
             </div>
           </div>
 
