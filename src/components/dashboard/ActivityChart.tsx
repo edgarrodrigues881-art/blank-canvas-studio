@@ -119,7 +119,7 @@ export const ActivityChart = React.memo(function ActivityChart({
           >
             <VarIcon className="w-3 h-3" />
             {isUp ? "+" : ""}
-            {variation}% vs semana anterior
+            {variation}% vs período anterior
           </div>
         </div>
       </CardHeader>
