@@ -2169,34 +2169,41 @@ const Devices = () => {
             onClick={async () => {
               setSyncLoading(true);
               try {
-                await queryClient.refetchQueries({ queryKey: ["devices"] });
+                // Fast path: refresh data straight from DB — this is what the user
+                // actually sees. Background sync against UAZAPI is fired in parallel
+                // and its results will stream in via the next auto-refetch.
+                await Promise.all([
+                  queryClient.refetchQueries({ queryKey: ["devices"] }),
+                  queryClient.refetchQueries({ queryKey: ["proxies"] }),
+                ]);
                 queryClient.invalidateQueries({ queryKey: ["sidebar-stats"] });
-
-                const { data: { session: s } } = await supabase.auth.getSession();
-                if (!s) throw new Error("Not authenticated");
-
-                const syncAlreadyRunning = isSyncingDevices();
-                if (!syncAlreadyRunning) {
-                  await callSyncDevices();
-                }
-
-                await queryClient.refetchQueries({ queryKey: ["devices"] });
-                queryClient.invalidateQueries({ queryKey: ["proxies"] });
 
                 const freshDevices = queryClient.getQueryData<Device[]>(["devices"]) || [];
                 const total = freshDevices.length;
                 const online = freshDevices.filter(d => d.status === "Ready").length;
 
                 if (total > 0) {
-                  toast({ 
-                    title: syncAlreadyRunning ? "✅ Lista atualizada" : "✅ Sincronização concluída", 
-                    description: `${online} de ${total} instância${total !== 1 ? "s" : ""} online.` 
+                  toast({
+                    title: "✅ Lista atualizada",
+                    description: `${online} de ${total} instância${total !== 1 ? "s" : ""} online.`,
                   });
                 } else {
-                  toast({ title: syncAlreadyRunning ? "✅ Lista atualizada" : "✅ Sincronização concluída", description: "Nenhuma instância encontrada." });
+                  toast({ title: "✅ Lista atualizada", description: "Nenhuma instância encontrada." });
+                }
+
+                // Kick off a full UAZAPI sync in the background (fire-and-forget).
+                // When it finishes, the next periodic refetch will pick up new statuses.
+                if (!isSyncingDevices()) {
+                  callSyncDevices()
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ["devices"] });
+                    })
+                    .catch((err) => {
+                      console.warn("[sync-devices bg]", err?.message);
+                    });
                 }
               } catch (err: any) {
-                toast({ title: "Erro ao sincronizar", description: err?.message, variant: "destructive" });
+                toast({ title: "Erro ao atualizar", description: err?.message, variant: "destructive" });
               } finally {
                 setSyncLoading(false);
               }
