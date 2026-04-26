@@ -2127,7 +2127,7 @@ const Devices = () => {
                 <div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" className="gap-1.5 text-xs h-8 px-4" disabled={planState !== "active"}>
+                      <Button size="sm" className="gap-1.5 text-xs h-8 px-4 bg-emerald-500 hover:bg-emerald-600 text-white" disabled={planState !== "active"}>
                         <Plus className="w-3.5 h-3.5" /> Nova instância
                       </Button>
                     </DropdownMenuTrigger>
