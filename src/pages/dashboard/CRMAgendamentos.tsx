@@ -1023,14 +1023,17 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Botões interativos */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ExternalLink className="w-[18px] h-[18px] text-indigo-400" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
-                <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
+                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
+                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={addButton}>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
                 </Button>
               )}
