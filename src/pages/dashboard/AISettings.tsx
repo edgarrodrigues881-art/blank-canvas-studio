@@ -20,6 +20,7 @@ import {
   Rocket, Calendar, Settings2, ChevronDown, ChevronUp,
   Package, DollarSign, Star, HelpCircle, Search, Lightbulb, Shield, ChevronRight
 } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS } from "@/components/crm/CrmStyleGuide";
 import { useCrmSync } from "@/hooks/useCrmSync";
 import { Slider } from "@/components/ui/slider";
 import { AIOnboardingWizard } from "@/components/ai/AIOnboardingWizard";
@@ -800,7 +801,7 @@ const AISettings = () => {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-8">
+    <div className="space-y-8 max-w-4xl mx-auto pb-8 animate-in fade-in duration-500">
       <AIOnboardingWizard
         open={showOnboarding}
         onComplete={handleOnboardingComplete}
@@ -811,12 +812,12 @@ const AISettings = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-primary/8 border border-primary/10 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary" strokeWidth={1.5} />
+          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/30 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent" strokeWidth={1.5} />
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold tracking-tight text-foreground">Automação Inteligente</h1>
+              <CrmPageTitle className="text-xl">Automação Inteligente</CrmPageTitle>
               {iaActive && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400">
                   <span className="relative flex h-1.5 w-1.5">
@@ -830,7 +831,7 @@ const AISettings = () => {
             <p className="text-sm text-muted-foreground mt-0.5">Respostas automáticas, conversão e atendimento otimizado</p>
           </div>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={saving || activating} className="gap-2 transition-all duration-150">
+        <Button size="sm" onClick={handleSave} disabled={saving || activating} className={`gap-2 transition-all duration-150 font-semibold ${BUTTON_VARIANTS.primary}`}>
           {activating || saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
           {activating ? "Ativando..." : iaActive ? "Salvar Alterações" : "Ativar automação"}
         </Button>
