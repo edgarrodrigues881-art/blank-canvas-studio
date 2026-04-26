@@ -301,14 +301,14 @@ const VirtualizedLeadList = memo(function VirtualizedLeadList({ leads, statusOpt
   const listHeight = Math.min(height, Math.max(LEAD_ROW_HEIGHT, leads.length * LEAD_ROW_HEIGHT));
 
   return (
-    <div ref={containerRef} className="pr-2" style={{ WebkitOverflowScrolling: "touch" }}>
+    <div ref={containerRef} className="pr-2 [&_*]:outline-none focus:outline-none focus-visible:outline-none" style={{ WebkitOverflowScrolling: "touch" }}>
       <VirtualList
         rowCount={leads.length}
         rowHeight={LEAD_ROW_HEIGHT}
         overscanCount={6}
         rowComponent={LeadVirtualRow}
         rowProps={rowProps}
-        style={{ height: listHeight, width: "100%", overflowX: "hidden" }}
+        style={{ height: listHeight, width: "100%", overflowX: "hidden", outline: "none" }}
       />
     </div>
   );
