@@ -733,9 +733,12 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
           {/* Destinatário */}
           <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
-          <div className="flex items-center gap-2">
-              <User className="w-[18px] h-[18px] text-emerald-400" />
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+          <div>
+              <div className="flex items-center gap-2">
+                <User className="w-[18px] h-[18px] text-emerald-500" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
             </div>
 
             {selectedContact ? (
