@@ -1002,9 +1002,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-muted/10 p-3">
                 {mediaPreview.kind === "image" ? (
                   <img src={mediaPreview.url} alt={mediaPreview.name} className="w-14 h-14 rounded-lg object-cover border border-border/30" />
+                ) : mediaPreview.kind === "video" ? (
+                  <video src={mediaPreview.url} className="w-14 h-14 rounded-lg object-cover border border-border/30" />
                 ) : (
                   <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    {mediaPreview.kind === "audio" ? <FileAudio className="w-6 h-6 text-primary" /> : <FileType className="w-6 h-6 text-primary" />}
+                    {mediaPreview.kind === "audio" ? <Mic className="w-6 h-6 text-primary" /> : <FileType className="w-6 h-6 text-primary" />}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
