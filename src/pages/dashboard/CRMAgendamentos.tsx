@@ -734,8 +734,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           <div className="sched-card p-7 space-y-5">
           <div>
               <div className="flex items-center gap-2">
-                <User className="w-[18px] h-[18px] text-emerald-500" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+                <span className="sched-section-icon"><User className="w-4 h-4" /></span>
+                <h2 className="text-[17px] font-bold text-foreground tracking-tight">Destinatário</h2>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
             </div>
@@ -833,8 +833,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-[18px] h-[18px] text-emerald-500" />
-                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
+                  <span className="sched-section-icon"><MessageSquare className="w-4 h-4" /></span>
+                  <h2 className="text-[17px] font-bold text-foreground tracking-tight">Mensagem</h2>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escreva o que será enviado pelo WhatsApp</p>
               </div>
@@ -1027,8 +1027,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
-                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
+                  <span className="sched-section-icon"><ExternalLink className="w-4 h-4" /></span>
+                  <h2 className="text-[17px] font-bold text-foreground tracking-tight">Botões</h2>
                   <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
@@ -1120,8 +1120,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           <div className="sched-card p-7 space-y-5">
             <div>
               <div className="flex items-center gap-2">
-                <CalendarClock className="w-[18px] h-[18px] text-primary" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
+                <span className="sched-section-icon"><CalendarClock className="w-4 h-4" /></span>
+                <h2 className="text-[17px] font-bold text-foreground tracking-tight">Agendamento</h2>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
@@ -1222,8 +1222,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           {/* Templates */}
           <div className="sched-card p-7 space-y-4">
             <div className="flex items-center gap-2">
-              <FileText className="w-[18px] h-[18px] text-indigo-400" />
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
+              <span className="sched-section-icon"><FileText className="w-4 h-4" /></span>
+              <h2 className="text-[17px] font-bold text-foreground tracking-tight">Templates</h2>
             </div>
 
             <div className="flex items-center gap-2">
