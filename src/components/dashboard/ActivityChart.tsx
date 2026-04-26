@@ -256,19 +256,6 @@ export const ActivityChart = React.memo(function ActivityChart({
                 animationDuration={750}
               />
 
-              {/* Peak marker */}
-              {peakPoint && peakValue > 0 && (
-                <ReferenceDot
-                  x={peakPoint.label}
-                  y={peakValue}
-                  r={5}
-                  fill={ACCENT_BRIGHT}
-                  stroke="hsl(var(--background))"
-                  strokeWidth={2}
-                  isFront
-                  style={{ filter: "url(#peakDotGlow)" }}
-                />
-              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>
