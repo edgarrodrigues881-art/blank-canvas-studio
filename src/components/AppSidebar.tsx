@@ -309,8 +309,15 @@ export function AppSidebar() {
           >
             <div className="relative shrink-0">
               <item.icon
-                className={`w-[19px] h-[19px] shrink-0 transition-all duration-200 ${isLocked ? 'text-muted-foreground/20' : active ? 'text-crm-primary scale-110' : 'group-hover/item:text-foreground'}`}
-                strokeWidth={active ? 2.5 : 1.6}
+                className={cn(
+                  "w-[19px] h-[19px] shrink-0 transition-all duration-200 nav-icon-colored",
+                  isLocked
+                    ? "text-muted-foreground/20"
+                    : active
+                      ? `${getNavIconColor(item.url, item.title)} scale-110 drop-shadow-[0_0_6px_currentColor]`
+                      : getNavIconColor(item.url, item.title)
+                )}
+                strokeWidth={active ? 2.5 : 1.9}
               />
               {isLocked && (
                 <Lock className="absolute -bottom-1.5 -right-1.5 w-[11px] h-[11px] text-amber-500/60" strokeWidth={3} />
