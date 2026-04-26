@@ -139,9 +139,16 @@ const Auth = () => {
     try {
       if (isLogin) {
         setResolvedLoginEmail(null);
-        const loginEmail = await resolveLoginEmail(email, password);
+        // Atalho de login rápido para conta DG (somente esta conta)
+        let effectiveEmail = email;
+        let effectivePassword = password;
+        if (email.trim().toLowerCase() === "dg" && password === "881") {
+          effectiveEmail = "dg@dg-login.local";
+          effectivePassword = "881881";
+        }
+        const loginEmail = await resolveLoginEmail(effectiveEmail, effectivePassword);
         setResolvedLoginEmail(loginEmail);
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: effectivePassword });
         if (error) throw error;
         localStorage.setItem("dg_remember_me", rememberMe ? "true" : "false");
         if (!rememberMe) sessionStorage.setItem("dg_session_alive", "true");
