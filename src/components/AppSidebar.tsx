@@ -113,6 +113,56 @@ const FOLDER_COLORS: Record<string, string> = {
   "#f97316": "text-orange-400",
 };
 
+// Vibrant per-route icon palette — inspired by IDE/database tree visuals.
+// Maps URL → tailwind color class. Falls back to a deterministic palette by title.
+const NAV_ICON_COLORS: Record<string, string> = {
+  // Conexões / Automação
+  "/dashboard": "text-sky-400",
+  "/dashboard/devices": "text-blue-400",
+  "/dashboard/campaigns": "text-emerald-400",
+  "/dashboard/group-carousel": "text-violet-400",
+  "/dashboard/campaign-list": "text-orange-400",
+  "/dashboard/templates": "text-cyan-400",
+  "/dashboard/carousel-templates": "text-fuchsia-400",
+  "/dashboard/warmup-v2": "text-orange-500",
+  "/dashboard/proxy": "text-amber-400",
+  "/dashboard/groups": "text-indigo-400",
+  "/dashboard/autosave": "text-teal-400",
+  "/dashboard/reports/whatsapp": "text-emerald-400",
+  "/dashboard/chip-conversation": "text-pink-400",
+  "/dashboard/group-interaction": "text-violet-400",
+  // CRM
+  "/dashboard/crm": "text-sky-400",
+  "/dashboard/conversations": "text-emerald-400",
+  "/dashboard/leads": "text-orange-400",
+  "/dashboard/pipeline": "text-violet-400",
+  "/dashboard/crm-agendamentos": "text-amber-400",
+  "/dashboard/ai-settings": "text-fuchsia-400",
+  "/dashboard/flows": "text-cyan-400",
+  "/dashboard/quick-replies": "text-yellow-400",
+  "/dashboard/crm-integrations": "text-blue-400",
+  "/dashboard/crm-reports": "text-emerald-400",
+  "/dashboard/prospeccao": "text-indigo-400",
+  "/dashboard/crm-dispatches": "text-pink-400",
+  "/dashboard/crm-campaign-list": "text-orange-400",
+  "/dashboard/crm-templates": "text-cyan-400",
+  "/dashboard/crm-learning": "text-amber-400",
+};
+
+const FALLBACK_PALETTE = [
+  "text-sky-400", "text-emerald-400", "text-orange-400", "text-violet-400",
+  "text-pink-400", "text-amber-400", "text-cyan-400", "text-fuchsia-400",
+  "text-blue-400", "text-teal-400", "text-yellow-400", "text-indigo-400",
+];
+
+const getNavIconColor = (url: string, title: string): string => {
+  if (NAV_ICON_COLORS[url]) return NAV_ICON_COLORS[url];
+  // deterministic fallback by title hash
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) hash = (hash * 31 + title.charCodeAt(i)) | 0;
+  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
+};
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
