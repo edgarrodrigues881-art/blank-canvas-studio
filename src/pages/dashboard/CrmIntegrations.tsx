@@ -255,7 +255,7 @@ export default function CrmIntegrations() {
                     className={cn(
                       "font-semibold text-xs px-3 py-1",
                       connected
-                        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0"
+                        ? "bg-emerald-600 text-white border-0"
                         : "bg-muted text-muted-foreground border border-border/50"
                     )}
                   >
