@@ -1243,12 +1243,36 @@ function TemplateLoaderModal({ userId, onSelect }: { userId?: string; onSelect: 
   );
 
   return (
-    <div className="space-y-2 max-h-64 overflow-y-auto py-2">
+    <div className="space-y-2 max-h-80 overflow-y-auto py-2">
       {templates.map(t => (
-        <button key={t.id} className="w-full text-left rounded-xl border border-border/30 bg-muted/5 p-3.5 hover:border-primary/30 hover:bg-primary/5 transition-all" onClick={() => onSelect(t.content)}>
-          <p className="text-sm font-semibold text-foreground">{t.name}</p>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.content}</p>
-        </button>
+        <div key={t.id} className="group relative rounded-xl border border-border/30 bg-muted/5 hover:border-primary/30 hover:bg-primary/5 transition-all">
+          <button className="w-full text-left p-3.5 pr-12" onClick={() => onSelect(t.content)}>
+            <p className="text-sm font-semibold text-foreground">{t.name}</p>
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.content}</p>
+          </button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="Pré-visualizar template"
+                className="absolute top-2.5 right-2.5 inline-flex items-center justify-center w-7 h-7 rounded-md border border-border/40 bg-background/80 text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+                onClick={e => e.stopPropagation()}
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="start" className="w-72 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Preview do template</p>
+              <p className="text-sm font-semibold text-foreground mb-2">{t.name}</p>
+              <div className="rounded-lg bg-emerald-600/10 border border-emerald-500/20 p-2.5 max-h-60 overflow-y-auto">
+                <p className="text-xs text-foreground whitespace-pre-wrap break-words leading-relaxed">{t.content || "(vazio)"}</p>
+              </div>
+              <Button size="sm" className="w-full mt-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 gap-1.5" onClick={() => onSelect(t.content)}>
+                <Download className="w-3.5 h-3.5" /> Aplicar este template
+              </Button>
+            </PopoverContent>
+          </Popover>
+        </div>
       ))}
     </div>
   );
