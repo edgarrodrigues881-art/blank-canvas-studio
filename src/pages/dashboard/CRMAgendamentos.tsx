@@ -1046,21 +1046,21 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("confirm")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Confirmar / Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("yesno")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Sim / Não
                 </button>
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("more")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Ver mais
                 </button>
