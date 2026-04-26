@@ -22,6 +22,7 @@ export interface WarmupEvolutionPoint {
   label: string;
   volume: number;
   entregas: number;
+  entregasPrev: number; // same weekday volume from previous week (for comparison)
   crescimento: number;
 }
 
@@ -88,7 +89,17 @@ export function useDashboardStats() {
       const weekStartISO = `${mondayStr}T00:00:00-03:00`;
       const weekEndISO = `${sundayStr}T23:59:59.999-03:00`;
 
-      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, logCountsRes] = await Promise.all([
+      // Previous week (Monday to Sunday) — for comparison line on chart
+      const prevMonday = new Date(monday);
+      prevMonday.setDate(monday.getDate() - 7);
+      const prevSunday = new Date(monday);
+      prevSunday.setDate(monday.getDate() - 1);
+      const prevMondayStr = prevMonday.toLocaleDateString("en-CA");
+      const prevSundayStr = prevSunday.toLocaleDateString("en-CA");
+      const prevWeekStartISO = `${prevMondayStr}T00:00:00-03:00`;
+      const prevWeekEndISO = `${prevSundayStr}T23:59:59.999-03:00`;
+
+      const [devicesRes, cyclesRes, dailyStatsRes, proxiesRes, logCountsRes, prevDailyStatsRes, prevLogCountsRes] = await Promise.all([
         supabase
           .from("devices")
           .select("id, name, number, status, proxy_id, profile_picture")
@@ -103,6 +114,12 @@ export function useDashboardStats() {
           p_user_id: user!.id,
           p_start: weekStartISO,
           p_end: weekEndISO,
+        }),
+        supabase.from("warmup_daily_stats").select("stat_date, messages_sent").eq("user_id", user!.id).gte("stat_date", prevMondayStr).lte("stat_date", prevSundayStr),
+        supabase.rpc("get_daily_log_counts", {
+          p_user_id: user!.id,
+          p_start: prevWeekStartISO,
+          p_end: prevWeekEndISO,
         }),
       ]);
 
@@ -145,6 +162,23 @@ export function useDashboardStats() {
         } else {
           groupByDay[dateStr] = (groupByDay[dateStr] || 0) + Number(r.cnt);
         }
+      });
+
+      // Previous week — by day-of-week index (0=Mon..6=Sun) for direct comparison
+      const prevByDow: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+      const dowFromDateStr = (s: string) => {
+        const d = new Date(s + "T12:00:00");
+        const dow = d.getDay(); // 0=Sun..6=Sat
+        return dow === 0 ? 6 : dow - 1; // shift to 0=Mon..6=Sun
+      };
+      ((prevDailyStatsRes.data as any[]) || []).forEach((r: any) => {
+        const idx = dowFromDateStr(r.stat_date);
+        prevByDow[idx] = (prevByDow[idx] || 0) + (r.messages_sent || 0);
+      });
+      ((prevLogCountsRes.data as any[]) || []).forEach((r: any) => {
+        const dateStr = typeof r.dt === 'string' ? r.dt.slice(0, 10) : String(r.dt);
+        const idx = dowFromDateStr(dateStr);
+        prevByDow[idx] = (prevByDow[idx] || 0) + Number(r.cnt);
       });
 
       const totalMessages = totalSent + totalFailed;
@@ -195,7 +229,7 @@ export function useDashboardStats() {
         const totalEntregas = dayData.sent + chipCount + groupCount;
         const totalVol = dayData.total + chipCount + groupCount;
 
-        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, crescimento: 0 };
+        return { label: dayLabel, volume: totalVol, entregas: totalEntregas, entregasPrev: prevByDow[i] || 0, crescimento: 0 };
       });
 
       for (let i = 1; i < warmupEvolution.length; i++) {
