@@ -3197,7 +3197,7 @@ const Devices = () => {
             <Button variant="ghost" onClick={() => setBulkOpen(false)} className="h-10 px-5 text-sm">
               Cancelar
             </Button>
-            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2">
+            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2 bg-emerald-500 hover:bg-emerald-600 text-white">
               <Plus className="h-4 w-4" />
               Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
             </Button>
