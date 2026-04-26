@@ -1373,6 +1373,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
