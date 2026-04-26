@@ -486,9 +486,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
   const [messageContent, setMessageContent] = useState("");
   const [buttons, setButtons] = useState<Array<{ type: "url" | "reply"; text: string; value: string }>>([]);
-  const [mediaPreview, setMediaPreview] = useState<{ kind: "image" | "audio" | "document"; name: string; url: string; size: number } | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<{ kind: "image" | "audio" | "document" | "video"; name: string; url: string; size: number } | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
-  const [mediaKindRequest, setMediaKindRequest] = useState<"image" | "audio" | "document">("image");
+  const [mediaKindRequest, setMediaKindRequest] = useState<"image" | "audio" | "document" | "video">("image");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -497,7 +497,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const messageOverLimit = messageLength > MESSAGE_LIMIT;
   const messageNearLimit = messageLength > 900;
 
-  const handleMediaPick = (kind: "image" | "audio" | "document") => {
+  const handleMediaPick = (kind: "image" | "audio" | "document" | "video") => {
     setMediaKindRequest(kind);
     requestAnimationFrame(() => mediaInputRef.current?.click());
   };
