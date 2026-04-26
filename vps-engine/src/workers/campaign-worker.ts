@@ -438,18 +438,20 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         await sleep(800 + Math.random() * 800);
         await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       } else {
-        // 1:1 (privado): nunca usar menu/carrossel/botão nativo, pois Android/iPhone podem exibir
-        // "versão do WhatsApp não compatível". Envia apenas mídia padrão com legenda em texto puro.
+        // 1:1 (privado): replica a estratégia do grupo (mídia + texto separados),
+        // mas usa /send/text em vez de /send/menu para evitar "versão do WhatsApp não compatível"
+        // em Android/iPhone. Garante que a copy sempre chegue, mesmo que o caption seja ignorado.
         const buttonLines = buildPlainButtonLines(buttons || []);
-        const fullCaption = [text, ...buttonLines].filter(Boolean).join("\n\n");
-        log.info(`[campaign-worker] 1:1 target -> plain /send/media caption only (no native interactive payload)`);
+        const fullText = [text, ...buttonLines].filter(Boolean).join("\n\n");
+        log.info(`[campaign-worker] 1:1 target -> /send/media (image) + /send/text (copy+links) separately`);
         await uazapiRequest(baseUrl, token, "/send/media", {
           number: phone,
           type: mediaType || "image",
           file: mediaUrl,
-          caption: fullCaption,
           ...(mediaType === "image" ? { compress: false } : {}),
         });
+        await sleep(800 + Math.random() * 800);
+        await sendTextWithFallback(baseUrl, token, phone, fullText);
       }
       return;
     }
