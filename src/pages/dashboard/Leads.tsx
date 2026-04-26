@@ -434,7 +434,12 @@ export default function Leads() {
     return matchSearch && matchStatus && matchOrigin;
   }), [leads, search, statusFilter, originFilter]);
 
-  /* ── CRUD ── */
+  const handleOpenDetail = useCallback((lead: Lead) => {
+    setDetailLead(lead);
+    setDetailTab("info");
+  }, []);
+
+
   const openNew = () => {
     setEditing(null);
     setForm({
