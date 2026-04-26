@@ -232,7 +232,13 @@ export default function CrmIntegrations() {
               onClick={() => {
                 setActive(it);
                 setMode(connected ? "configure" : "connect");
-                setFormData(config || {});
+                setFormData({
+                  token: config?.token ?? "",
+                  sheet_id: config?.sheet_id ?? "",
+                  sheet_range: config?.sheet_range ?? "",
+                  notion_database_id: config?.notion_database_id ?? "",
+                  drive_folder_id: config?.drive_folder_id ?? "",
+                });
               }}
             >
               <div className={cn("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500", it.bg)} />

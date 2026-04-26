@@ -5286,6 +5286,51 @@ export type Database = {
           },
         ]
       }
+      user_integrations: {
+        Row: {
+          automations: Json
+          created_at: string
+          drive_folder_id: string | null
+          id: string
+          integration_id: string
+          is_connected: boolean
+          notion_database_id: string | null
+          sheet_id: string | null
+          sheet_range: string | null
+          token: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          automations?: Json
+          created_at?: string
+          drive_folder_id?: string | null
+          id?: string
+          integration_id: string
+          is_connected?: boolean
+          notion_database_id?: string | null
+          sheet_id?: string | null
+          sheet_range?: string | null
+          token?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          automations?: Json
+          created_at?: string
+          drive_folder_id?: string | null
+          id?: string
+          integration_id?: string
+          is_connected?: boolean
+          notion_database_id?: string | null
+          sheet_id?: string | null
+          sheet_range?: string | null
+          token?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
