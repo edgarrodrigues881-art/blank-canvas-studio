@@ -485,8 +485,80 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
   const [messageContent, setMessageContent] = useState("");
   const [buttons, setButtons] = useState<Array<{ type: "url" | "reply"; text: string; value: string }>>([]);
+  const [mediaPreview, setMediaPreview] = useState<{ kind: "image" | "audio" | "document"; name: string; url: string; size: number } | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const [mediaKindRequest, setMediaKindRequest] = useState<"image" | "audio" | "document">("image");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const MESSAGE_LIMIT = 1024;
+  const messageLength = messageContent.length;
+  const messageOverLimit = messageLength > MESSAGE_LIMIT;
+  const messageNearLimit = messageLength > 900;
+
+  const handleMediaPick = (kind: "image" | "audio" | "document") => {
+    setMediaKindRequest(kind);
+    requestAnimationFrame(() => mediaInputRef.current?.click());
+  };
+
+  const handleMediaSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setMediaPreview({ kind: mediaKindRequest, name: file.name, url, size: file.size });
+    e.target.value = "";
+  };
+
+  const clearMedia = () => {
+    if (mediaPreview?.url) URL.revokeObjectURL(mediaPreview.url);
+    setMediaPreview(null);
+  };
+
+  const applyQuickButtons = (preset: "confirm" | "yesno" | "more") => {
+    const presets: Record<string, Array<{ type: "url" | "reply"; text: string; value: string }>> = {
+      confirm: [
+        { type: "reply", text: "Confirmar", value: "Confirmar" },
+        { type: "reply", text: "Cancelar", value: "Cancelar" },
+      ],
+      yesno: [
+        { type: "reply", text: "Sim", value: "Sim" },
+        { type: "reply", text: "Não", value: "Não" },
+      ],
+      more: [{ type: "reply", text: "Ver mais", value: "Ver mais" }],
+    };
+    const next = presets[preset];
+    setButtons(prev => {
+      const merged = [...prev, ...next];
+      return merged.slice(0, 3);
+    });
+  };
+
+  const applyQuickSchedule = (preset: "in1h" | "tomorrow9" | "tomorrow14" | "in2d") => {
+    const now = new Date();
+    let target = new Date();
+    if (preset === "in1h") {
+      target = new Date(now.getTime() + 60 * 60 * 1000);
+    } else if (preset === "tomorrow9") {
+      target = new Date(now);
+      target.setDate(target.getDate() + 1);
+      target.setHours(9, 0, 0, 0);
+    } else if (preset === "tomorrow14") {
+      target = new Date(now);
+      target.setDate(target.getDate() + 1);
+      target.setHours(14, 0, 0, 0);
+    } else if (preset === "in2d") {
+      target = new Date(now);
+      target.setDate(target.getDate() + 2);
+      target.setHours(now.getHours(), 0, 0, 0);
+    }
+    const yyyy = target.getFullYear();
+    const mm = String(target.getMonth() + 1).padStart(2, "0");
+    const dd = String(target.getDate()).padStart(2, "0");
+    const hh = String(target.getHours()).padStart(2, "0");
+    const mi = String(target.getMinutes()).padStart(2, "0");
+    setDate(`${yyyy}-${mm}-${dd}`);
+    setTime(`${hh}:${mi}`);
+  };
 
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
