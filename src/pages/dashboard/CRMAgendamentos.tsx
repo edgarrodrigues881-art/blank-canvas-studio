@@ -1279,8 +1279,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         <div className="lg:col-span-2">
           <div className="sticky top-6">
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
-              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
+              <div className="bg-emerald-600 px-4 py-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
                   {contactInitial}
                 </div>
                 <div className="min-w-0">

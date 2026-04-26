@@ -92,13 +92,13 @@ const ORIGIN_OPTIONS = [
 /* ── avatar colors based on name hash ── */
 const AVATAR_COLORS = [
   "from-blue-500 to-blue-600",
-  "from-emerald-500 to-emerald-600",
+  "bg-emerald-500",
   "from-purple-500 to-purple-600",
   "from-amber-500 to-amber-600",
   "from-cyan-500 to-cyan-600",
   "from-rose-500 to-rose-600",
   "from-indigo-500 to-indigo-600",
-  "from-teal-500 to-teal-600",
+  "bg-teal-500",
 ];
 
 function getAvatarColor(name: string) {

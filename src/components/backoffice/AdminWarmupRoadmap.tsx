@@ -339,7 +339,7 @@ const CATEGORIES: CategoryConfig[] = [
     subtitle: "Número recém-ativado, sem histórico",
     icon: Sparkles,
     iconColor: "text-emerald-400",
-    headerBg: "from-emerald-500/10 to-emerald-500/5",
+    headerBg: "bg-emerald-500/10",
     message: "Ciclo completo de 30 dias para maturação de um número virgem. O chip nunca foi usado no WhatsApp Business ou para disparos em massa. Segue o roteiro mais completo e seguro, passando por todas as fases de aquecimento gradual.",
     roadmap: ROADMAP_NOVO,
     days: 30,

@@ -557,7 +557,7 @@ function CampaignList({ onCreateNew, onViewCampaign }: { onCreateNew: () => void
                 {isActive && total > 0 && (
                   <div className="px-5 pb-3">
                     <div className="h-1.5 w-full rounded-full bg-muted/30 overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 )}
@@ -1174,7 +1174,7 @@ function CampaignDetail({ campaignId, onBack, onNewCampaignFromFailed }: { campa
             </div>
             <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-primary transition-all duration-500"
+                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                 style={{ width: `${pct}%` }}
               />
             </div>

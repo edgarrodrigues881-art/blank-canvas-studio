@@ -18,7 +18,7 @@ const STAT_ITEMS = [
   { key: "total", label: "Total", icon: Users, gradient: "from-slate-500/20 to-slate-600/10", iconColor: "text-slate-300", borderColor: "border-slate-500/20" },
   { key: "pending", label: "Pendentes", icon: Clock, gradient: "from-yellow-500/20 to-yellow-600/10", iconColor: "text-yellow-400", borderColor: "border-yellow-500/20" },
   { key: "processing", label: "Processando", icon: RefreshCw, gradient: "from-blue-500/20 to-blue-600/10", iconColor: "text-blue-400", borderColor: "border-blue-500/20" },
-  { key: "sent", label: "Enviados", icon: CheckCircle2, gradient: "from-emerald-500/20 to-emerald-600/10", iconColor: "text-emerald-400", borderColor: "border-emerald-500/20" },
+  { key: "sent", label: "Enviados", icon: CheckCircle2, gradient: "bg-emerald-500/10", iconColor: "text-emerald-400", borderColor: "border-emerald-500/20" },
   { key: "failed", label: "Falhas", icon: AlertTriangle, gradient: "from-red-500/20 to-red-600/10", iconColor: "text-red-400", borderColor: "border-red-500/20" },
   { key: "ignored", label: "Ignorados", icon: XCircle, gradient: "from-gray-500/20 to-gray-600/10", iconColor: "text-gray-400", borderColor: "border-gray-500/20" },
   { key: "duplicate_blocked", label: "Duplicados", icon: Shield, gradient: "from-orange-500/20 to-orange-600/10", iconColor: "text-orange-400", borderColor: "border-orange-500/20" },

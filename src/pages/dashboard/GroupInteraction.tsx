@@ -734,7 +734,7 @@ export default function GroupInteractionPage() {
                 : "hover:shadow-primary/10";
 
               const topGradient = isRunning
-                ? "from-emerald-500/15 via-emerald-500/5 to-transparent"
+                ? "bg-emerald-500/10"
                 : isPaused
                 ? "from-amber-500/15 via-amber-500/5 to-transparent"
                 : "from-muted/30 via-muted/10 to-transparent";

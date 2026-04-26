@@ -128,7 +128,7 @@ export default function Affiliates() {
       </div>
 
       {/* Referral link — temporariamente desativado */}
-      <Card className="border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] to-transparent">
+      <Card className="border-emerald-500/20 bg-emerald-500/[0.04]">
         <CardHeader>
           <CardTitle className="text-base sm:text-lg flex items-center gap-2">
             Seu link de indicação

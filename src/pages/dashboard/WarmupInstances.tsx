@@ -1300,7 +1300,7 @@ const WarmupInstances = () => {
               {/* Logo + Header */}
               <div className="flex flex-col items-center pt-7 pb-5 px-6">
                 <div className="relative mb-4">
-                  <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-teal-500/25 via-emerald-500/10 to-teal-500/20 blur-lg pointer-events-none" />
+                  <div className="absolute -inset-2 rounded-2xl bg-emerald-500/15 blur-lg pointer-events-none" />
                   <img
                     src={dgLogoNew}
                     alt="DG Logo"
@@ -1357,7 +1357,7 @@ const WarmupInstances = () => {
               {/* Footer */}
               <div className="px-6 pb-6 space-y-2">
                 <Button
-                  className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:via-teal-400 hover:to-emerald-400 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
+                  className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
                   disabled={!agreedResponsibility}
                   onClick={() => {
                     // Persist by default — once accepted, never show again on this browser
@@ -2011,7 +2011,7 @@ const WarmupInstances = () => {
                 <p className="text-[11px] font-extrabold text-foreground uppercase tracking-[0.18em]">Estado do chip</p>
                 <div className="grid grid-cols-3 gap-3">
                   {([
-                    { value: "new" as const, label: "Chip Novo", desc: "Progressão conservadora", emoji: "🟢", gradient: "from-emerald-500/25 to-emerald-700/10", border: "border-emerald-500/60 ring-2 ring-emerald-500/20", dot: "bg-emerald-500 shadow-[0_0_10px_hsl(142_72%_36%/0.7)]" },
+                    { value: "new" as const, label: "Chip Novo", desc: "Progressão conservadora", emoji: "🟢", gradient: "bg-emerald-500/15", border: "border-emerald-500/60 ring-2 ring-emerald-500/20", dot: "bg-emerald-500 shadow-[0_0_10px_hsl(142_72%_36%/0.7)]" },
                     { value: "recovered" as const, label: "Recuperado", desc: "Extra cauteloso, já sofreu ban", emoji: "🟡", gradient: "from-amber-500/25 to-amber-700/10", border: "border-amber-400/60 ring-2 ring-amber-500/20", dot: "bg-amber-500 shadow-[0_0_10px_hsl(38_92%_50%/0.7)]" },
                     { value: "unstable" as const, label: "Chip Fraco", desc: "Sofre restrição facilmente", emoji: "🔴", gradient: "from-red-500/25 to-red-700/10", border: "border-red-400/60 ring-2 ring-red-500/20", dot: "bg-red-500 shadow-[0_0_10px_hsl(0_84%_50%/0.7)]" },
                   ] as const).map(opt => (

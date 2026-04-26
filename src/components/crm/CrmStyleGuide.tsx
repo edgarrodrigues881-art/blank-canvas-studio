@@ -41,7 +41,7 @@ export const CRM_BORDER = {
 export function CrmPageTitle({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <h1 className={cn(
-      "text-4xl font-bold tracking-tight bg-gradient-to-r from-lime-500 via-blue-500 to-purple-500 bg-clip-text text-transparent",
+      "text-4xl font-bold tracking-tight text-foreground",
       className
     )}>
       {children}

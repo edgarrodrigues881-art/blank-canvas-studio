@@ -88,7 +88,7 @@ const INTEGRATIONS: Integration[] = [
     name: "Google Sheets",
     description: "Sincronize leads e histórico de mensagens com suas planilhas em tempo real.",
     logo: "/google-sheets.png",
-    accent: "from-emerald-500 to-emerald-600",
+    accent: "bg-emerald-500",
     bg: "bg-emerald-500/5",
     configFields: [
       { key: "token", label: "Token de Acesso Google", placeholder: "Cole seu token aqui", type: "password" },
@@ -207,7 +207,7 @@ export default function CrmIntegrations() {
   return (
     <div className="container max-w-7xl py-8 space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-500 via-emerald-500 to-slate-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
           Integrações
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -255,7 +255,7 @@ export default function CrmIntegrations() {
                     className={cn(
                       "font-semibold text-xs px-3 py-1",
                       connected
-                        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0"
+                        ? "bg-emerald-600 text-white border-0"
                         : "bg-muted text-muted-foreground border border-border/50"
                     )}
                   >
@@ -286,7 +286,7 @@ export default function CrmIntegrations() {
                   className={cn(
                     "w-full font-semibold transition-all duration-300 group/btn",
                     connected
-                      ? "bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
                       : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-500/20"
                   )}
                 >
