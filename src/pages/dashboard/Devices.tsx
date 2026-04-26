@@ -2703,7 +2703,7 @@ const Devices = () => {
 
                 {/* Buttons */}
                 <div className="flex items-center gap-2">
-                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
+                  <Button className="flex-1 h-11 text-sm font-semibold gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => { setConnectMethod("qr"); handleConfirmProxy("qr"); }}>
                     <QrCode className="w-4 h-4" /> QR Code
                   </Button>
                   <Button variant="outline" className="flex-1 h-11 text-sm px-4 gap-1.5" onClick={() => { setConnectMethod("code"); handleConfirmProxy("code"); }}>
