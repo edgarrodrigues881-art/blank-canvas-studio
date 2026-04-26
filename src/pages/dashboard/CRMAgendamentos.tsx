@@ -841,8 +841,72 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               onChange={e => setMessageContent(e.target.value)}
               placeholder="Digite sua mensagem..."
               rows={5}
-              className="resize-y min-h-[120px] text-sm"
+              className={cn(
+                "resize-y min-h-[120px] text-sm",
+                messageOverLimit && "border-red-500/60 focus-visible:ring-red-500/40"
+              )}
             />
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleMediaPick("image")}
+                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" /> Imagem
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMediaPick("document")}
+                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <FileType className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMediaPick("audio")}
+                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-border/40 bg-muted/10 hover:bg-primary/5 hover:border-primary/30 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <FileAudio className="w-3.5 h-3.5" /> Áudio
+                </button>
+                <input
+                  ref={mediaInputRef}
+                  type="file"
+                  accept={mediaKindRequest === "image" ? "image/*" : mediaKindRequest === "audio" ? "audio/*" : "application/pdf"}
+                  className="hidden"
+                  onChange={handleMediaSelected}
+                />
+              </div>
+              <span className={cn(
+                "text-[11px] font-medium tabular-nums",
+                messageOverLimit ? "text-red-400" : messageNearLimit ? "text-orange-400" : "text-muted-foreground/70"
+              )}>
+                {messageLength} / {MESSAGE_LIMIT} caracteres
+              </span>
+            </div>
+
+            {mediaPreview && (
+              <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-muted/10 p-3">
+                {mediaPreview.kind === "image" ? (
+                  <img src={mediaPreview.url} alt={mediaPreview.name} className="w-14 h-14 rounded-lg object-cover border border-border/30" />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    {mediaPreview.kind === "audio" ? <FileAudio className="w-6 h-6 text-primary" /> : <FileType className="w-6 h-6 text-primary" />}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">{mediaPreview.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{(mediaPreview.size / 1024).toFixed(1)} KB · pré-visualização</p>
+                  {mediaPreview.kind === "audio" && (
+                    <audio src={mediaPreview.url} controls className="mt-1.5 h-7 w-full max-w-[240px]" />
+                  )}
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-red-400 shrink-0" onClick={clearMedia}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Botões interativos */}
