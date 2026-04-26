@@ -5,12 +5,10 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Bar,
-  Line,
-  ComposedChart,
+  Area,
+  AreaChart,
   CartesianGrid,
-  Cell,
-  ReferenceLine,
+  ReferenceDot,
 } from "recharts";
 import { Activity } from "lucide-react";
 
@@ -32,12 +30,11 @@ interface Props {
 }
 
 const ACCENT = "hsl(152, 76%, 50%)";
-const ACCENT_DIM = "hsl(152, 20%, 40%)";
-const AVG_LINE = "hsl(48, 95%, 60%)";
+const ACCENT_BRIGHT = "hsl(152, 95%, 65%)";
 
 const CustomTooltip = ({ active, payload, label, avg }: any) => {
   if (!active || !payload?.length) return null;
-  const value = Number(payload.find((p: any) => p.dataKey === "entregas")?.value || 0);
+  const value = Number(payload[0]?.value || 0);
   const diff = avg > 0 ? Math.round(((value - avg) / avg) * 100) : 0;
   return (
     <div className="bg-popover/95 border border-border/60 rounded-xl px-3.5 py-2.5 shadow-2xl backdrop-blur-md min-w-[160px]">
@@ -54,7 +51,7 @@ const CustomTooltip = ({ active, payload, label, avg }: any) => {
         </span>
         <span className="text-[11px] text-muted-foreground">msgs</span>
       </div>
-      {avg > 0 && (
+      {avg > 0 && value > 0 && (
         <div className="mt-1 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px]">
           <span className="text-muted-foreground/70">vs média</span>
           <span
@@ -90,23 +87,16 @@ export const ActivityChart = React.memo(function ActivityChart({
       }
       if (v > 0) activeDays++;
     });
-    // Average computed only on active days for a more useful baseline
     const avgPerDay = activeDays > 0 ? Math.round(totalEntregas / activeDays) : 0;
     return { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays };
   }, [data]);
 
-  // Inject avg line value + a tiny baseline marker for zero-days
-  const chartData = useMemo(() => {
-    // baseline = ~1.2% of peak, so it shows as a thin line at the axis
-    const baselineHeight = peakValue > 0 ? Math.max(peakValue * 0.012, 1) : 0;
-    return data.map((d) => ({
-      ...d,
-      avg: avgPerDay,
-      baseline: (d.entregas || 0) === 0 ? baselineHeight : 0,
-    }));
-  }, [data, avgPerDay, peakValue]);
+  const peakPoint = useMemo(
+    () => data.find((d) => (d.entregas || 0) === peakValue && peakValue > 0),
+    [data, peakValue]
+  );
 
-  // Smart X axis: avoid label overlap on long periods
+  // Smart X axis
   const xInterval =
     data.length > 60
       ? Math.ceil(data.length / 8) - 1
@@ -116,18 +106,14 @@ export const ActivityChart = React.memo(function ActivityChart({
       ? 1
       : 0;
 
-  // Thin bars — sparkline-like
-  const barSize =
-    data.length > 60 ? 3 : data.length > 30 ? 5 : data.length > 15 ? 8 : 14;
-
   return (
     <Card className="relative border-border/50 bg-card w-full col-span-full overflow-hidden">
-      {/* Subtle ambient glow */}
+      {/* Ambient glow */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           background:
-            "radial-gradient(900px 280px at 50% 100%, hsl(152, 76%, 50%, 0.06), transparent 70%)",
+            "radial-gradient(900px 320px at 50% 100%, hsl(152, 76%, 50%, 0.08), transparent 70%)",
         }}
       />
 
@@ -162,27 +148,15 @@ export const ActivityChart = React.memo(function ActivityChart({
                   <span className="capitalize">({peakLabel})</span>
                 </span>
               )}
-            </div>
-
-            {/* Inline legend */}
-            <div className="mt-2 flex items-center gap-4 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-sm"
-                  style={{ background: ACCENT }}
-                />
-                Entregas/dia
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="w-3.5 h-[2px] rounded-full"
-                  style={{
-                    background: AVG_LINE,
-                    boxShadow: `0 0 6px ${AVG_LINE}`,
-                  }}
-                />
-                Média ({avgPerDay.toLocaleString("pt-BR")}/dia · {activeDays} ativos)
-              </span>
+              {avgPerDay > 0 && (
+                <span className="text-[11px] text-muted-foreground/70">
+                  · média{" "}
+                  <span className="text-foreground font-semibold tabular-nums">
+                    {avgPerDay.toLocaleString("pt-BR")}
+                  </span>
+                  /dia
+                </span>
+              )}
             </div>
           </div>
 
@@ -193,22 +167,34 @@ export const ActivityChart = React.memo(function ActivityChart({
       <CardContent className="relative pt-2">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={chartData}
-              margin={{ top: 18, right: 14, left: -10, bottom: 0 }}
-              barCategoryGap={data.length > 30 ? "20%" : "35%"}
+            <AreaChart
+              data={data}
+              margin={{ top: 22, right: 18, left: -8, bottom: 0 }}
             >
               <defs>
-                <linearGradient id="gradBarThin" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(152, 90%, 60%)" stopOpacity={1} />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.55} />
+                {/* Area gradient — bright at top, fades to nothing */}
+                <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={ACCENT_BRIGHT} stopOpacity={0.55} />
+                  <stop offset="40%" stopColor={ACCENT} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="gradBarPeakThin" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(152, 100%, 75%)" stopOpacity={1} />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.7} />
+                {/* Stroke gradient — slight horizontal sheen */}
+                <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={ACCENT} stopOpacity={1} />
+                  <stop offset="50%" stopColor={ACCENT_BRIGHT} stopOpacity={1} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={1} />
                 </linearGradient>
-                <filter id="peakGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="2" result="b" />
+                {/* Soft glow for the line */}
+                <filter id="lineSoftGlow" x="-20%" y="-50%" width="140%" height="200%">
+                  <feGaussianBlur stdDeviation="2.5" result="b" />
+                  <feMerge>
+                    <feMergeNode in="b" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                {/* Strong glow for the peak dot */}
+                <filter id="peakDotGlow" x="-100%" y="-100%" width="300%" height="300%">
+                  <feGaussianBlur stdDeviation="3" result="b" />
                   <feMerge>
                     <feMergeNode in="b" />
                     <feMergeNode in="SourceGraphic" />
@@ -219,7 +205,7 @@ export const ActivityChart = React.memo(function ActivityChart({
               <CartesianGrid
                 strokeDasharray="2 6"
                 stroke="hsl(var(--border))"
-                opacity={0.2}
+                opacity={0.18}
                 vertical={false}
               />
               <XAxis
@@ -242,69 +228,48 @@ export const ActivityChart = React.memo(function ActivityChart({
               />
               <Tooltip
                 content={<CustomTooltip avg={avgPerDay} />}
-                cursor={{ fill: "hsl(var(--foreground))", opacity: 0.04 }}
+                cursor={{
+                  stroke: ACCENT,
+                  strokeWidth: 1,
+                  strokeDasharray: "3 4",
+                  opacity: 0.5,
+                }}
               />
 
-              {/* Reference line label — sits at avg */}
-              {avgPerDay > 0 && (
-                <ReferenceLine
-                  y={avgPerDay}
-                  stroke={AVG_LINE}
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.4}
-                  ifOverflow="extendDomain"
+              <Area
+                type="monotone"
+                dataKey="entregas"
+                stroke="url(#strokeGrad)"
+                strokeWidth={2.4}
+                fill="url(#areaFill)"
+                name="Entregas"
+                dot={false}
+                activeDot={{
+                  r: 5,
+                  fill: ACCENT_BRIGHT,
+                  stroke: "hsl(var(--background))",
+                  strokeWidth: 2,
+                  style: { filter: `drop-shadow(0 0 8px ${ACCENT})` },
+                }}
+                style={{ filter: "url(#lineSoftGlow)" }}
+                isAnimationActive
+                animationDuration={750}
+              />
+
+              {/* Peak marker */}
+              {peakPoint && peakValue > 0 && (
+                <ReferenceDot
+                  x={peakPoint.label}
+                  y={peakValue}
+                  r={5}
+                  fill={ACCENT_BRIGHT}
+                  stroke="hsl(var(--background))"
+                  strokeWidth={2}
+                  isFront
+                  style={{ filter: "url(#peakDotGlow)" }}
                 />
               )}
-
-              <Bar
-                dataKey="entregas"
-                name="Entregas"
-                radius={[3, 3, 0, 0]}
-                maxBarSize={barSize}
-                isAnimationActive
-                animationDuration={650}
-              >
-                {chartData.map((d, i) => {
-                  const v = d.entregas || 0;
-                  const isPeak = v === peakValue && peakValue > 0;
-                  const fill = isPeak ? "url(#gradBarPeakThin)" : "url(#gradBarThin)";
-                  return (
-                    <Cell
-                      key={`c-${i}`}
-                      fill={fill}
-                      fillOpacity={v === 0 ? 0 : 1}
-                      style={isPeak ? { filter: "url(#peakGlow)" } : undefined}
-                    />
-                  );
-                })}
-              </Bar>
-
-              {/* Tiny baseline indicator for zero-volume days */}
-              <Bar
-                dataKey="baseline"
-                name="baseline"
-                radius={[2, 2, 0, 0]}
-                maxBarSize={barSize}
-                fill={ACCENT_DIM}
-                fillOpacity={0.45}
-                isAnimationActive={false}
-                legendType="none"
-                tooltipType="none"
-              />
-
-              {/* Average line on top — solid, glowing */}
-              <Line
-                type="monotone"
-                dataKey="avg"
-                stroke={AVG_LINE}
-                strokeWidth={1.5}
-                strokeDasharray="5 4"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-                name="Média"
-              />
-            </ComposedChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
