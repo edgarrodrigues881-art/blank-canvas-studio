@@ -743,12 +743,12 @@ const Devices = () => {
       return ` (${Date.now().toString().slice(-4)})`;
     })();
     const formatName = (idx: number) => `${bulkPrefix} ${idx}${collisionSuffix}`;
+    const effectivePrefix = `${bulkPrefix}${collisionSuffix ? collisionSuffix : ""}`;
 
     setBulkOpen(false);
 
-    const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
-
-    // Build sequential queue: each item creates exactly ONE instance
+    // Build sequential queue: each item creates exactly ONE instance.
+    // Mapeamento estritamente 1:1 — Proxy #1 → Chip 1, Proxy #2 → Chip 2, ...
     type QueueItem = { proxyId: string | null; idx: number };
     const queue: QueueItem[] = [];
     let cursor = startIdx;
@@ -759,64 +759,74 @@ const Devices = () => {
       queue.push({ proxyId: null, idx: cursor++ });
     }
 
+    // Inserir TODOS os placeholders otimistas de uma vez (na ordem correta),
+    // assim o usuário já vê todas as instâncias na lista e pode clicar em
+    // "Conectar" assim que cada uma fica pronta.
+    const tempIds: string[] = queue.map((_, i) => `temp-bulk-${Date.now()}-${i}`);
+    const tempDevices: Device[] = queue.map((item, i) => ({
+      id: tempIds[i],
+      name: formatName(item.idx),
+      number: "",
+      status: "Disconnected" as const,
+      login_type: "qr",
+      proxy_id: item.proxyId,
+      profile_picture: null,
+      profile_name: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      has_api_config: false,
+    }));
+    queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+      old ? [...old, ...tempDevices] : [...tempDevices]
+    );
+
     let succeeded = 0;
     let failed = 0;
+    let limitHit = false;
 
-    const effectivePrefix = `${bulkPrefix}${collisionSuffix ? collisionSuffix : ""}`;
-    // Note: backend builds the name as `${prefix} ${idx}`, so passing the
-    // suffix inside the prefix keeps the displayed name and persisted name in sync.
-    toast({ title: `Criando 1 de ${totalCount}...`, description: formatName(queue[0].idx) });
+    toast({ title: `Criando ${totalCount} instância${totalCount !== 1 ? "s" : ""}...`, description: "Você já pode conectar as que ficarem prontas." });
 
-    for (let i = 0; i < queue.length; i++) {
-      const item = queue[i];
-      // Optimistic placeholder appended at the end (preserves creation order)
-      const tempId = `temp-bulk-${Date.now()}-${i}`;
-      const tempDevice: Device = {
-        id: tempId,
-        name: formatName(item.idx),
-        number: "",
-        status: "Disconnected" as const,
-        login_type: "qr",
-        proxy_id: item.proxyId,
-        profile_picture: null,
-        profile_name: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        has_api_config: false,
-      };
-      queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-        old ? [...old, tempDevice] : [tempDevice]
-      );
+    // Concorrência paralela em pequenos lotes — mantém ordem 1:1 mas acelera muito.
+    // 5 simultâneas é seguro para UAZAPI sem disparar rate-limit.
+    const CONCURRENCY = 5;
+    let nextIndex = 0;
 
-      try {
-        await callManageDevices({
-          action: "bulk-create",
-          prefix: effectivePrefix,
-          proxyIds: item.proxyId ? [item.proxyId] : [],
-          noProxyCount: item.proxyId ? 0 : 1,
-          startIndex: item.idx,
-        });
-        succeeded++;
-      } catch (err: any) {
-        failed++;
-        const msg = err?.message || "";
-        queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-          old ? old.filter(d => d.id !== tempId) : old
-        );
-        if (msg.includes("Limite") || msg.includes("LIMIT")) {
-          toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
-          break;
-        } else {
+    const worker = async () => {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= queue.length || limitHit) return;
+        const item = queue[i];
+        const tempId = tempIds[i];
+        try {
+          await callManageDevices({
+            action: "bulk-create",
+            prefix: effectivePrefix,
+            proxyIds: item.proxyId ? [item.proxyId] : [],
+            noProxyCount: item.proxyId ? 0 : 1,
+            startIndex: item.idx,
+          });
+          succeeded++;
+          // Refresh para que o placeholder seja substituído pelo device real
+          // e o botão "Conectar" funcione imediatamente para esta instância.
+          queryClient.invalidateQueries({ queryKey: ["devices"] });
+        } catch (err: any) {
+          failed++;
+          const msg = err?.message || "";
+          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+            old ? old.filter(d => d.id !== tempId) : old
+          );
+          if (msg.includes("Limite") || msg.includes("LIMIT")) {
+            limitHit = true;
+            toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
+            return;
+          }
           console.error(`[bulk-create] Falha ao criar "${formatName(item.idx)}":`, msg);
         }
       }
+    };
 
-      const next = i + 1;
-      if (next < queue.length) {
-        toast({ title: `Criando ${next + 1} de ${totalCount}...`, description: formatName(queue[next].idx) });
-        await delay(2000);
-      }
-    }
+    // Roda os workers em paralelo
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () => worker()));
 
     queryClient.invalidateQueries({ queryKey: ["devices"] });
     queryClient.invalidateQueries({ queryKey: ["proxies"] });
