@@ -688,22 +688,34 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
     onSaved();
   };
 
-  const previewMessage = resolveVars(messageContent, selectedContact);
+  const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onBack}>
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-foreground">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground">Envio individual inteligente</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={onBack}>Cancelar</Button>
-          <Button size="sm" onClick={handleSave} disabled={!canSave || saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs">
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
+            onClick={onBack}
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!canSave || saving}
+            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
+          >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             {editing ? "Salvar" : "Agendar Disparo"}
           </Button>
@@ -711,9 +723,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
       </div>
 
       {/* 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* LEFT — 3 cols */}
-        <div className="lg:col-span-3 space-y-5">
+        <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
           <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
