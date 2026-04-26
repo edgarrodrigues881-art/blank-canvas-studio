@@ -22,7 +22,8 @@ import {
   Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
   Link2, Calendar, User, X, UserPlus, ArrowLeft, Save, FileText,
   Download, Variable, ExternalLink, MessageSquare, Reply,
-  Image as ImageIcon, FileAudio, FileType, Sparkles, Eye
+  Image as ImageIcon, FileAudio, FileType, Sparkles, Eye,
+  Paperclip, Mic, Video, Wifi
 } from "lucide-react";
 
 /* ─── types ─── */
