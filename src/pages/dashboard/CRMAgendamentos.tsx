@@ -1034,9 +1034,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
+                <button type="button" className="sched-chip sched-chip-emerald" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
-                </Button>
+                </button>
               )}
             </div>
 
