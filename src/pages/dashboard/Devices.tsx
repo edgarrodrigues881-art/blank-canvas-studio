@@ -2898,32 +2898,43 @@ const Devices = () => {
                 <div className="space-y-3">
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                      <span className="text-base">🇧🇷</span>
+                      <span className="text-xl leading-none" title={country?.name || "País não detectado"}>
+                        {country?.flag || "🌐"}
+                      </span>
                     </div>
                     <Input
                       value={codePhone}
                       onChange={e => {
-                        const raw = e.target.value.replace(/\D/g, "").slice(0, 13);
-                        let f = raw;
-                        if (raw.length > 2) f = `+${raw.slice(0, 2)} ${raw.slice(2)}`;
-                        if (raw.length > 4) f = `+${raw.slice(0, 2)} ${raw.slice(2, 4)} ${raw.slice(4)}`;
-                        if (raw.length > 9) f = `+${raw.slice(0, 2)} ${raw.slice(2, 4)} ${raw.slice(4, 9)}-${raw.slice(9)}`;
-                        setCodePhone(f);
+                        // Mantém só dígitos e formata dinamicamente conforme o DDI detectado
+                        const raw = e.target.value.replace(/\D/g, "").slice(0, 15);
+                        setCodePhone(formatInternationalPhone(raw));
                       }}
                       placeholder="+55 11 99999-9999"
-                      className="h-14 pl-10 text-lg font-mono tracking-wider bg-muted/30 border-border/50 focus-visible:border-primary/60 focus-visible:ring-primary/20 transition-all"
+                      className="h-14 pl-12 text-lg font-mono tracking-wider bg-muted/30 border-border/50 focus-visible:border-primary/60 focus-visible:ring-primary/20 transition-all"
                       autoFocus
                       onKeyDown={e => { if (e.key === "Enter" && isValid) handleRequestCode(); }}
                     />
                     {isValid && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                       </div>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground/60 text-center flex items-center justify-center gap-1">
-                    <span>Ex:</span>
-                    <span className="font-mono">+55 63 91234-5678</span>
+                  <p className="text-[11px] text-muted-foreground/60 text-center flex items-center justify-center gap-1.5">
+                    {country ? (
+                      <>
+                        <span>{country.flag}</span>
+                        <span>{country.name}</span>
+                        {country.example && (
+                          <>
+                            <span className="text-muted-foreground/40">·</span>
+                            <span className="font-mono">+{country.example}</span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <span>Digite o código do país (ex: 55, 353, 1)</span>
+                    )}
                   </p>
                 </div>
 
