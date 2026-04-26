@@ -296,28 +296,27 @@ export function AppSidebar() {
             to={isLocked ? "#" : item.url}
             onClick={isLocked ? handleClick : undefined}
             onMouseEnter={() => !isLocked && handlePreload(item.url)}
-            className={`sidebar-nav-item flex items-center rounded-xl text-[14px] relative group/item
-              transition-all duration-200 ease-in-out
+            className={`sidebar-nav-item flex items-center rounded-lg text-[14px] relative group/item
+              transition-colors duration-150 ease-in-out
               ${collapsed ? 'gap-0 px-0 py-3 justify-center w-11 h-11 mx-auto' : `gap-3.5 ${indent ? 'pl-9' : 'px-4'} pr-4 py-2.5`}
               ${isLocked
                 ? 'text-muted-foreground/30 font-medium cursor-not-allowed'
                 : active
-                  ? 'bg-gradient-to-r from-crm-primary/20 to-crm-secondary/10 text-crm-primary font-bold shadow-[0_0_15px_rgba(163,230,53,0.1)]'
-                  : 'text-muted-foreground/70 font-medium hover:text-foreground hover:bg-muted/40 hover:translate-x-1'
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
+                  : 'text-muted-foreground/80 font-medium hover:text-foreground hover:bg-sidebar-accent/50'
               }`}
             activeClassName=""
           >
             <div className="relative shrink-0">
               <item.icon
                 className={cn(
-                  "w-[19px] h-[19px] shrink-0 transition-all duration-200 nav-icon-colored",
+                  "w-[19px] h-[19px] shrink-0 transition-transform duration-150 nav-icon-colored",
                   isLocked
                     ? "text-muted-foreground/20"
-                    : active
-                      ? `${getNavIconColor(item.url, item.title)} scale-110 drop-shadow-[0_0_6px_currentColor]`
-                      : getNavIconColor(item.url, item.title)
+                    : getNavIconColor(item.url, item.title),
+                  active && !isLocked && "scale-105"
                 )}
-                strokeWidth={active ? 2.5 : 1.9}
+                strokeWidth={active ? 2.2 : 1.9}
               />
               {isLocked && (
                 <Lock className="absolute -bottom-1.5 -right-1.5 w-[11px] h-[11px] text-amber-500/60" strokeWidth={3} />
@@ -335,7 +334,10 @@ export function AppSidebar() {
               <Lock className="ml-auto w-4 h-4 text-amber-500/40 shrink-0" />
             )}
             {active && !collapsed && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-r-full bg-gradient-to-b from-crm-primary to-crm-secondary shadow-[0_0_10px_rgba(163,230,53,0.5)] z-10" />
+              <span
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full z-10 bg-current opacity-90"
+                style={{ color: 'currentColor' }}
+              />
             )}
           </NavLink>
         </SidebarMenuButton>
