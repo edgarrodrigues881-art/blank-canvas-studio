@@ -17,7 +17,7 @@ const API_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MIN_MS = 10_000;
 const RETRY_DELAY_MAX_MS = 30_000;
-const PRIVATE_MEDIA_TEXT_DELAY_MS = 120;
+const PRIVATE_MEDIA_TEXT_DELAY_MS = 350;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 const SEND_ENDPOINT_PREFIXES = ["/send/", "/chat/", "/message/"];
 const UAZAPI_FAILURE_STATUSES = new Set(["error", "failed", "fail", "not_found", "not_exists", "invalid", "unauthorized", "disconnected", "timeout", "rate_limited"]);
@@ -218,6 +218,15 @@ async function sendPlainMedia(baseUrl: string, token: string, phone: string, med
   }
 }
 
+async function sendPrivateMediaThenText(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string) {
+  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+  const plainText = typeof text === "string" ? text.trim() : "";
+  if (plainText) {
+    await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
+    await sendTextWithFallback(baseUrl, token, phone, plainText);
+  }
+}
+
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
 interface CarouselCard { id?: string; position?: number; text?: string; mediaUrl?: string; mediaType?: string | null; buttons?: any[]; }
 
@@ -308,7 +317,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
       const cardText = [i === 0 ? primaryText : null, card.text?.trim(), ...buildPlainButtonLines(card.buttons || [])]
         .filter(Boolean)
         .join("\n\n");
-      if (mediaUrl) await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, detectMediaType(mediaUrl), cardText);
+      if (mediaUrl) await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, detectMediaType(mediaUrl), cardText);
       else if (cardText) await sendTextWithFallback(baseUrl, token, phone, cardText);
       if (i < normalized.length - 1) await sleep(800 + Math.random() * 800);
     }
@@ -457,9 +466,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         const buttonLines = buildPlainButtonLines(buttons || []);
         const fullText = [text, ...buttonLines].filter(Boolean).join("\n\n");
         log.info(`[campaign-worker] 1:1 target -> plain media + immediate plain text`);
-        await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
-        await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-        await sendTextWithFallback(baseUrl, token, phone, fullText);
+        await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, mediaType || "image", fullText);
       }
       return;
     }
@@ -490,9 +497,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
     }
     if (!isGroupTarget && text) {
-      await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType);
-      await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-      return await sendTextWithFallback(baseUrl, token, phone, text);
+      return await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, mediaType, text);
     }
     return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
   }
