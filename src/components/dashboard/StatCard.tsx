@@ -114,7 +114,7 @@ export function StatCard({
     >
       {/* Accent bar — left vertical gradient */}
       <span
-        className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full ${t.bar} opacity-80 group-hover:opacity-100 transition-opacity`}
+        className={`absolute left-0 top-2.5 bottom-2.5 w-[4px] rounded-r-full ${t.bar} opacity-100 shadow-[0_0_12px_currentColor] transition-opacity`}
       />
 
       <CardContent className="p-3 sm:p-5 pl-4 sm:pl-6">
