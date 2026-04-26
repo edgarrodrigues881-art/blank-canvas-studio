@@ -334,18 +334,27 @@ const Auth = () => {
 
               {isLogin && (
                 <motion.label variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-                  className="flex items-center gap-2 cursor-pointer select-none group pt-0.5">
-                  <div className="relative">
-                    <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
-                    <div className="w-3.5 h-3.5 rounded-[4px] border border-white/10 bg-white/[0.03] peer-checked:bg-emerald-500/80 peer-checked:border-emerald-500/80 transition-all flex items-center justify-center">
-                      {rememberMe && (
-                        <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                  className="flex items-center justify-between gap-2 cursor-pointer select-none group pt-0.5">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
+                      <div className="w-3.5 h-3.5 rounded-[4px] border border-white/10 bg-white/[0.03] peer-checked:bg-emerald-500/80 peer-checked:border-emerald-500/80 transition-all flex items-center justify-center">
+                        {rememberMe && (
+                          <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+                    <span className="text-[11px] text-white/25 group-hover:text-white/40 transition-colors">Manter conectado</span>
                   </div>
-                  <span className="text-[11px] text-white/25 group-hover:text-white/40 transition-colors">Manter conectado</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setForgotEmail(email.trim()); setShowForgotPassword(true); }}
+                    className="text-[11px] text-emerald-400/70 hover:text-emerald-300 transition-colors underline-offset-2 hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
                 </motion.label>
               )}
 
