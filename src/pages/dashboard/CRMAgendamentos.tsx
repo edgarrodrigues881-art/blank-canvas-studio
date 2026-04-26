@@ -840,9 +840,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50">
+                  <button type="button" className="sched-chip sched-chip-emerald">
                     <Variable className="w-3 h-3" /> Variáveis
-                  </Button>
+                  </button>
                 </PopoverTrigger>
                 <PopoverContent
                   className="w-80 p-0 rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
