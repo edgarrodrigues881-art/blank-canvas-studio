@@ -438,6 +438,44 @@ export default function CrmIntegrations() {
                       </CardHeader>
 
                       <CardContent className="pt-0 flex flex-col gap-3 mt-auto">
+                        {/* Automations preview */}
+                        <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Sparkles className="h-3 w-3 text-primary" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {isConnected ? "Automações ativas" : "O que faz quando conectado"}
+                            </span>
+                          </div>
+                          {isConnected ? (
+                            activeChips.length ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {activeChips.map((a) => (
+                                  <span
+                                    key={a.id}
+                                    className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 px-2 py-0.5 text-[11px] font-medium"
+                                  >
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    {a.label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground">
+                                Nenhuma automação ativa. Clique em "Configurar" para ativar.
+                              </p>
+                            )
+                          ) : (
+                            <ul className="space-y-1">
+                              {it.automations.slice(0, 3).map((a) => (
+                                <li key={a.id} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                                  <span className="mt-1 h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" />
+                                  {a.title}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
                         {/* Actions */}
                         {isConnected ? (
                           <div className="flex items-center gap-2">
