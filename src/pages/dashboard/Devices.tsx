@@ -759,44 +759,20 @@ const Devices = () => {
       queue.push({ proxyId: null, idx: cursor++ });
     }
 
-    // Inserir TODOS os placeholders otimistas de uma vez (na ordem correta),
-    // assim o usuário já vê todas as instâncias na lista e pode clicar em
-    // "Conectar" assim que cada uma fica pronta.
-    const tempIds: string[] = queue.map((_, i) => `temp-bulk-${Date.now()}-${i}`);
-    const tempDevices: Device[] = queue.map((item, i) => ({
-      id: tempIds[i],
-      name: formatName(item.idx),
-      number: "",
-      status: "Disconnected" as const,
-      login_type: "qr",
-      proxy_id: item.proxyId,
-      profile_picture: null,
-      profile_name: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      has_api_config: false,
-    }));
-    queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-      old ? [...old, ...tempDevices] : [...tempDevices]
-    );
-
     let succeeded = 0;
     let failed = 0;
     let limitHit = false;
 
-    toast({ title: `Criando ${totalCount} instância${totalCount !== 1 ? "s" : ""}...`, description: "Você já pode conectar as que ficarem prontas." });
+    toast({ title: `Criando ${totalCount} instância${totalCount !== 1 ? "s" : ""}...`, description: "Cada uma aparece assim que estiver pronta." });
 
-    // Criação SEQUENCIAL (uma por vez) — garante que o created_at de cada
-    // instância respeite a ordem 1, 2, 3, 4... no banco. O backend ordena
-    // por created_at, então paralelizar quebra a numeração.
-    // Como a chamada já é rápida (~300-600ms cada), não precisa de delay
-    // artificial entre elas. A UI permanece responsiva: o usuário pode
-    // clicar em "Conectar" em qualquer instância já criada (refresh após
-    // cada sucesso reidrata o card real no lugar do placeholder).
+    // Criação SEQUENCIAL (uma por vez) sem placeholders em massa.
+    // Cada instância só aparece na lista DEPOIS de ser realmente criada,
+    // evitando o efeito visual de "tudo aparece e some/atualiza".
+    // O usuário pode clicar em "Conectar" em qualquer instância já criada
+    // enquanto as próximas vão sendo feitas.
     for (let i = 0; i < queue.length; i++) {
       if (limitHit) break;
       const item = queue[i];
-      const tempId = tempIds[i];
       try {
         await callManageDevices({
           action: "bulk-create",
@@ -806,13 +782,11 @@ const Devices = () => {
           startIndex: item.idx,
         });
         succeeded++;
+        // Refresh a cada criação — o device real aparece na lista na ordem certa.
         queryClient.invalidateQueries({ queryKey: ["devices"] });
       } catch (err: any) {
         failed++;
         const msg = err?.message || "";
-        queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-          old ? old.filter(d => d.id !== tempId) : old
-        );
         if (msg.includes("Limite") || msg.includes("LIMIT")) {
           limitHit = true;
           toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
