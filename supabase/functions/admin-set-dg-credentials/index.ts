@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
     const userId = "f5220141-3b20-4e85-90fd-8c85695686fa";
     const { data, error } = await sb.auth.admin.updateUserById(userId, {
       email: "dg@dg-login.local",
-      password: "881881",
+      password: "88188188",
       email_confirm: true,
     });
     if (error) throw error;
