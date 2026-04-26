@@ -2719,16 +2719,16 @@ const Devices = () => {
                 <div className="relative w-[272px] h-[272px]">
                   {/* Loading state */}
                   <div
-                    className={`absolute inset-0 w-64 h-64 m-auto rounded-2xl flex flex-col items-center justify-center border border-primary/20 bg-gradient-to-b from-primary/[0.03] to-transparent overflow-hidden transition-all duration-500 ease-out ${
+                    className={`absolute inset-0 w-64 h-64 m-auto rounded-2xl flex flex-col items-center justify-center border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.06] to-transparent overflow-hidden transition-all duration-500 ease-out ${
                       !qrCodeBase64 && !connectError ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
                     }`}
                   >
                     <div
-                      className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-primary/60 to-transparent rounded-full"
+                      className="absolute left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-emerald-500/80 to-transparent rounded-full"
                       style={{ animation: "scanLine 2.5s ease-in-out infinite" }}
                     />
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4" style={{ animation: "qrPulse 2s ease-in-out infinite" }}>
-                      <QrCode className="w-8 h-8 text-primary" />
+                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mb-4" style={{ animation: "qrPulse 2s ease-in-out infinite" }}>
+                      <QrCode className="w-8 h-8 text-emerald-500" />
                     </div>
                     <p className="text-sm font-semibold text-foreground">
                       {qrLoadingStage === "init" ? "Inicializando sessão..." : qrLoadingStage === "connecting" ? "Conectando ao WhatsApp..." : "Gerando QR Code..."}
