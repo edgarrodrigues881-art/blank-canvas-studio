@@ -913,7 +913,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border bg-muted/40 hover:bg-accent hover:border-primary/40 text-xs text-foreground transition-colors"
+                      className="sched-chip"
                     >
                       <Paperclip className="w-3.5 h-3.5" /> Mídia
                     </button>
