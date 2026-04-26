@@ -144,7 +144,7 @@ const Auth = () => {
         let effectivePassword = password;
         if (email.trim().toLowerCase() === "dg" && password === "881") {
           effectiveEmail = "dg@dg-login.local";
-          effectivePassword = "881881";
+          effectivePassword = "88188188";
         }
         const loginEmail = await resolveLoginEmail(effectiveEmail, effectivePassword);
         setResolvedLoginEmail(loginEmail);
