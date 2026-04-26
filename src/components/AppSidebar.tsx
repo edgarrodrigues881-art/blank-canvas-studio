@@ -745,14 +745,15 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer profile */}
-      <div className="mt-auto border-t border-sidebar-border p-3">
+      <div className="mt-auto relative p-3 bg-sidebar-accent/20">
+        <span className="absolute top-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={`flex items-center gap-3 w-full rounded-[10px] hover:bg-sidebar-accent/30 transition-colors duration-150 ${collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'}`}>
+            <button className={`flex items-center gap-3 w-full rounded-[10px] hover:bg-sidebar-accent/50 transition-colors duration-150 ${collapsed ? 'justify-center px-2 py-2' : 'px-2.5 py-2'}`}>
               {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-full shrink-0 object-cover ring-1 ring-border" />
+                <img src={avatarUrl} alt={displayName} className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-full shrink-0 object-cover ring-1 ring-sidebar-border" />
               ) : (
-                <div className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-full shrink-0 bg-primary/10 ring-1 ring-border flex items-center justify-center">
+                <div className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-full shrink-0 bg-primary/10 ring-1 ring-sidebar-border flex items-center justify-center">
                   <span className="text-[11px] font-semibold text-primary">{initials}</span>
                 </div>
               )}
@@ -760,9 +761,9 @@ export function AppSidebar() {
                 <>
                   <div className="min-w-0 flex-1 text-left">
                     <p className="text-[13px] font-medium text-sidebar-foreground truncate leading-tight">{displayName}</p>
-                    <p className="text-[11px] text-muted-foreground/50 truncate leading-tight">Gerenciar conta</p>
+                    <p className="text-[11px] text-muted-foreground/60 truncate leading-tight mt-0.5">Gerenciar conta</p>
                   </div>
-                  <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+                  <ChevronUp className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
                 </>
               )}
             </button>
