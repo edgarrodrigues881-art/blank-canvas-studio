@@ -2834,11 +2834,16 @@ const Devices = () => {
               </motion.div>
             )}
 
-            {connectStep === "code_phone" && (() => {
+             {connectStep === "code_phone" && (() => {
               const rawDigits = codePhone.replace(/\D/g, "");
-              const isValid = rawDigits.length >= 12;
+              const country = detectCountryFromDigits(rawDigits);
+              // Validação genérica: pelo menos DDI + 8 dígitos do número local
+              const localDigits = country ? rawDigits.slice(country.code.length) : rawDigits;
+              const isValid = !!country && localDigits.length >= 8;
               const handleRequestCode = async () => {
                 if (!connectingDevice || !isValid) return;
+                // Salva o DDI usado para a próxima vez
+                if (country) saveLastUsedDDI(country.code);
                 const proxyId = selectedProxy && selectedProxy !== "none" ? selectedProxy : null;
                 const selectedProxyData = proxyId ? availableProxies.find(p => p.id === proxyId) : null;
                 setConnectStep("code");
