@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowRight, ArrowUpRight, ArrowDownRight, DollarSign, Handshake, Users, TrendingUp, MessageCircle, Clock, AlertTriangle, XCircle } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS } from "@/components/crm/CrmStyleGuide";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, ComposedChart, Bar, Line, Area, Legend,
@@ -461,12 +462,12 @@ export default function CRMReports() {
   };
 
   return (
-    <div className="bg-background min-h-screen -m-4 p-6 text-foreground transition-colors duration-200">
+    <div className="bg-background min-h-screen -m-4 p-6 text-foreground transition-colors duration-200 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Performance de Vendas</h1>
-          <p className="text-[12px] text-muted-foreground mt-1">Métricas, funil e insights para tomada de decisão</p>
+          <CrmPageTitle className="text-2xl">📊 Performance de Vendas</CrmPageTitle>
+          <p className="text-[12px] text-muted-foreground mt-2">Métricas, funil e insights para tomada de decisão estratégica</p>
         </div>
         {/* Period pill selector */}
         <div className="flex items-center gap-1 bg-card border border-border rounded-full p-1">
