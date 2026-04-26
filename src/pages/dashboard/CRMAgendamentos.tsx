@@ -1281,9 +1281,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 overflow-hidden shadow-[0_10px_40px_-20px_hsl(var(--background)/0.9)]">
-              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3 border-b border-emerald-900/40">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-emerald-400 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
+            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
+              <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
                   {contactInitial}
                 </div>
                 <div className="min-w-0">
@@ -1294,22 +1294,25 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 </div>
               </div>
 
-              <div className="bg-[hsl(var(--background))] min-h-[360px] p-5 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
+              <div className="bg-muted/40 min-h-[420px] p-5 flex flex-col">
                 {previewMessage.trim() || mediaPreview ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%]">
-                      <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-2 py-2 space-y-1.5">
+                      <div className="bg-emerald-500/15 border border-emerald-500/25 rounded-2xl rounded-tr-md px-2 py-2 space-y-1.5 shadow-sm">
                         {mediaPreview && mediaPreview.kind === "image" && (
-                          <img src={mediaPreview.url} alt={mediaPreview.name} className="rounded-lg w-full max-h-56 object-cover" />
+                          <img src={mediaPreview.url} alt={mediaPreview.name} className="rounded-xl w-full max-h-56 object-cover" />
+                        )}
+                        {mediaPreview && mediaPreview.kind === "video" && (
+                          <video src={mediaPreview.url} controls className="rounded-xl w-full max-h-56" />
                         )}
                         {mediaPreview && mediaPreview.kind === "audio" && (
-                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2 py-1.5">
-                            <FileAudio className="w-4 h-4 text-primary shrink-0" />
+                          <div className="flex items-center gap-2 bg-background/60 rounded-lg px-2 py-1.5">
+                            <Mic className="w-4 h-4 text-primary shrink-0" />
                             <audio src={mediaPreview.url} controls className="h-7 w-full" />
                           </div>
                         )}
                         {mediaPreview && mediaPreview.kind === "document" && (
-                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2.5 py-2">
+                          <div className="flex items-center gap-2 bg-background/60 rounded-lg px-2.5 py-2">
                             <FileType className="w-5 h-5 text-primary shrink-0" />
                             <div className="min-w-0">
                               <p className="text-xs font-medium text-foreground truncate">{mediaPreview.name}</p>
@@ -1323,7 +1326,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                         )}
 
                         {buttons.filter(b => b.text).length > 0 && (
-                          <div className="pt-1.5 border-t border-emerald-500/10 space-y-1">
+                          <div className="pt-1.5 border-t border-emerald-500/15 space-y-1">
                             {buttons.filter(b => b.text).map((btn, i) => (
                               <div key={i} className="flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-primary cursor-pointer hover:underline">
                                 {btn.type === "url" ? <ExternalLink className="w-3 h-3" /> : <Reply className="w-3 h-3" />}
@@ -1333,17 +1336,19 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                           </div>
                         )}
 
-                        <p className="text-[10px] text-muted-foreground/60 text-right px-1.5">
-                          {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/50" />
+                        <p className="text-[10px] text-muted-foreground/70 text-right px-1.5">
+                          {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/60" />
                         </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full py-16">
-                    <div className="text-center space-y-2">
-                      <MessageSquare className="w-8 h-8 text-muted-foreground/20 mx-auto" />
-                      <p className="text-xs text-muted-foreground/40">Digite uma mensagem para ver o preview</p>
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center space-y-3">
+                      <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mx-auto">
+                        <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Digite uma mensagem para ver o preview</p>
                     </div>
                   </div>
                 )}
