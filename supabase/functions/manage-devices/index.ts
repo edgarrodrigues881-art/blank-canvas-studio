@@ -94,18 +94,19 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
         const providerBase = (device.uazapi_base_url || DEFAULT_BASE).replace(/\/+$/, "");
         const providerLabel = labelMap.get(device.id) || null;
         
-        // 1. Delete from provider (non-blocking — don't fail if provider is down)
-        const providerDeleted = await deleteOneFromProvider(
-          providerBase, device.uazapi_token, ADMIN_TOKEN, providerLabel
-        );
-        console.log(`[bulk-delete] ${device.id}: provider=${providerDeleted ? "ok" : "skip"}`);
-
-        // If provider delete failed, log warning but continue with DB cleanup
-        if (!providerDeleted && (device.uazapi_token || providerLabel)) {
-          console.warn(`[bulk-delete] ${device.id}: UAZAPI delete failed, proceeding with DB cleanup`);
+        // 1. Provider deletion — FIRE AND FORGET (don't block the response on slow UAZAPI)
+        try {
+          // @ts-ignore EdgeRuntime is available in Supabase Edge Runtime
+          EdgeRuntime.waitUntil(
+            deleteOneFromProvider(providerBase, device.uazapi_token, ADMIN_TOKEN, providerLabel)
+              .then((ok) => console.log(`[bulk-delete] ${device.id}: provider=${ok ? "ok" : "skip"} (bg)`))
+              .catch((e: any) => console.warn(`[bulk-delete] ${device.id}: provider bg error`, e?.message))
+          );
+        } catch {
+          deleteOneFromProvider(providerBase, device.uazapi_token, ADMIN_TOKEN, providerLabel).catch(() => {});
         }
 
-        // 2-5. DB cleanup in parallel
+        // 2-5. DB cleanup in parallel (this is the fast path the UI waits on)
         const proxyId = device.proxy_id;
         await Promise.allSettled([
           admin.from("user_api_tokens").update({ status: "deleted", device_id: null, assigned_at: null }).eq("device_id", device.id),
@@ -123,20 +124,11 @@ async function deleteDevices(admin: any, userId: string, deviceIds: string[]): P
         const { error: deleteError } = await admin.from("devices").delete().eq("id", device.id);
         if (deleteError) throw deleteError;
 
-        const { data: remainingDevice, error: verifyError } = await admin
-          .from("devices")
-          .select("id")
-          .eq("id", device.id)
-          .maybeSingle();
-        if (verifyError) throw verifyError;
-        if (remainingDevice) throw new Error("A instância continuou no banco após a exclusão.");
-        
-        // Log (fire and forget)
+        // Log (fire and forget) — also skipping the verify SELECT to save a round-trip
         oplog(admin, userId, "instance_deleted", `Instância \"${device.name}\" deletada (bulk)`, device.id, {
           device_name: device.name,
           device_number: device.number || null,
           provider_label: providerLabel,
-          provider_deleted: providerDeleted,
           proxy_id: proxyId || null,
         }).catch(() => {});
 
