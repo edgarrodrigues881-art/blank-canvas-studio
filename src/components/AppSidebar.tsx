@@ -246,36 +246,39 @@ export function AppSidebar() {
             to={isLocked ? "#" : item.url}
             onClick={isLocked ? handleClick : undefined}
             onMouseEnter={() => !isLocked && handlePreload(item.url)}
-            className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
-              transition-all duration-[120ms] ease-out
-              ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : `gap-[11px] ${indent ? 'pl-8' : 'px-3.5'} pr-3.5 py-[9px]`}
+            className={`sidebar-nav-item flex items-center rounded-xl text-[14px] relative group/item
+              transition-all duration-200 ease-in-out
+              ${collapsed ? 'gap-0 px-0 py-3 justify-center w-11 h-11 mx-auto' : `gap-3.5 ${indent ? 'pl-9' : 'px-4'} pr-4 py-2.5`}
               ${isLocked
-                ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
+                ? 'text-muted-foreground/30 font-medium cursor-not-allowed'
                 : active
-                  ? 'bg-muted/40 text-foreground font-semibold'
-                  : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
+                  ? 'bg-gradient-to-r from-crm-primary/20 to-crm-secondary/10 text-crm-primary font-bold shadow-[0_0_15px_rgba(163,230,53,0.1)]'
+                  : 'text-muted-foreground/70 font-medium hover:text-foreground hover:bg-muted/40 hover:translate-x-1'
               }`}
             activeClassName=""
           >
             <div className="relative shrink-0">
               <item.icon
-                className={`w-[17px] h-[17px] shrink-0 transition-colors duration-150 ${isLocked ? 'text-muted-foreground/30' : active ? 'text-foreground' : ''}`}
-                strokeWidth={active ? 2 : 1.4}
+                className={`w-[19px] h-[19px] shrink-0 transition-all duration-200 ${isLocked ? 'text-muted-foreground/20' : active ? 'text-crm-primary scale-110' : 'group-hover/item:text-foreground'}`}
+                strokeWidth={active ? 2.5 : 1.6}
               />
               {isLocked && (
-                <Lock className="absolute -bottom-1 -right-1 w-[10px] h-[10px] text-amber-500/70" strokeWidth={2.5} />
+                <Lock className="absolute -bottom-1.5 -right-1.5 w-[11px] h-[11px] text-amber-500/60" strokeWidth={3} />
               )}
             </div>
             {!collapsed && (
-              <span className={`truncate flex-1 ${isLocked ? 'opacity-50' : ''}`}>{item.title}</span>
+              <span className={`truncate flex-1 tracking-tight ${isLocked ? 'opacity-40' : ''}`}>{item.title}</span>
             )}
-            {!collapsed && isLocked && (
-              <Lock className="ml-auto w-3.5 h-3.5 text-amber-500/60 shrink-0" />
-            )}
-            {!collapsed && !isLocked && badgeVal > 0 && (
-              <span className="ml-auto text-[10px] font-bold bg-muted text-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+            {!collapsed && badgeVal > 0 && (
+              <span className="ml-auto bg-crm-primary text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
                 {badgeVal}
               </span>
+            )}
+            {!collapsed && isLocked && (
+              <Lock className="ml-auto w-4 h-4 text-amber-500/40 shrink-0" />
+            )}
+            {active && !collapsed && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-r-full bg-gradient-to-b from-crm-primary to-crm-secondary shadow-[0_0_10px_rgba(163,230,53,0.5)] z-10" />
             )}
           </NavLink>
         </SidebarMenuButton>
