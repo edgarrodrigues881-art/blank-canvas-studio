@@ -207,7 +207,7 @@ export default function CrmIntegrations() {
   return (
     <div className="container max-w-7xl py-8 space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-500 via-emerald-500 to-slate-500 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
           Integrações
         </h1>
         <p className="text-muted-foreground text-lg">
