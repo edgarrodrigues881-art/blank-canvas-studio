@@ -49,7 +49,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export const ActivityChart = React.memo(function ActivityChart({ data }: Props) {
+export const ActivityChart = React.memo(function ActivityChart({
+  data,
+  periodLabel = "7 dias",
+  headerRight,
+}: Props) {
   const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
   const totalPrev = data.reduce((sum, d) => sum + (d.entregasPrev || 0), 0);
 
@@ -72,18 +76,24 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
   const ACCENT = "hsl(152, 69%, 53%)";
   const PREV = "hsl(220, 9%, 55%)";
 
+  // Smart X axis: avoid label overlap on long periods
+  const xInterval =
+    data.length > 60 ? Math.ceil(data.length / 8) - 1 :
+    data.length > 30 ? Math.ceil(data.length / 10) - 1 :
+    data.length > 15 ? 1 : 0;
+
   return (
     <Card className="border-border/50 bg-card w-full col-span-full overflow-hidden">
       <CardHeader className="pb-1">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Mensagens Entregues — 7 dias
+            Mensagens Entregues — {periodLabel}
           </CardTitle>
           <div className="flex items-center gap-3 text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ background: ACCENT }} />
-              <span className="text-muted-foreground">Esta semana</span>
+              <span className="text-muted-foreground">Período atual</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -92,8 +102,9 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
                   background: `repeating-linear-gradient(90deg, ${PREV} 0 3px, transparent 3px 6px)`,
                 }}
               />
-              <span className="text-muted-foreground">Semana anterior</span>
+              <span className="text-muted-foreground">Período anterior</span>
             </div>
+            {headerRight}
           </div>
         </div>
         <div className="mt-1 flex items-end gap-3 flex-wrap">
