@@ -2144,7 +2144,7 @@ const Devices = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => {
                         if (!canCreateInstance) { if (planState !== "active") setPlanGateOpen(true); else setLimitGateOpen(true); return; }
-                        setBulkOpen(true); setBulkPrefix("Instância"); setBulkCount(1); setBulkUseProxy(false); setBulkSelectedProxies([]); setBulkNoProxyCount(0);
+                        setBulkOpen(true); setBulkStep(1); setBulkPrefix("Instância"); setBulkCount(1); setBulkUseProxy(false); setBulkSelectedProxies([]); setBulkNoProxyCount(0);
                       }}>
                         <Layers className="w-3.5 h-3.5 mr-2" /> Criar em massa
                       </DropdownMenuItem>
