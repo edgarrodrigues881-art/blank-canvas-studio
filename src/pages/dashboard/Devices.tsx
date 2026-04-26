@@ -2372,7 +2372,7 @@ const Devices = () => {
                     className="w-full text-[11px] h-9 gap-1.5 rounded-lg font-semibold bg-emerald-500 hover:bg-emerald-600 text-white"
                     onClick={() => openConnect(d)}
                   >
-                    {hadPreviousConnection ? <RefreshCw className="w-3.5 h-3.5" /> : <Plug className="w-3.5 h-3.5" />}
+                    {hadPreviousConnection ? <RefreshCw className="w-3.5 h-3.5" /> : null}
                     {hadPreviousConnection ? "Reconectar" : "Conectar"}
                   </Button>
                 )}
