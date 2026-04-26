@@ -28,6 +28,7 @@ import {
   ArrowUp, ArrowDown, Search, Save, Image as ImageIcon, Video, Mic,
   Sparkles
 } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS } from "@/components/crm/CrmStyleGuide";
 import { useCreateCrmCampaign, useStartCrmCampaign } from "@/hooks/useCrmCampaigns";
 import { useCrmTemplates, useCreateCrmTemplate } from "@/hooks/useCrmTemplates";
 import { useContacts } from "@/hooks/useContacts";
@@ -275,10 +276,10 @@ const CrmDispatches = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-10">
+    <div className="space-y-6 max-w-4xl mx-auto pb-10 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Disparo CRM</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Envie mensagens para seus contatos do CRM</p>
+        <CrmPageTitle>📤 Disparo CRM</CrmPageTitle>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-2">Envie mensagens para seus contatos do CRM com agendamento e automação</p>
       </div>
 
       {/* Campaign Name */}
@@ -479,8 +480,8 @@ const CrmDispatches = () => {
 
       {/* Submit */}
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/dashboard/crm-campaign-list")}>Cancelar</Button>
-        <Button onClick={handleSubmit} disabled={isSubmittingCampaign || !campaignName.trim() || !message.trim() || contacts.length === 0 || selectedDevices.length === 0} className="gap-1.5">
+        <Button variant="outline" onClick={() => navigate("/dashboard/crm-campaign-list")} className="font-semibold">Cancelar</Button>
+        <Button onClick={handleSubmit} disabled={isSubmittingCampaign || !campaignName.trim() || !message.trim() || contacts.length === 0 || selectedDevices.length === 0} className={`gap-1.5 font-semibold ${BUTTON_VARIANTS.primary}`}>
           {isSubmittingCampaign ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           {scheduleEnabled ? "Agendar Disparo CRM" : "Iniciar Disparo CRM"}
         </Button>
