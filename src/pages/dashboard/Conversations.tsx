@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Zap, Bell, MessageSquarePlus, Trash2, Pencil, Smartphone, ChevronDown, Check } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS } from "@/components/crm/CrmStyleGuide";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -469,8 +470,8 @@ const Conversations = () => {
             }}
           >
             {/* Clean top header */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-slate-50/80 dark:bg-card/40 backdrop-blur-sm">
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Atendimento</h2>
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 dark:bg-card/40 backdrop-blur-sm">
+              <h2 className="text-[15px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent tracking-tight">💬 Atendimento</h2>
               <div className="flex items-center gap-0.5">
                 {availableInstances.length >= 1 && (
                   <DropdownMenu>
@@ -558,7 +559,7 @@ const Conversations = () => {
                 */}
                 <button
                   onClick={() => setNewConversationOpen(true)}
-                  className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-lg border border-border bg-transparent text-foreground text-[11px] font-medium hover:bg-muted/40 transition-all duration-150 ml-1 shrink-0"
+                  className={`inline-flex items-center gap-1.5 h-[30px] px-3 rounded-lg text-[11px] font-bold transition-all duration-200 ml-1 shrink-0 ${BUTTON_VARIANTS.secondary}`}
                 >
                   <MessageSquarePlus className="w-3.5 h-3.5" />
                   Nova
