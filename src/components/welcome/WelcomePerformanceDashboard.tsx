@@ -69,7 +69,7 @@ export function WelcomePerformanceDashboard({ automationId }: Props) {
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
       {/* Success rate */}
-      <Card className="border-border/40 bg-gradient-to-br from-emerald-500/5 to-transparent">
+      <Card className="border-border/40 bg-emerald-500/5">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Taxa de sucesso</span>

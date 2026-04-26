@@ -63,7 +63,7 @@ const statusLabels: Record<AttendingStatus, { label: string; color: string; dot:
 };
 
 const avatarColors = [
-  "from-emerald-500 to-teal-600",
+  "bg-emerald-500",
   "from-blue-500 to-indigo-600",
   "from-violet-500 to-purple-600",
   "from-amber-500 to-orange-600",

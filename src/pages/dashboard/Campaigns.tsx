@@ -2535,7 +2535,7 @@ const Campaigns = () => {
 
               {/* Instance Selection */}
               <SurfaceCard className="relative p-5 space-y-3 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-emerald-500/[0.03] pointer-events-none" />
                 <div className="relative z-10 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">

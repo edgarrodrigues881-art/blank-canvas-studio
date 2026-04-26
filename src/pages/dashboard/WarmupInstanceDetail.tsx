@@ -1293,7 +1293,7 @@ const WarmupInstanceDetail = () => {
                 </div>
                 <div className="h-1.5 bg-muted/15 rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 transition-all duration-700"
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
                     style={{ width: `${Math.round((cycle.day_index / cycle.days_total) * 100)}%` }}
                   />
                 </div>
@@ -1721,7 +1721,7 @@ const WarmupInstanceDetail = () => {
                           <span className="text-sm font-extrabold text-foreground tabular-nums">{doneToday}</span>
                         </div>
                         <div className="h-2.5 bg-muted/15 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-primary to-emerald-400 transition-all duration-500 shadow-[0_0_12px_hsl(142_71%_45%/0.35)]" style={{ width: `${todayPercent}%` }} />
+                          <div className="h-full rounded-full bg-emerald-500 transition-all duration-500 shadow-[0_0_12px_hsl(142_71%_45%/0.35)]" style={{ width: `${todayPercent}%` }} />
                         </div>
                       </div>
 

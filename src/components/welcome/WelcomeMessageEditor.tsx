@@ -168,7 +168,7 @@ function WhatsAppPreviewInner({ payload, height = 580 }: { payload: WelcomeMessa
   return (
     <div className="relative mx-auto select-none" style={{ width: screenW + 22 }}>
       {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-0 -m-6 rounded-[3rem] bg-gradient-to-b from-emerald-500/10 via-pink-500/5 to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 -m-6 rounded-[3rem] bg-emerald-500/5 blur-3xl" />
 
       {/* ── iPhone Pro chassis (titanium) ── */}
       <div
