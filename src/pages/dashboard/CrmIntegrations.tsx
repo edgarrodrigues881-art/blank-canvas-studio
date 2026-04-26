@@ -88,7 +88,7 @@ const INTEGRATIONS: Integration[] = [
     name: "Google Sheets",
     description: "Sincronize leads e histórico de mensagens com suas planilhas em tempo real.",
     logo: "/google-sheets.png",
-    accent: "from-emerald-500 to-emerald-600",
+    accent: "bg-emerald-500",
     bg: "bg-emerald-500/5",
     configFields: [
       { key: "token", label: "Token de Acesso Google", placeholder: "Cole seu token aqui", type: "password" },
