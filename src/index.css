@@ -518,6 +518,109 @@
     color: hsl(152 76% 70%);
     border-color: hsl(152 50% 26%);
   }
+
+  /* ── Chip / Pill buttons (selectable) ── */
+  .sched-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    background-color: hsl(220 22% 96%);
+    color: hsl(220 22% 26%);
+    border: 1px solid hsl(220 16% 90%);
+    cursor: pointer;
+    transition: background-color 200ms ease, color 200ms ease,
+                border-color 200ms ease, transform 200ms ease,
+                box-shadow 200ms ease;
+    will-change: transform;
+  }
+  .sched-chip:hover {
+    background-color: hsl(220 22% 92%);
+    border-color: hsl(220 16% 82%);
+    color: hsl(220 26% 14%);
+    transform: scale(1.03);
+  }
+  .sched-chip:active {
+    transform: scale(0.98);
+  }
+  .sched-chip[data-active="true"],
+  .sched-chip.is-active {
+    background: linear-gradient(180deg, hsl(152 76% 46%), hsl(152 80% 40%));
+    border-color: hsl(152 80% 36%);
+    color: #ffffff;
+    box-shadow:
+      0 6px 16px -8px hsl(152 76% 38% / 0.55),
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.18);
+  }
+  .sched-chip[data-active="true"]:hover,
+  .sched-chip.is-active:hover {
+    filter: brightness(1.04);
+  }
+
+  :is(.dark) .sched-chip {
+    background-color: hsl(220 14% 14%);
+    border-color: hsl(220 14% 22%);
+    color: hsl(220 14% 82%);
+  }
+  :is(.dark) .sched-chip:hover {
+    background-color: hsl(220 14% 18%);
+    border-color: hsl(220 14% 30%);
+    color: hsl(0 0% 98%);
+  }
+  :is(.dark) .sched-chip[data-active="true"],
+  :is(.dark) .sched-chip.is-active {
+    background: linear-gradient(180deg, hsl(152 76% 44%), hsl(152 80% 36%));
+    border-color: hsl(152 70% 32%);
+    color: #ffffff;
+  }
+
+  /* Tonal variants for thematic chips (still pill-shaped) */
+  .sched-chip-emerald {
+    background-color: hsl(152 76% 96%);
+    border-color: hsl(152 60% 84%);
+    color: hsl(152 76% 26%);
+  }
+  .sched-chip-emerald:hover {
+    background-color: hsl(152 76% 92%);
+    border-color: hsl(152 60% 72%);
+    color: hsl(152 80% 20%);
+  }
+  :is(.dark) .sched-chip-emerald {
+    background-color: hsl(152 50% 12%);
+    border-color: hsl(152 50% 24%);
+    color: hsl(152 76% 78%);
+  }
+  :is(.dark) .sched-chip-emerald:hover {
+    background-color: hsl(152 50% 16%);
+    border-color: hsl(152 50% 32%);
+    color: hsl(152 80% 88%);
+  }
+
+  .sched-chip-indigo {
+    background-color: hsl(232 92% 97%);
+    border-color: hsl(232 70% 86%);
+    color: hsl(232 70% 38%);
+  }
+  .sched-chip-indigo:hover {
+    background-color: hsl(232 92% 94%);
+    border-color: hsl(232 70% 76%);
+    color: hsl(232 80% 32%);
+  }
+  :is(.dark) .sched-chip-indigo {
+    background-color: hsl(232 50% 16%);
+    border-color: hsl(232 50% 28%);
+    color: hsl(232 90% 82%);
+  }
+  :is(.dark) .sched-chip-indigo:hover {
+    background-color: hsl(232 50% 20%);
+    border-color: hsl(232 50% 36%);
+    color: hsl(232 95% 90%);
+  }
 }
 
 /* ── QR Code loading animations ── */

@@ -840,9 +840,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50">
+                  <button type="button" className="sched-chip sched-chip-emerald">
                     <Variable className="w-3 h-3" /> Variáveis
-                  </Button>
+                  </button>
                 </PopoverTrigger>
                 <PopoverContent
                   className="w-80 p-0 rounded-xl border border-border bg-popover shadow-xl overflow-hidden"
@@ -913,7 +913,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-border bg-muted/40 hover:bg-accent hover:border-primary/40 text-xs text-foreground transition-colors"
+                      className="sched-chip"
                     >
                       <Paperclip className="w-3.5 h-3.5" /> Mídia
                     </button>
@@ -966,7 +966,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                     <button
                       type="button"
                       onClick={() => handleMediaPick("audio")}
-                      className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary text-xs text-primary transition-colors"
+                      className="sched-chip sched-chip-emerald"
                     >
                       <Mic className="w-3.5 h-3.5" /> Áudio
                     </button>
@@ -1034,9 +1034,9 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
+                <button type="button" className="sched-chip sched-chip-emerald" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
-                </Button>
+                </button>
               )}
             </div>
 
@@ -1046,21 +1046,21 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("confirm")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Confirmar / Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("yesno")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Sim / Não
                 </button>
                 <button
                   type="button"
                   onClick={() => applyQuickButtons("more")}
-                  className="inline-flex items-center gap-1 px-2 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                  className="sched-chip"
                 >
                   <Sparkles className="w-3 h-3" /> Ver mais
                 </button>
@@ -1193,12 +1193,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                     key={chip.key}
                     type="button"
                     onClick={() => applyQuickSchedule(chip.key)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-3 h-7 rounded-full border text-[11px] font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-background border-primary/40 text-primary hover:bg-primary/10"
-                    )}
+                    data-active={active}
+                    className="sched-chip"
                   >
                     <Clock className="w-3 h-3" /> {chip.label}
                   </button>
@@ -1227,12 +1223,12 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-emerald-400/30 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-400/50 hover:text-emerald-200" onClick={() => setShowSaveTemplate(true)}>
+              <button type="button" className="sched-chip sched-chip-emerald" onClick={() => setShowSaveTemplate(true)}>
                 <Save className="w-3.5 h-3.5" /> Salvar template
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={() => setShowLoadTemplate(true)}>
+              </button>
+              <button type="button" className="sched-chip sched-chip-indigo" onClick={() => setShowLoadTemplate(true)}>
                 <Download className="w-3.5 h-3.5" /> Usar template
-              </Button>
+              </button>
             </div>
           </div>
 
