@@ -164,6 +164,23 @@ export function useDashboardStats() {
         }
       });
 
+      // Previous week — by day-of-week index (0=Mon..6=Sun) for direct comparison
+      const prevByDow: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+      const dowFromDateStr = (s: string) => {
+        const d = new Date(s + "T12:00:00");
+        const dow = d.getDay(); // 0=Sun..6=Sat
+        return dow === 0 ? 6 : dow - 1; // shift to 0=Mon..6=Sun
+      };
+      ((prevDailyStatsRes.data as any[]) || []).forEach((r: any) => {
+        const idx = dowFromDateStr(r.stat_date);
+        prevByDow[idx] = (prevByDow[idx] || 0) + (r.messages_sent || 0);
+      });
+      ((prevLogCountsRes.data as any[]) || []).forEach((r: any) => {
+        const dateStr = typeof r.dt === 'string' ? r.dt.slice(0, 10) : String(r.dt);
+        const idx = dowFromDateStr(dateStr);
+        prevByDow[idx] = (prevByDow[idx] || 0) + Number(r.cnt);
+      });
+
       const totalMessages = totalSent + totalFailed;
 
       // Build chips
