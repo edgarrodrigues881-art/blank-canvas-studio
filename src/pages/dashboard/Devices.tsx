@@ -1885,7 +1885,9 @@ const Devices = () => {
       return;
     }
     setConnectingDevice(device);
-    setCodePhone("");
+    // Pre-fill com o último DDI usado para agilizar (BR como fallback se nada salvo)
+    const savedDDI = getLastUsedDDI() || "55";
+    setCodePhone(formatInternationalPhone(savedDDI));
     setQrCodeBase64("");
     setPairingCode("");
     setConnectError("");
