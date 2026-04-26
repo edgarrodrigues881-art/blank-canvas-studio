@@ -1038,6 +1038,25 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mr-1">Atalhos:</span>
+              {[
+                { key: "in1h" as const, label: "Hoje + 1h" },
+                { key: "tomorrow9" as const, label: "Amanhã 9h" },
+                { key: "tomorrow14" as const, label: "Amanhã 14h" },
+                { key: "in2d" as const, label: "Em 2 dias" },
+              ].map(chip => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => applyQuickSchedule(chip.key)}
+                  className="inline-flex items-center gap-1 px-2.5 h-6 rounded-full border border-border/40 bg-muted/10 hover:bg-primary/10 hover:border-primary/40 text-[11px] text-foreground/80 transition-colors"
+                >
+                  <Clock className="w-3 h-3" /> {chip.label}
+                </button>
+              ))}
+            </div>
+
             {countdown && (
               <div className={cn(
                 "rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2",
