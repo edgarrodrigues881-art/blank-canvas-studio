@@ -3449,7 +3449,7 @@ const Devices = () => {
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setLimitGateOpen(false)} className="border-border">Cancelar</Button>
-            <Button onClick={() => { setLimitGateOpen(false); navigate("/dashboard/my-plan"); }} className="bg-primary hover:bg-primary/90 text-primary-foreground">Fazer upgrade</Button>
+            <Button onClick={() => { setLimitGateOpen(false); navigate("/dashboard/my-plan"); }} className="bg-emerald-500 hover:bg-emerald-600 text-white">Fazer upgrade</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
