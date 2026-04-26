@@ -731,7 +731,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
           <div>
               <div className="flex items-center gap-2">
                 <User className="w-[18px] h-[18px] text-emerald-500" />
@@ -829,7 +829,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Mensagem */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -1023,7 +1023,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Botões interativos */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -1117,7 +1117,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Agendamento */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div>
               <div className="flex items-center gap-2">
                 <CalendarClock className="w-[18px] h-[18px] text-primary" />
@@ -1220,7 +1220,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Templates */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-4 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-4">
             <div className="flex items-center gap-2">
               <FileText className="w-[18px] h-[18px] text-indigo-400" />
               <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
