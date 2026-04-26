@@ -7,6 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, Building2, User, Clock, Eye, ArrowRight, ArrowLeft, ArrowRightLeft, Pencil, MoreHorizontal, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS } from "@/components/crm/CrmStyleGuide";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -350,19 +351,19 @@ export default function Pipeline() {
   const isPerdido = (key: string) => key === "perdido";
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-6rem)] overflow-hidden">
+    <div className="flex flex-col gap-4 h-[calc(100vh-6rem)] overflow-hidden animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">Pipeline de Vendas</h1>
-          <p className="text-sm text-muted-foreground">
-            {filtered.length} leads · {currency(totalValue) || "R$ 0"}
+          <CrmPageTitle>Pipeline de Vendas</CrmPageTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            {filtered.length} leads • {currency(totalValue) || "R$ 0"} em negociação
           </p>
         </div>
         <Button
           size="sm"
           onClick={() => { setNewStageName(""); setNewStageColor(STAGE_COLORS[0].key); setNewStageOpen(true); }}
-          className="gap-1.5 h-9 rounded-xl"
+          className={`gap-1.5 h-9 rounded-xl font-semibold ${BUTTON_VARIANTS.primary}`}
         >
           <Plus className="w-4 h-4" />
           Nova etapa
