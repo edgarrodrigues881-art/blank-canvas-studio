@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue, memo, type CSSProperties, type ReactElement } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import * as XLSX from "xlsx";
+import { List as VirtualList, type RowComponentProps } from "react-window";
 
 /* ── types ── */
 interface Lead {
@@ -194,7 +194,7 @@ const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowP
     <div
       onClick={() => onClick(lead)}
       className={cn(
-        "group cursor-pointer rounded-xl border-2 px-5 py-4 transition-all duration-300 hover:shadow-2xl",
+        "group cursor-pointer rounded-xl border px-5 py-4 transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md",
         getBackgroundByStatus(lead.pipeline_stage || "novo"),
         getBorderByStatus(lead.pipeline_stage || "novo")
       )}
@@ -251,6 +251,308 @@ const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowP
   );
 });
 
+const LEAD_ROW_HEIGHT = 78;
+const LEAD_LIST_MIN_HEIGHT = 360;
+const LEAD_LIST_BOTTOM_OFFSET = 28;
+
+interface LeadVirtualRowProps {
+  leads: Lead[];
+  statusOptions: typeof DEFAULT_STATUS_OPTIONS;
+  onClick: (lead: Lead) => void;
+}
+
+function LeadVirtualRow({ index, style, leads, statusOptions, onClick }: RowComponentProps<LeadVirtualRowProps>): ReactElement | null {
+  const lead = leads[index];
+  if (!lead) return null;
+
+  return (
+    <div style={{ ...style, paddingBottom: 8, paddingRight: 8 }}>
+      <LeadRow lead={lead} statusOptions={statusOptions} onClick={onClick} />
+    </div>
+  );
+}
+
+const VirtualizedLeadList = memo(function VirtualizedLeadList({ leads, statusOptions, onClick }: LeadVirtualRowProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(LEAD_LIST_MIN_HEIGHT);
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const top = containerRef.current?.getBoundingClientRect().top ?? 0;
+        const available = window.innerHeight - top - LEAD_LIST_BOTTOM_OFFSET;
+        const nextHeight = Math.max(LEAD_LIST_MIN_HEIGHT, Math.floor(available));
+        setHeight((current) => current === nextHeight ? current : nextHeight);
+      });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  const rowProps = useMemo(() => ({ leads, statusOptions, onClick }), [leads, statusOptions, onClick]);
+  const listHeight = Math.min(height, Math.max(LEAD_ROW_HEIGHT, leads.length * LEAD_ROW_HEIGHT));
+
+  return (
+    <div ref={containerRef} className="pr-2" style={{ WebkitOverflowScrolling: "touch" }}>
+      <VirtualList
+        rowCount={leads.length}
+        rowHeight={LEAD_ROW_HEIGHT}
+        overscanCount={6}
+        rowComponent={LeadVirtualRow}
+        rowProps={rowProps}
+        style={{ height: listHeight, width: "100%", overflowX: "hidden" }}
+      />
+    </div>
+  );
+});
+
+type LeadFormState = {
+  name: string;
+  phone: string;
+  email: string;
+  company: string;
+  notes: string;
+  origin: string;
+  pipeline_stage: string;
+  interest: string;
+  estimated_value: string;
+  priority: string;
+  responsible: string;
+  segment: string;
+  cpf_cnpj: string;
+  channel: string;
+  description: string;
+};
+
+const createEmptyLeadForm = (): LeadFormState => ({
+  name: "", phone: "", email: "", company: "", notes: "",
+  origin: "WhatsApp", pipeline_stage: "novo",
+  interest: "", estimated_value: "", priority: "media",
+  responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
+});
+
+const getLeadFormState = (lead: Lead): LeadFormState => ({
+  name: lead.name, phone: lead.phone, email: lead.email || "", company: lead.company || "",
+  notes: lead.notes || "", origin: lead.origin || "WhatsApp",
+  pipeline_stage: lead.pipeline_stage || "novo",
+  interest: lead.interest || "", estimated_value: lead.estimated_value?.toString() || "",
+  priority: lead.priority || "media", responsible: lead.responsible || "",
+  segment: lead.segment || "", cpf_cnpj: lead.cpf_cnpj || "",
+  channel: lead.channel || "WhatsApp", description: lead.description || "",
+});
+
+interface InlineLeadEditorProps {
+  lead: Lead;
+  statusOptions: typeof DEFAULT_STATUS_OPTIONS;
+  userId: string;
+  onCancel: () => void;
+  onSaved: (lead: Lead) => void;
+}
+
+const InlineLeadEditor = memo(function InlineLeadEditor({ lead, statusOptions, userId, onCancel, onSaved }: InlineLeadEditorProps) {
+  const [form, setForm] = useState<LeadFormState>(() => getLeadFormState(lead));
+
+  useEffect(() => {
+    setForm(getLeadFormState(lead));
+  }, [lead.id]);
+
+  const updateForm = useCallback((patch: Partial<LeadFormState>) => {
+    setForm((current) => ({ ...current, ...patch }));
+  }, []);
+
+  const handleInlineSave = useCallback(async () => {
+    const payload: any = {
+      name: form.name, phone: form.phone, email: form.email || null,
+      company: form.company || null, notes: form.notes || null,
+      origin: form.origin, pipeline_stage: form.pipeline_stage,
+      interest: form.interest || null,
+      estimated_value: form.estimated_value ? parseFloat(form.estimated_value) : 0,
+      priority: form.priority, responsible: form.responsible || null,
+      segment: form.segment || null, cpf_cnpj: form.cpf_cnpj || null,
+      channel: form.channel || "WhatsApp", description: form.description || null,
+      user_id: userId,
+    };
+    const { error } = await supabase.from("service_contacts").update(payload).eq("id", lead.id);
+    if (error) { toast.error("Erro ao atualizar lead"); return; }
+    toast.success("Lead atualizado!");
+    onSaved({ ...lead, ...payload });
+  }, [form, lead, onSaved, userId]);
+
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <p className="text-[10px] uppercase font-semibold text-muted-foreground/60 tracking-wider mb-3 flex items-center gap-1.5">{children}</p>
+  );
+  const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
+    <Label className="text-xs text-muted-foreground/70 font-medium">
+      {children}{required && <span className="text-red-400 ml-0.5">*</span>}
+    </Label>
+  );
+  const ActionButtons = () => (
+    <div className="flex items-center gap-2">
+      <Button variant="ghost" size="sm" onClick={onCancel} className="h-8 rounded-lg text-xs">Cancelar</Button>
+      <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-8 rounded-lg text-xs gap-1.5">Salvar</Button>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="px-6 pt-5 pb-4 border-b border-border/60">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Pencil className="w-4 h-4 text-primary" />
+            <h2 className="text-base font-bold text-foreground">Editando Lead</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <ActionButtons />
+            <button onClick={onCancel} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+              <span className="sr-only">Voltar</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>📌 Dados principais</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <FieldLabel required>Nome</FieldLabel>
+              <Input value={form.name} onChange={(e) => updateForm({ name: e.target.value })} placeholder="Nome completo do lead" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel required>Telefone</FieldLabel>
+              <Input value={form.phone} onChange={(e) => updateForm({ phone: e.target.value })} placeholder="5511999999999" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>📬 Contato</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <FieldLabel>Email</FieldLabel>
+              <Input value={form.email} onChange={(e) => updateForm({ email: e.target.value })} placeholder="email@empresa.com" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Empresa</FieldLabel>
+              <Input value={form.company} onChange={(e) => updateForm({ company: e.target.value })} placeholder="Nome da empresa" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>💰 Negócio</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <FieldLabel>Interesse / Serviço</FieldLabel>
+              <Input value={form.interest} onChange={(e) => updateForm({ interest: e.target.value })} placeholder="Ex: Automação para WhatsApp" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Valor potencial (R$)</FieldLabel>
+              <Input value={form.estimated_value} onChange={(e) => updateForm({ estimated_value: e.target.value })} placeholder="15000" type="number" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>⚙️ Gestão</SectionTitle>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <FieldLabel>Status</FieldLabel>
+              <Select value={form.pipeline_stage} onValueChange={(v) => updateForm({ pipeline_stage: v })}>
+                <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Responsável</FieldLabel>
+              <Input value={form.responsible} onChange={(e) => updateForm({ responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Prioridade</FieldLabel>
+              <Select value={form.priority} onValueChange={(v) => updateForm({ priority: v })}>
+                <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((p) => (<SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>📊 Origem</SectionTitle>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <FieldLabel>Origem</FieldLabel>
+              <Select value={form.origin} onValueChange={(v) => updateForm({ origin: v })}>
+                <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ORIGIN_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Canal</FieldLabel>
+              <Select value={form.channel} onValueChange={(v) => updateForm({ channel: v })}>
+                <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Site">Site</SelectItem>
+                  <SelectItem value="Telefone">Telefone</SelectItem>
+                  <SelectItem value="Email">Email</SelectItem>
+                  <SelectItem value="Presencial">Presencial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Segmento</FieldLabel>
+              <Input value={form.segment} onChange={(e) => updateForm({ segment: e.target.value })} placeholder="Ex: Tecnologia" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>📄 Documentos</SectionTitle>
+          <div className="space-y-1.5 max-w-xs">
+            <FieldLabel>CPF/CNPJ</FieldLabel>
+            <Input value={form.cpf_cnpj} onChange={(e) => updateForm({ cpf_cnpj: e.target.value })} placeholder="000.000.000-00" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
+          <SectionTitle>📝 Contexto</SectionTitle>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <FieldLabel>Necessidade do cliente</FieldLabel>
+              <Textarea value={form.description} onChange={(e) => updateForm({ description: e.target.value })} rows={2} placeholder="Ex: Precisa de automação para WhatsApp com 50 instâncias" className="rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel>Notas internas</FieldLabel>
+              <Textarea value={form.notes} onChange={(e) => updateForm({ notes: e.target.value })} rows={2} placeholder="Ex: Cliente pediu retorno na sexta-feira" className="rounded-xl bg-background/60 border-border/40 text-sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
+          <Button variant="ghost" size="sm" onClick={onCancel} className="h-9 rounded-lg">Cancelar</Button>
+          <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-9 rounded-lg gap-1.5">Salvar</Button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function Leads() {
   const { user } = useAuth();
   const { syncToSheets, syncToNotion } = useCrmSync();
@@ -287,7 +589,7 @@ export default function Leads() {
     return Array.from(set);
   }, [leads]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const trimmedName = exportName.trim();
     if (!trimmedName) {
       toast.error("Informe um nome para a planilha");
@@ -305,6 +607,7 @@ export default function Leads() {
       return;
     }
 
+    const XLSX = await import("xlsx");
     const rows = filteredForExport.map((l) => ({
       "Nome": l.name || "",
       "Telefone": l.phone || "",
@@ -381,12 +684,7 @@ export default function Leads() {
       });
   }, [user]);
 
-  const [form, setForm] = useState({
-    name: "", phone: "", email: "", company: "", notes: "",
-    origin: "WhatsApp", pipeline_stage: "novo",
-    interest: "", estimated_value: "", priority: "media",
-    responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
-  });
+  const [form, setForm] = useState<LeadFormState>(() => createEmptyLeadForm());
 
   /* ── fetch ── */
   const fetchLeads = useCallback(async () => {
@@ -421,18 +719,20 @@ export default function Leads() {
     return acc;
   }, {} as Record<string, number>), [leads]);
 
+  const deferredSearch = useDeferredValue(search);
+
   const filtered = useMemo(() => leads.filter((l) => {
-    const s = search.toLowerCase();
-    const matchSearch = !search ||
+    const s = deferredSearch.toLowerCase();
+    const matchSearch = !deferredSearch ||
       l.name?.toLowerCase().includes(s) ||
-      l.phone?.includes(search) ||
+      l.phone?.includes(deferredSearch) ||
       l.email?.toLowerCase().includes(s) ||
       l.company?.toLowerCase().includes(s);
     const stage = l.pipeline_stage || "novo";
     const matchStatus = statusFilter === "all" || stage === statusFilter;
     const matchOrigin = originFilter === "all" || l.origin === originFilter;
     return matchSearch && matchStatus && matchOrigin;
-  }), [leads, search, statusFilter, originFilter]);
+  }), [leads, deferredSearch, statusFilter, originFilter]);
 
   const handleOpenDetail = useCallback((lead: Lead) => {
     setDetailLead(lead);
@@ -442,26 +742,12 @@ export default function Leads() {
 
   const openNew = () => {
     setEditing(null);
-    setForm({
-      name: "", phone: "", email: "", company: "", notes: "",
-      origin: "WhatsApp", pipeline_stage: "novo",
-      interest: "", estimated_value: "", priority: "media",
-      responsible: "", segment: "", cpf_cnpj: "", channel: "WhatsApp", description: "",
-    });
+    setForm(createEmptyLeadForm());
     setDialogOpen(true);
   };
 
   const openEdit = (l: Lead) => {
     setEditing(l);
-    setForm({
-      name: l.name, phone: l.phone, email: l.email || "", company: l.company || "",
-      notes: l.notes || "", origin: l.origin || "WhatsApp",
-      pipeline_stage: l.pipeline_stage || "novo",
-      interest: l.interest || "", estimated_value: l.estimated_value?.toString() || "",
-      priority: l.priority || "media", responsible: l.responsible || "",
-      segment: l.segment || "", cpf_cnpj: l.cpf_cnpj || "",
-      channel: l.channel || "WhatsApp", description: l.description || "",
-    });
     setEditingInline(true);
   };
 
@@ -634,15 +920,15 @@ export default function Leads() {
             <p className="text-sm text-muted-foreground">Nenhum lead encontrado</p>
           </div>
         ) : (
-          filtered.map((lead) => (
-            <LeadRow key={lead.id} lead={lead} statusOptions={statusOptions} onClick={handleOpenDetail} />
-          ))
+          <VirtualizedLeadList leads={filtered} statusOptions={statusOptions} onClick={handleOpenDetail} />
         )}
       </div>
 
       {/* ── Detail Dialog (view + inline edit) ── */}
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
         <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
+          <DialogTitle className="sr-only">Detalhes do Lead</DialogTitle>
+          <DialogDescription className="sr-only">Visualize e edite as informações do lead selecionado.</DialogDescription>
           {detailLead && (() => {
             const statusCfg = getStatusConfig(detailLead.pipeline_stage, statusOptions);
             const priorityCfg = getPriorityConfig(detailLead.priority);
@@ -651,200 +937,19 @@ export default function Leads() {
             const channelLabel = detailLead.channel || "WhatsApp";
 
             /* ── EDIT MODE ── */
-            if (editingInline) {
-              const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-                <p className="text-[10px] uppercase font-semibold text-muted-foreground/60 tracking-wider mb-3 flex items-center gap-1.5">{children}</p>
-              );
-              const FieldLabel = ({ children, required }: { children: React.ReactNode; required?: boolean }) => (
-                <Label className="text-xs text-muted-foreground/70 font-medium">
-                  {children}{required && <span className="text-red-400 ml-0.5">*</span>}
-                </Label>
-              );
-
-              const handleInlineSave = async () => {
-                if (!user) return;
-                const payload: any = {
-                  name: form.name, phone: form.phone, email: form.email || null,
-                  company: form.company || null, notes: form.notes || null,
-                  origin: form.origin, pipeline_stage: form.pipeline_stage,
-                  interest: form.interest || null,
-                  estimated_value: form.estimated_value ? parseFloat(form.estimated_value) : 0,
-                  priority: form.priority, responsible: form.responsible || null,
-                  segment: form.segment || null, cpf_cnpj: form.cpf_cnpj || null,
-                  channel: form.channel || "WhatsApp", description: form.description || null,
-                  user_id: user.id,
-                };
-                const { error } = await supabase.from("service_contacts").update(payload).eq("id", detailLead.id);
-                if (error) { toast.error("Erro ao atualizar lead"); return; }
-                toast.success("Lead atualizado!");
-                setEditingInline(false);
-                fetchLeads();
-                const updated = { ...detailLead, ...payload };
-                setDetailLead(updated);
-              };
-
-              const cancelEdit = () => setEditingInline(false);
-
-              const ActionButtons = () => (
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-8 rounded-lg text-xs">Cancelar</Button>
-                  <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-8 rounded-lg text-xs gap-1.5">Salvar</Button>
-                </div>
-              );
-
+            if (editingInline && user) {
               return (
-                <div>
-                  {/* Header */}
-                  <div className="px-6 pt-5 pb-4 border-b border-border/60">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Pencil className="w-4 h-4 text-primary" />
-                        <h2 className="text-base font-bold text-foreground">Editando Lead</h2>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <ActionButtons />
-                        <button onClick={cancelEdit} className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                          <span className="sr-only">Voltar</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 space-y-6">
-                    {/* 📌 Dados principais */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>📌 Dados principais</SectionTitle>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel required>Nome</FieldLabel>
-                          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome completo do lead" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel required>Telefone</FieldLabel>
-                          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="5511999999999" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 📬 Contato */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>📬 Contato</SectionTitle>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Email</FieldLabel>
-                          <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@empresa.com" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Empresa</FieldLabel>
-                          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Nome da empresa" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 💰 Negócio */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>💰 Negócio</SectionTitle>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Interesse / Serviço</FieldLabel>
-                          <Input value={form.interest} onChange={(e) => setForm({ ...form, interest: e.target.value })} placeholder="Ex: Automação para WhatsApp" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Valor potencial (R$)</FieldLabel>
-                          <Input value={form.estimated_value} onChange={(e) => setForm({ ...form, estimated_value: e.target.value })} placeholder="15000" type="number" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ⚙️ Gestão */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>⚙️ Gestão</SectionTitle>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Status</FieldLabel>
-                          <Select value={form.pipeline_stage} onValueChange={(v) => setForm({ ...form, pipeline_stage: v })}>
-                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {statusOptions.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Responsável</FieldLabel>
-                          <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Responsável</FieldLabel>
-                          <Input value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} placeholder="João Vendas" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 📊 Origem */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>📊 Origem</SectionTitle>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Origem</FieldLabel>
-                          <Select value={form.origin} onValueChange={(v) => setForm({ ...form, origin: v })}>
-                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {ORIGIN_OPTIONS.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Canal</FieldLabel>
-                          <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v })}>
-                            <SelectTrigger className="h-11 rounded-xl bg-background/60 border-border/40 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                              <SelectItem value="Site">Site</SelectItem>
-                              <SelectItem value="Telefone">Telefone</SelectItem>
-                              <SelectItem value="Email">Email</SelectItem>
-                              <SelectItem value="Presencial">Presencial</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Segmento</FieldLabel>
-                          <Input value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} placeholder="Ex: Tecnologia" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 📄 Documentos */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>📄 Documentos</SectionTitle>
-                      <div className="space-y-1.5 max-w-xs">
-                        <FieldLabel>CPF/CNPJ</FieldLabel>
-                        <Input value={form.cpf_cnpj} onChange={(e) => setForm({ ...form, cpf_cnpj: e.target.value })} placeholder="000.000.000-00" className="h-11 rounded-xl bg-background/60 border-border/40 text-sm" />
-                      </div>
-                    </div>
-
-                    {/* 📝 Contexto */}
-                    <div className="rounded-xl bg-muted/15 border border-border/30 p-4 space-y-3">
-                      <SectionTitle>📝 Contexto</SectionTitle>
-                      <div className="space-y-3">
-                        <div className="space-y-1.5">
-                          <FieldLabel>Necessidade do cliente</FieldLabel>
-                          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Ex: Precisa de automação para WhatsApp com 50 instâncias" className="rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <FieldLabel>Notas internas</FieldLabel>
-                          <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="Ex: Cliente pediu retorno na sexta-feira" className="rounded-xl bg-background/60 border-border/40 text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer buttons */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
-                      <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-9 rounded-lg">Cancelar</Button>
-                      <Button size="sm" onClick={handleInlineSave} disabled={!form.name || !form.phone} className="h-9 rounded-lg gap-1.5">Salvar</Button>
-                    </div>
-                  </div>
-                </div>
+                <InlineLeadEditor
+                  lead={detailLead}
+                  statusOptions={statusOptions}
+                  userId={user.id}
+                  onCancel={() => setEditingInline(false)}
+                  onSaved={(updated) => {
+                    setEditingInline(false);
+                    setDetailLead(updated);
+                    setLeads((current) => current.map((lead) => lead.id === updated.id ? updated : lead));
+                  }}
+                />
               );
             }
 
