@@ -53,6 +53,7 @@ export function useCampaigns() {
       const { data, error } = await supabase
         .from("campaigns")
         .select("id, name, status, message_type, message_content, media_url, buttons, template_id, total_contacts, sent_count, delivered_count, failed_count, scheduled_at, started_at, completed_at, created_at, updated_at, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max, device_id")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Campaign[];

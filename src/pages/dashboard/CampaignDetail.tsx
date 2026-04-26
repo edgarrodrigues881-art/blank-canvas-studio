@@ -785,6 +785,7 @@ const CampaignDetail = () => {
         title: `✅ ${inserted} contatos salvos!`,
         description: skipped > 0 ? `${skipped} já existiam e foram ignorados.` : undefined,
       });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       setSaveContactsOpen(false);
     } catch (err: any) {
       toast({ title: "Erro ao salvar contatos", description: err.message, variant: "destructive" });
