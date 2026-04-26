@@ -199,11 +199,12 @@ const Campaigns = () => {
   const [isSubmittingCampaign, setIsSubmittingCampaign] = useState(false);
 
   const { data: devices = [] } = useQuery({
-    queryKey: ["devices"],
+    queryKey: ["devices", session?.user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devices")
         .select("id, name, number, status, login_type, proxy_id, profile_picture, profile_name, created_at, updated_at, instance_type")
+        .eq("user_id", session!.user.id)
         .neq("login_type", "report_wa")
         .order("name");
       if (error) throw error;
