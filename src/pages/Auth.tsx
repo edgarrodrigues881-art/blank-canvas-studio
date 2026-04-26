@@ -46,8 +46,37 @@ const Auth = () => {
   const [showResendConfirm, setShowResendConfirm] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resolvedLoginEmail, setResolvedLoginEmail] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = forgotEmail.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast({ title: "E-mail inválido", description: "Informe um e-mail válido.", variant: "destructive" });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: "E-mail enviado!",
+        description: "Se houver uma conta com esse e-mail, você receberá um link para redefinir a senha.",
+      });
+      setShowForgotPassword(false);
+      setForgotEmail("");
+    } catch (error: any) {
+      toast({ title: "Erro", description: translateAuthError(error.message || ""), variant: "destructive" });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   useEffect(() => {
     setIsLogin(searchParams.get("mode") !== "signup");
@@ -305,18 +334,27 @@ const Auth = () => {
 
               {isLogin && (
                 <motion.label variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-                  className="flex items-center gap-2 cursor-pointer select-none group pt-0.5">
-                  <div className="relative">
-                    <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
-                    <div className="w-3.5 h-3.5 rounded-[4px] border border-white/10 bg-white/[0.03] peer-checked:bg-emerald-500/80 peer-checked:border-emerald-500/80 transition-all flex items-center justify-center">
-                      {rememberMe && (
-                        <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                  className="flex items-center justify-between gap-2 cursor-pointer select-none group pt-0.5">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer sr-only" />
+                      <div className="w-3.5 h-3.5 rounded-[4px] border border-white/10 bg-white/[0.03] peer-checked:bg-emerald-500/80 peer-checked:border-emerald-500/80 transition-all flex items-center justify-center">
+                        {rememberMe && (
+                          <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+                    <span className="text-[11px] text-white/25 group-hover:text-white/40 transition-colors">Manter conectado</span>
                   </div>
-                  <span className="text-[11px] text-white/25 group-hover:text-white/40 transition-colors">Manter conectado</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setForgotEmail(email.trim()); setShowForgotPassword(true); }}
+                    className="text-[11px] text-emerald-400/70 hover:text-emerald-300 transition-colors underline-offset-2 hover:underline"
+                  >
+                    Esqueceu a senha?
+                  </button>
                 </motion.label>
               )}
 
@@ -388,6 +426,70 @@ const Auth = () => {
         </motion.p>
       </div>
 
+      {/* Forgot password modal */}
+      {showForgotPassword && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-5 backdrop-blur-sm"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          onClick={() => !forgotLoading && setShowForgotPassword(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-full max-w-[400px] rounded-2xl p-7 relative"
+            style={{
+              background: "linear-gradient(180deg, rgba(26,26,30,0.96) 0%, rgba(14,14,18,0.98) 100%)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 40px 100px -20px rgba(0,0,0,0.8), 0 0 60px -20px rgba(52,211,153,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-[17px] font-semibold text-white mb-1.5">Recuperar senha</h2>
+            <p className="text-[12px] text-white/45 mb-5 leading-relaxed">
+              Informe seu e-mail cadastrado e enviaremos um link para redefinir sua senha.
+            </p>
+            <form onSubmit={handleForgotPassword} className="space-y-3">
+              <input
+                type="email"
+                placeholder="seu@email.com"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+                maxLength={255}
+                autoFocus
+                className={inputClass}
+              />
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  disabled={forgotLoading}
+                  className="flex-1 h-11 rounded-xl text-[13px] font-medium text-white/55 hover:text-white/80 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="flex-1 h-11 rounded-xl text-[13px] font-semibold text-white transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(52,211,153,0.4) 0%, rgba(16,185,129,0.22) 100%)",
+                    border: "1px solid rgba(52,211,153,0.32)",
+                    boxShadow: "0 0 24px -8px rgba(52,211,153,0.45)",
+                  }}
+                >
+                  {forgotLoading ? (
+                    <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    "Enviar link"
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
