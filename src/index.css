@@ -410,6 +410,53 @@
     transform: scale(1.08);
   }
 
+  /* Premium thin scrollbar inside the sidebar */
+  .sidebar-premium [data-sidebar="content"] {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+  .sidebar-premium [data-sidebar="content"]::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar-premium [data-sidebar="content"]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-premium [data-sidebar="content"]::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-border));
+    border-radius: 999px;
+  }
+  .sidebar-premium [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--sidebar-accent));
+  }
+
+  /* Subtle separator between sidebar groups */
+  .sidebar-premium [data-sidebar="group"] + [data-sidebar="group"]::before {
+    content: "";
+    display: block;
+    height: 1px;
+    margin: 6px 14px 8px;
+    background: linear-gradient(to right, transparent, hsl(var(--sidebar-border) / 0.6), transparent);
+  }
+
+  /* Section labels — refined typography for hierarchy */
+  .sidebar-premium [data-sidebar="group-label"] {
+    font-size: 10px !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase;
+    font-weight: 600 !important;
+    color: hsl(var(--sidebar-foreground) / 0.45) !important;
+    padding-left: 18px !important;
+    padding-right: 14px !important;
+    margin-top: 10px !important;
+    margin-bottom: 4px !important;
+  }
+
+  /* Slightly more breathing room between groups */
+  .sidebar-premium [data-sidebar="group"] {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
   .auth-gradient {
     background: linear-gradient(
       165deg,
