@@ -786,47 +786,41 @@ const Devices = () => {
 
     toast({ title: `Criando ${totalCount} instância${totalCount !== 1 ? "s" : ""}...`, description: "Você já pode conectar as que ficarem prontas." });
 
-    // Concorrência paralela em pequenos lotes — mantém ordem 1:1 mas acelera muito.
-    // 5 simultâneas é seguro para UAZAPI sem disparar rate-limit.
-    const CONCURRENCY = 5;
-    let nextIndex = 0;
-
-    const worker = async () => {
-      while (true) {
-        const i = nextIndex++;
-        if (i >= queue.length || limitHit) return;
-        const item = queue[i];
-        const tempId = tempIds[i];
-        try {
-          await callManageDevices({
-            action: "bulk-create",
-            prefix: effectivePrefix,
-            proxyIds: item.proxyId ? [item.proxyId] : [],
-            noProxyCount: item.proxyId ? 0 : 1,
-            startIndex: item.idx,
-          });
-          succeeded++;
-          // Refresh para que o placeholder seja substituído pelo device real
-          // e o botão "Conectar" funcione imediatamente para esta instância.
-          queryClient.invalidateQueries({ queryKey: ["devices"] });
-        } catch (err: any) {
-          failed++;
-          const msg = err?.message || "";
-          queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
-            old ? old.filter(d => d.id !== tempId) : old
-          );
-          if (msg.includes("Limite") || msg.includes("LIMIT")) {
-            limitHit = true;
-            toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
-            return;
-          }
-          console.error(`[bulk-create] Falha ao criar "${formatName(item.idx)}":`, msg);
+    // Criação SEQUENCIAL (uma por vez) — garante que o created_at de cada
+    // instância respeite a ordem 1, 2, 3, 4... no banco. O backend ordena
+    // por created_at, então paralelizar quebra a numeração.
+    // Como a chamada já é rápida (~300-600ms cada), não precisa de delay
+    // artificial entre elas. A UI permanece responsiva: o usuário pode
+    // clicar em "Conectar" em qualquer instância já criada (refresh após
+    // cada sucesso reidrata o card real no lugar do placeholder).
+    for (let i = 0; i < queue.length; i++) {
+      if (limitHit) break;
+      const item = queue[i];
+      const tempId = tempIds[i];
+      try {
+        await callManageDevices({
+          action: "bulk-create",
+          prefix: effectivePrefix,
+          proxyIds: item.proxyId ? [item.proxyId] : [],
+          noProxyCount: item.proxyId ? 0 : 1,
+          startIndex: item.idx,
+        });
+        succeeded++;
+        queryClient.invalidateQueries({ queryKey: ["devices"] });
+      } catch (err: any) {
+        failed++;
+        const msg = err?.message || "";
+        queryClient.setQueryData(["devices"], (old: Device[] | undefined) =>
+          old ? old.filter(d => d.id !== tempId) : old
+        );
+        if (msg.includes("Limite") || msg.includes("LIMIT")) {
+          limitHit = true;
+          toast({ title: "Limite de instâncias atingido", description: msg, variant: "destructive" });
+          break;
         }
+        console.error(`[bulk-create] Falha ao criar "${formatName(item.idx)}":`, msg);
       }
-    };
-
-    // Roda os workers em paralelo
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () => worker()));
+    }
 
     queryClient.invalidateQueries({ queryKey: ["devices"] });
     queryClient.invalidateQueries({ queryKey: ["proxies"] });
