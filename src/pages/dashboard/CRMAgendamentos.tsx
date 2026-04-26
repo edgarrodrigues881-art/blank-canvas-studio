@@ -688,6 +688,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
     onSaved();
   };
 
+  const previewMessage = resolveVars(messageContent, selectedContact);
   const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
   return (
