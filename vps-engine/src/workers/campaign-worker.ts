@@ -263,10 +263,44 @@ function buildCarouselChoice(button: any): string | null {
   return rawValue ? `${text}|${rawValue}` : text;
 }
 
+function buildPlainButtonLines(buttons: Array<Partial<CampaignButton>> = []): string[] {
+  return buttons
+    .map(b => {
+      const label = (b.text || "").trim();
+      if (!label) return "";
+      const type = (b.type || "reply").toLowerCase();
+      const value = (b.value || "").trim();
+      if (type === "url" && value) {
+        const url = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+        return `${label}: ${url}`;
+      }
+      if ((type === "phone" || type === "call") && value) return `${label}: ${value}`;
+      if (type === "copy" && value) return `${label}: ${value}`;
+      return value ? `${label}: ${value}` : label;
+    })
+    .filter(Boolean);
+}
+
 async function sendCarouselMessage(baseUrl: string, token: string, phone: string, body: string, cards: CarouselCard[]) {
   const normalized = normalizeCarouselCards(cards);
   if (normalized.length === 0) throw new Error("Carrossel sem cards configurados.");
   const primaryText = body?.trim() || null;
+  const isGroupTarget = phone.endsWith("@g.us");
+
+  if (!isGroupTarget) {
+    for (let i = 0; i < normalized.length; i++) {
+      const card = normalized[i];
+      const mediaUrl = card.mediaUrl?.trim();
+      const cardText = [i === 0 ? primaryText : null, card.text?.trim(), ...buildPlainButtonLines(card.buttons || [])]
+        .filter(Boolean)
+        .join("\n\n");
+      if (mediaUrl) await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, detectMediaType(mediaUrl), cardText);
+      else if (cardText) await sendTextWithFallback(baseUrl, token, phone, cardText);
+      if (i < normalized.length - 1) await sleep(800 + Math.random() * 800);
+    }
+    return;
+  }
+
   const hasUrlButtons = normalized.some(card => (card.buttons || []).some((button: any) => (button.type || "").toLowerCase() === "url"));
 
   const payload = {
@@ -404,35 +438,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         await sleep(800 + Math.random() * 800);
         await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       } else {
-        // 1:1 (privado): /send/menu type:button gera "versão incompatível" em Android comum.
-        // Solução: imagem com a copy COMO LEGENDA + botões anexados ao texto como linhas formatadas
-        // (URLs viram link clicável azul automaticamente; valores de copy/reply ficam como texto).
-        // Isso renderiza em 100% dos WhatsApps sem o aviso de versão.
-        const buttonLines = (buttons || [])
-          .map(b => {
-            const label = (b.text || "").trim();
-            if (!label) return "";
-            const type = (b.type || "reply").toLowerCase();
-            const value = (b.value || "").trim();
-            if (type === "url" && value) {
-              const url = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-              return `👉 ${label}: ${url}`;
-            }
-            if ((type === "phone" || type === "call") && value) {
-              return `📞 ${label}: ${value}`;
-            }
-            if (type === "copy" && value) {
-              return `📋 ${label}: ${value}`;
-            }
-            return `▶️ ${label}`;
-          })
-          .filter(Boolean);
-
-        const fullCaption = buttonLines.length > 0
-          ? `${text}\n\n${buttonLines.join("\n")}`
-          : text;
-
-        log.info(`[campaign-worker] 1:1 target -> /send/media with caption + inline buttons (no /send/menu)`);
+        // 1:1 (privado): nunca usar menu/carrossel/botão nativo, pois Android/iPhone podem exibir
+        // "versão do WhatsApp não compatível". Envia apenas mídia padrão com legenda em texto puro.
+        const buttonLines = buildPlainButtonLines(buttons || []);
+        const fullCaption = [text, ...buttonLines].filter(Boolean).join("\n\n");
+        log.info(`[campaign-worker] 1:1 target -> plain /send/media caption only (no native interactive payload)`);
         await uazapiRequest(baseUrl, token, "/send/media", {
           number: phone,
           type: mediaType || "image",
@@ -440,6 +450,17 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
           caption: fullCaption,
           ...(mediaType === "image" ? { compress: false } : {}),
         });
+      }
+      return;
+    }
+    if (!isGroupTarget) {
+      const buttonLines = buildPlainButtonLines(buttons || []);
+      const plainText = [text, ...buttonLines].filter(Boolean).join("\n\n");
+      log.info(`[campaign-worker] 1:1 target -> plain text only (no /send/menu)`);
+      await sendTextWithFallback(baseUrl, token, phone, plainText);
+      if (isAudio && mediaUrl) {
+        await sleep(1500 + Math.random() * 1500);
+        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
       }
       return;
     }
