@@ -2456,7 +2456,7 @@ const Devices = () => {
             </div>
             <div className="flex items-center gap-3 pt-1">
               <Button variant="outline" className="flex-1 h-11 rounded-xl font-semibold" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button className="flex-1 h-11 rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground" onClick={handleCreate} disabled={!instanceName.trim()}>Criar</Button>
+              <Button className="flex-1 h-11 rounded-xl font-semibold bg-emerald-500 hover:bg-emerald-600 text-white" onClick={handleCreate} disabled={!instanceName.trim()}>Criar</Button>
             </div>
           </div>
         </DialogContent>
