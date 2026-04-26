@@ -21,7 +21,8 @@ import {
   CalendarClock, Plus, Search, Filter, Clock, Send, Pencil, Trash2,
   Play, AlertTriangle, CheckCircle2, Loader2, Phone, Smartphone,
   Link2, Calendar, User, X, UserPlus, ArrowLeft, Save, FileText,
-  Download, Variable, ExternalLink, MessageSquare, Reply
+  Download, Variable, ExternalLink, MessageSquare, Reply,
+  Image as ImageIcon, FileAudio, FileType, Sparkles, Eye
 } from "lucide-react";
 
 /* ─── types ─── */
