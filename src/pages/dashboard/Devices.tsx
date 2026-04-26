@@ -3103,143 +3103,274 @@ const Devices = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk create dialog */}
+      {/* Bulk create wizard */}
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-        <DialogContent className="sm:max-w-[460px] p-0 gap-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden border-emerald-500/20 bg-card">
           {/* Header */}
-          <div className="px-6 pt-6 pb-4 border-b border-border/30">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Layers className="h-5 w-5 text-primary" />
+          <div className="relative px-6 pt-6 pb-5 border-b border-emerald-500/15 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.18] via-emerald-500/[0.04] to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-xl bg-emerald-500/20 ring-1 ring-emerald-400/30 flex items-center justify-center shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]">
+                  <Sparkles className="h-5 w-5 text-emerald-300" />
+                </div>
+                <div>
+                  <DialogTitle className="text-[15px] font-bold tracking-tight text-foreground">Criar instâncias em massa</DialogTitle>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Etapa {bulkStep} de 4 · {["Identificação", "Quantidade", "Proxy", "Revisão"][bulkStep - 1]}</p>
+                </div>
               </div>
-              <div>
-                <DialogTitle className="text-[15px] font-semibold tracking-tight">Criar instâncias</DialogTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Configure e crie múltiplas instâncias de uma vez</p>
+
+              {/* Stepper */}
+              <div className="flex items-center gap-1.5">
+                {[
+                  { n: 1, label: "Nome", icon: Tag },
+                  { n: 2, label: "Quantidade", icon: Hash },
+                  { n: 3, label: "Proxy", icon: Shield },
+                  { n: 4, label: "Revisão", icon: Check },
+                ].map((s, idx) => {
+                  const StepIcon = s.icon;
+                  const isActive = bulkStep === s.n;
+                  const isDone = bulkStep > s.n;
+                  return (
+                    <div key={s.n} className="flex items-center flex-1 last:flex-initial">
+                      <div className="flex items-center gap-1.5">
+                        <div className={cn(
+                          "w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all shrink-0",
+                          isDone && "bg-emerald-500 text-emerald-950 shadow-[0_0_10px_-2px_hsl(152,69%,53%/0.7)]",
+                          isActive && "bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-400/60",
+                          !isActive && !isDone && "bg-muted/30 text-muted-foreground/50"
+                        )}>
+                          {isDone ? <Check className="w-3.5 h-3.5" /> : <StepIcon className="w-3.5 h-3.5" />}
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-semibold uppercase tracking-wider hidden sm:inline",
+                          isActive && "text-emerald-200",
+                          isDone && "text-emerald-400",
+                          !isActive && !isDone && "text-muted-foreground/50"
+                        )}>
+                          {s.label}
+                        </span>
+                      </div>
+                      {idx < 3 && (
+                        <div className={cn(
+                          "flex-1 h-[2px] mx-2 rounded-full transition-colors",
+                          isDone ? "bg-emerald-400/60" : "bg-border/30"
+                        )} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="px-6 py-5 space-y-5">
-            {/* 1. Nome */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-foreground">Prefixo do nome</Label>
-              <Input
-                value={bulkPrefix}
-                onChange={e => setBulkPrefix(e.target.value)}
-                placeholder="Ex: Instância"
-                className="h-10 text-sm"
-              />
-              <p className="text-[11px] text-muted-foreground/60 flex items-center gap-1">
-                <span>→</span> {bulkPrefix} 1, {bulkPrefix} 2, {bulkPrefix} 3...
-              </p>
-            </div>
-
-            {/* 2. Quantidade */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-foreground">Quantidade</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  min={1}
-                  max={Math.max(1, maxInstancesAllowed - devices.length)}
-                  value={bulkCount || ""}
-                  placeholder="1"
-                  onChange={e => {
-                    const remaining = Math.max(1, maxInstancesAllowed - devices.length);
-                    const raw = e.target.value;
-                    if (raw === "") { setBulkCount(""); return; }
-                    const parsed = parseInt(raw);
-                    if (isNaN(parsed)) return;
-                    setBulkCount(Math.min(remaining, Math.max(1, parsed)));
-                  }}
-                  className="h-10 w-20 text-sm text-center"
-                />
-                <div className="flex-1 text-[11px] text-muted-foreground/50">
-                  <span className="text-foreground/70 font-medium">{Math.max(0, maxInstancesAllowed - devices.length)}</span> disponíveis de {maxInstancesAllowed}
+          {/* Step content */}
+          <div className="px-6 py-6 min-h-[260px]">
+            {bulkStep === 1 && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-emerald-400" /> Prefixo do nome
+                  </Label>
+                  <Input
+                    value={bulkPrefix}
+                    onChange={e => setBulkPrefix(e.target.value)}
+                    placeholder="Ex: Instância, Chip, WhatsApp"
+                    className="h-11 text-sm rounded-xl border-border/50 focus:border-emerald-400/60 focus:ring-emerald-400/20"
+                    autoFocus
+                  />
+                </div>
+                <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-3.5">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold mb-2">Pré-visualização</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 3].map(n => (
+                      <span key={n} className="text-[11px] px-2.5 py-1 rounded-md bg-card border border-emerald-500/20 text-foreground font-medium">
+                        {bulkPrefix || "Instância"} {n}
+                      </span>
+                    ))}
+                    <span className="text-[11px] px-2.5 py-1 text-muted-foreground/50">...</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* 3. Proxy toggle */}
-            <div className="rounded-xl border border-border/30 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-2.5">
-                  <Shield className="h-4 w-4 text-primary/70" />
-                  <div>
-                    <p className="text-xs font-medium text-foreground">Vincular proxy</p>
-                    <p className="text-[10px] text-muted-foreground/50 mt-0.5">Atribuir proxies automaticamente</p>
+            {bulkStep === 2 && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5 text-emerald-400" /> Quantas instâncias criar?
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={Math.max(1, maxInstancesAllowed - devices.length)}
+                      value={bulkCount || ""}
+                      placeholder="1"
+                      onChange={e => {
+                        const remaining = Math.max(1, maxInstancesAllowed - devices.length);
+                        const raw = e.target.value;
+                        if (raw === "") { setBulkCount(""); return; }
+                        const parsed = parseInt(raw);
+                        if (isNaN(parsed)) return;
+                        setBulkCount(Math.min(remaining, Math.max(1, parsed)));
+                      }}
+                      className="h-12 w-24 text-lg font-bold text-center rounded-xl border-border/50 focus:border-emerald-400/60 focus:ring-emerald-400/20 tabular-nums"
+                      autoFocus
+                    />
+                    <div className="flex-1 px-4 py-3 rounded-xl bg-muted/20 border border-border/30">
+                      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-bold">Limite do plano</p>
+                      <p className="text-sm text-foreground mt-0.5">
+                        <span className="font-bold text-emerald-300 tabular-nums">{Math.max(0, maxInstancesAllowed - devices.length)}</span>
+                        <span className="text-muted-foreground/70"> de {maxInstancesAllowed} disponíveis</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <Switch
-                  checked={bulkUseProxy}
-                  onCheckedChange={(checked) => {
-                    setBulkUseProxy(checked);
-                    if (!checked) setBulkSelectedProxies([]);
-                  }}
-                />
-              </div>
 
-              {/* 4. Proxy list */}
-              {bulkUseProxy && (
-                <div className="border-t border-border/20 px-4 py-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-muted-foreground">Proxies disponíveis</span>
-                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                      {bulkSelectedProxies.length} selecionada{bulkSelectedProxies.length !== 1 ? "s" : ""}
-                    </Badge>
+                {/* Quick presets */}
+                <div className="flex flex-wrap gap-1.5">
+                  {[1, 5, 10, 20].filter(n => n <= Math.max(1, maxInstancesAllowed - devices.length)).map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setBulkCount(n)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all",
+                        bulkCount === n
+                          ? "bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/50"
+                          : "bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bulkStep === 3 && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border/30 overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-br from-emerald-500/[0.06] to-transparent">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-emerald-500/15 flex items-center justify-center ring-1 ring-emerald-400/25">
+                        <Shield className="h-4 w-4 text-emerald-300" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">Vincular proxy</p>
+                        <p className="text-[11px] text-muted-foreground">Atribuir proxies automaticamente</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={bulkUseProxy}
+                      onCheckedChange={(checked) => {
+                        setBulkUseProxy(checked);
+                        if (!checked) setBulkSelectedProxies([]);
+                      }}
+                    />
                   </div>
-                  <div className="max-h-[180px] overflow-y-auto space-y-1 rounded-lg bg-muted/5 p-1.5">
-                    {availableProxies.length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground text-center py-4">Nenhuma proxy disponível</p>
-                    ) : (
-                      <>
-                        <div
-                          className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
-                          onClick={() => {
-                            if (bulkSelectedProxies.length === availableProxies.length) {
-                              setBulkSelectedProxies([]);
-                            } else {
-                              setBulkSelectedProxies(availableProxies.map(p => p.id));
-                            }
-                          }}
-                        >
-                          <Checkbox checked={bulkSelectedProxies.length === availableProxies.length && availableProxies.length > 0} />
-                          <span className="text-xs font-medium">Selecionar todas</span>
-                        </div>
-                        {availableProxies.map(p => (
-                          <div
-                            key={p.id}
-                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
-                            onClick={() => toggleBulkProxy(p.id)}
-                          >
-                            <Checkbox checked={bulkSelectedProxies.includes(p.id)} />
-                            <span className="text-xs font-mono text-muted-foreground">{p.label}</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/40">
-                    Cada proxy selecionada cria 1 instância automaticamente
+
+                  {bulkUseProxy && (
+                    <div className="border-t border-border/20 px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted-foreground font-medium">Proxies disponíveis</span>
+                        <Badge className="text-[10px] h-5 px-1.5 bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+                          {bulkSelectedProxies.length} selecionada{bulkSelectedProxies.length !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                      <div className="max-h-[180px] overflow-y-auto space-y-1 rounded-lg bg-muted/10 p-1.5">
+                        {availableProxies.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground text-center py-4">Nenhuma proxy disponível</p>
+                        ) : (
+                          <>
+                            <div
+                              className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                              onClick={() => {
+                                if (bulkSelectedProxies.length === availableProxies.length) {
+                                  setBulkSelectedProxies([]);
+                                } else {
+                                  setBulkSelectedProxies(availableProxies.map(p => p.id));
+                                }
+                              }}
+                            >
+                              <Checkbox checked={bulkSelectedProxies.length === availableProxies.length && availableProxies.length > 0} />
+                              <span className="text-xs font-semibold">Selecionar todas</span>
+                            </div>
+                            {availableProxies.map(p => (
+                              <div
+                                key={p.id}
+                                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
+                                onClick={() => toggleBulkProxy(p.id)}
+                              >
+                                <Checkbox checked={bulkSelectedProxies.includes(p.id)} />
+                                <span className="text-xs font-mono text-muted-foreground">{p.label}</span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/60">
+                        Cada proxy selecionada cria 1 instância automaticamente
+                      </p>
+                    </div>
+                  )}
+                </div>
+                {!bulkUseProxy && (
+                  <p className="text-[11px] text-muted-foreground/70 text-center">
+                    Sem proxy vinculada — você poderá vincular depois individualmente
                   </p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
-            {/* Summary */}
-            {bulkTotalCount > 0 && (
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/15">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {bulkUseProxy ? `${bulkSelectedProxies.length} com proxy vinculada` : "Sem proxy vinculada"}
+            {bulkStep === 4 && (
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-bold">Confirme antes de criar</p>
+
+                {/* Summary cards */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Tag className="w-3 h-3 text-emerald-400" />
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Prefixo</span>
+                    </div>
+                    <p className="text-sm font-bold text-foreground truncate">{bulkPrefix || "Instância"}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Hash className="w-3 h-3 text-emerald-400" />
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Total</span>
+                    </div>
+                    <p className="text-sm font-bold text-foreground tabular-nums">{bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}</p>
+                  </div>
+                  <div className="rounded-xl border border-border/30 bg-muted/10 p-3 col-span-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Shield className="w-3 h-3 text-emerald-400" />
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Proxy</span>
+                    </div>
+                    <p className="text-sm font-bold text-foreground">
+                      {bulkUseProxy
+                        ? `${bulkSelectedProxies.length} proxy${bulkSelectedProxies.length !== 1 ? "ies" : ""} vinculada${bulkSelectedProxies.length !== 1 ? "s" : ""}`
+                        : "Sem proxy vinculada"}
                     </p>
                   </div>
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Smartphone className="h-4 w-4 text-primary" />
+                </div>
+
+                {/* Live preview */}
+                <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.08] to-transparent p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold mb-2">Serão criadas</p>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from({ length: Math.min(bulkTotalCount, 8) }, (_, i) => i + 1).map(n => (
+                      <span key={n} className="text-[10px] px-2 py-0.5 rounded-md bg-card border border-emerald-500/25 text-foreground font-medium">
+                        {bulkPrefix || "Instância"} {n}
+                      </span>
+                    ))}
+                    {bulkTotalCount > 8 && (
+                      <span className="text-[10px] px-2 py-0.5 text-emerald-300 font-bold">
+                        +{bulkTotalCount - 8} mais
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3247,14 +3378,40 @@ const Devices = () => {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-border/30 flex items-center justify-end gap-3">
-            <Button variant="ghost" onClick={() => setBulkOpen(false)} className="h-10 px-5 text-sm">
-              Cancelar
+          <div className="px-6 py-4 border-t border-border/30 flex items-center justify-between gap-3 bg-muted/5">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (bulkStep === 1) setBulkOpen(false);
+                else setBulkStep((bulkStep - 1) as 1 | 2 | 3 | 4);
+              }}
+              className="h-10 px-4 text-sm gap-1.5"
+            >
+              {bulkStep === 1 ? "Cancelar" : <><ArrowLeft className="h-3.5 w-3.5" /> Voltar</>}
             </Button>
-            <Button onClick={handleBulkCreate} disabled={bulkTotalCount === 0} className="h-10 px-6 text-sm font-medium gap-2">
-              <Plus className="h-4 w-4" />
-              Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
-            </Button>
+
+            {bulkStep < 4 ? (
+              <Button
+                onClick={() => setBulkStep((bulkStep + 1) as 1 | 2 | 3 | 4)}
+                disabled={
+                  (bulkStep === 1 && !bulkPrefix.trim()) ||
+                  (bulkStep === 2 && (!bulkCount || bulkCount < 1)) ||
+                  (bulkStep === 3 && bulkUseProxy && bulkSelectedProxies.length === 0)
+                }
+                className="h-10 px-5 text-sm font-bold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_18px_-4px_hsl(152,69%,53%/0.6)]"
+              >
+                Continuar <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                onClick={handleBulkCreate}
+                disabled={bulkTotalCount === 0}
+                className="h-10 px-5 text-sm font-bold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 shadow-[0_0_22px_-4px_hsl(152,69%,53%/0.7)]"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Criar {bulkTotalCount} instância{bulkTotalCount !== 1 ? "s" : ""}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
