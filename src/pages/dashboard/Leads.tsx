@@ -180,6 +180,77 @@ function timeShort(date: string | null) {
   }
 }
 
+/* ── Memoized lead row to avoid re-rendering the entire list on every keystroke in dialogs ── */
+interface LeadRowProps {
+  lead: Lead;
+  statusOptions: typeof DEFAULT_STATUS_OPTIONS;
+  onClick: (lead: Lead) => void;
+}
+const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowProps) {
+  const statusCfg = getStatusConfig(lead.pipeline_stage, statusOptions);
+  const originCfg = getOriginConfig(lead.origin);
+  const OriginIcon = originCfg.icon;
+  return (
+    <div
+      onClick={() => onClick(lead)}
+      className={cn(
+        "group cursor-pointer rounded-xl border-2 px-5 py-4 transition-all duration-300 hover:shadow-2xl",
+        getBackgroundByStatus(lead.pipeline_stage || "novo"),
+        getBorderByStatus(lead.pipeline_stage || "novo")
+      )}
+    >
+      <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr 110px 90px 50px 90px" }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={cn(
+            "w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ring-1 ring-white/10",
+            getAvatarColor(lead.name || "?")
+          )}>
+            {getInitials(lead.name || "?")}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+              {lead.name || "Sem nome"}
+            </p>
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                <Phone className="w-3 h-3" />
+                {formatPhone(lead.phone)}
+              </span>
+              {lead.company && (
+                <span className="text-xs text-muted-foreground/50 flex items-center gap-1 truncate">
+                  <Building2 className="w-3 h-3" />
+                  {lead.company}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div>
+          <Badge className={cn("text-[10px] font-bold rounded-full border-0 px-3 py-1 bg-gradient-to-r text-white shadow-lg", getColorByStatus(lead.pipeline_stage || "novo"))}>
+            <span className="w-1.5 h-1.5 rounded-full mr-1.5 inline-block bg-white/30" />
+            {statusCfg.label}
+          </Badge>
+        </div>
+        <span className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
+          <OriginIcon className="w-3.5 h-3.5" />
+          {originCfg.label}
+        </span>
+        <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums">
+          <Clock className="w-3 h-3" />
+          {timeShort(lead.last_message_at || lead.created_at)}
+        </span>
+        <span className="text-xs text-muted-foreground/60 truncate text-right">
+          {lead.estimated_value ? (
+            <span className="font-medium text-emerald-400/80 tabular-nums">{formatCurrency(lead.estimated_value)}</span>
+          ) : lead.responsible ? (
+            <span className="flex items-center gap-1 justify-end"><User className="w-3 h-3" />{lead.responsible}</span>
+          ) : "—"}
+        </span>
+      </div>
+    </div>
+  );
+});
+
 export default function Leads() {
   const { user } = useAuth();
   const { syncToSheets, syncToNotion } = useCrmSync();
