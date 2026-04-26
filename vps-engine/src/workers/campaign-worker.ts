@@ -17,6 +17,7 @@ const API_TIMEOUT_MS = 25_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MIN_MS = 10_000;
 const RETRY_DELAY_MAX_MS = 30_000;
+const PRIVATE_MEDIA_TEXT_DELAY_MS = 120;
 const CONNECTED_STATUSES = ["Ready", "Connected", "authenticated", "open", "active", "online"];
 const SEND_ENDPOINT_PREFIXES = ["/send/", "/chat/", "/message/"];
 const UAZAPI_FAILURE_STATUSES = new Set(["error", "failed", "fail", "not_found", "not_exists", "invalid", "unauthorized", "disconnected", "timeout", "rate_limited"]);
@@ -199,6 +200,19 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
       return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
     } catch (e2) {
       if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, caption, viewOnce: false });
+      throw e2;
+    }
+  }
+}
+
+async function sendPlainMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string) {
+  try {
+    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+  } catch {
+    try {
+      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+    } catch (e2) {
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, viewOnce: false });
       throw e2;
     }
   }
@@ -438,19 +452,13 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         await sleep(800 + Math.random() * 800);
         await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       } else {
-        // 1:1 (privado): replica a estratégia do grupo (mídia + texto separados),
-        // mas usa /send/text em vez de /send/menu para evitar "versão do WhatsApp não compatível"
-        // em Android/iPhone. Garante que a copy sempre chegue, mesmo que o caption seja ignorado.
+        // 1:1 (privado): nunca envia menu, botão nativo ou legenda com link junto da mídia.
+        // WhatsApp mobile pode mostrar "versão incompatível" nesses payloads; aqui vai mídia pura + texto puro imediato.
         const buttonLines = buildPlainButtonLines(buttons || []);
         const fullText = [text, ...buttonLines].filter(Boolean).join("\n\n");
-        log.info(`[campaign-worker] 1:1 target -> /send/media (image) + /send/text (copy+links) separately`);
-        await uazapiRequest(baseUrl, token, "/send/media", {
-          number: phone,
-          type: mediaType || "image",
-          file: mediaUrl,
-          ...(mediaType === "image" ? { compress: false } : {}),
-        });
-        await sleep(800 + Math.random() * 800);
+        log.info(`[campaign-worker] 1:1 target -> plain media + immediate plain text`);
+        await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+        await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
         await sendTextWithFallback(baseUrl, token, phone, fullText);
       }
       return;
@@ -476,9 +484,15 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
 
   if (mediaUrl) {
     const mediaType = detectMediaType(mediaUrl);
+    const isGroupTarget = phone.endsWith("@g.us");
     if (mediaType === "audio") {
       if (text) { await sendTextWithFallback(baseUrl, token, phone, text); await sleep(1500 + Math.random() * 1500); }
       return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
+    }
+    if (!isGroupTarget && text) {
+      await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType);
+      await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
+      return await sendTextWithFallback(baseUrl, token, phone, text);
     }
     return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
   }
