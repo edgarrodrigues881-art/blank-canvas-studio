@@ -2262,14 +2262,14 @@ const Devices = () => {
               </Button>
             );
           } else if (hadPreviousConnection) {
-            connectionButton = (
-              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5" onClick={() => openConnect(d)}>
+             connectionButton = (
+              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => openConnect(d)}>
                 <RefreshCw className="w-2.5 h-2.5" /> Reconectar
               </Button>
             );
           } else {
             connectionButton = (
-              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5" onClick={() => openConnect(d)}>
+              <Button size="sm" className="h-6 gap-0.5 text-[10px] px-1.5 bg-emerald-500 hover:bg-emerald-600 text-white" onClick={() => openConnect(d)}>
                 <Link2 className="w-2.5 h-2.5" /> Conectar
               </Button>
             );
