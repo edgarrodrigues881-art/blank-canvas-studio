@@ -356,13 +356,15 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="sidebar-premium">
       {/* Header / Brand */}
-      <div className={`flex items-center border-b border-sidebar-border ${collapsed ? 'justify-center py-4 px-2' : 'gap-2 px-4 py-5'}`}>
+      <div className={`flex items-center ${collapsed ? 'justify-center py-4 px-2' : 'gap-2.5 px-4 py-[18px]'} relative`}>
         <img src={logo} alt="Logo" className="w-8 min-w-[32px] h-8 min-h-[32px] rounded-lg shrink-0 object-cover" />
         {!collapsed && (
-          <span className="text-[16px] font-bold tracking-tight text-sidebar-foreground truncate">
+          <span className="text-[15px] font-bold tracking-tight text-sidebar-foreground truncate">
             DG Contingência PRO
           </span>
         )}
+        {/* Subtle gradient divider */}
+        <span className="absolute bottom-0 left-3 right-3 h-px bg-gradient-to-r from-transparent via-sidebar-border to-transparent" />
       </div>
 
       <SidebarContent
