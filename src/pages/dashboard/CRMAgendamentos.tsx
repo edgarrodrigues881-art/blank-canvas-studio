@@ -1150,11 +1150,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           {/* Agendamento */}
           <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
             <div>
-              <div className="flex items-center gap-2">
-                <CalendarClock className="w-[18px] h-[18px] text-primary" />
+              <div className="flex items-center gap-2.5">
+                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">4</span>
                 <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
             <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
