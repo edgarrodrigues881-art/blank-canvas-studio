@@ -331,7 +331,7 @@ const Auth = () => {
                 <input type={showPassword ? "text" : "password"}
                   placeholder={isLogin ? "Senha" : "Senha (mínimo 8 caracteres)"}
                   value={password} onChange={(e) => setPassword(e.target.value)}
-                  required minLength={8}
+                  required minLength={isLogin ? 1 : 8}
                   className={`${inputClass} pr-11`} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 transition-colors">
