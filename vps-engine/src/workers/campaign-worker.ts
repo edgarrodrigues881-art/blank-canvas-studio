@@ -461,11 +461,27 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         await sleep(800 + Math.random() * 800);
         await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       } else {
-        // 1:1 (privado): nunca envia menu, botão nativo ou legenda com link junto da mídia.
-        // WhatsApp mobile pode mostrar "versão incompatível" nesses payloads; aqui vai mídia pura + texto puro imediato.
+        // 1:1 (privado): tenta envio único via /send/menu com imageButton (imagem + copy + botões em UMA mensagem).
+        // Se falhar (ex.: API recusa imageButton), faz fallback para mídia + texto separados.
+        const isImage = (mediaType || "image") === "image";
+        if (isImage) {
+          try {
+            log.info(`[campaign-worker] 1:1 target -> /send/menu single payload (imageButton + buttons)`);
+            await uazapiRequest(baseUrl, token, "/send/menu", {
+              number: phone,
+              type: "button",
+              text,
+              imageButton: mediaUrl,
+              choices,
+            });
+            return;
+          } catch (err: any) {
+            log.warn(`[campaign-worker] 1:1 imageButton failed, fallback to split media+text: ${err?.message || err}`);
+          }
+        }
         const buttonLines = buildPlainButtonLines(buttons || []);
         const fullText = [text, ...buttonLines].filter(Boolean).join("\n\n");
-        log.info(`[campaign-worker] 1:1 target -> plain media + immediate plain text`);
+        log.info(`[campaign-worker] 1:1 target -> plain media + immediate plain text (fallback)`);
         await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, mediaType || "image", fullText);
       }
       return;
