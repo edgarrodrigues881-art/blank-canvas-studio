@@ -3137,44 +3137,84 @@ const Devices = () => {
                 checked={bulkUseProxy}
                 onCheckedChange={(checked) => {
                   setBulkUseProxy(checked);
-                  if (!checked) setBulkSelectedProxies([]);
-                  else setBulkSelectedProxies(availableProxies.map(p => p.id));
+                  if (!checked) {
+                    setBulkSelectedProxies([]);
+                  } else {
+                    // Auto-seleciona apenas as proxies NOVAS, limitadas aos slots disponíveis no plano
+                    const remaining = Math.max(0, maxInstancesAllowed - devices.length);
+                    const novas = availableProxies.filter(p => p.status === "NOVA").map(p => p.id);
+                    setBulkSelectedProxies(novas.slice(0, remaining));
+                  }
                 }}
               />
             </div>
 
             {/* Proxy list (apenas quando ligado) */}
-            {bulkUseProxy && availableProxies.length > 0 && (
-              <div className="rounded-lg border border-border/30 overflow-hidden">
-                <div className="flex items-center justify-between px-3.5 py-2 bg-muted/20">
-                  <span className="text-[11px] text-muted-foreground">
-                    {bulkSelectedProxies.length} de {availableProxies.length} selecionada{availableProxies.length !== 1 ? "s" : ""}
+            {bulkUseProxy && availableProxies.length > 0 && (() => {
+              const remaining = Math.max(0, maxInstancesAllowed - devices.length);
+              const novaIds = availableProxies.filter(p => p.status === "NOVA").map(p => p.id);
+              const autoIds = novaIds.slice(0, remaining);
+              const allAuto = autoIds.length > 0 && autoIds.every(id => bulkSelectedProxies.includes(id)) && bulkSelectedProxies.length === autoIds.length;
+              const statusBadge = (status: string) => {
+                const map: Record<string, string> = {
+                  NOVA: "text-emerald-500 border-emerald-500/30 bg-emerald-500/10",
+                  USANDO: "text-amber-500 border-amber-500/30 bg-amber-500/10",
+                  USADA: "text-red-400 border-red-500/30 bg-red-500/10",
+                  INVALID: "text-muted-foreground border-muted bg-muted/30",
+                };
+                const label: Record<string, string> = { NOVA: "Nova", USANDO: "Em uso", USADA: "Usada", INVALID: "Inválida" };
+                return (
+                  <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded border ${map[status] || map.INVALID}`}>
+                    {label[status] || status}
                   </span>
-                  <button
-                    type="button"
-                    className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400"
-                    onClick={() => {
-                      if (bulkSelectedProxies.length === availableProxies.length) setBulkSelectedProxies([]);
-                      else setBulkSelectedProxies(availableProxies.map(p => p.id));
-                    }}
-                  >
-                    {bulkSelectedProxies.length === availableProxies.length ? "Limpar" : "Todas"}
-                  </button>
-                </div>
-                <div className="max-h-[160px] overflow-y-auto">
-                  {availableProxies.map(p => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-muted/30 cursor-pointer"
-                      onClick={() => toggleBulkProxy(p.id)}
+                );
+              };
+              return (
+                <div className="rounded-lg border border-border/30 overflow-hidden">
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-muted/20">
+                    <span className="text-[11px] text-muted-foreground">
+                      {bulkSelectedProxies.length} de {availableProxies.length} selecionada{availableProxies.length !== 1 ? "s" : ""}
+                      {remaining > 0 && bulkSelectedProxies.length > remaining && (
+                        <span className="text-amber-500 ml-1">(máx. {remaining})</span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400"
+                      onClick={() => {
+                        if (allAuto || bulkSelectedProxies.length > 0) setBulkSelectedProxies([]);
+                        else setBulkSelectedProxies(autoIds);
+                      }}
                     >
-                      <Checkbox checked={bulkSelectedProxies.includes(p.id)} />
-                      <span className="text-xs font-mono text-muted-foreground truncate">{p.label}</span>
-                    </div>
-                  ))}
+                      {bulkSelectedProxies.length > 0 ? "Limpar" : `Selecionar ${autoIds.length} novas`}
+                    </button>
+                  </div>
+                  <div className="max-h-[160px] overflow-y-auto">
+                    {availableProxies.map(p => {
+                      const isSelected = bulkSelectedProxies.includes(p.id);
+                      const atCap = !isSelected && bulkSelectedProxies.length >= remaining;
+                      return (
+                        <div
+                          key={p.id}
+                          className={`flex items-center gap-2.5 px-3.5 py-2 hover:bg-muted/30 cursor-pointer ${atCap ? "opacity-50" : ""}`}
+                          onClick={() => {
+                            if (atCap) {
+                              toast({ title: "Limite do plano atingido", description: `Só é possível criar mais ${remaining} instância${remaining !== 1 ? "s" : ""}.`, variant: "destructive" });
+                              return;
+                            }
+                            toggleBulkProxy(p.id);
+                          }}
+                        >
+                          <Checkbox checked={isSelected} />
+                          <span className="text-xs font-mono text-muted-foreground truncate flex-1">{p.label}</span>
+                          {statusBadge(p.status)}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {bulkUseProxy && availableProxies.length === 0 && (
               <p className="text-[11px] text-muted-foreground/60 text-center py-2">Nenhuma proxy disponível</p>
             )}
