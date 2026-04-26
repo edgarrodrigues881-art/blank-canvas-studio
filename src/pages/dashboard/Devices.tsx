@@ -2792,7 +2792,7 @@ const Devices = () => {
                 {/* Sync button */}
                 <Button
                   variant="outline"
-                  className="gap-2 h-9 text-sm w-full"
+                  className="gap-2 h-9 text-sm w-full border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
                   onClick={async () => {
                     try {
                       const result = await callApi({ action: "status", deviceId: connectingDevice!.id });
