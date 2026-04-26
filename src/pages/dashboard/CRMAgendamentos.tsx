@@ -832,7 +832,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               </div>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200">
                     <Variable className="w-3 h-3" /> Variáveis
                   </Button>
                 </PopoverTrigger>
@@ -855,8 +855,8 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               placeholder="Digite sua mensagem..."
               rows={5}
               className={cn(
-                "resize-y min-h-[120px] text-sm",
-                messageOverLimit && "border-red-500/60 focus-visible:ring-red-500/40"
+                "resize-y min-h-[160px] text-[14px] leading-relaxed rounded-xl border-border/50 bg-background/40 px-4 py-3 placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-emerald-500/40 focus-visible:border-emerald-500/60 focus-visible:shadow-[0_0_0_4px_hsl(152_76%_40%/0.08)] transition-shadow",
+                messageOverLimit && "border-red-500/60 focus-visible:ring-red-500/40 focus-visible:border-red-500/60 focus-visible:shadow-[0_0_0_4px_hsl(0_84%_60%/0.10)]"
               )}
             />
 
@@ -931,7 +931,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
               </div>
               {buttons.length < 3 && (
-                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" onClick={addButton}>
+                <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={addButton}>
                   <Plus className="w-3 h-3" /> Adicionar botão
                 </Button>
               )}
@@ -1091,10 +1091,10 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowSaveTemplate(true)}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-emerald-400/30 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-400/50 hover:text-emerald-200" onClick={() => setShowSaveTemplate(true)}>
                 <Save className="w-3.5 h-3.5" /> Salvar template
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowLoadTemplate(true)}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs rounded-xl border-indigo-400/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-400/50 hover:text-indigo-200" onClick={() => setShowLoadTemplate(true)}>
                 <Download className="w-3.5 h-3.5" /> Usar template
               </Button>
             </div>
