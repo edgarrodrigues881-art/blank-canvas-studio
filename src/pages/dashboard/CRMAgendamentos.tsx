@@ -1319,7 +1319,12 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
 
         {/* RIGHT — WhatsApp Preview */}
         <div className="lg:col-span-2">
-          <div className="sticky top-6">
+          <div className="sticky top-6 space-y-3">
+            <div className="flex items-center gap-2.5 px-1">
+              <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">5</span>
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Preview</h2>
+              <span className="text-[10px] text-muted-foreground ml-auto">Como aparecerá no WhatsApp</span>
+            </div>
             <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-lg">
               <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-700 px-4 py-3.5 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center text-white text-sm font-semibold shadow-inner ring-2 ring-white/20">
