@@ -271,13 +271,26 @@ export const ActivityChart = React.memo(function ActivityChart({
                   return (
                     <Cell
                       key={`c-${i}`}
-                      fill={v === 0 ? ACCENT_DIM : fill}
-                      fillOpacity={v === 0 ? 0.2 : 1}
+                      fill={fill}
+                      fillOpacity={v === 0 ? 0 : 1}
                       style={isPeak ? { filter: "url(#peakGlow)" } : undefined}
                     />
                   );
                 })}
               </Bar>
+
+              {/* Tiny baseline indicator for zero-volume days */}
+              <Bar
+                dataKey="baseline"
+                name="baseline"
+                radius={[2, 2, 0, 0]}
+                maxBarSize={barSize}
+                fill={ACCENT_DIM}
+                fillOpacity={0.45}
+                isAnimationActive={false}
+                legendType="none"
+                tooltipType="none"
+              />
 
               {/* Average line on top — solid, glowing */}
               <Line
