@@ -45,6 +45,7 @@ import {
   DollarSign,
   Workflow,
   Zap,
+  Plug,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -383,6 +384,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: user?.email !== "edgarrodrigues881@gmail.com" })}
                   {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
                   {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
+                  {renderNavItem({ title: "Integrações", url: "/dashboard/crm-integrations", icon: Plug })}
                   {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3 })}
                 </SidebarMenu>
               </SidebarGroupContent>
