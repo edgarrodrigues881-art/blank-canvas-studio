@@ -115,12 +115,14 @@ const AutoSave = () => {
     setTogglingAutosave(false);
   };
 
-  // Disclaimer
-  const disclaimerKey = `autosave_disclaimer_${user?.id}`;
-  const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem(disclaimerKey));
+  // Disclaimer — chave estática por navegador (uma vez aceito, nunca mais aparece)
+  const disclaimerKey = "autosave_disclaimer_accepted";
+  const [showDisclaimer, setShowDisclaimer] = useState(() => {
+    try { return !localStorage.getItem(disclaimerKey); } catch { return false; }
+  });
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
   const acceptDisclaimer = () => {
-    localStorage.setItem(disclaimerKey, "1");
+    try { localStorage.setItem(disclaimerKey, "1"); } catch {}
     setShowDisclaimer(false);
   };
 
