@@ -25,6 +25,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFeatureControls } from "@/hooks/useFeatureControls";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
+import { HeaderProfileMenu } from "@/components/HeaderProfileMenu";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
