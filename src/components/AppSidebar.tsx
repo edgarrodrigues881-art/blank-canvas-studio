@@ -45,6 +45,7 @@ import {
   DollarSign,
   Workflow,
   Zap,
+  Plug,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -283,7 +284,7 @@ export function AppSidebar() {
   };
 
   // Auto-switch workspace based on current route
-  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/flows", "/dashboard/quick-replies"];
+  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isCRMRoute && !isCRM) setWorkspace("crm");
@@ -383,6 +384,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: user?.email !== "edgarrodrigues881@gmail.com" })}
                   {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
                   {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
+                  {renderNavItem({ title: "Integrações", url: "/dashboard/crm-integrations", icon: Plug })}
                   {renderNavItem({ title: "Relatórios", url: "/dashboard/crm-reports", icon: BarChart3 })}
                 </SidebarMenu>
               </SidebarGroupContent>
