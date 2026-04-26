@@ -429,20 +429,23 @@
     background-color: hsl(var(--sidebar-accent));
   }
 
-  /* When sidebar is COLLAPSED: hide scrollbar but keep scroll working
-     (mouse wheel + touch swipe still scroll the content) */
-  .sidebar-premium[data-state="collapsed"] [data-sidebar="content"],
-  [data-collapsible="icon"].sidebar-premium [data-sidebar="content"],
-  [data-state="collapsed"] .sidebar-premium [data-sidebar="content"] {
-    scrollbar-width: none;            /* Firefox */
-    -ms-overflow-style: none;         /* IE/Edge legacy */
+  /* When sidebar is COLLAPSED: force scroll to remain enabled
+     (shadcn defaults to overflow-hidden in icon mode) and hide scrollbar */
+  .sidebar-premium [data-sidebar="content"] {
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
-  .sidebar-premium[data-state="collapsed"] [data-sidebar="content"]::-webkit-scrollbar,
-  [data-collapsible="icon"].sidebar-premium [data-sidebar="content"]::-webkit-scrollbar,
-  [data-state="collapsed"] .sidebar-premium [data-sidebar="content"]::-webkit-scrollbar {
+  .group\/sidebar-wrapper [data-collapsible="icon"] [data-sidebar="content"],
+  [data-collapsible="icon"] [data-sidebar="content"] {
+    overflow-y: auto !important;
+    scrollbar-width: none;            /* Firefox */
+    -ms-overflow-style: none;         /* IE/Edge */
+  }
+  [data-collapsible="icon"] [data-sidebar="content"]::-webkit-scrollbar {
     width: 0 !important;
     height: 0 !important;
-    display: none;                    /* Chrome/Safari/Webkit */
+    display: none;                    /* Chrome/Safari */
   }
 
   /* Subtle separator between sidebar groups */
