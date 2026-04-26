@@ -1056,12 +1056,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2">
-                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center">3</span>
                   <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
-                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded font-medium">Opcional</span>
+                  <span className="text-[10px] text-muted-foreground font-medium bg-muted/60 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
                 <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
