@@ -1157,39 +1157,73 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               <p className="text-[11px] text-muted-foreground mt-1 ml-[34px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
-            <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
-              <div className="relative">
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Data</Label>
-                <div className="relative mt-1">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            {/* Quick preset cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { key: "in1h" as const, label: "Em 1 hora", hint: "Disparo rápido" },
+                { key: "tomorrow9" as const, label: "Amanhã 9h", hint: "Manhã" },
+                { key: "tomorrow14" as const, label: "Amanhã 14h", hint: "Tarde" },
+                { key: "in2d" as const, label: "Em 2 dias", hint: "Mais tarde" },
+              ].map(preset => {
+                const active = activeScheduleChip === preset.key;
+                return (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => applyQuickSchedule(preset.key)}
+                    className={cn(
+                      "rounded-xl border p-3 text-left transition-all group",
+                      active
+                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                        : "border-border bg-background hover:border-primary/40 hover:bg-muted/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Clock className={cn("w-3.5 h-3.5", active ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("text-[11px] uppercase tracking-wider font-medium", active ? "text-primary" : "text-muted-foreground")}>
+                        {preset.hint}
+                      </span>
+                    </div>
+                    <p className={cn("text-sm font-semibold", active ? "text-primary" : "text-foreground")}>
+                      {preset.label}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Manual date/time */}
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Ou escolha data e hora</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="date"
                     value={date}
                     onChange={e => { setDate(e.target.value); setActiveScheduleChip(null); }}
-                    className="h-10 pl-9 bg-background border-border"
+                    className="h-11 pl-10 bg-background border-border"
                   />
                 </div>
-              </div>
-              <div className="relative">
-                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Hora</Label>
-                <div className="relative mt-1">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="time"
                     value={time}
                     onChange={e => { setTime(e.target.value); setActiveScheduleChip(null); }}
-                    className="h-10 pl-9 bg-background border-border"
+                    className="h-11 pl-10 bg-background border-border"
                   />
                 </div>
               </div>
             </div>
 
+            {/* Instance */}
             <div>
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
-                <Wifi className="w-3 h-3" /> Instância de envio
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5 mb-2">
+                <Wifi className="w-3.5 h-3.5" /> Instância de envio
               </Label>
               <Select value={deviceId || "auto"} onValueChange={v => setDeviceId(v === "auto" ? "" : v)}>
-                <SelectTrigger className="h-10 mt-1 bg-background border-border">
+                <SelectTrigger className="h-11 bg-background border-border">
                   <SelectValue placeholder="Automático" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1207,34 +1241,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   })}
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-muted-foreground mt-1">Deixe em automático para o sistema escolher a melhor conexão disponível</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">Atalhos rápidos:</span>
-              {[
-                { key: "in1h" as const, label: "Hoje + 1h" },
-                { key: "tomorrow9" as const, label: "Amanhã 9h" },
-                { key: "tomorrow14" as const, label: "Amanhã 14h" },
-                { key: "in2d" as const, label: "Em 2 dias" },
-              ].map(chip => {
-                const active = activeScheduleChip === chip.key;
-                return (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    onClick={() => applyQuickSchedule(chip.key)}
-                    className={cn(
-                      "inline-flex items-center gap-1 px-3 h-7 rounded-full border text-[11px] font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-background border-primary/40 text-primary hover:bg-primary/10"
-                    )}
-                  >
-                    <Clock className="w-3 h-3" /> {chip.label}
-                  </button>
-                );
-              })}
+              <p className="text-[10px] text-muted-foreground mt-1.5">Deixe em automático para o sistema escolher a melhor conexão</p>
             </div>
 
             {countdown && (
