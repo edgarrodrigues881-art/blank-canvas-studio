@@ -423,7 +423,7 @@ function DetailModal({ open, onOpenChange, item, deviceName, onEdit, onSendNow, 
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-primary" /></div>
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><User className="w-[18px] h-[18px] text-emerald-400" /></div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">{item.contact_name || "Sem nome"}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{formatPhone(item.contact_phone)}</p>
@@ -729,16 +729,16 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
           <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Destinatário</h2>
+              <User className="w-[18px] h-[18px] text-emerald-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
             </div>
 
             {selectedContact ? (
               <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 text-primary" />
+                  <User className="w-[18px] h-[18px] text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate">{selectedContact.name}</p>
@@ -824,11 +824,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Mensagem */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Mensagem</h2>
+                <MessageSquare className="w-[18px] h-[18px] text-emerald-400" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -923,11 +923,11 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Botões interativos */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Botões</h2>
+                <ExternalLink className="w-[18px] h-[18px] text-indigo-400" />
+                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
                 <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
               </div>
               {buttons.length < 3 && (
@@ -1014,10 +1014,10 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Agendamento */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-4">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center gap-2">
-              <CalendarClock className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Agendamento</h2>
+              <CalendarClock className="w-[18px] h-[18px] text-indigo-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -1084,10 +1084,10 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Templates */}
-          <div className="rounded-xl border border-border/40 bg-card p-5 space-y-3">
+          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-4 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
             <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Templates</h2>
+              <FileText className="w-[18px] h-[18px] text-indigo-400" />
+              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1136,7 +1136,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           <Dialog open={showLoadTemplate} onOpenChange={setShowLoadTemplate}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base"><FileText className="w-4 h-4 text-primary" /> Usar Template</DialogTitle>
+                <DialogTitle className="flex items-center gap-2 text-base"><FileText className="w-[18px] h-[18px] text-indigo-400" /> Usar Template</DialogTitle>
               </DialogHeader>
               <TemplateLoaderModal userId={user?.id} onSelect={(content) => { setMessageContent(content); setShowLoadTemplate(false); }} />
             </DialogContent>
