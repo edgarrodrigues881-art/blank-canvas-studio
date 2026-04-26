@@ -5,12 +5,12 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  ReferenceDot,
+  Cell,
 } from "recharts";
-import { Activity, TrendingUp } from "lucide-react";
+import { Activity } from "lucide-react";
 
 interface WarmupPoint {
   label: string;
@@ -30,7 +30,7 @@ interface Props {
 }
 
 const ACCENT = "hsl(152, 76%, 50%)";
-const ACCENT_SOFT = "hsl(152, 76%, 60%)";
+const ACCENT_DIM = "hsl(152, 30%, 45%)";
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -59,21 +59,18 @@ export const ActivityChart = React.memo(function ActivityChart({
   periodLabel = "7 dias",
   headerRight,
 }: Props) {
-  const { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays } = useMemo(() => {
+  const { totalEntregas, peakValue, peakLabel } = useMemo(() => {
     const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
     let peakValue = 0;
     let peakLabel = "";
-    let activeDays = 0;
     data.forEach((d) => {
       const v = d.entregas || 0;
       if (v > peakValue) {
         peakValue = v;
         peakLabel = d.label;
       }
-      if (v > 0) activeDays++;
     });
-    const avgPerDay = data.length > 0 ? Math.round(totalEntregas / data.length) : 0;
-    return { totalEntregas, peakValue, peakLabel, avgPerDay, activeDays };
+    return { totalEntregas, peakValue, peakLabel };
   }, [data]);
 
   // Smart X axis: avoid label overlap on long periods
@@ -86,11 +83,11 @@ export const ActivityChart = React.memo(function ActivityChart({
       ? 1
       : 0;
 
-  // Find the peak data point for the marker
-  const peakPoint = useMemo(
-    () => data.find((d) => (d.entregas || 0) === peakValue && peakValue > 0),
-    [data, peakValue]
-  );
+  // Bar sizing — thinner for longer periods
+  const barSize =
+    data.length > 60 ? 4 : data.length > 30 ? 6 : data.length > 15 ? 10 : 22;
+  const barRadius: [number, number, number, number] =
+    data.length > 30 ? [2, 2, 0, 0] : [4, 4, 0, 0];
 
   return (
     <Card className="relative border-border/50 bg-card w-full col-span-full overflow-hidden">
@@ -120,67 +117,51 @@ export const ActivityChart = React.memo(function ActivityChart({
               <span className="text-muted-foreground/60 font-normal">— {periodLabel}</span>
             </CardTitle>
 
-            <div className="mt-2 flex items-baseline gap-1.5">
+            <div className="mt-2 flex items-baseline gap-2 flex-wrap">
               <span className="text-3xl font-bold text-foreground tabular-nums tracking-tight leading-none">
                 {totalEntregas.toLocaleString("pt-BR")}
               </span>
               <span className="text-xs text-muted-foreground">mensagens</span>
+              {peakValue > 0 && peakLabel && (
+                <span className="text-[11px] text-muted-foreground/70 ml-1">
+                  · pico{" "}
+                  <span className="text-emerald-300 font-semibold tabular-nums">
+                    {peakValue.toLocaleString("pt-BR")}
+                  </span>{" "}
+                  <span className="capitalize">({peakLabel})</span>
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Right slot: aux metrics + optional headerRight (PeriodPicker) */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-3 mr-1">
-              <MetricChip
-                label="Pico"
-                value={peakValue.toLocaleString("pt-BR")}
-                hint={peakLabel}
-                accent
-              />
-              <MetricChip
-                label="Média/dia"
-                value={avgPerDay.toLocaleString("pt-BR")}
-              />
-              <MetricChip
-                label="Dias ativos"
-                value={`${activeDays}/${data.length}`}
-              />
-            </div>
-            {headerRight}
-          </div>
+          {/* Right slot (PeriodPicker etc) */}
+          {headerRight && <div className="flex items-center gap-2">{headerRight}</div>}
         </div>
       </CardHeader>
 
-      <CardContent className="relative pt-0">
-        {/* Mobile metrics — shown below the title on small screens */}
-        <div className="sm:hidden flex items-center gap-2 mb-3">
-          <MetricChip
-            label="Pico"
-            value={peakValue.toLocaleString("pt-BR")}
-            hint={peakLabel}
-            accent
-          />
-          <MetricChip label="Média/dia" value={avgPerDay.toLocaleString("pt-BR")} />
-        </div>
-
-        <div className="h-64">
+      <CardContent className="relative pt-2">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <BarChart
               data={data}
               margin={{ top: 18, right: 14, left: -10, bottom: 0 }}
+              barCategoryGap={data.length > 30 ? "15%" : "25%"}
             >
               <defs>
-                <linearGradient id="gradAreaRich" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ACCENT} stopOpacity={0.45} />
-                  <stop offset="55%" stopColor={ACCENT} stopOpacity={0.12} />
-                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+                <linearGradient id="gradBar" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={ACCENT} stopOpacity={1} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.35} />
                 </linearGradient>
-                <linearGradient id="gradStroke" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={ACCENT} stopOpacity={0.85} />
-                  <stop offset="100%" stopColor={ACCENT_SOFT} stopOpacity={1} />
+                <linearGradient id="gradBarPeak" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(152, 90%, 65%)" stopOpacity={1} />
+                  <stop offset="100%" stopColor={ACCENT} stopOpacity={0.55} />
                 </linearGradient>
-                <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
+                <linearGradient id="gradBarDim" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={ACCENT_DIM} stopOpacity={0.55} />
+                  <stop offset="100%" stopColor={ACCENT_DIM} stopOpacity={0.18} />
+                </linearGradient>
+                <filter id="barGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
                   <feMerge>
                     <feMergeNode in="blur" />
                     <feMergeNode in="SourceGraphic" />
@@ -214,87 +195,39 @@ export const ActivityChart = React.memo(function ActivityChart({
               />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{
-                  stroke: ACCENT,
-                  strokeWidth: 1,
-                  strokeDasharray: "3 3",
-                  opacity: 0.5,
-                }}
+                cursor={{ fill: "hsl(var(--foreground))", opacity: 0.04 }}
               />
 
-              <Area
-                type="monotone"
+              <Bar
                 dataKey="entregas"
-                stroke="url(#gradStroke)"
-                strokeWidth={2.5}
-                fill="url(#gradAreaRich)"
                 name="Mensagens"
-                dot={data.length <= 15 ? { r: 3, fill: ACCENT, strokeWidth: 0 } : false}
-                activeDot={{
-                  r: 6,
-                  fill: ACCENT,
-                  stroke: "hsl(var(--background))",
-                  strokeWidth: 2,
-                  style: { filter: `drop-shadow(0 0 6px ${ACCENT})` },
-                }}
-                style={{ filter: "url(#lineGlow)" }}
-              />
-
-              {/* Peak marker */}
-              {peakPoint && peakValue > 0 && (
-                <ReferenceDot
-                  x={peakPoint.label}
-                  y={peakValue}
-                  r={5}
-                  fill={ACCENT}
-                  stroke="hsl(var(--background))"
-                  strokeWidth={2}
-                  isFront
-                />
-              )}
-            </AreaChart>
+                radius={barRadius}
+                maxBarSize={barSize}
+                isAnimationActive
+                animationDuration={650}
+              >
+                {data.map((d, i) => {
+                  const v = d.entregas || 0;
+                  const isPeak = v === peakValue && peakValue > 0;
+                  const isZero = v === 0;
+                  const fill = isZero
+                    ? "url(#gradBarDim)"
+                    : isPeak
+                    ? "url(#gradBarPeak)"
+                    : "url(#gradBar)";
+                  return (
+                    <Cell
+                      key={`c-${i}`}
+                      fill={fill}
+                      style={isPeak ? { filter: "url(#barGlow)" } : undefined}
+                    />
+                  );
+                })}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
   );
 });
-
-/** Compact metric chip used in the chart header */
-function MetricChip({
-  label,
-  value,
-  hint,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div
-      className={`flex flex-col items-end leading-tight px-2.5 py-1.5 rounded-lg border ${
-        accent
-          ? "border-emerald-500/20 bg-emerald-500/5"
-          : "border-border/40 bg-muted/20"
-      }`}
-    >
-      <span className="text-[9px] uppercase tracking-widest text-muted-foreground/70 font-semibold">
-        {label}
-      </span>
-      <span
-        className={`text-[12px] font-bold tabular-nums ${
-          accent ? "text-emerald-300" : "text-foreground"
-        }`}
-      >
-        {value}
-      </span>
-      {hint && (
-        <span className="text-[9px] text-muted-foreground/60 -mt-0.5 capitalize">
-          {hint}
-        </span>
-      )}
-    </div>
-  );
-}
