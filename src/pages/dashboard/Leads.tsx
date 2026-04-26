@@ -18,7 +18,7 @@ import {
   Search, Plus, Upload, Trash2, Pencil, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
   MessageSquare, Globe, Megaphone, Users, UserPlus, Clock, Download, Tag as TagIcon,
 } from "lucide-react";
-import { CrmPageTitle, BUTTON_VARIANTS, ANIMATION_CLASSES, getColorByStatus, getBackgroundByStatus, getBorderByStatus } from "@/components/crm/CrmStyleGuide";
+import { CrmPageTitle, BUTTON_VARIANTS, ANIMATION_CLASSES, getColorByStatus, getBackgroundByStatus } from "@/components/crm/CrmStyleGuide";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
@@ -194,9 +194,8 @@ const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowP
     <div
       onClick={() => onClick(lead)}
       className={cn(
-        "group cursor-pointer rounded-xl border px-5 py-4 transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md",
-        getBackgroundByStatus(lead.pipeline_stage || "novo"),
-        getBorderByStatus(lead.pipeline_stage || "novo")
+        "group cursor-pointer rounded-xl px-5 py-4 transition-[background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        getBackgroundByStatus(lead.pipeline_stage || "novo")
       )}
     >
       <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr 110px 90px 50px 90px" }}>
