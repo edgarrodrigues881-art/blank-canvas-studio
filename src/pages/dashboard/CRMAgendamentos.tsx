@@ -737,7 +737,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <span className="sched-section-icon"><User className="w-4 h-4" /></span>
                 <h2 className="text-[17px] font-bold text-foreground tracking-tight">Destinatário</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Escolha para quem enviar a mensagem</p>
             </div>
 
             {selectedContact ? (
@@ -836,7 +836,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   <span className="sched-section-icon"><MessageSquare className="w-4 h-4" /></span>
                   <h2 className="text-[17px] font-bold text-foreground tracking-tight">Mensagem</h2>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escreva o que será enviado pelo WhatsApp</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Escreva o que será enviado pelo WhatsApp</p>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -1031,7 +1031,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                   <h2 className="text-[17px] font-bold text-foreground tracking-tight">Botões</h2>
                   <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
                 <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
@@ -1123,7 +1123,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                 <span className="sched-section-icon"><CalendarClock className="w-4 h-4" /></span>
                 <h2 className="text-[17px] font-bold text-foreground tracking-tight">Agendamento</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
             <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
