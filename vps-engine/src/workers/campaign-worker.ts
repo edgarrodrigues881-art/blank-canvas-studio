@@ -227,6 +227,12 @@ async function sendPrivateMediaThenText(baseUrl: string, token: string, phone: s
   }
 }
 
+async function sendPrivateMediaThenMenu(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
+  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+  await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
+  return await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+}
+
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
 interface CarouselCard { id?: string; position?: number; text?: string; mediaUrl?: string; mediaType?: string | null; buttons?: any[]; }
 
@@ -461,28 +467,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
         await sleep(800 + Math.random() * 800);
         await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
       } else {
-        // 1:1 (privado): tenta envio único via /send/menu com imageButton (imagem + copy + botões em UMA mensagem).
-        // Se falhar (ex.: API recusa imageButton), faz fallback para mídia + texto separados.
-        const isImage = (mediaType || "image") === "image";
-        if (isImage) {
-          try {
-            log.info(`[campaign-worker] 1:1 target -> /send/menu single payload (imageButton + buttons)`);
-            await uazapiRequest(baseUrl, token, "/send/menu", {
-              number: phone,
-              type: "button",
-              text,
-              imageButton: mediaUrl,
-              choices,
-            });
-            return;
-          } catch (err: any) {
-            log.warn(`[campaign-worker] 1:1 imageButton failed, fallback to split media+text: ${err?.message || err}`);
-          }
-        }
-        const buttonLines = buildPlainButtonLines(buttons || []);
-        const fullText = [text, ...buttonLines].filter(Boolean).join("\n\n");
-        log.info(`[campaign-worker] 1:1 target -> plain media + immediate plain text (fallback)`);
-        await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, mediaType || "image", fullText);
+        // 1:1 (privado): não usar imageButton. No WhatsApp mobile ele gera
+        // "versão incompatível". Envia imagem limpa e, em seguida, copy + botão
+        // via /send/menu para preservar o botão sem anexar mídia no mesmo payload.
+        log.info(`[campaign-worker] 1:1 target -> plain media + menu buttons separately`);
+        await sendPrivateMediaThenMenu(baseUrl, token, phone, mediaUrl, mediaType || "image", text, choices);
       }
       return;
     }
