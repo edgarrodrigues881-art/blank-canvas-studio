@@ -1145,11 +1145,32 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
               </div>
 
               <div className="bg-[hsl(var(--background))] min-h-[350px] p-4 space-y-3" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 10 L30 15 L25 10 Z' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E\")" }}>
-                {previewMessage.trim() ? (
+                {previewMessage.trim() || mediaPreview ? (
                   <div className="flex justify-end">
                     <div className="max-w-[85%]">
-                      <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-3.5 py-2.5 space-y-1.5">
-                        <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">{previewMessage}</p>
+                      <div className="bg-emerald-600/20 border border-emerald-500/20 rounded-xl rounded-tr-sm px-2 py-2 space-y-1.5">
+                        {mediaPreview && mediaPreview.kind === "image" && (
+                          <img src={mediaPreview.url} alt={mediaPreview.name} className="rounded-lg w-full max-h-56 object-cover" />
+                        )}
+                        {mediaPreview && mediaPreview.kind === "audio" && (
+                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2 py-1.5">
+                            <FileAudio className="w-4 h-4 text-primary shrink-0" />
+                            <audio src={mediaPreview.url} controls className="h-7 w-full" />
+                          </div>
+                        )}
+                        {mediaPreview && mediaPreview.kind === "document" && (
+                          <div className="flex items-center gap-2 bg-background/40 rounded-lg px-2.5 py-2">
+                            <FileType className="w-5 h-5 text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-foreground truncate">{mediaPreview.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{(mediaPreview.size / 1024).toFixed(1)} KB · PDF</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {previewMessage.trim() && (
+                          <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed px-1.5">{previewMessage}</p>
+                        )}
 
                         {buttons.filter(b => b.text).length > 0 && (
                           <div className="pt-1.5 border-t border-emerald-500/10 space-y-1">
@@ -1162,7 +1183,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
                           </div>
                         )}
 
-                        <p className="text-[10px] text-muted-foreground/60 text-right">
+                        <p className="text-[10px] text-muted-foreground/60 text-right px-1.5">
                           {time || "00:00"} <CheckCircle2 className="w-3 h-3 inline ml-0.5 text-primary/50" />
                         </p>
                       </div>
