@@ -14,14 +14,18 @@ import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface WarmupPoint {
   label: string;
-  volume: number;
+  volume?: number;
   entregas: number;
   entregasPrev?: number;
-  crescimento: number;
+  crescimento?: number;
 }
 
 interface Props {
   data: WarmupPoint[];
+  /** Optional title override (e.g. "30 dias", "Tudo") */
+  periodLabel?: string;
+  /** Optional slot rendered in the top-right (e.g. PeriodPicker) */
+  headerRight?: React.ReactNode;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -45,7 +49,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-export const ActivityChart = React.memo(function ActivityChart({ data }: Props) {
+export const ActivityChart = React.memo(function ActivityChart({
+  data,
+  periodLabel = "7 dias",
+  headerRight,
+}: Props) {
   const totalEntregas = data.reduce((sum, d) => sum + (d.entregas || 0), 0);
   const totalPrev = data.reduce((sum, d) => sum + (d.entregasPrev || 0), 0);
 
@@ -68,18 +76,24 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
   const ACCENT = "hsl(152, 69%, 53%)";
   const PREV = "hsl(220, 9%, 55%)";
 
+  // Smart X axis: avoid label overlap on long periods
+  const xInterval =
+    data.length > 60 ? Math.ceil(data.length / 8) - 1 :
+    data.length > 30 ? Math.ceil(data.length / 10) - 1 :
+    data.length > 15 ? 1 : 0;
+
   return (
     <Card className="border-border/50 bg-card w-full col-span-full overflow-hidden">
       <CardHeader className="pb-1">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Mensagens Entregues — 7 dias
+            Mensagens Entregues — {periodLabel}
           </CardTitle>
           <div className="flex items-center gap-3 text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ background: ACCENT }} />
-              <span className="text-muted-foreground">Esta semana</span>
+              <span className="text-muted-foreground">Período atual</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -88,8 +102,9 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
                   background: `repeating-linear-gradient(90deg, ${PREV} 0 3px, transparent 3px 6px)`,
                 }}
               />
-              <span className="text-muted-foreground">Semana anterior</span>
+              <span className="text-muted-foreground">Período anterior</span>
             </div>
+            {headerRight}
           </div>
         </div>
         <div className="mt-1 flex items-end gap-3 flex-wrap">
@@ -104,7 +119,7 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
           >
             <VarIcon className="w-3 h-3" />
             {isUp ? "+" : ""}
-            {variation}% vs semana anterior
+            {variation}% vs período anterior
           </div>
         </div>
       </CardHeader>
@@ -130,6 +145,8 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
                 axisLine={false}
                 tickLine={false}
                 dy={8}
+                interval={xInterval}
+                minTickGap={20}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -137,7 +154,7 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
                 tickLine={false}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }} />
-              {/* Previous week (dashed reference line, no fill) */}
+              {/* Previous period (dashed reference line, no fill) */}
               <Area
                 type="monotone"
                 dataKey="entregasPrev"
@@ -145,19 +162,19 @@ export const ActivityChart = React.memo(function ActivityChart({ data }: Props) 
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 fill="transparent"
-                name="Semana anterior"
+                name="Período anterior"
                 dot={false}
                 activeDot={{ r: 4, fill: PREV, stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
-              {/* Current week */}
+              {/* Current period */}
               <Area
                 type="monotone"
                 dataKey="entregas"
                 stroke={ACCENT}
                 strokeWidth={2.5}
                 fill="url(#gradEntregas)"
-                name="Esta semana"
-                dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
+                name="Período atual"
+                dot={data.length <= 15 ? { r: 3, fill: ACCENT, strokeWidth: 0 } : false}
                 activeDot={{ r: 6, fill: ACCENT, stroke: "hsl(var(--background))", strokeWidth: 2 }}
               />
             </AreaChart>
