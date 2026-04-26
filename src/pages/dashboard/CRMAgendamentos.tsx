@@ -695,32 +695,31 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
   const contactInitial = (selectedContact?.name || "C").trim().charAt(0).toUpperCase();
 
   return (
-    <div className="p-5 md:p-8 max-w-7xl mx-auto space-y-7">
+    <div className="sched-page min-h-full p-5 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-indigo-500/10 hover:text-indigo-300" onClick={onBack}>
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 rounded-xl hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-300" onClick={onBack}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl md:text-[26px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">Envio individual inteligente</p>
+          <h1 className="text-2xl md:text-[28px] font-bold text-foreground tracking-tight leading-tight">{editing ? "Editar Disparo" : "Novo Disparo Agendado"}</h1>
+          <p className="text-xs text-muted-foreground mt-1">Envio individual inteligente</p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <Button
-            variant="outline"
             size="sm"
-            className="gap-1.5 text-xs rounded-xl border-border/60 hover:border-indigo-400/40 hover:bg-indigo-500/5 hover:text-foreground"
+            className="sched-btn-secondary gap-1.5 text-xs rounded-xl h-10 px-4"
             onClick={onBack}
           >
             Cancelar
           </Button>
           <Button
-            size="sm"
             onClick={handleSave}
             disabled={!canSave || saving}
-            className="gap-1.5 text-xs rounded-xl text-white bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-600 shadow-[0_8px_22px_-8px_hsl(152_76%_40%/0.65)] hover:shadow-[0_10px_28px_-8px_hsl(152_76%_40%/0.85)] transition-all"
+            className="sched-cta-primary gap-2 text-sm font-semibold rounded-xl h-11 px-6"
           >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {editing ? "Salvar" : "Agendar Disparo"}
           </Button>
         </div>
@@ -732,13 +731,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
         <div className="lg:col-span-3 space-y-6">
 
           {/* Destinatário */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
           <div>
               <div className="flex items-center gap-2">
-                <User className="w-[18px] h-[18px] text-emerald-500" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Destinatário</h2>
+                <span className="sched-section-icon"><User className="w-4 h-4" /></span>
+                <h2 className="text-[17px] font-bold text-foreground tracking-tight">Destinatário</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escolha para quem enviar a mensagem</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Escolha para quem enviar a mensagem</p>
             </div>
 
             {selectedContact ? (
@@ -830,14 +829,14 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Mensagem */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-[18px] h-[18px] text-emerald-500" />
-                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Mensagem</h2>
+                  <span className="sched-section-icon"><MessageSquare className="w-4 h-4" /></span>
+                  <h2 className="text-[17px] font-bold text-foreground tracking-tight">Mensagem</h2>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Escreva o que será enviado pelo WhatsApp</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Escreva o que será enviado pelo WhatsApp</p>
               </div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -1024,15 +1023,15 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Botões interativos */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <ExternalLink className="w-[18px] h-[18px] text-primary" />
-                  <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Botões</h2>
+                  <span className="sched-section-icon"><ExternalLink className="w-4 h-4" /></span>
+                  <h2 className="text-[17px] font-bold text-foreground tracking-tight">Botões</h2>
                   <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">{buttons.length}/3</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Adicione opções de resposta rápida para o contato</p>
+                <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Adicione opções de resposta rápida para o contato</p>
               </div>
               {buttons.length < 3 && (
                 <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1 rounded-lg border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 hover:border-primary/50" onClick={addButton}>
@@ -1118,13 +1117,13 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Agendamento */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-5 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-5">
             <div>
               <div className="flex items-center gap-2">
-                <CalendarClock className="w-[18px] h-[18px] text-primary" />
-                <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Agendamento</h2>
+                <span className="sched-section-icon"><CalendarClock className="w-4 h-4" /></span>
+                <h2 className="text-[17px] font-bold text-foreground tracking-tight">Agendamento</h2>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1 ml-[26px]">Defina quando a mensagem será enviada automaticamente</p>
+              <p className="text-[11px] text-muted-foreground mt-1 ml-[38px]">Defina quando a mensagem será enviada automaticamente</p>
             </div>
 
             <div className="rounded-xl border border-border bg-muted/20 p-3 grid grid-cols-2 gap-2">
@@ -1221,10 +1220,10 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
           </div>
 
           {/* Templates */}
-          <div className="rounded-2xl border border-indigo-400/10 bg-gradient-to-b from-card/95 to-card/70 backdrop-blur-sm p-6 space-y-4 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04),0_1px_2px_0_hsl(var(--background)/0.6)]">
+          <div className="sched-card p-7 space-y-4">
             <div className="flex items-center gap-2">
-              <FileText className="w-[18px] h-[18px] text-indigo-400" />
-              <h2 className="text-[15px] font-semibold text-foreground tracking-tight">Templates</h2>
+              <span className="sched-section-icon"><FileText className="w-4 h-4" /></span>
+              <h2 className="text-[17px] font-bold text-foreground tracking-tight">Templates</h2>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1373,6 +1372,7 @@ function ScheduleFormView({ editing, devices, onBack, onSaved }: {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
