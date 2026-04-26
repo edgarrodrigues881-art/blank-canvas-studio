@@ -18,6 +18,7 @@ import {
   Search, Plus, Upload, Trash2, Pencil, Phone, Mail, Building2, DollarSign, Calendar, MapPin, FileText, User,
   MessageSquare, Globe, Megaphone, Users, UserPlus, Clock, Download, Tag as TagIcon,
 } from "lucide-react";
+import { CrmPageTitle, BUTTON_VARIANTS, ANIMATION_CLASSES, getColorByStatus, getBackgroundByStatus, getBorderByStatus } from "@/components/crm/CrmStyleGuide";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { formatPhone } from "@/utils/formatters";
@@ -486,22 +487,22 @@ export default function Leads() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Leads</h1>
-          <p className="text-sm text-muted-foreground">{leads.length} leads cadastrados</p>
+          <CrmPageTitle>Leads</CrmPageTitle>
+          <p className="text-sm text-muted-foreground mt-2">{leads.length} leads cadastrados • Gerencie suas oportunidades com eficiência</p>
         </div>
         <div className="flex gap-2">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5 font-semibold">
             <Upload className="w-3.5 h-3.5" /> Importar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setExportOpen(true)} className="gap-1.5">
+          <Button size="sm" onClick={() => setExportOpen(true)} className={`gap-1.5 font-semibold ${BUTTON_VARIANTS.secondary}`}>
             <Download className="w-3.5 h-3.5" /> Exportar
           </Button>
-          <Button size="sm" onClick={openNew} className="gap-1.5">
+          <Button size="sm" onClick={openNew} className={`gap-1.5 font-semibold ${BUTTON_VARIANTS.primary}`}>
             <Plus className="w-3.5 h-3.5" /> Novo Lead
           </Button>
         </div>
@@ -548,7 +549,7 @@ export default function Leads() {
       </div>
 
       {/* Lead Cards */}
-      <div className="space-y-2">
+      <div className="space-y-2 pr-2">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">Carregando...</div>
         ) : filtered.length === 0 ? (
@@ -566,7 +567,11 @@ export default function Leads() {
               <div
                 key={lead.id}
                 onClick={() => { setDetailLead(lead); setDetailTab("info"); }}
-                className="group cursor-pointer rounded-xl border border-border/40 bg-card px-5 py-4 transition-all duration-200 hover:border-primary/25 hover:shadow-[0_4px_24px_-6px_hsl(var(--primary)/0.1)] hover:bg-muted/20"
+                className={cn(
+                  "group cursor-pointer rounded-xl border-2 px-5 py-4 transition-all duration-300 hover:shadow-2xl",
+                  getBackgroundByStatus(lead.pipeline_stage || "novo"),
+                  getBorderByStatus(lead.pipeline_stage || "novo")
+                )}
               >
               <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr 110px 90px 50px 90px" }}>
                   {/* Col 1: Avatar + Name */}
@@ -598,8 +603,8 @@ export default function Leads() {
 
                   {/* Col 2: Status */}
                   <div>
-                    <Badge variant="outline" className={cn("text-[10px] font-medium rounded-full border px-2.5 py-0.5", statusCfg.badge)}>
-                      <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
+                    <Badge className={cn("text-[10px] font-bold rounded-full border-0 px-3 py-1 bg-gradient-to-r text-white shadow-lg", getColorByStatus(lead.pipeline_stage || "novo"))}>
+                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 inline-block bg-white/30" />
                       {statusCfg.label}
                     </Badge>
                   </div>
