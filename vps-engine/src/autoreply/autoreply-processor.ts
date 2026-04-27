@@ -153,10 +153,41 @@ function interpolate(text: string, vars: LeadVars): string {
     .replace(/\{\{?\s*empresa\s*\}?\}/gi, vars.empresa);
 }
 
+// ── Presence simulation (typing / recording) ──
+// UAZAPI: POST /message/presence  { number, presence: 'composing'|'recording'|'paused', delay?: ms }
+// Some deployments expose /sendPresence instead — we try both silently.
+async function sendPresence(
+  baseUrl: string, token: string, phone: string,
+  kind: "composing" | "recording" | "paused",
+  delayMs?: number,
+) {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const payload: any = { number: cleanPhone, presence: kind };
+  if (delayMs && delayMs > 0) payload.delay = delayMs;
+  try {
+    await uazapiSend(baseUrl, token, "/message/presence", payload);
+    return;
+  } catch {
+    try { await uazapiSend(baseUrl, token, "/sendPresence", payload); } catch {}
+  }
+}
+
+// Humanized "thinking" duration based on text length (caps to keep flow snappy)
+function presenceDurationMs(text: string, isAudio: boolean): number {
+  if (isAudio) {
+    // 1.8s base + 60ms per char (caption length), cap 6s
+    return Math.min(1800 + (text?.length || 0) * 60, 6000);
+  }
+  // Typing: ~45 wpm reading speed → ~80ms/char, min 800ms, cap 4.5s
+  const len = text?.length || 0;
+  return Math.min(Math.max(800, len * 80), 4500);
+}
+
 async function sendFlowMessage(
   baseUrl: string, token: string, phone: string, text: string,
   imageUrl?: string, buttons?: FlowBtnPayload[],
-  isFirst: boolean = false
+  isFirst: boolean = false,
+  audioUrl?: string,
 ) {
   const cleanPhone = phone.replace(/\D/g, "");
 
@@ -166,6 +197,20 @@ async function sendFlowMessage(
     await new Promise(r => setTimeout(r, INTER_MESSAGE_SPACING_MS));
   }
 
+  // Show "typing..." or "recording..." presence to humanize the bot.
+  // Audio nodes → recording; everything else (text, image, buttons) → composing.
+  const isAudio = !!audioUrl;
+  const presenceKind: "composing" | "recording" = isAudio ? "recording" : "composing";
+  const dwellMs = presenceDurationMs(text, isAudio);
+  // Fire presence and wait the dwell time before sending the actual message.
+  await sendPresence(baseUrl, token, cleanPhone, presenceKind, dwellMs);
+  await new Promise(r => setTimeout(r, dwellMs));
+  // Best-effort clear so the indicator goes away right before delivery.
+  void sendPresence(baseUrl, token, cleanPhone, "paused");
+
+  if (audioUrl) {
+    return uazapiSend(baseUrl, token, "/send/media", { number: cleanPhone, file: audioUrl, type: "ptt" });
+  }
   if (buttons && buttons.length > 0) {
     const choices = buttons.map(buildChoice).filter(Boolean);
     const payload: any = { number: cleanPhone, type: "button", text, choices };
@@ -189,6 +234,7 @@ interface FlowNode {
     keyword?: string;
     text?: string;
     imageUrl?: string;
+    audioUrl?: string;
     imageCaption?: string;
     buttons?: { id: string; label: string; targetNodeId: string; type?: "reply" | "url" | "phone"; url?: string; phone?: string }[];
     delaySeconds?: number;
@@ -262,14 +308,17 @@ async function processNodeChain(
         const rawText = node.data.text || "";
         const text = interpolate(rawText, vars);
         const hasMedia = !!node.data.imageUrl;
+        const hasAudio = !!node.data.audioUrl;
         const hasButtons = (node.data.buttons?.length ?? 0) > 0;
-        // Send if there is any payload (text, media, or buttons)
-        if (text || hasMedia || hasButtons) {
+        // Send if there is any payload (text, media, audio, or buttons)
+        if (text || hasMedia || hasAudio || hasButtons) {
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })) : undefined);
-            log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons]'}" to ${phone}`);
+              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })) : undefined,
+              false,
+              node.data.audioUrl || undefined);
+            log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons/audio]'}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
           }
@@ -518,7 +567,8 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
         await sendFlowMessage(baseUrl, deviceToken, fromPhone, interpolate(startNode.data.text, vars),
           startNode.data.imageUrl || undefined,
           startNode.data.buttons?.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })),
-          true);
+          true,
+          startNode.data.audioUrl || undefined);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
         return;
