@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key, Globe } from "lucide-react";
+import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key, Globe, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminUser } from "@/hooks/useAdmin";
