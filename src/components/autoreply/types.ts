@@ -63,6 +63,11 @@ export interface FlowNodeData extends Record<string, unknown> {
   triggerStage?: string;
   /** For tag_added/tag_removed */
   triggerTag?: string;
+  /**
+   * Cooldown in HOURS before this flow can be re-triggered for the same lead.
+   * 0 or undefined = re-trigger always; > 0 = wait N hours since last execution.
+   */
+  restartAfterHours?: number;
   // Message node
   text?: string;
   imageUrl?: string;
