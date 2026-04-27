@@ -128,6 +128,9 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
               <TabsTrigger value="logs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
                 <ScrollText size={13} /> Logs
               </TabsTrigger>
+              <TabsTrigger value="beta" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
+                <Sparkles size={13} /> Beta
+              </TabsTrigger>
             </TabsList>
             <ScrollBar orientation="horizontal" className="h-1.5" />
           </ScrollArea>
