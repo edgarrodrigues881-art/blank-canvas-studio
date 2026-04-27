@@ -614,25 +614,19 @@ const AISettings = () => {
   const getProviderTestConfig = () => {
     switch (aiProvider) {
       case "gemini":
-        return {
-          url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        };
+        return { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, isAnthropic: false };
       case "deepseek":
-        return {
-          url: "https://api.deepseek.com/v1/chat/completions",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        };
+        return { url: "https://api.deepseek.com/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, isAnthropic: false };
       case "groq":
-        return {
-          url: "https://api.groq.com/openai/v1/chat/completions",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        };
+        return { url: "https://api.groq.com/openai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, isAnthropic: false };
+      case "anthropic":
+        return { url: "https://api.anthropic.com/v1/messages", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" }, isAnthropic: true };
+      case "mistral":
+        return { url: "https://api.mistral.ai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, isAnthropic: false };
+      case "xai":
+        return { url: "https://api.x.ai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, isAnthropic: false };
       default:
-        return {
-          url: "https://api.openai.com/v1/chat/completions",
-          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        };
+        return { url: "https://api.openai.com/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, isAnthropic: false };
     }
   };
 
@@ -644,20 +638,15 @@ const AISettings = () => {
     setTestingAi(true);
     try {
       const config = getProviderTestConfig();
-      const res = await fetch(config.url, {
-        method: "POST",
-        headers: config.headers,
-        body: JSON.stringify({
-          model: aiModel,
-          messages: [{ role: "user", content: "Responda com 'OK' apenas." }],
-          max_tokens: 5,
-        }),
-      });
+      const body = config.isAnthropic
+        ? JSON.stringify({ model: aiModel, max_tokens: 5, messages: [{ role: "user", content: "Responda com 'OK' apenas." }] })
+        : JSON.stringify({ model: aiModel, messages: [{ role: "user", content: "Responda com 'OK' apenas." }], max_tokens: 5 });
+      const res = await fetch(config.url, { method: "POST", headers: config.headers, body });
       if (res.ok) {
         toast.success("IA respondeu com sucesso! Conexão funcionando.");
       } else {
         const data = await res.json();
-        toast.error("Erro: " + (data.error?.message || `HTTP ${res.status}`));
+        toast.error("Erro: " + (data.error?.message || data.error?.type || `HTTP ${res.status}`));
       }
     } catch (e: any) {
       toast.error("Falha na conexão: " + e.message);
@@ -1032,12 +1021,14 @@ const AISettings = () => {
             <Label>Provedor de IA</Label>
             <Select value={aiProvider} onValueChange={(v) => {
               setAiProvider(v);
-              // Set default model for provider
               const defaults: Record<string, string> = {
                 openai: "gpt-4o-mini",
                 gemini: "gemini-2.0-flash",
                 deepseek: "deepseek-chat",
                 groq: "llama-3.3-70b-versatile",
+                anthropic: "claude-sonnet-4-6",
+                mistral: "mistral-small-latest",
+                xai: "grok-3-mini",
               };
               setAiModel(defaults[v] || "gpt-4o-mini");
             }}>
@@ -1045,6 +1036,9 @@ const AISettings = () => {
               <SelectContent>
                 <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
                 <SelectItem value="gemini">Google Gemini</SelectItem>
+                <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                <SelectItem value="mistral">Mistral AI</SelectItem>
+                <SelectItem value="xai">xAI (Grok)</SelectItem>
                 <SelectItem value="deepseek">DeepSeek</SelectItem>
                 <SelectItem value="groq">Groq (Llama)</SelectItem>
               </SelectContent>
@@ -1052,14 +1046,28 @@ const AISettings = () => {
           </div>
 
           <div className="space-y-2">
-            <Label>Chave da API ({aiProvider === "openai" ? "OpenAI" : aiProvider === "gemini" ? "Google AI" : aiProvider === "deepseek" ? "DeepSeek" : "Groq"})</Label>
+            <Label>Chave da API ({
+              aiProvider === "openai" ? "OpenAI" :
+              aiProvider === "gemini" ? "Google AI" :
+              aiProvider === "anthropic" ? "Anthropic" :
+              aiProvider === "mistral" ? "Mistral AI" :
+              aiProvider === "xai" ? "xAI" :
+              aiProvider === "deepseek" ? "DeepSeek" : "Groq"
+            })</Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
                   type={showApiKey ? "text" : "password"}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={aiProvider === "openai" ? "sk-..." : aiProvider === "gemini" ? "AIza..." : "Sua chave de API..."}
+                  placeholder={
+                    aiProvider === "openai" ? "sk-..." :
+                    aiProvider === "gemini" ? "AIza..." :
+                    aiProvider === "anthropic" ? "sk-ant-..." :
+                    aiProvider === "mistral" ? "..." :
+                    aiProvider === "xai" ? "xai-..." :
+                    "Sua chave de API..."
+                  }
                   className="pr-10"
                 />
                 <button
@@ -1105,6 +1113,21 @@ const AISettings = () => {
                   <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (rápido)</SelectItem>
                   <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                   <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (avançado)</SelectItem>
+                </>)}
+                {aiProvider === "anthropic" && (<>
+                  <SelectItem value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (rápido)</SelectItem>
+                  <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4.6 (recomendado)</SelectItem>
+                  <SelectItem value="claude-opus-4-7">Claude Opus 4.7 (mais inteligente)</SelectItem>
+                </>)}
+                {aiProvider === "mistral" && (<>
+                  <SelectItem value="mistral-small-latest">Mistral Small (rápido)</SelectItem>
+                  <SelectItem value="mistral-medium-latest">Mistral Medium</SelectItem>
+                  <SelectItem value="mistral-large-latest">Mistral Large (avançado)</SelectItem>
+                </>)}
+                {aiProvider === "xai" && (<>
+                  <SelectItem value="grok-3-mini">Grok 3 Mini (rápido)</SelectItem>
+                  <SelectItem value="grok-3">Grok 3</SelectItem>
+                  <SelectItem value="grok-3-turbo">Grok 3 Turbo (avançado)</SelectItem>
                 </>)}
                 {aiProvider === "deepseek" && (<>
                   <SelectItem value="deepseek-chat">DeepSeek Chat (V3)</SelectItem>

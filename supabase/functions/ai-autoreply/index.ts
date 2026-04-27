@@ -16,30 +16,20 @@ function json(data: unknown, status = 200) {
 function getProviderConfig(provider: string, apiKey: string, model: string) {
   switch (provider) {
     case "gemini":
-      return {
-        url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        model: model || "gemini-2.5-flash",
-      };
+      return { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, model: model || "gemini-2.5-flash", isAnthropic: false };
     case "deepseek":
-      return {
-        url: "https://api.deepseek.com/v1/chat/completions",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        model: model || "deepseek-chat",
-      };
+      return { url: "https://api.deepseek.com/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, model: model || "deepseek-chat", isAnthropic: false };
     case "groq":
-      return {
-        url: "https://api.groq.com/openai/v1/chat/completions",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        model: model || "llama-3.3-70b-versatile",
-      };
+      return { url: "https://api.groq.com/openai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, model: model || "llama-3.3-70b-versatile", isAnthropic: false };
+    case "anthropic":
+      return { url: "https://api.anthropic.com/v1/messages", headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" }, model: model || "claude-sonnet-4-6", isAnthropic: true };
+    case "mistral":
+      return { url: "https://api.mistral.ai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, model: model || "mistral-small-latest", isAnthropic: false };
+    case "xai":
+      return { url: "https://api.x.ai/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, model: model || "grok-3-mini", isAnthropic: false };
     case "openai":
     default:
-      return {
-        url: "https://api.openai.com/v1/chat/completions",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        model: model || "gpt-4o-mini",
-      };
+      return { url: "https://api.openai.com/v1/chat/completions", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, model: model || "gpt-4o-mini", isAnthropic: false };
   }
 }
 
@@ -436,48 +426,50 @@ Deno.serve(async (req) => {
     const useMultimodal = !!mediaBase64Content && supportsMultimodal;
     const provider = settings.ai_provider || "openai";
     const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
+    const maxTokens = settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400;
+    const temperature = (settings.creativity || 50) / 100;
 
     let aiRes: Response;
 
-    if (useMultimodal) {
-      // Multimodal via user's own Gemini key
+    if (providerConfig.isAnthropic) {
+      // Anthropic Messages API (different format)
+      const userMsgs = [
+        ...conversationHistory.filter((m: any) => m.role !== "system"),
+        { role: "user", content: message_content || "Olá" },
+      ];
+      aiRes = await fetch(providerConfig.url, {
+        method: "POST",
+        headers: providerConfig.headers,
+        body: JSON.stringify({
+          model: providerConfig.model,
+          max_tokens: maxTokens,
+          system: systemParts,
+          messages: userMsgs,
+        }),
+      });
+    } else if (useMultimodal) {
       const userContent: any[] = [];
       if (mediaBase64Content) userContent.push(mediaBase64Content);
       userContent.push({ type: "text", text: mediaAnalysisPrompt || message_content || "Analise este conteúdo." });
-
-      const multimodalMessages = [
-        { role: "system", content: systemParts },
-        ...conversationHistory,
-        { role: "user", content: userContent },
-      ];
-
       aiRes = await fetch(providerConfig.url, {
         method: "POST",
         headers: providerConfig.headers,
         body: JSON.stringify({
           model: providerConfig.model,
-          messages: multimodalMessages,
-          temperature: (settings.creativity || 50) / 100,
-          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+          messages: [{ role: "system", content: systemParts }, ...conversationHistory, { role: "user", content: userContent }],
+          temperature,
+          max_tokens: maxTokens,
         }),
       });
     } else {
-      const messages = [
-        { role: "system", content: systemParts },
-        ...conversationHistory,
-        { role: "user", content: message_content },
-      ];
-
-      const temperature = (settings.creativity || 50) / 100;
-
       aiRes = await fetch(providerConfig.url, {
         method: "POST",
         headers: providerConfig.headers,
         body: JSON.stringify({
           model: providerConfig.model,
-          messages,
+          messages: [{ role: "system", content: systemParts }, ...conversationHistory, { role: "user", content: message_content }],
           temperature,
-          max_tokens: settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400,
+          max_tokens: maxTokens,
         }),
       });
     }
@@ -489,7 +481,11 @@ Deno.serve(async (req) => {
     }
 
     const aiData = await aiRes.json();
-    let aiReply = aiData.choices?.[0]?.message?.content?.trim() || "";
+    // Anthropic returns content[0].text; others return choices[0].message.content
+    let aiReply = (providerConfig.isAnthropic
+      ? aiData.content?.[0]?.text
+      : aiData.choices?.[0]?.message?.content
+    )?.trim() || "";
 
     if (!aiReply) {
       return json({ skipped: "empty_ai_response" });

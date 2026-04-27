@@ -149,30 +149,25 @@ serve(async (req) => {
       `\nAo final da resposta inclua obrigatoriamente: <!--SIM_META:{"intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","mode":"${aiMode}"}-->`,
     ].filter(Boolean).join("\n");
 
-    const providerMap: Record<string, { url: string; model: string }> = {
-      gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: userSettings.ai_model || "gemini-2.5-flash" },
-      deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: userSettings.ai_model || "deepseek-chat" },
-      groq: { url: "https://api.groq.com/openai/v1/chat/completions", model: userSettings.ai_model || "llama-3.3-70b-versatile" },
-      openai: { url: "https://api.openai.com/v1/chat/completions", model: userSettings.ai_model || "gpt-4o-mini" },
+    type ProviderConfig = { url: string; model: string; headers: Record<string, string>; isAnthropic: boolean };
+    const providerMap: Record<string, ProviderConfig> = {
+      openai:    { url: "https://api.openai.com/v1/chat/completions",                                    model: userSettings.ai_model || "gpt-4o-mini",           headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      gemini:    { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",      model: userSettings.ai_model || "gemini-2.5-flash",       headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      deepseek:  { url: "https://api.deepseek.com/v1/chat/completions",                                  model: userSettings.ai_model || "deepseek-chat",          headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      groq:      { url: "https://api.groq.com/openai/v1/chat/completions",                               model: userSettings.ai_model || "llama-3.3-70b-versatile",headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      mistral:   { url: "https://api.mistral.ai/v1/chat/completions",                                    model: userSettings.ai_model || "mistral-small-latest",   headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      xai:       { url: "https://api.x.ai/v1/chat/completions",                                          model: userSettings.ai_model || "grok-3-mini",            headers: { Authorization: `Bearer ${userSettings.api_key}`, "Content-Type": "application/json" }, isAnthropic: false },
+      anthropic: { url: "https://api.anthropic.com/v1/messages",                                         model: userSettings.ai_model || "claude-sonnet-4-6",      headers: { "x-api-key": userSettings.api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" }, isAnthropic: true },
     };
     const prov = providerMap[userSettings.ai_provider] || providerMap.openai;
+    const maxTokens = merged.max_response_length === "short" ? 150 : merged.max_response_length === "detailed" ? 800 : 400;
+    const temperature = (merged.creativity || 50) / 100;
 
-    const res = await fetch(prov.url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${userSettings.api_key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: prov.model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        temperature: (merged.creativity || 50) / 100,
-        max_tokens: merged.max_response_length === "short" ? 150 : merged.max_response_length === "detailed" ? 800 : 400,
-      }),
-    });
+    const body = prov.isAnthropic
+      ? JSON.stringify({ model: prov.model, max_tokens: maxTokens, system: systemPrompt, messages: messages.filter((m: any) => m.role !== "system") })
+      : JSON.stringify({ model: prov.model, messages: [{ role: "system", content: systemPrompt }, ...messages], temperature, max_tokens: maxTokens });
+
+    const res = await fetch(prov.url, { method: "POST", headers: prov.headers, body });
 
     if (!res.ok) {
       if (res.status === 429) {
@@ -196,7 +191,10 @@ serve(async (req) => {
     }
 
     const data = await res.json();
-    let reply = data.choices?.[0]?.message?.content?.trim() || "Sem resposta";
+    let reply = (prov.isAnthropic
+      ? data.content?.[0]?.text
+      : data.choices?.[0]?.message?.content
+    )?.trim() || "Sem resposta";
 
     let meta: Record<string, string> = {};
     const metaMatch = reply.match(/<!--SIM_META:(.*?)-->/s);
