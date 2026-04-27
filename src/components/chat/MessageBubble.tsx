@@ -306,6 +306,42 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
           </div>
         )}
       </div>
+
+      {/* Speed + Download controls */}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <button
+          onClick={cycleRate}
+          type="button"
+          aria-label={`Velocidade ${playbackRate}x`}
+          title={`Velocidade ${playbackRate}x (clique para alternar)`}
+          className={cn(
+            "text-[10px] font-semibold leading-none px-1.5 py-1 rounded-full min-w-[30px] transition-colors touch-manipulation",
+            playbackRate === 1
+              ? isSent
+                ? "bg-primary-foreground/15 text-primary-foreground/70 hover:bg-primary-foreground/25"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+              : isSent
+                ? "bg-primary-foreground/30 text-primary-foreground"
+                : "bg-primary/20 text-primary"
+          )}
+        >
+          {playbackRate}x
+        </button>
+        <button
+          onClick={downloadAudio}
+          type="button"
+          aria-label="Baixar áudio"
+          title="Baixar áudio"
+          className={cn(
+            "p-1 rounded-full transition-colors touch-manipulation",
+            isSent
+              ? "text-primary-foreground/70 hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Download className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
