@@ -150,7 +150,7 @@ const AdminTokensGlobal = () => {
           const deleted = d?.deleted ?? 0;
           const dbCleaned = d?.db_cleaned ?? 0;
           const title = deleted > 0
-            ? `Instância "${instance.name}" deletada da UAZAPI`
+            ? `Instância "${instance.name}" deletada da API Privada (dgcontingenciapro)`
             : dbCleaned > 0
               ? `Instância "${instance.name}" ocultada no sistema`
               : `A instância "${instance.name}" não foi deletada`;
@@ -189,7 +189,7 @@ const AdminTokensGlobal = () => {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Buscando instâncias da UAZAPI...</p>
+        <p className="text-xs text-muted-foreground">Buscando instâncias da API Privada (dgcontingenciapro)...</p>
       </div>
     );
   }
@@ -203,7 +203,7 @@ const AdminTokensGlobal = () => {
             <Server size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">Instâncias UAZAPI</h2>
+            <h2 className="text-lg font-bold text-foreground">Instâncias da API Privada (dgcontingenciapro)</h2>
             <p className="text-xs text-muted-foreground">Dados do provedor com fallback automático dos tokens do banco</p>
           </div>
         </div>
@@ -303,20 +303,20 @@ const AdminTokensGlobal = () => {
             <AlertDialogTrigger asChild>
               <Button size="sm" variant="destructive" className="gap-1.5 text-xs h-7 ml-auto" disabled={isPending || deleting}>
                 {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                Apagar {selectedNames.size} da UAZAPI
+                Apagar {selectedNames.size} da API Privada
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent className="bg-card border-border">
               <AlertDialogHeader>
-                <AlertDialogTitle>Apagar {selectedNames.size} instância(s) da UAZAPI?</AlertDialogTitle>
+                <AlertDialogTitle>Apagar {selectedNames.size} instância(s) da API Privada (dgcontingenciapro)?</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground">
-                  As instâncias serão desconectadas e deletadas do provedor UAZAPI. Tokens correspondentes no banco de dados também serão removidos. <strong>Esta ação é permanente.</strong>
+                  As instâncias serão desconectadas e deletadas do provedor (API Privada dgcontingenciapro). Tokens correspondentes no banco de dados também serão removidos. <strong>Esta ação é permanente.</strong>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Apagar da UAZAPI
+                  Apagar da API Privada
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -355,7 +355,7 @@ const AdminTokensGlobal = () => {
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                    {instances.length === 0 ? "Nenhuma instância encontrada na UAZAPI" : "Nenhum resultado para o filtro"}
+                    {instances.length === 0 ? "Nenhuma instância encontrada na API Privada" : "Nenhum resultado para o filtro"}
                   </td>
                 </tr>
               ) : (
@@ -412,7 +412,7 @@ const AdminTokensGlobal = () => {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Apagar instância?</AlertDialogTitle>
                             <AlertDialogDescription className="text-muted-foreground">
-                              A instância <strong>{inst.name}</strong> será desconectada e deletada da UAZAPI.
+                              A instância <strong>{inst.name}</strong> será desconectada e deletada da API Privada (dgcontingenciapro).
                               {inst.db_token_id && " O token correspondente no banco também será removido."}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
