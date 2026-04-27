@@ -111,11 +111,13 @@ export async function trialCleanupTick(): Promise<void> {
       await db.from("warmup_folder_devices").delete().eq("device_id", did);
     }
 
-    // Mark all tokens as deleted
+    // Mark all tokens as deleted (count rows changed)
     const { count: tokenCount } = await db.from("user_api_tokens")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId).neq("status", "deleted");
+    await db.from("user_api_tokens")
       .update({ status: "deleted", device_id: null, assigned_at: null })
-      .eq("user_id", userId).neq("status", "deleted")
-      .select("id", { count: "exact", head: true });
+      .eq("user_id", userId).neq("status", "deleted");
     totalTokensDeleted += tokenCount ?? 0;
 
     await db.from("profiles")
