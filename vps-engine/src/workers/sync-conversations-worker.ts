@@ -313,6 +313,32 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
           },
           { onConflict: "whatsapp_message_id" },
         );
+
+        // Track newest message to refresh conversation preview
+        if (!newestPreview || timestamp > newestPreview.ts) {
+          newestPreview = { content: content || "", ts: timestamp, mediaType };
+        }
+      }
+
+      // Update conversation preview if we have a newer/better one
+      if (newestPreview) {
+        let preview = newestPreview.content;
+        if (!preview) {
+          if (newestPreview.mediaType === "audio") preview = "🎧 Áudio";
+          else if (newestPreview.mediaType === "image") preview = "📷 Imagem";
+          else if (newestPreview.mediaType === "video") preview = "🎥 Vídeo";
+          else if (newestPreview.mediaType === "document") preview = "📄 Documento";
+          else if (newestPreview.mediaType === "sticker") preview = "Sticker";
+        }
+        if (preview) {
+          await db.from("conversations")
+            .update({
+              last_message: preview.substring(0, 500),
+              last_message_at: newestPreview.ts,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conv.id);
+        }
       }
     }
 
