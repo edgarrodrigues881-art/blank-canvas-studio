@@ -2001,13 +2001,27 @@ const Devices = () => {
       // Check for any error returned by the edge function
       if (connectResult?.error) {
         stopPolling();
-        setConnectError(connectResult.error);
+        const isProxyFail = connectResult?.code === "PROXY_FAILED";
+        const friendlyMsg = isProxyFail
+          ? `Proxy inválido — ${connectResult.error || "não foi possível conectar pela proxy selecionada"}. Escolha outro proxy ou conecte sem proxy.`
+          : connectResult.error;
+        setConnectError(friendlyMsg);
         setQrLoadingStage("idle");
-        if (connectResult?.code === "PROXY_FAILED" || connectResult?.code === "DUPLICATE_PHONE") {
+        if (isProxyFail || connectResult?.code === "DUPLICATE_PHONE") {
           setConnectStep("proxy");
         }
+        // Mark proxy as invalid in cache for immediate UI feedback
+        if (isProxyFail) {
+          queryClient.invalidateQueries({ queryKey: ["proxies"] });
+        }
         queryClient.invalidateQueries({ queryKey: ["devices"] });
-        toast({ title: "Erro de conexão", description: connectResult.error, variant: "destructive" });
+        toast({
+          title: isProxyFail ? "❌ Proxy inválido" : "Erro de conexão",
+          description: isProxyFail
+            ? "Não foi possível conectar pela proxy. Tente outro proxy ou desative."
+            : connectResult.error,
+          variant: "destructive",
+        });
         return;
       }
 
