@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useSmartAlerts, type SmartAlert } from "@/hooks/useSmartAlerts";
-import { Bell, BellRing, Check, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon, Trophy, UserCheck, Eye, CheckCircle2 } from "lucide-react";
+import { Bell, BellRing, Check, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon, Trophy, UserCheck, Eye, CheckCircle2, Users, Loader2, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
