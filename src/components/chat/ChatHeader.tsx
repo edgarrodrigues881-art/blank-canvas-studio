@@ -23,6 +23,7 @@ import {
 import { type Conversation, type AttendingStatus } from "./types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
 
 function getInitials(name?: string | null, phone?: string): string | null {
   const n = (name || "").trim();
@@ -109,6 +110,7 @@ export const ChatHeader = memo(function ChatHeader({
   onSelectMessages,
 }: ChatHeaderProps) {
   const currentStatusCfg = attendingStatusConfig[currentStatus];
+  const { hideIdentity } = useChatPrivacy();
 
   return (
     <>
@@ -119,7 +121,7 @@ export const ChatHeader = memo(function ChatHeader({
         </Button>
 
         {/* Avatar — compact 32px */}
-        <div className="relative shrink-0">
+        <div className={cn("relative shrink-0", hideIdentity && "privacy-blur")}>
           <HeaderAvatar src={conversation.avatar_url} name={conversation.name} phone={conversation.phone} />
           {conversation.status === "online" && (
             <span className="absolute bottom-0 right-0 w-2 h-2 bg-foreground/70 rounded-full ring-[1.5px] ring-card" />
@@ -129,7 +131,7 @@ export const ChatHeader = memo(function ChatHeader({
         {/* Name + Presence / Typing */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-[13px] font-semibold text-foreground truncate">{(conversation.name && conversation.name.replace(/\D/g, "") !== conversation.phone.replace(/\D/g, "") && !/^\d+$/.test(conversation.name.trim())) ? conversation.name : conversation.phone}</p>
+            <p className={cn("text-[13px] font-semibold text-foreground truncate", hideIdentity && "privacy-blur")}>{(conversation.name && conversation.name.replace(/\D/g, "") !== conversation.phone.replace(/\D/g, "") && !/^\d+$/.test(conversation.name.trim())) ? conversation.name : conversation.phone}</p>
             <span className="text-muted-foreground/30 text-xs">·</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -152,7 +154,7 @@ export const ChatHeader = memo(function ChatHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
+            <span className={cn("text-[10px] text-muted-foreground/40 truncate hidden sm:inline", hideIdentity && "privacy-blur")}>{conversation.phone}</span>
           </div>
           {/* Presence / Typing subtitle */}
           <div className="h-[14px]">

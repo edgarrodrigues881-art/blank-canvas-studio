@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/utils/formatters";
 import { getFileIcon, isMediaPlaceholder } from "@/utils/fileHelpers";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
 
 export { isMediaPlaceholder };
 
@@ -731,6 +732,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
   };
 
   const isSent = msg.type === "sent";
+  const { hideMessages } = useChatPrivacy();
+
 
    return (
     <div
@@ -783,7 +786,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
               : isSent
                 ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
                 : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
-            msg.status === "failed" && "opacity-70"
+            msg.status === "failed" && "opacity-70",
+            hideMessages && "privacy-blur"
           )}
         >
           {/* Forwarded indicator */}

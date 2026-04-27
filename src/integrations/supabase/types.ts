@@ -4264,6 +4264,7 @@ export type Database = {
           autosave_enabled: boolean
           avatar_url: string | null
           beta_features: string[]
+          chat_privacy_mode: string
           client_type: string
           company: string | null
           created_at: string
@@ -4286,6 +4287,7 @@ export type Database = {
           autosave_enabled?: boolean
           avatar_url?: string | null
           beta_features?: string[]
+          chat_privacy_mode?: string
           client_type: string
           company?: string | null
           created_at?: string
@@ -4308,6 +4310,7 @@ export type Database = {
           autosave_enabled?: boolean
           avatar_url?: string | null
           beta_features?: string[]
+          chat_privacy_mode?: string
           client_type?: string
           company?: string | null
           created_at?: string
@@ -7193,6 +7196,7 @@ export type Database = {
           autosave_enabled: boolean
           avatar_url: string | null
           beta_features: string[]
+          chat_privacy_mode: string
           client_type: string
           company: string | null
           created_at: string

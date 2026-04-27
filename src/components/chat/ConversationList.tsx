@@ -12,6 +12,8 @@ import { useState, useMemo, Fragment, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { formatPhone } from "@/utils/formatters";
 import { getMessagePreview } from "@/utils/fileHelpers";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
+import { PrivacyToggle } from "./PrivacyToggle";
 
 interface InstanceFilter {
   id: string;
@@ -172,6 +174,7 @@ export function ConversationList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
+  const { hideMessages, hideIdentity } = useChatPrivacy();
 
   const toggleInstance = (id: string) => {
     if (!onFilterInstancesChange) return;
@@ -237,22 +240,25 @@ export function ConversationList({
     <div className="flex flex-col h-full bg-background transition-colors duration-200">
       {/* Search */}
       <div className="px-3 pt-3 pb-2 space-y-2.5">
-        <div className="relative group/search">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 transition-colors group-focus-within/search:text-primary/70" />
-          <Input
-            placeholder="Buscar conversa, nome ou número..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-9 h-9 text-sm bg-muted/15 border-border/20 rounded-xl placeholder:text-muted-foreground/35 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] transition-all duration-200"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+        <div className="flex items-center gap-1.5">
+          <div className="relative group/search flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 transition-colors group-focus-within/search:text-primary/70" />
+            <Input
+              placeholder="Buscar conversa, nome ou número..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9 pr-9 h-9 text-sm bg-muted/15 border-border/20 rounded-xl placeholder:text-muted-foreground/35 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] transition-all duration-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <PrivacyToggle />
         </div>
 
         {trimmedQuery && (
@@ -384,7 +390,7 @@ export function ConversationList({
                     )}
 
                     {/* Avatar */}
-                    <div className="relative shrink-0">
+                    <div className={cn("relative shrink-0", hideIdentity && "privacy-blur")}>
                       <ConvAvatar src={c.avatar_url} initials={initials} alt={avatarLabel} colorCls={avatarCls} />
                     </div>
 
@@ -395,7 +401,8 @@ export function ConversationList({
                         <span className="flex items-center gap-1.5 min-w-0">
                           <span className={cn(
                             "truncate text-[13.5px] leading-tight",
-                            hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
+                            hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85",
+                            hideIdentity && "privacy-blur"
                           )}>
                             {trimmedQuery ? (
                               <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
@@ -426,7 +433,8 @@ export function ConversationList({
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
                             "truncate text-[12.5px] leading-snug min-w-0 max-w-[220px]",
-                            hasUnread ? "text-foreground/70" : "text-muted-foreground/55"
+                            hasUnread ? "text-foreground/70" : "text-muted-foreground/55",
+                            hideMessages && "privacy-blur"
                           )}>
                             {c.status === "typing" ? (
                               <span className="text-foreground/70 italic">digitando...</span>
