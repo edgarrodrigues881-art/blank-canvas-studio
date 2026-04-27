@@ -23,14 +23,17 @@ const WelcomeSplash = () => {
         navigated.current = true;
         setPhase(4); // trigger exit animation
         setTimeout(() => {
-          let themeChosen = false;
+          // Se o usuário chegou aqui é porque já está logado.
+          // Tema é uma escolha que só faz sentido perguntar UMA vez na vida —
+          // jamais a cada login. Se o flag local sumiu (limpeza de cache,
+          // outro navegador, modo anônimo), assumimos o tema atual e
+          // seguimos direto para o destino, sem reabrir o onboarding.
           try {
-            themeChosen = localStorage.getItem("dg_theme_chosen") === "1";
+            if (localStorage.getItem("dg_theme_chosen") !== "1") {
+              localStorage.setItem("dg_theme_chosen", "1");
+            }
           } catch {}
-          const dest = themeChosen
-            ? redirectTo
-            : `/onboarding/theme?to=${encodeURIComponent(redirectTo)}`;
-          navigate(dest, { replace: true });
+          navigate(redirectTo, { replace: true });
         }, 500);
       }
     };
