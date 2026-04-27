@@ -260,21 +260,23 @@ export function NewConversationDialog({
             {/* Contact suggestions */}
             {suggestions.length > 0 && phoneDigits.length >= 4 && (
               <div className="rounded-lg border border-border/40 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                {suggestions.map((contact) => (
-                  <button
-                    key={contact.id}
-                    onClick={() => selectSuggestion(contact)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors text-left"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-primary/8 flex items-center justify-center shrink-0">
-                      <User className="w-3 h-3 text-primary/70" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-foreground truncate">{contact.name || "Sem nome"}</p>
-                      <p className="text-[10px] text-muted-foreground/60 truncate">{applyPhoneMask(contact.phone)}</p>
-                    </div>
-                  </button>
-                ))}
+                <div className="max-h-[180px] overflow-y-auto overscroll-contain">
+                  {suggestions.map((contact) => (
+                    <button
+                      key={contact.id}
+                      onClick={() => selectSuggestion(contact)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-primary/8 flex items-center justify-center shrink-0">
+                        <User className="w-3 h-3 text-primary/70" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-foreground truncate">{contact.name || "Sem nome"}</p>
+                        <p className="text-[10px] text-muted-foreground/60 truncate">{applyPhoneMask(contact.phone)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {loadingSuggestions && phoneDigits.length >= 4 && (
