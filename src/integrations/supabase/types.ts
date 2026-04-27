@@ -4209,6 +4209,7 @@ export type Database = {
           client_type: string
           company: string | null
           created_at: string
+          dismissed_warnings: string[]
           document: string | null
           full_name: string | null
           id: string
@@ -4229,6 +4230,7 @@ export type Database = {
           client_type: string
           company?: string | null
           created_at?: string
+          dismissed_warnings?: string[]
           document?: string | null
           full_name?: string | null
           id?: string
@@ -4249,6 +4251,7 @@ export type Database = {
           client_type?: string
           company?: string | null
           created_at?: string
+          dismissed_warnings?: string[]
           document?: string | null
           full_name?: string | null
           id?: string
@@ -6995,6 +6998,7 @@ export type Database = {
           client_type: string
           company: string | null
           created_at: string
+          dismissed_warnings: string[]
           document: string | null
           full_name: string | null
           id: string
