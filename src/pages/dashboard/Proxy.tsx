@@ -92,11 +92,13 @@ const Proxy = () => {
 
   // Fetch devices to map proxy_id → device name
   const { data: devices = [] } = useQuery({
-    queryKey: ["proxy-devices"],
+    queryKey: ["proxy-devices", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       const { data, error } = await supabase
         .from("devices")
         .select("id, name, number, proxy_id, profile_name, profile_picture")
+        .eq("user_id", session.user.id)
         .neq("login_type", "report_wa");
       if (error) throw error;
       return (data || []) as { id: string; name: string; number: string | null; proxy_id: string | null; profile_name: string | null; profile_picture: string | null }[];
