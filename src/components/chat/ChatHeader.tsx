@@ -23,6 +23,7 @@ import {
 import { type Conversation, type AttendingStatus } from "./types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
 
 function getInitials(name?: string | null, phone?: string): string | null {
   const n = (name || "").trim();
