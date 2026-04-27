@@ -113,7 +113,7 @@ const AdminTokensGlobal = () => {
           const deleted = d?.deleted ?? 0;
           const dbCleaned = d?.db_cleaned ?? 0;
           const title = deleted > 0
-            ? `${deleted} instância(s) deletada(s) da UAZAPI | ${dbCleaned} token(s) limpos no DB`
+            ? `${deleted} instância(s) deletada(s) da API Privada (dgcontingenciapro) | ${dbCleaned} token(s) limpos no DB`
             : dbCleaned > 0
               ? `Nenhuma instância apagada no provedor | ${dbCleaned} token(s) ocultados no sistema`
               : "Nenhuma instância deletada";
