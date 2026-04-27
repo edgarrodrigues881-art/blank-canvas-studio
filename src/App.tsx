@@ -54,6 +54,7 @@ const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyL
 const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
 const QuickReplies = lazyWithPreload(() => import("@/pages/dashboard/QuickReplies"));
+const AISmartAlerts = lazyWithPreload(() => import("@/pages/dashboard/AISmartAlerts"));
 const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
 const GroupLeadExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupLeadExtractor"));
 const GroupInviteExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupInviteExtractor"));
