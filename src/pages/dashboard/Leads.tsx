@@ -925,7 +925,7 @@ export default function Leads() {
 
       {/* ── Detail Dialog (view + inline edit) ── */}
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
-        <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
+        <DialogContent className={cn("w-[calc(100vw-2rem)] sm:w-full max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-hidden p-0", editingInline && "[&>button:last-child]:hidden")}>
           <DialogTitle className="sr-only">Detalhes do Lead</DialogTitle>
           <DialogDescription className="sr-only">Visualize e edite as informações do lead selecionado.</DialogDescription>
           {detailLead && (() => {
@@ -955,17 +955,17 @@ export default function Leads() {
             /* ── VIEW MODE ── */
             return (
               <div>
-                <div className="p-6 pt-8 pb-5 border-b border-border/60">
-                  <div className="flex items-center gap-4">
+                <div className="p-4 sm:p-6 pt-6 sm:pt-8 pb-5 border-b border-border/60">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div className={cn(
-                      "w-14 h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-xl font-bold text-white shadow-md ring-2 ring-background shrink-0",
+                      "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br flex items-center justify-center text-lg sm:text-xl font-bold text-white shadow-md ring-2 ring-background shrink-0",
                       getAvatarColor(detailLead.name || "?")
                     )}>
                       {getInitials(detailLead.name || "?")}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h2 className="text-lg font-bold text-foreground">{detailLead.name || formatPhone(detailLead.phone)}</h2>
-                      <p className="text-xs text-muted-foreground/60 mt-0.5">Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}</p>
+                      <h2 className="text-base sm:text-lg font-bold text-foreground truncate">{detailLead.name || formatPhone(detailLead.phone)}</h2>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground/60 mt-0.5 truncate">Lead capturado via {channelLabel} • {timeAgo(detailLead.created_at)}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge variant="outline" className={cn("text-xs font-medium rounded-full px-3 py-1", statusCfg.badge)}>
                           <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 inline-block", statusCfg.dot)} />
@@ -974,9 +974,9 @@ export default function Leads() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-4">
+                  <div className="flex items-center gap-2 mt-4 flex-wrap">
                     <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
-                      <SelectTrigger className="w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-[160px] sm:w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((s) => (
                           <SelectItem key={s.value} value={s.value}>
@@ -994,22 +994,22 @@ export default function Leads() {
                   </div>
                 </div>
 
-                <div className="px-6 pt-4">
-                  <div className="flex gap-6 border-b border-border/50 mb-0">
+                <div className="px-4 sm:px-6 pt-4">
+                  <div className="flex gap-4 sm:gap-6 border-b border-border/50 mb-0 overflow-x-auto scrollbar-none">
                     {[
                       { key: "info", label: "Informações" },
                       { key: "timeline", label: "Timeline" },
                       { key: "register", label: "Registrar Interação" },
                     ].map((tab) => (
                       <button key={tab.key} onClick={() => setDetailTab(tab.key)} className={cn(
-                        "pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
+                        "pb-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                         detailTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
                       )}>{tab.label}</button>
                     ))}
                   </div>
                 </div>
 
-                <div className="px-6 py-5 pb-6">
+                <div className="px-4 sm:px-6 py-5 pb-6">
                   {detailTab === "info" && (
                     <div className="space-y-5">
                       <div className="rounded-xl bg-muted/20 border border-border/30 p-4">
