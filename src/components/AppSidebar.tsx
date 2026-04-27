@@ -680,8 +680,6 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
                   {renderNavItem({ title: "Postar Status", url: "/dashboard/status-post", icon: PlayCircle })}
                   {beta.has("mass_inject") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
-                  {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
-                  {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
                   {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
                 </SidebarMenu>
