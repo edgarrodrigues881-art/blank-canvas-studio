@@ -144,6 +144,7 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
           <TabsContent value="payments"><ClientPaymentsTab client={client} detail={detail} /></TabsContent>
           <TabsContent value="ips"><ClientIPTab detail={detail} /></TabsContent>
           <TabsContent value="logs"><ClientLogsTab detail={detail} /></TabsContent>
+          <TabsContent value="beta"><ClientBetaFeaturesTab client={client} detail={detail} /></TabsContent>
         </Tabs>
       )}
     </div>
