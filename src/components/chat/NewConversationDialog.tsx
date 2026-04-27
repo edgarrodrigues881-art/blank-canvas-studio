@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquarePlus, Smartphone, ChevronDown, Check, Phone, X } from "lucide-react";
+import { Loader2, MessageSquarePlus, Smartphone, ChevronDown, Check, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -139,6 +139,15 @@ export function NewConversationDialog({
     }
   };
 
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Garante que Backspace sempre apague um dígito real,
+    // mesmo quando o cursor estiver sobre máscara (espaços, parênteses, traço).
+    if (e.key === "Backspace" && phoneDigits.length > 0) {
+      e.preventDefault();
+      setPhoneRaw(phoneDigits.slice(0, -1));
+    }
+  };
+
   const handleDialogChange = (nextOpen: boolean) => {
     if (!nextOpen && !submitting) resetForm();
     onOpenChange(nextOpen);
@@ -197,27 +206,14 @@ export function NewConversationDialog({
                 placeholder="+55 (62) 99999-9999"
                 value={phoneDisplay}
                 onChange={handlePhoneChange}
+                onKeyDown={handlePhoneKeyDown}
                 disabled={submitting}
                 className={cn(
                   "h-10 text-sm pl-9 pr-8 rounded-lg transition-all",
                   isPhoneValid && "border-emerald-500/40 focus-visible:ring-emerald-500/20"
                 )}
               />
-              {phoneDigits.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneRaw("");
-                    phoneInputRef.current?.focus();
-                  }}
-                  disabled={submitting}
-                  aria-label="Limpar número"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {isPhoneValid && phoneDigits.length === 0 && (
+              {isPhoneValid && (
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
