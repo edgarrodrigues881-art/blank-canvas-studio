@@ -445,7 +445,7 @@ export function AppSidebar() {
               {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: user?.email !== "edgarrodrigues881@gmail.com" })}
+                  {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: !["edgarrodrigues881@gmail.com", "dgdatacrazy01@gmail.com"].includes(user?.email ?? "") })}
                   {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
                   {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
                   {renderNavItem({ title: "Integrações", url: "/dashboard/crm-integrations", icon: Plug })}
@@ -674,7 +674,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
                   {renderNavItem({ title: "Conversor de @LID", url: "/dashboard/lid-converter", icon: ArrowRightLeft })}
                   {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
-                  {user?.email === "edgarrodrigues881@gmail.com" && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
+                  {["edgarrodrigues881@gmail.com", "dgdatacrazy01@gmail.com"].includes(user?.email ?? "") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
                   {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}

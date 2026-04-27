@@ -266,12 +266,14 @@ const Devices = () => {
 
   // Fetch warmup sessions to identify devices in warmup
   const { data: warmupSessions = [] } = useQuery({
-    queryKey: ["warmup_sessions_active"],
+    queryKey: ["warmup_sessions_active", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       try {
         const { data, error } = await supabase
           .from("warmup_sessions")
           .select("device_id, status")
+          .eq("user_id", session.user.id)
           .in("status", ["running", "paused"]);
         if (error) {
           console.warn("[Devices] warmup_sessions query error:", error.message);
@@ -283,41 +285,45 @@ const Devices = () => {
         return [];
       }
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     retry: 1,
   });
 
   // Fetch warmup cycles (V2)
   const { data: warmupCycles = [] } = useQuery({
-    queryKey: ["warmup_cycles_active"],
+    queryKey: ["warmup_cycles_active", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       try {
         const { data, error } = await supabase
           .from("warmup_cycles")
           .select("device_id, phase, is_running")
+          .eq("user_id", session.user.id)
           .eq("is_running", true);
         if (error) { console.warn("[Devices] warmup_cycles error:", error.message); return []; }
         return data || [];
       } catch { return []; }
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     retry: 1,
   });
 
   // Fetch campaigns with active states (sending, scheduled, paused)
   const { data: activeCampaigns = [] } = useQuery({
-    queryKey: ["active_campaigns_for_devices"],
+    queryKey: ["active_campaigns_for_devices", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       try {
         const { data, error } = await supabase
           .from("campaigns")
           .select("id, name, status, device_id, device_ids")
+          .eq("user_id", session.user.id)
           .in("status", ["sending", "scheduled", "paused", "processing"]);
         if (error) { console.warn("[Devices] campaigns error:", error.message); return []; }
         return data || [];
       } catch { return []; }
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     retry: 1,
   });
 
@@ -373,18 +379,21 @@ const Devices = () => {
 
   // Fetch proxies from database
   const { data: dbProxies = [] } = useQuery({
-    queryKey: ["proxies"],
+    queryKey: ["proxies", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       try {
         const { data, error } = await supabase
           .from("proxies")
           .select("id, host, port, username, password, type, status, display_id, active")
+          .eq("user_id", session.user.id)
           .eq("active", true)
           .order("display_id", { ascending: true });
         if (error) { console.warn("[Devices] proxies error:", error.message); return []; }
         return data || [];
       } catch { return []; }
     },
+    enabled: !!session?.user?.id,
     retry: 1,
   });
 

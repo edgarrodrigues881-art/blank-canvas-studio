@@ -66,6 +66,7 @@ const Proxy = () => {
   const { data: dbProxies = [] } = useQuery({
     queryKey: ["proxies"],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       // Fetch all proxies (handle >1000 rows)
       const allProxies: any[] = [];
       let from = 0;
@@ -74,6 +75,7 @@ const Proxy = () => {
         const { data, error } = await supabase
           .from("proxies")
           .select("id, display_id, host, port, username, type, status, active, created_at, updated_at")
+          .eq("user_id", session.user.id)
           .order("display_id", { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -84,17 +86,19 @@ const Proxy = () => {
       }
       return allProxies;
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     staleTime: 300_000,
   });
 
   // Fetch devices to map proxy_id → device name
   const { data: devices = [] } = useQuery({
-    queryKey: ["proxy-devices"],
+    queryKey: ["proxy-devices", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       const { data, error } = await supabase
         .from("devices")
         .select("id, name, number, proxy_id, profile_name, profile_picture")
+        .eq("user_id", session.user.id)
         .neq("login_type", "report_wa");
       if (error) throw error;
       return (data || []) as { id: string; name: string; number: string | null; proxy_id: string | null; profile_name: string | null; profile_picture: string | null }[];
