@@ -18,7 +18,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const admin = createClient(supabaseUrl, serviceKey);
 
     const body = await req.json();
@@ -39,7 +38,10 @@ Deno.serve(async (req) => {
     let aiHeaders: Record<string, string>;
     let aiModel: string;
 
-    if (settings?.api_key) {
+    if (!settings?.api_key) {
+      return json({ error: "no_api_key", message: "Configure sua própria chave de API em Configurações da IA." }, 400);
+    }
+    {
       const providerMap: Record<string, { url: string; model: string }> = {
         gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: settings.ai_model || "gemini-2.5-flash" },
         deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: settings.ai_model || "deepseek-chat" },
@@ -53,15 +55,6 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${settings.api_key}`,
       };
-    } else if (lovableKey) {
-      aiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
-      aiModel = "google/gemini-3-flash-preview";
-      aiHeaders = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-      };
-    } else {
-      return json({ error: "no_ai_configured" }, 400);
     }
 
     // 2. Load CRM context for this conversation/lead
