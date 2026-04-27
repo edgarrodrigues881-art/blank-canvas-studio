@@ -117,6 +117,36 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
+  const [playbackRate, setPlaybackRate] = useState<1 | 1.5 | 2>(1);
+
+  const cycleRate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next: 1 | 1.5 | 2 = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    setPlaybackRate(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
+  };
+
+  const downloadAudio = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch(src, { mode: "cors" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ext = (blob.type.split("/")[1] || "ogg").split(";")[0];
+      a.download = `audio-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      // Fallback: open in new tab so the user can save manually
+      window.open(src, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const waveformBars = useMemo(() => generateWaveformBars(40, src), [src]);
 
