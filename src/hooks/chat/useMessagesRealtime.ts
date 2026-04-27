@@ -97,23 +97,31 @@ export function useMessagesRealtime({
 
             setMessages((prev) => {
               if (prev.some((m) => m.id === enrichedMsg.id)) return prev;
+              // Reconcile with an OPTIMISTIC local message (one that has no
+              // whatsapp_message_id yet and no real DB id). Never dedupe two
+              // distinct server messages just because they share the same
+              // textual content (e.g. two stickers in a row both render as
+              // "🏷️ Figurinha"). Also require matching media_type so a text
+              // never collapses into a media message.
               if (enrichedMsg.direction === "sent") {
                 const newTime = new Date(enrichedMsg.created_at).getTime();
-                const isDuplicate = prev.some((m) =>
+                const optimisticIdx = prev.findIndex((m) =>
                   m.direction === "sent" &&
-                  m.content === enrichedMsg.content &&
                   m.conversation_id === enrichedMsg.conversation_id &&
+                  !m.whatsapp_message_id &&
+                  // optimistic ids are typically temp/uuid strings generated client-side;
+                  // the surest signal is the absence of whatsapp_message_id
+                  m.content === enrichedMsg.content &&
+                  (m.media_type ?? null) === (enrichedMsg.media_type ?? null) &&
                   Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
                 );
-                if (isDuplicate) {
-                  return prev.map((m) =>
-                    m.direction === "sent" &&
-                    m.content === enrichedMsg.content &&
-                    m.conversation_id === enrichedMsg.conversation_id &&
-                    Math.abs(new Date(m.created_at).getTime() - newTime) < 30000
-                      ? { ...m, id: enrichedMsg.id, status: enrichedMsg.status || m.status }
-                      : m
-                  );
+                if (optimisticIdx !== -1) {
+                  const next = prev.slice();
+                  next[optimisticIdx] = {
+                    ...next[optimisticIdx],
+                    ...enrichedMsg,
+                  };
+                  return next;
                 }
               }
               return [...prev, enrichedMsg];
