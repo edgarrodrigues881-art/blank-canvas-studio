@@ -74,7 +74,7 @@ const ClientTokensTab = ({ client, detail }: Props) => {
       { action: "delete-token", body: { token_id: tokenId, target_user_id: client.id } },
       {
         onSuccess: (data: any) => {
-          const providerMsg = data?.provider_deleted ? " + instância removida da UAZAPI" : "";
+          const providerMsg = data?.provider_deleted ? " + instância removida da API Privada (dgcontingenciapro)" : "";
           toast({ title: `Token removido${providerMsg}` });
           invalidateClient(client.id);
         },
@@ -88,7 +88,7 @@ const ClientTokensTab = ({ client, detail }: Props) => {
       { action: "delete-all-tokens", body: { target_user_id: client.id } },
       {
         onSuccess: (data: any) => {
-          const providerMsg = data?.provider_deleted ? ` (${data.provider_deleted} removidos da UAZAPI)` : "";
+          const providerMsg = data?.provider_deleted ? ` (${data.provider_deleted} removidos da API Privada (dgcontingenciapro))` : "";
           toast({ title: `${data?.removed ?? 0} token(s) removido(s)${providerMsg}` });
           invalidateClient(client.id);
         },
