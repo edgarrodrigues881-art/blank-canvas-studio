@@ -45,6 +45,7 @@ const cleanPhone = (value: string) => value.replace(/\D/g, "");
 function applyPhoneMask(raw: string): string {
   const digits = cleanPhone(raw);
   if (!digits) return "";
+  // Brasil (DDI 55): aplica máscara com DDD e traço
   if (digits.startsWith("55") && digits.length >= 4) {
     const ddi = digits.slice(0, 2);
     const ddd = digits.slice(2, 4);
@@ -52,8 +53,8 @@ function applyPhoneMask(raw: string): string {
     if (rest.length <= 5) return `+${ddi} (${ddd}) ${rest}`;
     return `+${ddi} (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5, 9)}`;
   }
-  if (digits.length <= 2) return `+${digits}`;
-  return `+${digits.slice(0, 2)} ${digits.slice(2)}`;
+  // Internacional: apenas prefixa "+" e mantém os dígitos como estão
+  return `+${digits}`;
 }
 
 function formatDeviceNumber(number?: string | null) {
