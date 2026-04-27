@@ -198,25 +198,25 @@ const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowP
         getBackgroundByStatus(lead.pipeline_stage || "novo")
       )}
     >
-      <div className="grid items-center gap-3" style={{ gridTemplateColumns: "1fr 110px 90px 50px 90px" }}>
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 w-full">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className={cn(
             "w-11 h-11 rounded-full bg-gradient-to-br flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ring-1 ring-white/10",
             getAvatarColor(lead.name || "?")
           )}>
             {getInitials(lead.name || "?")}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[15px] font-semibold text-foreground truncate group-hover:text-primary transition-colors">
               {lead.name || "Sem nome"}
             </p>
-            <div className="flex items-center gap-3 mt-0.5">
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
               <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
                 <Phone className="w-3 h-3" />
                 {formatPhone(lead.phone)}
               </span>
               {lead.company && (
-                <span className="text-xs text-muted-foreground/50 flex items-center gap-1 truncate">
+                <span className="text-xs text-muted-foreground/50 hidden sm:flex items-center gap-1 truncate">
                   <Building2 className="w-3 h-3" />
                   {lead.company}
                 </span>
@@ -224,21 +224,21 @@ const LeadRow = memo(function LeadRow({ lead, statusOptions, onClick }: LeadRowP
             </div>
           </div>
         </div>
-        <div>
+        <div className="hidden md:block shrink-0 w-[110px]">
           <Badge className={cn("text-[10px] font-bold rounded-full border-0 px-3 py-1 bg-gradient-to-r text-white shadow-lg", getColorByStatus(lead.pipeline_stage || "novo"))}>
             <span className="w-1.5 h-1.5 rounded-full mr-1.5 inline-block bg-white/30" />
             {statusCfg.label}
           </Badge>
         </div>
-        <span className="text-xs text-muted-foreground/60 flex items-center gap-1.5">
+        <span className="hidden lg:flex text-xs text-muted-foreground/60 items-center gap-1.5 shrink-0 w-[90px]">
           <OriginIcon className="w-3.5 h-3.5" />
           {originCfg.label}
         </span>
-        <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums">
+        <span className="hidden sm:flex text-[11px] text-muted-foreground/50 items-center gap-1 tabular-nums shrink-0 w-[60px]">
           <Clock className="w-3 h-3" />
           {timeShort(lead.last_message_at || lead.created_at)}
         </span>
-        <span className="text-xs text-muted-foreground/60 truncate text-right">
+        <span className="hidden xl:block text-xs text-muted-foreground/60 truncate text-right shrink-0 w-[90px]">
           {lead.estimated_value ? (
             <span className="font-medium text-emerald-400/80 tabular-nums">{formatCurrency(lead.estimated_value)}</span>
           ) : lead.responsible ? (
