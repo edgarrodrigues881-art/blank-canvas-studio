@@ -235,33 +235,40 @@ export function NewConversationDialog({
         </DialogHeader>
 
         <div className="px-4 pb-3 space-y-3 overflow-y-auto min-h-0">
-          {/* Phone */}
+          {/* Buscar / Número */}
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">Número</label>
+            <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">
+              Contato ou número
+            </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
               <Input
-                ref={phoneInputRef}
-                type="tel"
-                inputMode="numeric"
-                placeholder="+55 (62) 99999-9999"
-                value={phoneDisplay}
-                onChange={handlePhoneChange}
+                ref={searchInputRef}
+                type="text"
+                placeholder="Buscar nome ou digitar +55..."
+                value={searchInput}
+                onChange={handleInputChange}
                 disabled={submitting}
                 className={cn(
                   "h-10 text-sm pl-9 pr-8 rounded-lg transition-all",
                   isPhoneValid && "border-emerald-500/40 focus-visible:ring-emerald-500/20"
                 )}
               />
-              {phoneDigits.length > 0 && isPhoneValid && (
+              {isPhoneValid && (
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
               )}
             </div>
 
-            {/* Contact suggestions */}
-            {suggestions.length > 0 && phoneDigits.length >= 4 && (
+            {looksLikePhone && !phoneRaw && phoneDisplay && (
+              <p className="text-[10px] text-muted-foreground/60 px-1">
+                Número: <span className="font-mono text-foreground/80">{phoneDisplay}</span>
+                {!isPhoneValid && <span className="text-amber-500/80"> · incompleto</span>}
+              </p>
+            )}
+
+            {suggestions.length > 0 && (
               <div className="rounded-lg border border-border/40 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="max-h-[180px] overflow-y-auto overscroll-contain">
                   {suggestions.map((contact) => (
@@ -282,11 +289,16 @@ export function NewConversationDialog({
                 </div>
               </div>
             )}
-            {loadingSuggestions && phoneDigits.length >= 4 && (
+            {loadingSuggestions && (
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 px-1">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Buscando...
               </div>
+            )}
+            {!loadingSuggestions && searchInput.trim().length >= 2 && suggestions.length === 0 && !looksLikePhone && (
+              <p className="text-[10px] text-muted-foreground/50 px-1">
+                Nenhum contato encontrado · digite o número para iniciar uma nova conversa
+              </p>
             )}
           </div>
 
