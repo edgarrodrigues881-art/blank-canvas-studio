@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key, Globe } from "lucide-react";
+import { ArrowLeft, User, CreditCard, Server, ScrollText, Loader2, DollarSign, MessageSquare, LayoutDashboard, Key, Globe, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AdminUser } from "@/hooks/useAdmin";
@@ -13,6 +13,7 @@ import ClientLogsTab from "./tabs/ClientLogsTab";
 import ClientPaymentsTab from "./tabs/ClientPaymentsTab";
 import ClientTokensTab from "./tabs/ClientTokensTab";
 import ClientIPTab from "./tabs/ClientIPTab";
+import ClientBetaFeaturesTab from "./tabs/ClientBetaFeaturesTab";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface Props {
@@ -127,6 +128,9 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
               <TabsTrigger value="logs" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
                 <ScrollText size={13} /> Logs
               </TabsTrigger>
+              <TabsTrigger value="beta" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-1 text-[11px] sm:text-xs px-2.5 sm:px-3">
+                <Sparkles size={13} /> Beta
+              </TabsTrigger>
             </TabsList>
             <ScrollBar orientation="horizontal" className="h-1.5" />
           </ScrollArea>
@@ -140,6 +144,7 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
           <TabsContent value="payments"><ClientPaymentsTab client={client} detail={detail} /></TabsContent>
           <TabsContent value="ips"><ClientIPTab detail={detail} /></TabsContent>
           <TabsContent value="logs"><ClientLogsTab detail={detail} /></TabsContent>
+          <TabsContent value="beta"><ClientBetaFeaturesTab client={client} detail={detail} /></TabsContent>
         </Tabs>
       )}
     </div>

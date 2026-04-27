@@ -51,6 +51,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useBetaFeatures } from "@/hooks/useBetaFeatures";
 import { routePreloadMap } from "@/App";
 import { NavLink } from "@/components/NavLink";
 import { useSidebarStats } from "@/hooks/useSidebarStats";
@@ -169,6 +170,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const beta = useBetaFeatures();
   const { data: stats } = useSidebarStats();
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
@@ -445,7 +447,7 @@ export function AppSidebar() {
               {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: !["edgarrodrigues881@gmail.com", "dgdatacrazy01@gmail.com"].includes(user?.email ?? "") })}
+                  {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare, locked: beta.loaded && !beta.has("assistant") })}
                   {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
                   {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
                   {renderNavItem({ title: "Integrações", url: "/dashboard/crm-integrations", icon: Plug })}
@@ -674,7 +676,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
                   {renderNavItem({ title: "Conversor de @LID", url: "/dashboard/lid-converter", icon: ArrowRightLeft })}
                   {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
-                  {["edgarrodrigues881@gmail.com", "dgdatacrazy01@gmail.com"].includes(user?.email ?? "") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
+                  {beta.has("mass_inject") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
                   {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}

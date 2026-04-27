@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       // Run all queries in parallel
       const [authUserRes, profileRes, adminDataRes, subRes, devicesRes, campaignsRes, logsRes, paymentsRes, cyclesRes, apiTokensRes, loginHistoryRes] = await Promise.all([
         adminClient.auth.admin.getUserById(target_user_id),
-        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
+        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, beta_features, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
         adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag").eq("id", target_user_id).maybeSingle(),
         adminClient.from("subscriptions").select("id, user_id, plan_name, plan_price, max_instances, started_at, expires_at").eq("user_id", target_user_id).maybeSingle(),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, uazapi_token, uazapi_base_url, created_at, updated_at").eq("user_id", target_user_id).order("created_at", { ascending: false }),
@@ -312,6 +312,48 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── UPDATE BETA FEATURES ───
+    if (action === "update-beta-features" && req.method === "POST") {
+      const { target_user_id, beta_features } = await req.json();
+      if (!target_user_id || !Array.isArray(beta_features)) {
+        return new Response(JSON.stringify({ error: "target_user_id and beta_features[] required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const cleanList = Array.from(
+        new Set(
+          beta_features
+            .filter((f: unknown): f is string => typeof f === "string" && f.length > 0 && f.length <= 64)
+        )
+      );
+
+      const { error: updErr } = await adminClient
+        .from("profiles")
+        .update({ beta_features: cleanList, updated_at: new Date().toISOString() })
+        .eq("id", target_user_id);
+
+      if (updErr) {
+        return new Response(JSON.stringify({ error: updErr.message }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      await logAction(
+        adminClient,
+        user.id,
+        target_user_id,
+        "update-beta-features",
+        `Funcionalidades beta atualizadas: [${cleanList.join(", ") || "nenhuma"}]`
+      );
+
+      return new Response(JSON.stringify({ success: true, beta_features: cleanList }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
