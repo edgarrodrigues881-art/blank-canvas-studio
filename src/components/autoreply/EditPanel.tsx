@@ -28,7 +28,7 @@ interface Props {
   onClose: () => void;
 }
 
-const variables = ["{nome}", "{numero}", "{email}", "{empresa}"];
+const variables = ["{nome}", "{nome_completo}", "{numero}", "{email}", "{empresa}"];
 
 const BTN_TYPES: { value: FlowButtonType; label: string; icon: any; hint: string; color: string }[] = [
   { value: "reply",  label: "Resposta rápida", icon: MessageCircleReply, hint: "Conecta ao próximo bloco do fluxo",    color: "text-blue-400"    },
