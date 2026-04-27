@@ -199,7 +199,7 @@ async function processNodeChain(
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              node.data.buttons?.map(b => ({ id: b.id, label: b.label })));
+              node.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })));
             log.info(`Message sent: "${text.substring(0, 50)}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
