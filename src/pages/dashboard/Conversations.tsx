@@ -368,6 +368,32 @@ const Conversations = () => {
     [sendFileMessage, selectedInstanceId]
   );
 
+  // Retry: ao tentar de novo, sempre usar a instância selecionada no rodapé.
+  // Se a msg original era texto, descartamos a falha localmente e mandamos uma
+  // nova pela instância correta. Para mídia, mantemos o retry antigo.
+  const handleRetryMessage = useCallback(
+    (messageId: string) => {
+      const failedMsg = realMsgs.find((m) => m.id === messageId);
+      if (!failedMsg) return;
+
+      const isTextOnly = !failedMsg.media_url && !failedMsg.media_type;
+      const targetId = selectedInstanceId || failedMsg.conversation_id;
+
+      // Se nenhuma instância foi trocada, comportamento antigo (mesma conversa).
+      if (!selectedInstanceId || selectedInstanceId === failedMsg.conversation_id || !isTextOnly) {
+        retryMessage(messageId);
+        return;
+      }
+
+      // Apaga a mensagem falha localmente (não foi enviada de qualquer jeito)
+      // e dispara um envio limpo pela instância recém-selecionada.
+      // Remoção silenciosa: não chamamos deleteMessage (que toca o WhatsApp e mostra toast).
+      void supabase.from("conversation_messages").delete().eq("id", messageId);
+      sendMessage(targetId, failedMsg.content || "");
+    },
+    [realMsgs, selectedInstanceId, retryMessage, sendMessage]
+  );
+
   const handleDeleteMessage = useCallback(
     (msg: any) => {
       setDeleteTarget({
@@ -602,7 +628,7 @@ const Conversations = () => {
                 onSendMessage={handleSendMessage}
                 onSendAudio={handleSendAudio}
                 onSendFile={handleSendFile}
-                onRetryMessage={retryMessage}
+                onRetryMessage={handleRetryMessage}
                 onDeleteMessage={handleDeleteMessage}
                 onEditMessage={handleEditMessage}
                 currentUserId={user?.id}
