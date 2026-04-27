@@ -34,6 +34,32 @@ serve(async (req) => {
 
     const { messages, settings } = await req.json();
 
+    // Load user's AI settings (own key required — no shared AI)
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: userSettings } = await adminClient
+      .from("ai_settings")
+      .select("api_key, ai_provider, ai_model")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!userSettings?.api_key) {
+      return new Response(JSON.stringify({ error: "Configure sua própria chave de API em Configurações da IA antes de testar." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const providerMap: Record<string, { url: string; model: string }> = {
+      gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: userSettings.ai_model || "gemini-2.5-flash" },
+      deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: userSettings.ai_model || "deepseek-chat" },
+      groq: { url: "https://api.groq.com/openai/v1/chat/completions", model: userSettings.ai_model || "llama-3.3-70b-versatile" },
+      openai: { url: "https://api.openai.com/v1/chat/completions", model: userSettings.ai_model || "gpt-4o-mini" },
+    };
+    const prov = providerMap[userSettings.ai_provider] || providerMap.openai;
+
     const toneMap: Record<string, string> = {
       friendly: "amigável",
       professional: "profissional",
@@ -53,22 +79,14 @@ serve(async (req) => {
       `Responda de forma natural e curta.`,
     ].filter(Boolean).join("\n");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch(prov.url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${userSettings.api_key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: prov.model,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
