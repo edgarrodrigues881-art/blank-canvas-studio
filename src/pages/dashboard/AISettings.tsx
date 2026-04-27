@@ -252,7 +252,32 @@ const AISettings = () => {
         setAiProvider((data as any).ai_provider || "openai");
         setTone(data.tone);
         setResponseStyle(data.response_style);
-        setAiInstructions(data.ai_instructions || "");
+        const instrText = data.ai_instructions || "";
+        setAiInstructions(instrText);
+
+        // Restore selectedMode from AI_MODE marker
+        const modeMatch = instrText.match(/^AI_MODE:(\w+)/m);
+        if (modeMatch && modeMatch[1] in MODE_PRESETS) {
+          setSelectedMode(modeMatch[1] as AiMode);
+        }
+
+        // Restore flowSteps from embedded FLOW_STEPS block
+        const stepsMatch = instrText.match(/FLOW_STEPS:(.*?)END_FLOW_STEPS/s);
+        if (stepsMatch) {
+          const parsed: Record<string, string> = {};
+          stepsMatch[1].split("\n").forEach((line) => {
+            const colonIdx = line.indexOf(":");
+            if (colonIdx > 0) {
+              const key = line.slice(0, colonIdx).trim();
+              const val = line.slice(colonIdx + 1).trim();
+              if (key && val) parsed[key] = val;
+            }
+          });
+          if (Object.keys(parsed).length > 0) {
+            setFlowSteps((prev) => ({ ...prev, ...parsed }));
+          }
+        }
+
         setBusinessName(data.business_name || "");
         setBusinessType(data.business_type || "");
         setBusinessHours(data.business_hours || "");
@@ -1463,7 +1488,11 @@ const AISettings = () => {
                   <div className="px-4 pb-4 pt-1 border-t border-border/30">
                     <Textarea
                       value={flowSteps[step.key as keyof typeof flowSteps]}
-                      onChange={(e) => setFlowSteps((prev) => ({ ...prev, [step.key]: e.target.value }))}
+                      onChange={(e) => {
+                        const newSteps = { ...flowSteps, [step.key]: e.target.value };
+                        setFlowSteps(newSteps);
+                        setAiInstructions(buildInstructions(selectedMode, aiObjective, commStyle, insistence, strategy, newSteps));
+                      }}
                       rows={3}
                       placeholder={`Mensagem para a etapa de ${step.label.toLowerCase()}...`}
                       className="text-sm"

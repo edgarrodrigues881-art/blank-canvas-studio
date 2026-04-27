@@ -423,7 +423,7 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n");
 
     // 8. Call AI provider — always use user's own configured provider/key
-    const useMultimodal = !!mediaBase64Content && supportsMultimodal;
+    const useMultimodal = !!mediaBase64Content && providerSupportsThisMedia;
     const provider = settings.ai_provider || "openai";
     const providerConfig = getProviderConfig(provider, settings.api_key, settings.ai_model);
     const maxTokens = settings.max_response_length === "short" ? 150 : settings.max_response_length === "detailed" ? 800 : 400;
