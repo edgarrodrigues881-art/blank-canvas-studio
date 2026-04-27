@@ -266,6 +266,7 @@ const App = () => (
                 <Route path="/dashboard/autoreply/:id" element={<ProtectedRoute><DashboardLayout><AutoReply /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/flows" element={<ProtectedRoute><DashboardLayout><AutoReplyList /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/quick-replies" element={<ProtectedRoute><DashboardLayout><QuickReplies /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/ai-alerts" element={<ProtectedRoute><DashboardLayout><AISmartAlerts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/contacts" element={<ProtectedRoute><DashboardLayout><Contacts /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-extractor" element={<ProtectedRoute><DashboardLayout><GroupLeadExtractor /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-invite-extractor" element={<ProtectedRoute><DashboardLayout><GroupInviteExtractor /></DashboardLayout></ProtectedRoute>} />
