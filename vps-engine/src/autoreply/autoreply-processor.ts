@@ -265,6 +265,8 @@ interface FlowNode {
     delaySeconds?: number;
     action?: string;
     templateId?: string;
+    /** Cooldown (hours) before this flow can re-trigger for the same lead. 0 = always. */
+    restartAfterHours?: number;
   };
 }
 
@@ -573,6 +575,30 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
     const startNode = nodes.find(n => n.type === "startNode");
     if (!startNode) continue;
     if (!matchesTrigger(startNode, messageText, isFirstMessage)) continue;
+
+    // ── Per-flow cooldown gate (restartAfterHours) ─────────────────
+    // Prevents the same flow from re-triggering for the same lead before
+    // the configured window elapses. 0 / undefined = no cooldown.
+    const restartHours = Number(startNode.data.restartAfterHours ?? 0);
+    if (restartHours > 0) {
+      const { data: existingSession } = await db.from("autoreply_sessions")
+        .select("last_message_at")
+        .eq("flow_id", flow.id)
+        .eq("device_id", deviceId)
+        .eq("contact_phone", fromPhone)
+        .maybeSingle();
+
+      if (existingSession?.last_message_at) {
+        const lastMs = new Date(existingSession.last_message_at).getTime();
+        const elapsedMs = Date.now() - lastMs;
+        const cooldownMs = restartHours * 3_600_000;
+        if (elapsedMs < cooldownMs) {
+          const remainMin = Math.ceil((cooldownMs - elapsedMs) / 60_000);
+          log.info(`Flow ${flow.id} in cooldown for ${fromPhone}: ${remainMin}min remaining (window=${restartHours}h)`);
+          return; // cooldown active → do not re-trigger
+        }
+      }
+    }
 
     log.info(`Flow ${flow.id} matched for ${fromPhone}`);
 
