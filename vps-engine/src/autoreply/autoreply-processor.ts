@@ -308,14 +308,17 @@ async function processNodeChain(
         const rawText = node.data.text || "";
         const text = interpolate(rawText, vars);
         const hasMedia = !!node.data.imageUrl;
+        const hasAudio = !!node.data.audioUrl;
         const hasButtons = (node.data.buttons?.length ?? 0) > 0;
-        // Send if there is any payload (text, media, or buttons)
-        if (text || hasMedia || hasButtons) {
+        // Send if there is any payload (text, media, audio, or buttons)
+        if (text || hasMedia || hasAudio || hasButtons) {
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })) : undefined);
-            log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons]'}" to ${phone}`);
+              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })) : undefined,
+              false,
+              node.data.audioUrl || undefined);
+            log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons/audio]'}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
           }
