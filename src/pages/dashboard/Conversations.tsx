@@ -145,6 +145,23 @@ const Conversations = () => {
     }))
   , [activeRealConvs]);
 
+  // Handle ?open=convId or ?phone=<phone> from external navigation (e.g., Pipeline)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (openId && allConversations.length > 0) {
+      selectConversation(openId);
+      return;
+    }
+    const phoneParam = searchParams.get("phone");
+    if (phoneParam && allConversations.length > 0) {
+      const key = normalizePhoneKey(phoneParam);
+      const match = allConversations.find((c) => normalizePhoneKey(c.phone) === key);
+      if (match) {
+        selectConversation(match._rawId);
+      }
+    }
+  }, [searchParams, allConversations, selectConversation]);
+
   // Group conversations by phone number
   const groupedConversations: Conversation[] = useMemo(() => {
     const phoneMap = new Map<string, typeof allConversations>();
