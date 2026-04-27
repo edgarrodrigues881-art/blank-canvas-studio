@@ -117,6 +117,36 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(duration || 0);
+  const [playbackRate, setPlaybackRate] = useState<1 | 1.5 | 2>(1);
+
+  const cycleRate = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next: 1 | 1.5 | 2 = playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1;
+    setPlaybackRate(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
+  };
+
+  const downloadAudio = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch(src, { mode: "cors" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ext = (blob.type.split("/")[1] || "ogg").split(";")[0];
+      a.download = `audio-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      // Fallback: open in new tab so the user can save manually
+      window.open(src, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const waveformBars = useMemo(() => generateWaveformBars(40, src), [src]);
 
@@ -196,19 +226,20 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const onRef = useCallback((el: HTMLAudioElement | null) => {
     (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
     if (!el) return;
+    el.playbackRate = playbackRate;
     el.onplay = () => { setPlaying(true); setLoading(false); rafRef.current = requestAnimationFrame(updateProgress); };
     el.onpause = () => { setPlaying(false); cancelAnimationFrame(rafRef.current); };
     el.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setCurrentTime(0); };
-    el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); };
+    el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); el.playbackRate = playbackRate; };
     el.onwaiting = () => setLoading(true);
     el.oncanplay = () => setLoading(false);
     el.onerror = () => { setLoading(false); setPlaying(false); setError("Erro ao carregar áudio"); };
-  }, [updateProgress]);
+  }, [updateProgress, playbackRate]);
 
   const playedBars = Math.floor((progress / 100) * waveformBars.length);
 
   return (
-    <div className="flex items-center gap-2 min-w-[220px] max-w-[320px]">
+    <div className="flex items-center gap-2 min-w-[260px] max-w-[360px]">
       <audio
         ref={onRef}
         src={src}
@@ -274,6 +305,42 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
             {error}
           </div>
         )}
+      </div>
+
+      {/* Speed + Download controls */}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <button
+          onClick={cycleRate}
+          type="button"
+          aria-label={`Velocidade ${playbackRate}x`}
+          title={`Velocidade ${playbackRate}x (clique para alternar)`}
+          className={cn(
+            "text-[10px] font-semibold leading-none px-1.5 py-1 rounded-full min-w-[30px] transition-colors touch-manipulation",
+            playbackRate === 1
+              ? isSent
+                ? "bg-primary-foreground/15 text-primary-foreground/70 hover:bg-primary-foreground/25"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+              : isSent
+                ? "bg-primary-foreground/30 text-primary-foreground"
+                : "bg-primary/20 text-primary"
+          )}
+        >
+          {playbackRate}x
+        </button>
+        <button
+          onClick={downloadAudio}
+          type="button"
+          aria-label="Baixar áudio"
+          title="Baixar áudio"
+          className={cn(
+            "p-1 rounded-full transition-colors touch-manipulation",
+            isSent
+              ? "text-primary-foreground/70 hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Download className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );
