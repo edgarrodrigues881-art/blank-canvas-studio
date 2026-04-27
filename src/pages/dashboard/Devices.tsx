@@ -2001,13 +2001,27 @@ const Devices = () => {
       // Check for any error returned by the edge function
       if (connectResult?.error) {
         stopPolling();
-        setConnectError(connectResult.error);
+        const isProxyFail = connectResult?.code === "PROXY_FAILED";
+        const friendlyMsg = isProxyFail
+          ? `Proxy inválido — ${connectResult.error || "não foi possível conectar pela proxy selecionada"}. Escolha outro proxy ou conecte sem proxy.`
+          : connectResult.error;
+        setConnectError(friendlyMsg);
         setQrLoadingStage("idle");
-        if (connectResult?.code === "PROXY_FAILED" || connectResult?.code === "DUPLICATE_PHONE") {
+        if (isProxyFail || connectResult?.code === "DUPLICATE_PHONE") {
           setConnectStep("proxy");
         }
+        // Mark proxy as invalid in cache for immediate UI feedback
+        if (isProxyFail) {
+          queryClient.invalidateQueries({ queryKey: ["proxies"] });
+        }
         queryClient.invalidateQueries({ queryKey: ["devices"] });
-        toast({ title: "Erro de conexão", description: connectResult.error, variant: "destructive" });
+        toast({
+          title: isProxyFail ? "❌ Proxy inválido" : "Erro de conexão",
+          description: isProxyFail
+            ? "Não foi possível conectar pela proxy. Tente outro proxy ou desative."
+            : connectResult.error,
+          variant: "destructive",
+        });
         return;
       }
 
@@ -2677,6 +2691,17 @@ const Devices = () => {
                     <p className="text-xs text-muted-foreground">Proteja sua conexão com um proxy <span className="text-muted-foreground/50">(opcional)</span></p>
                   </div>
                 </div>
+
+                {/* Proxy error alert */}
+                {connectError && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10">
+                    <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-red-500">Proxy inválido</p>
+                      <p className="text-[11px] text-red-400/90 mt-0.5 leading-snug">{connectError}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Proxy selector */}
                 <div className="space-y-2">
