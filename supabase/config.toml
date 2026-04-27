@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.mass-inject-watchdog]
 verify_jwt = false
+
+[functions.status-schedule-tick]
+verify_jwt = false
