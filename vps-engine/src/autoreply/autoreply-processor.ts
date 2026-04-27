@@ -195,12 +195,15 @@ async function processNodeChain(
     switch (node.type) {
       case "messageNode": {
         const text = node.data.text || "";
-        if (text) {
+        const hasMedia = !!node.data.imageUrl;
+        const hasButtons = (node.data.buttons?.length ?? 0) > 0;
+        // Send if there is any payload (text, media, or buttons)
+        if (text || hasMedia || hasButtons) {
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              node.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })));
-            log.info(`Message sent: "${text.substring(0, 50)}" to ${phone}`);
+              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })) : undefined);
+            log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons]'}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
           }
@@ -209,9 +212,11 @@ async function processNodeChain(
           current_node_id: node.id, last_message_at: new Date().toISOString(), status: "active",
         }).eq("id", sessionId);
 
+        // Only pause flow when buttons truly route somewhere (await user click).
+        // Reply-buttons without target nodes/edges: keep walking the chain.
         const hasButtonTargets = node.data.buttons?.some(b => b.targetNodeId);
         const hasButtonEdges = node.data.buttons?.some(b => findNextNodeForButton(node.id, b.id, edges));
-        if (hasButtonTargets || hasButtonEdges || (node.data.buttons?.length ?? 0) > 0) return;
+        if (hasButtonTargets || hasButtonEdges) return;
 
         const nextNodes = findNextNodes(node.id, edges);
         currentNodeId = nextNodes[0] || "";
@@ -324,7 +329,10 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   if (recentSession?.last_message_at) {
     const elapsed = Date.now() - new Date(recentSession.last_message_at).getTime();
-    if (elapsed < 30000 && !hasButtonResponse) {
+    // Reduced from 30s → 5s. The active-session re-trigger guard below
+    // already prevents flow restarts; the cooldown only needs to absorb
+    // bursts (multiple webhook calls for the same incoming message).
+    if (elapsed < 5000 && !hasButtonResponse) {
       log.info(`Anti-loop cooldown: ${elapsed}ms since last message`);
       return;
     }
