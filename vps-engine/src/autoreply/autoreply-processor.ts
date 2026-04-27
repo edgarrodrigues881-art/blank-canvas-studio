@@ -591,12 +591,16 @@ export async function autoreplyTick(db: SupabaseClient): Promise<void> {
 
     _lastTickAt = new Date();
 
-    // Cleanup old processed items (>24h)
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    await db.from("autoreply_queue")
-      .delete()
-      .in("status", ["done", "failed"])
-      .lt("created_at", cutoff);
+    // Cleanup old processed items (>24h) — throttled to every 5 minutes to
+    // avoid hammering the queue table on every 500ms tick.
+    if (!_lastCleanupAt || Date.now() - _lastCleanupAt > 5 * 60 * 1000) {
+      _lastCleanupAt = Date.now();
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await db.from("autoreply_queue")
+        .delete()
+        .in("status", ["done", "failed"])
+        .lt("created_at", cutoff);
+    }
 
   } finally {
     _processing = false;
