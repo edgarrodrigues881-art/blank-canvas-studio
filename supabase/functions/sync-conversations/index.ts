@@ -297,22 +297,20 @@ Deno.serve(async (req) => {
               for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
                 if (messages.length > 0) break;
 
-                const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId, count: 40 });
-                if (msgData1) {
-                  messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
-                }
+                const msgEndpoints = [
+                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatid: chatId, limit: 40 } },
+                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatId, limit: 40 } },
+                  { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId, count: 40 } },
+                  { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
+                  { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
+                ];
 
-                if (messages.length === 0) {
-                  const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`);
-                  if (msgData2) {
-                    messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
-                  }
-                }
-
-                if (messages.length === 0) {
-                  const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`);
-                  if (msgData3) {
-                    messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
+                for (const ep of msgEndpoints) {
+                  if (messages.length > 0) break;
+                  const data = await fetchSafe(ep.url, ep.method, ep.body);
+                  if (data) {
+                    const arr = data.messages || data.data || data.result || (Array.isArray(data) ? data : null);
+                    if (Array.isArray(arr) && arr.length > 0) messages = arr;
                   }
                 }
               }
