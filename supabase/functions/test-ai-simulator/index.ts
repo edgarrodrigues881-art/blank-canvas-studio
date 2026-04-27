@@ -34,14 +34,15 @@ serve(async (req) => {
 
     const { messages, settings } = await req.json();
 
-    // Load user's AI settings (own key required — no shared AI)
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Load full AI settings from DB (same as ai-autoreply uses)
     const { data: userSettings } = await adminClient
       .from("ai_settings")
-      .select("api_key, ai_provider, ai_model")
+      .select("*")
       .eq("user_id", user.id)
       .single();
 
@@ -52,6 +53,102 @@ serve(async (req) => {
       });
     }
 
+    // Merge DB settings with any UI overrides passed from the simulator
+    const merged = { ...userSettings, ...settings };
+
+    // Load Knowledge Base docs (same as ai-autoreply)
+    let kbContext = "";
+    {
+      const { data: kbDocs } = await adminClient
+        .from("ai_knowledge_base")
+        .select("title, doc_type, content")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .limit(20);
+      if (kbDocs && kbDocs.length > 0) {
+        const kbParts = kbDocs
+          .filter((d: any) => d.content?.trim())
+          .map((d: any) => `[${d.title}]: ${d.content.substring(0, 2000)}`);
+        if (kbParts.length > 0) {
+          kbContext = `\nBASE DE CONHECIMENTO DA EMPRESA:\n${kbParts.join("\n\n")}`;
+        }
+      }
+    }
+
+    // Load Learning Insights (same as ai-autoreply)
+    let learningContext = "";
+    {
+      const { data: insight } = await adminClient
+        .from("ai_learning_insights")
+        .select("evolved_prompt, confidence_score")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (insight?.evolved_prompt && (insight.confidence_score || 0) >= 30) {
+        learningContext = `\nAPRENDIZADOS DA IA (baseado em análise de conversas reais):\n${insight.evolved_prompt}`;
+      }
+    }
+
+    // Parse AI mode and flow steps from ai_instructions (same as ai-autoreply)
+    const aiMode = merged.ai_instructions?.match(/^AI_MODE:(\w+)/m)?.[1] || "atendimento";
+    const flowSteps = merged.ai_instructions?.match(/FLOW_STEPS:(.*?)END_FLOW_STEPS/s)?.[1] || "";
+    const cleanInstructions = (merged.ai_instructions || "")
+      .replace(/^AI_MODE:\w+\n?/m, "")
+      .replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "")
+      .trim();
+
+    // Mode-specific persona (same as ai-autoreply)
+    const modePersonaMap: Record<string, string> = {
+      vendas: `Você é um assistente de VENDAS altamente treinado${merged.business_name ? ` da empresa "${merged.business_name}"` : ""}. Seu objetivo é converter leads em clientes. Identifique a necessidade, apresente a solução com foco em benefícios, contorne objeções e conduza para o fechamento. Use gatilhos de escassez e urgência quando apropriado.`,
+      atendimento: `Você é um assistente de ATENDIMENTO${merged.business_name ? ` da empresa "${merged.business_name}"` : ""}. Seu objetivo é acolher o cliente, entender sua necessidade com perguntas precisas, fornecer as informações corretas e garantir uma experiência positiva.`,
+      suporte: `Você é um assistente de SUPORTE TÉCNICO${merged.business_name ? ` da empresa "${merged.business_name}"` : ""}. Seu objetivo é diagnosticar e resolver problemas com eficiência. Faça perguntas técnicas objetivas e guie o cliente passo a passo.`,
+      agendamento: `Você é um assistente de AGENDAMENTO${merged.business_name ? ` da empresa "${merged.business_name}"` : ""}. Seu objetivo é agendar horários e reuniões. Confirme disponibilidade, colete dados necessários e confirme com data e hora específicas.`,
+    };
+
+    const toneMap: Record<string, string> = {
+      friendly: "Seja amigável, caloroso e use emojis com moderação.",
+      professional: "Seja profissional, educado e objetivo.",
+      direct: "Seja direto ao ponto, sem rodeios.",
+    };
+
+    const lengthMap: Record<string, string> = {
+      short: "Responda de forma curta, máximo 2-3 frases.",
+      medium: "Responda de forma equilibrada, 3-5 frases.",
+      detailed: "Responda de forma detalhada quando necessário.",
+    };
+
+    const systemPrompt = [
+      modePersonaMap[aiMode] || modePersonaMap.atendimento,
+      toneMap[merged.tone] || toneMap.professional,
+      lengthMap[merged.response_style] || lengthMap.medium,
+      merged.business_type ? `Tipo de negócio: ${merged.business_type}.` : "",
+      merged.business_description ? `Sobre a empresa: ${merged.business_description}.` : "",
+      merged.business_hours ? `Horário de atendimento: ${merged.business_hours}.` : "",
+      cleanInstructions ? `Instruções adicionais: ${cleanInstructions}` : "",
+      kbContext,
+      learningContext,
+      flowSteps ? `\nFLUXO DE CONVERSAÇÃO — mensagens-base por etapa:\n${flowSteps}` : "",
+      `\nDETECÇÃO DE INTENÇÃO — classifique a mensagem do cliente:`,
+      `- "curious": explorando sem compromisso`,
+      `- "interested": interesse real, faz perguntas específicas`,
+      `- "ready_to_buy": quer fechar/agendar agora`,
+      `- "objection": dúvida, preocupação ou barreira`,
+      `\nEtapa do fluxo conforme intenção:`,
+      `- curious → saudacao ou diagnostico`,
+      `- interested → diagnostico ou apresentacao`,
+      `- ready_to_buy → fechamento`,
+      `- objection → objecao`,
+      `\nREGRAS IMPORTANTES:`,
+      `- Responda como humano real no WhatsApp: curto, direto, sem formalidade excessiva`,
+      `- NUNCA mande textos longos. Máximo 2-3 frases por mensagem`,
+      `- Use o nome do cliente sempre que souber`,
+      `- Nunca invente informações sobre produtos ou preços`,
+      `- Use a Base de Conhecimento para responder com precisão`,
+      `\nAo final da resposta inclua obrigatoriamente: <!--SIM_META:{"intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento","mode":"${aiMode}"}-->`,
+    ].filter(Boolean).join("\n");
+
     const providerMap: Record<string, { url: string; model: string }> = {
       gemini: { url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: userSettings.ai_model || "gemini-2.5-flash" },
       deepseek: { url: "https://api.deepseek.com/v1/chat/completions", model: userSettings.ai_model || "deepseek-chat" },
@@ -59,25 +156,6 @@ serve(async (req) => {
       openai: { url: "https://api.openai.com/v1/chat/completions", model: userSettings.ai_model || "gpt-4o-mini" },
     };
     const prov = providerMap[userSettings.ai_provider] || providerMap.openai;
-
-    const toneMap: Record<string, string> = {
-      friendly: "amigável",
-      professional: "profissional",
-      direct: "direto",
-    };
-
-    const systemPrompt = [
-      `Você é um assistente virtual de atendimento${settings?.business_name ? ` da empresa "${settings.business_name}"` : ""}.`,
-      `Tom: ${toneMap[settings?.tone] || "profissional"}.`,
-      settings?.business_type ? `Tipo: ${settings.business_type}.` : "",
-      settings?.business_description ? `Sobre: ${settings.business_description}.` : "",
-      settings?.business_hours ? `Horário: ${settings.business_hours}.` : "",
-      settings?.ai_instructions ? `Instruções: ${settings.ai_instructions.replace(/FLOW_STEPS:.*?END_FLOW_STEPS/s, "").trim()}` : "",
-      `IMPORTANTE: Ao final da resposta, inclua: <!--SIM_META:{"intent":"curious|interested|ready_to_buy|objection","flow_step":"saudacao|diagnostico|apresentacao|objecao|fechamento"}-->`,
-      `- "intent": intenção detectada na mensagem do cliente`,
-      `- "flow_step": etapa do fluxo de conversão que você usou`,
-      `Responda de forma natural e curta.`,
-    ].filter(Boolean).join("\n");
 
     const res = await fetch(prov.url, {
       method: "POST",
@@ -91,8 +169,8 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           ...messages,
         ],
-        temperature: (settings?.creativity || 50) / 100,
-        max_tokens: 500,
+        temperature: (merged.creativity || 50) / 100,
+        max_tokens: merged.max_response_length === "short" ? 150 : merged.max_response_length === "detailed" ? 800 : 400,
       }),
     });
 
@@ -127,7 +205,7 @@ serve(async (req) => {
       reply = reply.replace(/<!--SIM_META:.*?-->/s, "").trim();
     }
 
-    return new Response(JSON.stringify({ reply, meta }), {
+    return new Response(JSON.stringify({ reply, meta, mode: aiMode, hasKb: !!kbContext, hasLearning: !!learningContext }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

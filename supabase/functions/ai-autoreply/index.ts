@@ -338,13 +338,21 @@ Deno.serve(async (req) => {
       detailed: "Responda de forma detalhada quando necessário.",
     };
 
+    const aiMode = settings.ai_instructions?.match(/^AI_MODE:(\w+)/m)?.[1] || "atendimento";
     const flowSteps = settings.ai_instructions?.match(/FLOW_STEPS:(.*?)END_FLOW_STEPS/s)?.[1] || "";
 
+    const modePersonaMap: Record<string, string> = {
+      vendas: `Você é um assistente de VENDAS altamente treinado${settings.business_name ? ` da empresa "${settings.business_name}"` : ""}. Seu objetivo principal é converter leads em clientes. Identifique a necessidade do cliente, apresente a solução com foco em benefícios, contorne objeções com argumentos sólidos e conduza a conversa para o fechamento. Use gatilhos de escassez e urgência quando apropriado.`,
+      atendimento: `Você é um assistente de ATENDIMENTO${settings.business_name ? ` da empresa "${settings.business_name}"` : ""}. Seu objetivo é acolher o cliente, entender sua necessidade com perguntas precisas, fornecer as informações corretas e garantir uma experiência positiva. Seja empático e resolva cada dúvida com clareza.`,
+      suporte: `Você é um assistente de SUPORTE TÉCNICO${settings.business_name ? ` da empresa "${settings.business_name}"` : ""}. Seu objetivo é diagnosticar e resolver problemas de forma eficiente. Faça perguntas técnicas objetivas, guie o cliente passo a passo e documente o problema. Escale para humano apenas quando necessário.`,
+      agendamento: `Você é um assistente de AGENDAMENTO${settings.business_name ? ` da empresa "${settings.business_name}"` : ""}. Seu objetivo é agendar horários, consultas e reuniões de forma eficiente. Confirme disponibilidade, colete os dados necessários (nome, contato, serviço desejado) e confirme o agendamento com data e hora específicas.`,
+    };
+
     const systemParts = [
-      `Você é um assistente virtual de atendimento ao cliente.`,
+      modePersonaMap[aiMode] || modePersonaMap.atendimento,
       toneMap[settings.tone] || toneMap.professional,
       lengthMap[settings.response_style] || lengthMap.medium,
-      settings.business_name ? `Você atende pela empresa "${settings.business_name}".` : "",
+      settings.business_name && !modePersonaMap[aiMode] ? `Você atende pela empresa "${settings.business_name}".` : "",
       settings.business_type ? `Tipo de negócio: ${settings.business_type}.` : "",
       settings.business_hours ? `Horário de atendimento: ${settings.business_hours}.` : "",
       settings.business_description ? `Descrição: ${settings.business_description}.` : "",
