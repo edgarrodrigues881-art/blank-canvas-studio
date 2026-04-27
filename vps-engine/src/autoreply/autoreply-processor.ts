@@ -270,6 +270,22 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   if (!deviceToken) throw new Error("No token for device");
 
+  // ── Find active flows before anti-loop checks ──
+  const { data: flows } = await db.from("autoreply_flows")
+    .select("id, nodes, edges, device_id")
+    .eq("user_id", userId).eq("is_active", true);
+
+  if (!flows?.length) return;
+
+  const matchingFlows = flows.filter(f => !f.device_id || f.device_id === deviceId);
+  if (!matchingFlows.length) return;
+
+  const hasExplicitKeywordTrigger = matchingFlows.some(flow => {
+    const nodes = flow.nodes as FlowNode[];
+    const startNode = nodes.find(n => n.type === "startNode");
+    return startNode?.data.trigger === "keyword" && matchesTrigger(startNode, messageText || "", false);
+  });
+
   // ── Anti-loop: device own number ──
   if (device.number) {
     const dn = device.number.replace(/\D/g, "");
@@ -287,8 +303,12 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
     const dn = d.number.replace(/\D/g, "");
     return dn && fromPhone && (fromPhone === dn || fromPhone.endsWith(dn) || dn.endsWith(fromPhone));
   })) {
+    if (hasButtonResponse || hasExplicitKeywordTrigger) {
+      log.info(`Internal device allowed: explicit autoreply intent from ${fromPhone}`);
+    } else {
     log.info(`Skipping: fromPhone ${fromPhone} matches another device of same user`);
     return;
+    }
   }
 
   // ── Anti-loop cooldown ──
@@ -304,16 +324,6 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
       return;
     }
   }
-
-  // ── Find active flows ──
-  const { data: flows } = await db.from("autoreply_flows")
-    .select("id, nodes, edges, device_id")
-    .eq("user_id", userId).eq("is_active", true);
-
-  if (!flows?.length) return;
-
-  const matchingFlows = flows.filter(f => !f.device_id || f.device_id === deviceId);
-  if (!matchingFlows.length) return;
 
   // ── Button click continuation ──
   if (buttonResponseId) {
