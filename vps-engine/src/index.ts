@@ -1015,6 +1015,9 @@ async function mainLoop() {
     syncConversations: false,
     statusSchedule: false,
     reportWa: false,
+    trialCleanup: false,
+    massInjectWatchdog: false,
+    scheduledCampaigns: false,
   };
 
   function guardedLoop(
@@ -1126,6 +1129,18 @@ async function mainLoop() {
     guardedLoop("reportWa", async () => {
       await reportWaTick();
     }, 60_000)(),
+
+    guardedLoop("scheduledCampaigns", async () => {
+      await scheduledCampaignsTick();
+    }, 30_000)(),
+
+    guardedLoop("massInjectWatchdog", async () => {
+      await massInjectWatchdogTick();
+    }, 30_000)(),
+
+    guardedLoop("trialCleanup", async () => {
+      await trialCleanupTick();
+    }, 60 * 60_000)(), // every 1 hour
   ]);
 }
 
