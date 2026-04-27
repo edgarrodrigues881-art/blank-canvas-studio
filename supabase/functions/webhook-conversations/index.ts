@@ -335,11 +335,17 @@ Deno.serve(async (req) => {
 
     // ── Idempotency check FIRST (before any counter mutation) ──
     // Prevents duplicate webhooks from inflating unread_count or last_message.
-    if (waId) {
+    // UAZAPI sometimes returns waId as `<remoteJid>:<id>` (echo de envio) e outras
+    // vezes só `<id>` (mensagem chegando). Normalizamos para apenas o id final
+    // para que o id salvo pelo chat-send (apenas <id>) bata com o do webhook.
+    const normalizedWaId = waId && waId.includes(":") ? waId.split(":").pop()! : waId;
+    if (normalizedWaId) {
       const { data: existing } = await admin.from("conversation_messages")
-        .select("id").eq("whatsapp_message_id", waId).maybeSingle();
+        .select("id")
+        .or(`whatsapp_message_id.eq.${normalizedWaId},whatsapp_message_id.eq.${waId}`)
+        .maybeSingle();
       if (existing) {
-        console.log(`Duplicate message skipped: ${waId}`);
+        console.log(`Duplicate message skipped: ${waId} (normalized: ${normalizedWaId})`);
         return json({ ok: true, skipped: "duplicate" });
       }
     }
