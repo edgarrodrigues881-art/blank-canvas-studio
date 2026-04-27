@@ -77,20 +77,27 @@ export function NewConversationDialog({
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deviceId, setDeviceId] = useState("");
-  const [phoneRaw, setPhoneRaw] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // texto livre: nome ou número
+  const [phoneRaw, setPhoneRaw] = useState(""); // número confirmado/digitado (digits)
   const [name, setName] = useState("");
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [autoFilledName, setAutoFilledName] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
-  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const phoneDisplay = applyPhoneMask(phoneRaw);
-  const phoneDigits = cleanPhone(phoneRaw);
+  // Detecta se o input parece um número (>= 50% dígitos)
+  const inputDigits = cleanPhone(searchInput);
+  const looksLikePhone = searchInput.trim().length > 0 && inputDigits.length >= Math.ceil(searchInput.replace(/\s/g, "").length * 0.5);
+
+  // Número final a usar (do input se parece telefone, ou do phoneRaw se veio de seleção)
+  const phoneDigits = phoneRaw || (looksLikePhone ? inputDigits : "");
+  const phoneDisplay = phoneRaw ? applyPhoneMask(phoneRaw) : (looksLikePhone ? applyPhoneMask(inputDigits) : "");
 
   const resetForm = useCallback(() => {
     setDeviceId("");
+    setSearchInput("");
     setPhoneRaw("");
     setName("");
     setSuggestions([]);
@@ -123,7 +130,7 @@ export function NewConversationDialog({
   useEffect(() => {
     if (!open) return;
     fetchDevices();
-    setTimeout(() => phoneInputRef.current?.focus(), 200);
+    setTimeout(() => searchInputRef.current?.focus(), 200);
   }, [open, fetchDevices]);
 
   useEffect(() => {
@@ -132,55 +139,57 @@ export function NewConversationDialog({
     }
   }, [open, devices, deviceId]);
 
+  // Busca contatos por nome OU número (a partir de 2 caracteres)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (phoneDigits.length < 4) {
+    const term = searchInput.trim();
+    if (term.length < 2) {
       setSuggestions([]);
       return;
     }
 
     debounceRef.current = setTimeout(async () => {
       setLoadingSuggestions(true);
+      const digits = cleanPhone(term);
+      const filters: string[] = [`name.ilike.%${term}%`];
+      if (digits.length >= 2) filters.push(`phone.ilike.%${digits}%`);
+
       const { data } = await supabase
         .from("contacts")
         .select("id, name, phone")
-        .or(`phone.ilike.%${phoneDigits}%,name.ilike.%${phoneDigits}%`)
-        .limit(5);
+        .or(filters.join(","))
+        .limit: 8 as any > undefined ? undefined : undefined; // placeholder
+      // Re-execute correctly
+      const { data: real } = await supabase
+        .from("contacts")
+        .select("id, name, phone")
+        .or(filters.join(","))
+        .limit(8);
 
-      setSuggestions(data || []);
+      setSuggestions(real || []);
       setLoadingSuggestions(false);
-
-      if (data && data.length > 0 && !name) {
-        const exactMatch = data.find(
-          (c) => cleanPhone(c.phone) === phoneDigits || cleanPhone(c.phone).endsWith(phoneDigits)
-        );
-        if (exactMatch && exactMatch.name) {
-          setName(exactMatch.name);
-          setAutoFilledName(true);
-        }
-      }
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [phoneDigits]);
+  }, [searchInput]);
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = cleanPhone(raw);
-    if (digits.length >= 2 && !digits.startsWith("55") && digits.length <= 11) {
-      setPhoneRaw("55" + digits);
-    } else {
-      setPhoneRaw(digits);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchInput(e.target.value);
+    setPhoneRaw(""); // reseta seleção anterior
+    if (autoFilledName) {
+      setName("");
+      setAutoFilledName(false);
     }
-    if (autoFilledName) setAutoFilledName(false);
   };
 
   const selectSuggestion = (contact: ContactSuggestion) => {
-    setPhoneRaw(cleanPhone(contact.phone));
+    const digits = cleanPhone(contact.phone);
+    setPhoneRaw(digits);
+    setSearchInput(contact.name || applyPhoneMask(digits));
     setName(contact.name || "");
-    setAutoFilledName(true);
+    setAutoFilledName(!!contact.name);
     setSuggestions([]);
   };
 
