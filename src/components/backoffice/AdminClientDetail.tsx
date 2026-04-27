@@ -13,6 +13,7 @@ import ClientLogsTab from "./tabs/ClientLogsTab";
 import ClientPaymentsTab from "./tabs/ClientPaymentsTab";
 import ClientTokensTab from "./tabs/ClientTokensTab";
 import ClientIPTab from "./tabs/ClientIPTab";
+import ClientBetaFeaturesTab from "./tabs/ClientBetaFeaturesTab";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface Props {
