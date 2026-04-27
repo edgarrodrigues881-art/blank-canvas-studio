@@ -25,6 +25,8 @@ import { autoreplyTick, lastAutoreplyTickAt } from "./autoreply/autoreply-proces
 import { scheduledMessagesTick, lastScheduledMsgTickAt } from "./workers/scheduled-messages-worker";
 import { syncDevicesTick, lastSyncDevicesTickAt } from "./workers/sync-devices-worker";
 import { syncConversationsTick, lastSyncConversationsTickAt } from "./workers/sync-conversations-worker";
+import { statusScheduleTick, lastStatusScheduleTickAt } from "./workers/status-schedule-worker";
+import { reportWaTick, lastReportWaTickAt } from "./workers/report-wa-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
@@ -1108,6 +1110,14 @@ async function mainLoop() {
 
     guardedLoop("syncConversations", async () => {
       await syncConversationsTick();
+    }, 60_000)(),
+
+    guardedLoop("statusSchedule", async () => {
+      await statusScheduleTick();
+    }, 60_000)(),
+
+    guardedLoop("reportWa", async () => {
+      await reportWaTick();
     }, 60_000)(),
   ]);
 }
