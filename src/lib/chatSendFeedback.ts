@@ -13,6 +13,28 @@ export function getSendFailureFeedback(rawError?: string | null, deviceName?: st
   const trimmedDeviceName = deviceName?.trim();
   const deviceLabel = trimmedDeviceName ? ` do dispositivo ${trimmedDeviceName}` : "";
 
+  // WhatsApp/Meta anti-spam: o celular pode enviar, mas API/Web ficam bloqueados temporariamente.
+  if (hasSignal(value, [/reachout_timelock/i, /bloqueou o envio.*via api/i, /via api at[eé]/i])) {
+    const original = String(rawError || "").replace(/^Falha ao enviar:\s*/i, "").trim();
+    const untilMatch = original.match(/até\s+([^\.]+)(?:\.|$)/i);
+    return {
+      title: "Envio bloqueado temporariamente",
+      description: original || "O WhatsApp bloqueou temporariamente envios para esse contato via API. Peça para o contato enviar uma mensagem primeiro ou aguarde a liberação.",
+      shortReason: untilMatch
+        ? `WhatsApp bloqueou via API até ${untilMatch[1]}. Peça para o contato te chamar primeiro.`
+        : "WhatsApp bloqueou temporariamente via API — peça para o contato te chamar primeiro.",
+    };
+  }
+
+  if (hasSignal(value, [/new_chat_message_capping/i, /cota de novas conversas/i, /cota.*whatsapp.*esgotada/i])) {
+    const original = String(rawError || "").replace(/^Falha ao enviar:\s*/i, "").trim();
+    return {
+      title: "Limite de novas conversas atingido",
+      description: original || "O WhatsApp limitou o início de novas conversas por agora. Aguarde a renovação da cota ou fale com contatos que já responderam.",
+      shortReason: "limite de novas conversas do WhatsApp atingido — aguarde a renovação.",
+    };
+  }
+
   // 1) WhatsApp desconectado / sessão caiu / token inválido
   if (hasSignal(value, [/whatsapp disconnected/i, /session disconnected/i, /not connected/i, /not authenticated/i, /unauthorized/i, /qr code/i, /logout/i, /\bdisconnected\b/i, /desconectad/i, /session.*closed/i, /invalid token/i, /token inv[aá]lid/i, /\b401\b/i, /token expired/i, /token expirad/i])) {
     return {
