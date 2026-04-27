@@ -5,6 +5,7 @@ import { List as VirtualList } from "react-window";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 import {
   useAutosaveContacts, type WarmupAutosaveContact,
 } from "@/hooks/useWarmupV2";
