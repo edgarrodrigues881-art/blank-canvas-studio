@@ -5,6 +5,7 @@ import { useQuickReplies, resolveVariables, getQuickReplyBlocks, QUICK_REPLY_CAT
 import { toast } from "sonner";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/chat/useSendMessage";
+import { useChatPresence } from "@/hooks/chat/useChatPresence";
 import { MessageBubble } from "./MessageBubble";
 import { ChatHeader } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
@@ -247,6 +248,14 @@ export function ChatPanel({
     handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
+
+  // Mostra "digitando..." / "gravando áudio..." no WhatsApp do contato
+  // enquanto o atendente edita ou grava.
+  useChatPresence({
+    conversationId: conversation.id,
+    input,
+    isRecording,
+  });
 
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
