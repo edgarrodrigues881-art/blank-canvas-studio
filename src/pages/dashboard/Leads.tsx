@@ -925,7 +925,7 @@ export default function Leads() {
 
       {/* ── Detail Dialog (view + inline edit) ── */}
       <Dialog open={!!detailLead} onOpenChange={(open) => { if (!open) { setDetailLead(null); setEditingInline(false); } }}>
-        <DialogContent className={cn("max-w-2xl max-h-[85vh] overflow-y-auto p-0", editingInline && "[&>button:last-child]:hidden")}>
+        <DialogContent className={cn("w-[calc(100vw-2rem)] sm:w-full max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-hidden p-0", editingInline && "[&>button:last-child]:hidden")}>
           <DialogTitle className="sr-only">Detalhes do Lead</DialogTitle>
           <DialogDescription className="sr-only">Visualize e edite as informações do lead selecionado.</DialogDescription>
           {detailLead && (() => {
