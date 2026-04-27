@@ -380,7 +380,7 @@ Deno.serve(async (req) => {
       media_type: mediaType,
       media_url: persistedMediaUrl,
       audio_duration: audioDuration,
-      whatsapp_message_id: waId,
+      whatsapp_message_id: normalizedWaId,
       quoted_message_id: quotedMessageId,
       quoted_content: quotedContent,
       created_at: timestamp,
