@@ -1402,56 +1402,57 @@ Deno.serve(async (req) => {
     // ════════════════════════════════════════════════════════════════════
     // ── refreshQr ──
     // ════════════════════════════════════════════════════════════════════
+    // Fast path: only check current state briefly. If a fresh QR already
+    // exists, return it. If already connected, confirm and short-circuit.
+    // Otherwise, request a new QR with aggressive timeouts so the frontend
+    // never waits more than ~10s.
     if (action === "refreshQr") {
-      const statusCheck = await checkStatus(5000);
+      const statusCheck = await checkStatus(3500);
 
-      if (isConfirmedConnected(statusCheck)) {
-        const stability = await confirmStableConnected(statusCheck);
-        if (stability.confirmed) {
-          const phone = stability.latest.owner || "";
-          const fmt = phone ? formatBrPhone(phone) : "";
-          const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
-          if (dup.isDuplicate) {
-            await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 5000, retries: 0 });
-            return json({ success: false, error: `Número já conectado em "${dup.existingDeviceName}".`, code: "DUPLICATE_PHONE" });
-          }
-          return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
-        }
-      }
-
-      if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
-      if ((statusCheck.status === "transitional" || statusCheck.rawStatus === "connecting") && statusCheck.qrcode) {
+      // Already has a fresh QR? Return immediately — fastest possible path.
+      if (statusCheck.qrcode) {
         const r = { success: true, state: "waiting_scan" as const, base64: statusCheck.qrcode, qr: statusCheck.qrcode, pairingCode: null, pairing_code: null, status: "connecting" };
-        logFsmResponse(deviceId, "refreshQr/existing", r);
+        logFsmResponse(deviceId, "refreshQr/cached", r);
         return json(r);
       }
 
-      // Request new QR with retry
-      await clearProviderSessionForQr(true);
-      const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 8000, retries: 1 });
+      // Already connected? Confirm cheaply and exit.
+      if (isConfirmedConnected(statusCheck)) {
+        const phone = statusCheck.owner || "";
+        const fmt = phone ? formatBrPhone(phone) : "";
+        const dup = await checkDuplicatePhone(svc, user.id, deviceId, phone);
+        if (dup.isDuplicate) {
+          await uazapi(instanceUrl, "/instance/disconnect", instanceToken, "POST", undefined, { timeoutMs: 4000, retries: 0 });
+          return json({ success: false, error: `Número já conectado em "${dup.existingDeviceName}".`, code: "DUPLICATE_PHONE" });
+        }
+        return json({ success: true, alreadyConnected: true, phone: fmt, status: "authenticated" });
+      }
+
+      if (!statusCheck.valid) return json({ error: "Token expirado.", code: "TOKEN_INVALID" }, 401);
+
+      // No QR yet — request new one. Skip the slow clearProviderSessionForQr
+      // unless the session is in a stuck state. This shaves ~2-4s.
+      const needsClear = statusCheck.rawStatus === "disconnected" || statusCheck.rawStatus === "logged_out";
+      if (needsClear) {
+        await clearProviderSessionForQr(true).catch(() => {});
+      }
+
+      const connectRes = await uazapi(instanceUrl, "/instance/connect", instanceToken, "POST", {}, { timeoutMs: 6000, retries: 1 });
       const connInst = connectRes.data?.instance || connectRes.data || {};
       let qr = connInst.qrcode || connectRes.data?.qrcode;
 
-      // Single poll if no QR
+      // If no QR yet, do up to 2 quick polls (300ms apart) — UAZAPI often
+      // emits the QR in the very next status read.
       if (!qr) {
-        await new Promise(r => setTimeout(r, 600));
-        const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 4000, retries: 0 });
-        const pi = poll.data?.instance || poll.data || {};
-        const pollState = normalizeProviderConnectionState(poll.data);
-        qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
-        const phone = pollState.owner || pi.owner || pi.phone || "";
-        if (pollState.state === "connected" && phone) {
-          const stability = await confirmStableConnected({
-            valid: true,
-            status: pollState.state,
-            rawStatus: pollState.rawStatus || pollState.state,
-            qrcode: qr || undefined,
-            owner: phone,
-            profileName: pollState.profileName || pi.profileName || pi.pushname || "",
-            profilePicUrl: pollState.profilePicUrl || "",
-          });
-          if (stability.confirmed) {
-            return json({ success: true, state: "connected", alreadyConnected: true, phone: formatBrPhone(stability.latest.owner || phone), status: "authenticated" });
+        for (let attempt = 0; attempt < 2 && !qr; attempt++) {
+          await new Promise(r => setTimeout(r, 300));
+          const poll = await uazapi(instanceUrl, "/instance/status", instanceToken, "GET", undefined, { timeoutMs: 3000, retries: 0 });
+          const pi = poll.data?.instance || poll.data || {};
+          const pollState = normalizeProviderConnectionState(poll.data);
+          qr = pollState.qrcode || pi.qrcode || poll.data?.qrcode;
+          if (pollState.state === "connected" && (pollState.owner || pi.owner)) {
+            const phone = pollState.owner || pi.owner || pi.phone || "";
+            return json({ success: true, state: "connected", alreadyConnected: true, phone: formatBrPhone(phone), status: "authenticated" });
           }
         }
       }
