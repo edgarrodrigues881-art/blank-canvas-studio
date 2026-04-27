@@ -821,11 +821,25 @@ const WarmupInstances = () => {
   }, [refetchCustomGroups, toast]);
 
   const WARNING_DISMISS_KEY = "warmup_v2_warning_dismissed_v2";
-  const [showWarning, setShowWarning] = useState(() =>
-    localStorage.getItem(WARNING_DISMISS_KEY) !== "true"
-  );
+  const { isDismissed: isWarningDismissed, dismiss: dismissWarning, loaded: warningsLoaded } = useDismissedWarnings();
+  const [showWarning, setShowWarning] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [agreedResponsibility, setAgreedResponsibility] = useState(false);
+
+  useEffect(() => {
+    if (!warningsLoaded) return;
+    if (isWarningDismissed(WARNING_DISMISS_KEY)) {
+      setShowWarning(false);
+      return;
+    }
+    if (localStorage.getItem(WARNING_DISMISS_KEY) === "true") {
+      // Migra flag legado
+      dismissWarning(WARNING_DISMISS_KEY);
+      setShowWarning(false);
+      return;
+    }
+    setShowWarning(true);
+  }, [warningsLoaded, isWarningDismissed, dismissWarning]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
