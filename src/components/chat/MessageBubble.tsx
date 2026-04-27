@@ -234,7 +234,7 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
     el.onwaiting = () => setLoading(true);
     el.oncanplay = () => setLoading(false);
     el.onerror = () => { setLoading(false); setPlaying(false); setError("Erro ao carregar áudio"); };
-  }, [updateProgress]);
+  }, [updateProgress, playbackRate]);
 
   const playedBars = Math.floor((progress / 100) * waveformBars.length);
 
