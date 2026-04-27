@@ -25,6 +25,8 @@ import { autoreplyTick, lastAutoreplyTickAt } from "./autoreply/autoreply-proces
 import { scheduledMessagesTick, lastScheduledMsgTickAt } from "./workers/scheduled-messages-worker";
 import { syncDevicesTick, lastSyncDevicesTickAt } from "./workers/sync-devices-worker";
 import { syncConversationsTick, lastSyncConversationsTickAt } from "./workers/sync-conversations-worker";
+import { statusScheduleTick, lastStatusScheduleTickAt } from "./workers/status-schedule-worker";
+import { reportWaTick, lastReportWaTickAt } from "./workers/report-wa-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
@@ -60,6 +62,8 @@ app.get("/health", (_req: Request, res: Response) => {
     lastScheduledMsgTick: lastScheduledMsgTickAt?.toISOString() || null,
     lastSyncDevicesTick: lastSyncDevicesTickAt?.toISOString() || null,
     lastSyncConversationsTick: lastSyncConversationsTickAt?.toISOString() || null,
+    lastStatusScheduleTick: lastStatusScheduleTickAt?.toISOString() || null,
+    lastReportWaTick: lastReportWaTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -1006,6 +1010,8 @@ async function mainLoop() {
     scheduledMsg: false,
     syncDevices: false,
     syncConversations: false,
+    statusSchedule: false,
+    reportWa: false,
   };
 
   function guardedLoop(
@@ -1108,6 +1114,14 @@ async function mainLoop() {
 
     guardedLoop("syncConversations", async () => {
       await syncConversationsTick();
+    }, 60_000)(),
+
+    guardedLoop("statusSchedule", async () => {
+      await statusScheduleTick();
+    }, 60_000)(),
+
+    guardedLoop("reportWa", async () => {
+      await reportWaTick();
     }, 60_000)(),
   ]);
 }
