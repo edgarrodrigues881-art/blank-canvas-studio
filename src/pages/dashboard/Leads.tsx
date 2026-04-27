@@ -974,9 +974,9 @@ export default function Leads() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-4 flex-wrap">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-4">
                     <Select value={detailLead.pipeline_stage || "novo"} onValueChange={(v) => handleStatusChange(detailLead, v)}>
-                      <SelectTrigger className="w-[160px] sm:w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[170px] h-9 text-xs rounded-lg bg-muted/30 border-border/50 focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {statusOptions.map((s) => (
                           <SelectItem key={s.value} value={s.value}>
@@ -985,12 +985,14 @@ export default function Leads() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => openEdit(detailLead)}>
-                      <Pencil className="w-3.5 h-3.5" /> Editar
-                    </Button>
-                    <Button variant="destructive" size="sm" className="gap-1.5 h-9 rounded-lg" onClick={() => handleDelete(detailLead.id)}>
-                      <Trash2 className="w-3.5 h-3.5" /> Excluir
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg flex-1 sm:flex-initial" onClick={() => openEdit(detailLead)}>
+                        <Pencil className="w-3.5 h-3.5" /> Editar
+                      </Button>
+                      <Button variant="destructive" size="sm" className="gap-1.5 h-9 rounded-lg flex-1 sm:flex-initial" onClick={() => handleDelete(detailLead.id)}>
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
