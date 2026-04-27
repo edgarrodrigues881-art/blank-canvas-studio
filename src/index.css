@@ -370,6 +370,24 @@
 }
 
 @layer utilities {
+  /* Chat privacy mode — blur sensitive content but keep layout intact */
+  .privacy-blur {
+    filter: blur(6px);
+    transition: filter 120ms ease;
+    user-select: none;
+    pointer-events: none;
+  }
+  .privacy-blur-strong {
+    filter: blur(10px);
+    transition: filter 120ms ease;
+    user-select: none;
+    pointer-events: none;
+  }
+  .privacy-blur:hover,
+  .privacy-blur-strong:hover {
+    filter: blur(0px);
+  }
+
   /* Kill Radix dialog/sheet/dropdown animations for instant open/close */
   [data-state="open"],
   [data-state="closed"] {
