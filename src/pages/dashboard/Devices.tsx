@@ -3091,6 +3091,10 @@ const Devices = () => {
                   onChange={e => setBulkPrefix(e.target.value)}
                   placeholder="Instância"
                   className="h-10 text-sm"
+                  onFocus={e => {
+                    const v = e.target.value;
+                    e.target.setSelectionRange(v.length, v.length);
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
