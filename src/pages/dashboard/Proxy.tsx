@@ -66,6 +66,7 @@ const Proxy = () => {
   const { data: dbProxies = [] } = useQuery({
     queryKey: ["proxies"],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       // Fetch all proxies (handle >1000 rows)
       const allProxies: any[] = [];
       let from = 0;
@@ -74,6 +75,7 @@ const Proxy = () => {
         const { data, error } = await supabase
           .from("proxies")
           .select("id, display_id, host, port, username, type, status, active, created_at, updated_at")
+          .eq("user_id", session.user.id)
           .order("display_id", { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -84,7 +86,7 @@ const Proxy = () => {
       }
       return allProxies;
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     staleTime: 300_000,
   });
 
