@@ -158,15 +158,9 @@ export function NewConversationDialog({
         .from("contacts")
         .select("id, name, phone")
         .or(filters.join(","))
-        .limit: 8 as any > undefined ? undefined : undefined; // placeholder
-      // Re-execute correctly
-      const { data: real } = await supabase
-        .from("contacts")
-        .select("id, name, phone")
-        .or(filters.join(","))
         .limit(8);
 
-      setSuggestions(real || []);
+      setSuggestions(data || []);
       setLoadingSuggestions(false);
     }, 300);
 
