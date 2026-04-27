@@ -56,9 +56,11 @@ export default function AutoReplyList() {
   const { data: devices } = useQuery({
     queryKey: ["devices-list", user?.id],
     queryFn: async () => {
+      if (!user?.id) return [];
       const { data, error } = await supabase
         .from("devices")
         .select("id, name, number, status")
+        .eq("user_id", user.id)
         .neq("login_type", "report_wa")
         .order("name");
       if (error) throw error;
