@@ -441,7 +441,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
       try {
         await sendFlowMessage(baseUrl, deviceToken, fromPhone, startNode.data.text,
           startNode.data.imageUrl || undefined,
-          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label })),
+          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })),
           true);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
