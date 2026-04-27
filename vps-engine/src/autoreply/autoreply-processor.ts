@@ -234,6 +234,7 @@ interface FlowNode {
     keyword?: string;
     text?: string;
     imageUrl?: string;
+    audioUrl?: string;
     imageCaption?: string;
     buttons?: { id: string; label: string; targetNodeId: string; type?: "reply" | "url" | "phone"; url?: string; phone?: string }[];
     delaySeconds?: number;
