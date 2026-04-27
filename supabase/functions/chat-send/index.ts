@@ -106,6 +106,21 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
         return { sent: true as const, parsed, path: attempt.path, actualChatId };
       }
 
+      // Detect WhatsApp Reachout Timelock (Meta anti-spam protection)
+      const timelock = parsed?.details?.reachout_timelock;
+      if (timelock?.active) {
+        const untilStr = timelock.until ? new Date(timelock.until).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "data desconhecida";
+        lastErr = `O WhatsApp bloqueou o envio para esse contato via API até ${untilStr}. Peça para ele te enviar uma mensagem primeiro, ou aguarde a liberação. (Pelo celular continua funcionando normalmente.)`;
+        break;
+      }
+
+      // Detect message quota exceeded
+      const quota = parsed?.details?.new_chat_message_capping;
+      if (quota && typeof quota.used_quota === "number" && typeof quota.total_quota === "number" && quota.total_quota > 0 && quota.used_quota >= quota.total_quota) {
+        lastErr = `Cota de novas conversas do WhatsApp esgotada (${quota.used_quota}/${quota.total_quota}). Renova em ${quota.cycle_end ? new Date(quota.cycle_end).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "breve"}.`;
+        break;
+      }
+
       const parsedMessage =
         (typeof parsed?.message === "string" && parsed.message) ||
         (typeof parsed?.error === "string" && parsed.error) ||
