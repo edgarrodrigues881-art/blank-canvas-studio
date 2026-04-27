@@ -1023,6 +1023,7 @@ async function mainLoop() {
     trialCleanup: false,
     massInjectWatchdog: false,
     scheduledCampaigns: false,
+    groupsSync: false,
   };
 
   function guardedLoop(

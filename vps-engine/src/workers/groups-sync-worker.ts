@@ -66,7 +66,7 @@ async function fetchGroupsForDevice(baseUrl: string, token: string): Promise<Gro
         { headers: buildHeaders(token) }
       );
       if (!res.ok) break;
-      const data = await res.json().catch(() => null);
+      const data: any = await res.json().catch(() => null);
       const groups = Array.isArray(data) ? data : data?.groups || data?.data || [];
       if (!Array.isArray(groups) || groups.length === 0) break;
       addGroups(groups);
@@ -85,7 +85,7 @@ async function fetchGroupsForDevice(baseUrl: string, token: string): Promise<Gro
           ...(isPost ? { body: "{}" } : {}),
         });
         if (!res.ok) continue;
-        const data = await res.json().catch(() => null);
+        const data: any = await res.json().catch(() => null);
         const groups = Array.isArray(data) ? data : data?.groups || data?.data || data?.chats || [];
         addGroups(Array.isArray(groups) ? groups : []);
         if (all.length > 0) break;
