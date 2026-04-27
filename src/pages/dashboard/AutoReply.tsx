@@ -694,7 +694,6 @@ function FlowCanvas() {
         canRedo={redoStack.length > 0}
       />
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <FlowSidebar hasStartNode={nodes.some((n) => n.type === "startNode")} />
         <div ref={canvasRef} className="flex-1 min-w-0 relative" onContextMenu={(e) => e.preventDefault()}>
           <ReactFlow
             nodes={nodes}
@@ -790,7 +789,7 @@ function FlowCanvas() {
             </>
           )}
         </div>
-        {selectedNode && (
+        {selectedNode ? (
           <EditPanel
             node={selectedNode}
             onUpdate={updateNodeData}
@@ -798,6 +797,8 @@ function FlowCanvas() {
             onDuplicate={duplicateNode}
             onClose={() => setSelectedNodeId(null)}
           />
+        ) : (
+          <FlowSidebar hasStartNode={nodes.some((n) => n.type === "startNode")} />
         )}
       </div>
     </div>

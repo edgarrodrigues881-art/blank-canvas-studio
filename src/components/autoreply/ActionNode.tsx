@@ -1,12 +1,12 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Zap, Tag, Users, GitPullRequestArrow } from "lucide-react";
+import { Wand2, Tag, Users, GitPullRequestArrow, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import type { FlowNodeData } from "./types";
 
-const ACTION_LABELS: Record<string, { label: string; icon: any }> = {
-  add_tag: { label: "Adicionar tag", icon: Tag },
-  remove_tag: { label: "Remover tag", icon: Tag },
-  set_pipeline_stage: { label: "Mover no Pipeline", icon: GitPullRequestArrow },
-  assign_attendant: { label: "Atribuir atendente", icon: Users },
+const ACTION_META: Record<string, { label: string; icon: any }> = {
+  add_tag:           { label: "Adicionar tag",     icon: Tag },
+  remove_tag:        { label: "Remover tag",        icon: Tag },
+  set_pipeline_stage:{ label: "Mover no Pipeline", icon: GitPullRequestArrow },
+  assign_attendant:  { label: "Atribuir atendente",icon: Users },
   release_attendant: { label: "Liberar atendente", icon: Users },
 };
 
@@ -16,62 +16,78 @@ export function ActionNode({ data, selected }: NodeProps) {
 
   return (
     <div
-      className={`rounded-lg overflow-hidden transition-all duration-150 w-[220px]
+      className={`rounded-xl overflow-hidden transition-all duration-150 w-[260px] border bg-card
         ${selected
-          ? "ring-2 ring-amber-400/70 shadow-[0_0_24px_-4px_hsl(var(--primary)/0.3)]"
-          : "ring-1 ring-white/[0.06] shadow-md hover:ring-white/[0.1]"
+          ? "border-amber-500/60 shadow-[0_0_0_3px_hsl(45_93%_47%/0.15)] shadow-xl"
+          : "border-border/50 shadow-lg hover:border-amber-500/30 hover:shadow-xl"
         }`}
-      style={{ background: "hsl(var(--card))" }}
     >
-      <div className="h-1 bg-amber-500" />
+      <div className="h-[3px] bg-gradient-to-r from-amber-500 to-amber-400" />
+
       <Handle
         type="target"
         position={Position.Left}
         id="in"
-        className="!w-2.5 !h-2.5 !bg-amber-500 !border-[1.5px] !border-card !rounded-full !-left-1.5"
+        className="!w-3 !h-3 !bg-amber-500 !border-[2px] !border-card !rounded-full !-left-1.5"
       />
 
-      <div className="flex items-center gap-2 px-3 py-2">
-        <div className="w-5 h-5 rounded bg-amber-500/15 flex items-center justify-center shrink-0">
-          <Zap className="w-3 h-3 text-amber-400" />
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="w-9 h-9 rounded-xl bg-amber-500/12 flex items-center justify-center shrink-0 border border-amber-500/15">
+          <Wand2 className="w-4 h-4 text-amber-400" strokeWidth={1.8} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-semibold text-foreground/90 leading-none truncate">{d.label}</p>
-          <p className="text-[9px] text-muted-foreground/50 mt-0.5">Ações</p>
+          <p className="text-[13px] font-semibold text-foreground leading-none truncate">{d.label}</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-1">
+            {actions.length === 0 ? "Nenhuma ação" : `${actions.length} ação${actions.length !== 1 ? "ões" : ""}`}
+          </p>
         </div>
       </div>
 
-      <div className="px-3 pb-2 space-y-1">
-        {actions.length === 0 && (
-          <p className="text-[9px] text-muted-foreground/40 italic">Nenhuma ação configurada</p>
-        )}
-        {actions.slice(0, 3).map((a) => {
-          const meta = ACTION_LABELS[a.type] || { label: a.type, icon: Zap };
-          const Icon = meta.icon;
-          const detail =
-            a.type === "add_tag" || a.type === "remove_tag" ? a.tag :
-            a.type === "set_pipeline_stage" ? a.stage :
-            a.type === "assign_attendant" ? a.attendantName :
-            "";
-          return (
-            <div key={a.id} className="flex items-center gap-1.5 text-[9px] text-foreground/50">
-              <Icon className="w-2.5 h-2.5 text-amber-400/60 shrink-0" />
-              <span className="truncate">
-                {meta.label}{detail ? `: ${detail}` : ""}
-              </span>
-            </div>
-          );
-        })}
-        {actions.length > 3 && (
-          <p className="text-[8px] text-muted-foreground/30">+{actions.length - 3} mais</p>
-        )}
+      {/* Actions list */}
+      {actions.length > 0 && (
+        <div className="px-4 pb-3 space-y-1.5">
+          {actions.slice(0, 3).map((a) => {
+            const meta = ACTION_META[a.type] || { label: a.type, icon: Wand2 };
+            const Icon = meta.icon;
+            const detail =
+              a.type === "add_tag" || a.type === "remove_tag" ? a.tag :
+              a.type === "set_pipeline_stage" ? a.stage :
+              a.type === "assign_attendant" ? a.attendantName : "";
+            return (
+              <div key={a.id} className="flex items-center gap-1.5 bg-muted/20 rounded-lg px-2.5 py-1.5">
+                <Icon className="w-3 h-3 text-amber-400 shrink-0" />
+                <span className="text-[10px] text-muted-foreground/70 truncate">
+                  {meta.label}{detail ? `: ${detail}` : ""}
+                </span>
+              </div>
+            );
+          })}
+          {actions.length > 3 && (
+            <p className="text-[10px] text-muted-foreground/40 px-2.5">+{actions.length - 3} mais</p>
+          )}
+        </div>
+      )}
+
+      {/* Stats bar */}
+      <div className="flex items-center border-t border-border/30 divide-x divide-border/30">
+        {[
+          { label: "Sucessos", value: 0, color: "text-emerald-400", icon: CheckCircle2 },
+          { label: "Alertas",  value: 0, color: "text-amber-400",   icon: AlertTriangle },
+          { label: "Erros",    value: 0, color: "text-rose-400",    icon: XCircle },
+        ].map((s) => (
+          <div key={s.label} className="flex-1 text-center py-2">
+            <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[9px] text-muted-foreground/50 mt-0.5">{s.label}</p>
+          </div>
+        ))}
       </div>
 
       <Handle
         type="source"
         position={Position.Right}
         id="out"
-        className="!w-2.5 !h-2.5 !bg-amber-500 !border-[1.5px] !border-card !rounded-full !-right-1.5"
+        className="!w-3 !h-3 !bg-amber-500 !border-[2px] !border-card !rounded-full !-right-1.5"
       />
     </div>
   );

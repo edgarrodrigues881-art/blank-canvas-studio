@@ -2,15 +2,15 @@ import { Zap, MessageSquare, CircleStop, Timer, GitBranch, Bot, MessageCircleRep
 import { toast } from "sonner";
 
 const blocks = [
-  { type: "startNode", label: "Início", desc: "Gatilho", icon: Zap, color: "text-emerald-400", bar: "bg-emerald-500", bg: "bg-emerald-500/12" },
-  { type: "messageNode", label: "Mensagem", desc: "Texto / mídia", icon: MessageSquare, color: "text-primary", bar: "bg-primary", bg: "bg-primary/12" },
-  { type: "actionNode", label: "Ações", desc: "Tag / pipeline", icon: Wand2, color: "text-amber-400", bar: "bg-amber-500", bg: "bg-amber-500/12" },
-  { type: "waitResponseNode", label: "Esperar", desc: "Resposta do lead", icon: MessageCircleReply, color: "text-blue-400", bar: "bg-blue-500", bg: "bg-blue-500/12" },
-  { type: "randomNode", label: "Randomizador", desc: "A/B / split", icon: Shuffle, color: "text-fuchsia-400", bar: "bg-fuchsia-500", bg: "bg-fuchsia-500/12" },
-  { type: "aiNode", label: "IA", desc: "Resposta IA", icon: Bot, color: "text-cyan-400", bar: "bg-cyan-500", bg: "bg-cyan-500/12" },
-  { type: "conditionNode", label: "Condição", desc: "Ramificar", icon: GitBranch, color: "text-violet-400", bar: "bg-violet-500", bg: "bg-violet-500/12" },
-  { type: "delayNode", label: "Delay", desc: "Temporizador", icon: Timer, color: "text-amber-400", bar: "bg-amber-500", bg: "bg-amber-500/12" },
-  { type: "endNode", label: "Finalizar", desc: "Encerrar", icon: CircleStop, color: "text-rose-400", bar: "bg-rose-500", bg: "bg-rose-500/12" },
+  { type: "startNode",        label: "Início",        icon: Zap,               color: "text-emerald-400", bg: "bg-emerald-500/15", border: "border-emerald-500/20" },
+  { type: "messageNode",      label: "Mensagem",      icon: MessageSquare,     color: "text-blue-400",    bg: "bg-blue-500/15",    border: "border-blue-500/20"    },
+  { type: "actionNode",       label: "Ações",         icon: Wand2,             color: "text-amber-400",   bg: "bg-amber-500/15",   border: "border-amber-500/20"   },
+  { type: "conditionNode",    label: "Condições",     icon: GitBranch,         color: "text-violet-400",  bg: "bg-violet-500/15",  border: "border-violet-500/20"  },
+  { type: "waitResponseNode", label: "Espera",        icon: MessageCircleReply,color: "text-sky-400",     bg: "bg-sky-500/15",     border: "border-sky-500/20"     },
+  { type: "randomNode",       label: "Randomizador",  icon: Shuffle,           color: "text-fuchsia-400", bg: "bg-fuchsia-500/15", border: "border-fuchsia-500/20" },
+  { type: "aiNode",           label: "IA",            icon: Bot,               color: "text-cyan-400",    bg: "bg-cyan-500/15",    border: "border-cyan-500/20"    },
+  { type: "delayNode",        label: "Delay",         icon: Timer,             color: "text-orange-400",  bg: "bg-orange-500/15",  border: "border-orange-500/20"  },
+  { type: "endNode",          label: "Finalizar",     icon: CircleStop,        color: "text-rose-400",    bg: "bg-rose-500/15",    border: "border-rose-500/20"    },
 ];
 
 interface Props {
@@ -29,8 +29,8 @@ export function FlowSidebar({ hasStartNode = false }: Props) {
   };
 
   return (
-    <div className="w-[170px] shrink-0 border-r border-white/[0.06] bg-[hsl(var(--card)/0.4)] p-2.5 space-y-0.5 hidden md:block">
-      <p className="text-[8px] uppercase tracking-[0.2em] text-muted-foreground/30 font-bold px-2 pt-1 pb-2">
+    <div className="w-[180px] shrink-0 border-l border-border/40 bg-card/60 backdrop-blur-sm p-3 hidden md:flex flex-col gap-1.5 overflow-y-auto">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold px-1 pb-1 pt-0.5">
         Blocos
       </p>
       {blocks.map((b) => {
@@ -40,19 +40,18 @@ export function FlowSidebar({ hasStartNode = false }: Props) {
             key={b.type}
             draggable={!isDisabled}
             onDragStart={(e) => onDragStart(e, b.type)}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-md transition-all duration-100 group
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-150 group
               ${isDisabled
-                ? "opacity-25 cursor-not-allowed"
-                : "cursor-grab active:cursor-grabbing hover:bg-white/[0.04] active:scale-[0.96]"
+                ? `opacity-25 cursor-not-allowed ${b.border} bg-transparent`
+                : `cursor-grab active:cursor-grabbing ${b.border} bg-card/80 hover:bg-card hover:shadow-sm active:scale-[0.97]`
               }`}
           >
-            <div className={`w-6 h-6 rounded ${b.bg} flex items-center justify-center transition-transform ${!isDisabled ? "group-hover:scale-110" : ""}`}>
-              <b.icon className={`w-3 h-3 ${b.color}`} />
+            <div className={`w-8 h-8 rounded-lg ${b.bg} flex items-center justify-center shrink-0 transition-transform ${!isDisabled ? "group-hover:scale-105" : ""}`}>
+              <b.icon className={`w-4 h-4 ${b.color}`} strokeWidth={1.8} />
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-foreground/80 leading-none">{b.label}</p>
-              <p className="text-[8px] text-muted-foreground/35 mt-0.5">{b.desc}</p>
-            </div>
+            <span className={`text-[13px] font-medium leading-none ${isDisabled ? "text-muted-foreground/30" : "text-foreground/80 group-hover:text-foreground"}`}>
+              {b.label}
+            </span>
           </div>
         );
       })}
