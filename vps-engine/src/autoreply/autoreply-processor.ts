@@ -92,10 +92,11 @@ function buildChoice(b: FlowBtnPayload): string {
 }
 
 // ── Variable interpolation ──
-// Replaces {nome}, {numero}, {email}, {empresa} (and {{var}} variants) using
-// data from the conversations/service_contacts tables. First name only for {nome}.
+// Replaces {nome}, {nome_completo}, {numero}, {email}, {empresa} (and {{var}} variants)
+// using data from the conversations/service_contacts tables.
 interface LeadVars {
-  nome: string;
+  nome: string;          // first name only — humanized
+  nome_completo: string; // full name as registered
   numero: string;
   email: string;
   empresa: string;
@@ -103,7 +104,7 @@ interface LeadVars {
 
 async function loadLeadVars(db: SupabaseClient, userId: string, phone: string): Promise<LeadVars> {
   const cleanPhone = phone.replace(/\D/g, "");
-  const vars: LeadVars = { nome: "", numero: cleanPhone, email: "", empresa: "" };
+  const vars: LeadVars = { nome: "", nome_completo: "", numero: cleanPhone, email: "", empresa: "" };
 
   try {
     const { data: conv } = await db.from("conversations")
@@ -114,13 +115,13 @@ async function loadLeadVars(db: SupabaseClient, userId: string, phone: string): 
       .limit(1)
       .maybeSingle();
     if (conv) {
-      vars.nome = (conv.name || "").trim();
+      vars.nome_completo = (conv.name || "").trim();
       vars.email = (conv.email || "").trim();
       vars.empresa = (conv.company || "").trim();
     }
   } catch {}
 
-  if (!vars.nome) {
+  if (!vars.nome_completo) {
     try {
       const { data: sc } = await db.from("service_contacts")
         .select("name, email, company")
@@ -129,22 +130,23 @@ async function loadLeadVars(db: SupabaseClient, userId: string, phone: string): 
         .limit(1)
         .maybeSingle();
       if (sc) {
-        vars.nome = vars.nome || (sc.name || "").trim();
+        vars.nome_completo = vars.nome_completo || (sc.name || "").trim();
         vars.email = vars.email || (sc.email || "").trim();
         vars.empresa = vars.empresa || (sc.company || "").trim();
       }
     } catch {}
   }
 
-  // Use only the first name to soar humanization
-  if (vars.nome) vars.nome = vars.nome.split(/\s+/)[0];
-  // Fallback when no name is known: empty string (avoid raw "{nome}")
+  // Derive first name from full name
+  vars.nome = vars.nome_completo ? vars.nome_completo.split(/\s+/)[0] : "";
   return vars;
 }
 
 function interpolate(text: string, vars: LeadVars): string {
   if (!text) return text;
   return text
+    // nome_completo precisa vir ANTES de nome para não ser parcialmente substituído
+    .replace(/\{\{?\s*nome[_\s]completo\s*\}?\}/gi, vars.nome_completo)
     .replace(/\{\{?\s*nome\s*\}?\}/gi, vars.nome)
     .replace(/\{\{?\s*numero\s*\}?\}/gi, vars.numero)
     .replace(/\{\{?\s*email\s*\}?\}/gi, vars.email)
