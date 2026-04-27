@@ -4939,6 +4939,66 @@ export type Database = {
           },
         ]
       }
+      status_posts: {
+        Row: {
+          background_color: string | null
+          caption: string | null
+          created_at: string
+          device_ids: string[]
+          error_count: number
+          error_message: string | null
+          font: number | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          results: Json
+          status: string
+          success_count: number
+          text_content: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          device_ids?: string[]
+          error_count?: number
+          error_message?: string | null
+          font?: number | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          results?: Json
+          status?: string
+          success_count?: number
+          text_content?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          device_ids?: string[]
+          error_count?: number
+          error_message?: string | null
+          font?: number | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          results?: Json
+          status?: string
+          success_count?: number
+          text_content?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscription_cycles: {
         Row: {
           created_at: string
