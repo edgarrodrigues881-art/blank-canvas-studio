@@ -43,12 +43,22 @@ const Proxy = () => {
   const tableRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { isDismissed, dismiss, loaded: warningsLoaded } = useDismissedWarnings();
+
   useEffect(() => {
-    if (!localStorage.getItem(PROXY_DISCLAIMER_KEY)) setDisclaimerOpen(true);
-  }, []);
+    if (!warningsLoaded) return;
+    if (isDismissed(PROXY_DISCLAIMER_KEY)) return;
+    if (localStorage.getItem(PROXY_DISCLAIMER_KEY)) {
+      // Migrate legacy localStorage flag into the per-user store
+      dismiss(PROXY_DISCLAIMER_KEY);
+      return;
+    }
+    setDisclaimerOpen(true);
+  }, [warningsLoaded, isDismissed, dismiss]);
 
   const handleAcceptDisclaimer = () => {
     localStorage.setItem(PROXY_DISCLAIMER_KEY, "true");
+    dismiss(PROXY_DISCLAIMER_KEY);
     setDisclaimerOpen(false);
     setDisclaimerChecked(false);
   };
