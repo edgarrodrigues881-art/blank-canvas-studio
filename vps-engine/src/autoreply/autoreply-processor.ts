@@ -10,6 +10,7 @@ import { config } from "../core/config";
 const log = createLogger("autoreply");
 
 let _lastTickAt: Date | null = null;
+let _lastCleanupAt: number | null = null;
 let _processing = false;
 let _stats = { processed: 0, errors: 0, skipped: 0, deduplicated: 0 };
 
