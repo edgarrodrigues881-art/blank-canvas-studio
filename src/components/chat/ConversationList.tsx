@@ -433,7 +433,8 @@ export function ConversationList({
                           {c.lastMessageStatus && <MessageTicks status={c.lastMessageStatus} />}
                           <p className={cn(
                             "truncate text-[12.5px] leading-snug min-w-0 max-w-[220px]",
-                            hasUnread ? "text-foreground/70" : "text-muted-foreground/55"
+                            hasUnread ? "text-foreground/70" : "text-muted-foreground/55",
+                            hideMessages && "privacy-blur"
                           )}>
                             {c.status === "typing" ? (
                               <span className="text-foreground/70 italic">digitando...</span>
