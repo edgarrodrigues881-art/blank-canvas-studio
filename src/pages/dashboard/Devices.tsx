@@ -379,18 +379,21 @@ const Devices = () => {
 
   // Fetch proxies from database
   const { data: dbProxies = [] } = useQuery({
-    queryKey: ["proxies"],
+    queryKey: ["proxies", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
       try {
         const { data, error } = await supabase
           .from("proxies")
           .select("id, host, port, username, password, type, status, display_id, active")
+          .eq("user_id", session.user.id)
           .eq("active", true)
           .order("display_id", { ascending: true });
         if (error) { console.warn("[Devices] proxies error:", error.message); return []; }
         return data || [];
       } catch { return []; }
     },
+    enabled: !!session?.user?.id,
     retry: 1,
   });
 
