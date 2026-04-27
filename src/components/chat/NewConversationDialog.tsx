@@ -107,9 +107,17 @@ export function NewConversationDialog({
 
   const fetchDevices = useCallback(async () => {
     setLoadingDevices(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setDevices([]);
+      setLoadingDevices(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("devices")
       .select("id, name, number, status, uazapi_base_url")
+      .eq("user_id", uid)
       .not("uazapi_base_url", "is", null)
       .order("name");
 
