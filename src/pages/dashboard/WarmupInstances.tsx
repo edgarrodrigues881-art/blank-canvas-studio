@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useWarmupCycles, useWarmupCyclesRealtime } from "@/hooks/useWarmupV2";
 import { useWarmupEngine } from "@/hooks/useWarmupEngine";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useWarmupFolders } from "@/hooks/useWarmupFolders";
 import { TagManagerDialog, type FolderTag } from "@/components/warmup/TagManagerDialog";
@@ -820,11 +821,25 @@ const WarmupInstances = () => {
   }, [refetchCustomGroups, toast]);
 
   const WARNING_DISMISS_KEY = "warmup_v2_warning_dismissed_v2";
-  const [showWarning, setShowWarning] = useState(() =>
-    localStorage.getItem(WARNING_DISMISS_KEY) !== "true"
-  );
+  const { isDismissed: isWarningDismissed, dismiss: dismissWarning, loaded: warningsLoaded } = useDismissedWarnings();
+  const [showWarning, setShowWarning] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [agreedResponsibility, setAgreedResponsibility] = useState(false);
+
+  useEffect(() => {
+    if (!warningsLoaded) return;
+    if (isWarningDismissed(WARNING_DISMISS_KEY)) {
+      setShowWarning(false);
+      return;
+    }
+    if (localStorage.getItem(WARNING_DISMISS_KEY) === "true") {
+      // Migra flag legado
+      dismissWarning(WARNING_DISMISS_KEY);
+      setShowWarning(false);
+      return;
+    }
+    setShowWarning(true);
+  }, [warningsLoaded, isWarningDismissed, dismissWarning]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
@@ -1228,10 +1243,10 @@ const WarmupInstances = () => {
   const handleWarningOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowWarning(false);
-      // Uma vez fechado neste navegador, nunca mais aparece
       try { localStorage.setItem(WARNING_DISMISS_KEY, "true"); } catch {}
+      dismissWarning(WARNING_DISMISS_KEY);
     }
-  }, []);
+  }, [dismissWarning]);
 
   const handleNavigate = useCallback((path: string) => {
     navigate(activeFolderId ? `${path}?folder=${activeFolderId}` : path);
@@ -1357,8 +1372,9 @@ const WarmupInstances = () => {
                   className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
                   disabled={!agreedResponsibility}
                   onClick={() => {
-                    // Persist by default — once accepted, never show again on this browser
+                    // Persist by default — once accepted, never show again for this user
                     localStorage.setItem(WARNING_DISMISS_KEY, "true");
+                    dismissWarning(WARNING_DISMISS_KEY);
                     setShowWarning(false);
                   }}
                 >

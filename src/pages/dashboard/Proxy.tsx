@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth";
 type StatusFilter = "NOVA" | "USANDO" | "USADA" | "INVALID" | null;
 
 const PROXY_DISCLAIMER_KEY = "proxy-disclaimer-accepted";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 
 const statusConfig = {
   NOVA: { label: "Livre", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", dot: "bg-emerald-400" },
@@ -42,12 +43,22 @@ const Proxy = () => {
   const tableRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { isDismissed, dismiss, loaded: warningsLoaded } = useDismissedWarnings();
+
   useEffect(() => {
-    if (!localStorage.getItem(PROXY_DISCLAIMER_KEY)) setDisclaimerOpen(true);
-  }, []);
+    if (!warningsLoaded) return;
+    if (isDismissed(PROXY_DISCLAIMER_KEY)) return;
+    if (localStorage.getItem(PROXY_DISCLAIMER_KEY)) {
+      // Migrate legacy localStorage flag into the per-user store
+      dismiss(PROXY_DISCLAIMER_KEY);
+      return;
+    }
+    setDisclaimerOpen(true);
+  }, [warningsLoaded, isDismissed, dismiss]);
 
   const handleAcceptDisclaimer = () => {
     localStorage.setItem(PROXY_DISCLAIMER_KEY, "true");
+    dismiss(PROXY_DISCLAIMER_KEY);
     setDisclaimerOpen(false);
     setDisclaimerChecked(false);
   };

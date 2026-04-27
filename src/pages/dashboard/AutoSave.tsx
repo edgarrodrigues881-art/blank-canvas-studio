@@ -5,6 +5,7 @@ import { List as VirtualList } from "react-window";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 import {
   useAutosaveContacts, type WarmupAutosaveContact,
 } from "@/hooks/useWarmupV2";
@@ -115,14 +116,30 @@ const AutoSave = () => {
     setTogglingAutosave(false);
   };
 
-  // Disclaimer — chave estática por navegador (uma vez aceito, nunca mais aparece)
+  // Disclaimer — persistido no perfil do usuário (uma vez aceito, nunca mais aparece em nenhum dispositivo)
   const disclaimerKey = "autosave_disclaimer_accepted";
-  const [showDisclaimer, setShowDisclaimer] = useState(() => {
-    try { return !localStorage.getItem(disclaimerKey); } catch { return false; }
-  });
+  const { isDismissed, dismiss, loaded: warningsLoaded } = useDismissedWarnings();
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+
+  useEffect(() => {
+    if (!warningsLoaded) return;
+    if (isDismissed(disclaimerKey)) {
+      setShowDisclaimer(false);
+      return;
+    }
+    if (localStorage.getItem(disclaimerKey)) {
+      // Migra flag legado
+      dismiss(disclaimerKey);
+      setShowDisclaimer(false);
+      return;
+    }
+    setShowDisclaimer(true);
+  }, [warningsLoaded, isDismissed, dismiss]);
+
   const acceptDisclaimer = () => {
     try { localStorage.setItem(disclaimerKey, "1"); } catch {}
+    dismiss(disclaimerKey);
     setShowDisclaimer(false);
   };
 
