@@ -732,6 +732,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
   };
 
   const isSent = msg.type === "sent";
+  const { hideMessages } = useChatPrivacy();
+
 
    return (
     <div
