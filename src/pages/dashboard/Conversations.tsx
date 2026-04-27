@@ -627,7 +627,7 @@ const Conversations = () => {
                 onSendMessage={handleSendMessage}
                 onSendAudio={handleSendAudio}
                 onSendFile={handleSendFile}
-                onRetryMessage={retryMessage}
+                onRetryMessage={handleRetryMessage}
                 onDeleteMessage={handleDeleteMessage}
                 onEditMessage={handleEditMessage}
                 currentUserId={user?.id}
