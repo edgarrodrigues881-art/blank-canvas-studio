@@ -487,6 +487,9 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   const isFirstMessage = (priorSessions || 0) === 0;
 
+  // Load lead variables once for the whole flow execution
+  const vars = await loadLeadVars(db, userId, fromPhone);
+
   for (const flow of matchingFlows) {
     const nodes = flow.nodes as FlowNode[];
     const edges = flow.edges as FlowEdge[];
@@ -509,9 +512,9 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
     // Send start message if exists
     if (startNode.data.text) {
       try {
-        await sendFlowMessage(baseUrl, deviceToken, fromPhone, startNode.data.text,
+        await sendFlowMessage(baseUrl, deviceToken, fromPhone, interpolate(startNode.data.text, vars),
           startNode.data.imageUrl || undefined,
-          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })),
+          startNode.data.buttons?.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })),
           true);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
@@ -527,7 +530,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
     const nextNodes = findNextNodes(startNode.id, edges);
     if (nextNodes.length > 0) {
-      await processNodeChain(db, baseUrl, deviceToken, fromPhone, nextNodes[0], nodes, edges, newSession!.id, flow.id, deviceId, userId);
+      await processNodeChain(db, baseUrl, deviceToken, fromPhone, nextNodes[0], nodes, edges, newSession!.id, flow.id, deviceId, userId, vars);
     }
     return;
   }
