@@ -1644,33 +1644,68 @@ const Devices = () => {
     }
   };
 
-  // QR countdown timer - auto refresh every 30s
+  // QR countdown timer - auto refresh every 30s with retry on failure
   useEffect(() => {
     if (connectStep === "qr" && qrCodeBase64) {
       setQrCountdown(30);
       if (qrCountdownRef.current) clearInterval(qrCountdownRef.current);
+
+      const refreshQrWithRetry = async (attempt = 0): Promise<void> => {
+        if (qrRefreshLockRef.current || !connectingDevice) return;
+        qrRefreshLockRef.current = true;
+        setQrRefreshing(true);
+        try {
+          const result = await Promise.race([
+            callApi({ action: "refreshQr", deviceId: connectingDevice.id }),
+            new Promise((_, rej) => setTimeout(() => rej(new Error("refresh_timeout")), 12000)),
+          ]) as any;
+
+          if (result?.alreadyConnected) {
+            setConnectStep("done");
+            queryClient.invalidateQueries({ queryKey: ["devices"] });
+            return;
+          }
+          const b64 = result?.base64 || result?.qr;
+          if (b64) {
+            setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
+            setQrCountdown(30); // reset countdown on success
+          } else if (attempt < 2) {
+            // No QR returned — backend is still generating. Retry quickly.
+            qrRefreshLockRef.current = false;
+            await new Promise(r => setTimeout(r, 1500));
+            return refreshQrWithRetry(attempt + 1);
+          } else {
+            // After 3 attempts with no QR, give 5s and let next tick try again
+            setQrCountdown(5);
+          }
+        } catch (e) {
+          // Timeout or network error — retry once
+          if (attempt < 2) {
+            qrRefreshLockRef.current = false;
+            await new Promise(r => setTimeout(r, 1000));
+            return refreshQrWithRetry(attempt + 1);
+          }
+          setQrCountdown(5); // try again soon
+        } finally {
+          qrRefreshLockRef.current = false;
+          setQrRefreshing(false);
+        }
+      };
+
       qrCountdownRef.current = setInterval(() => {
         setQrCountdown(prev => {
           if (prev <= 1) {
-            // DON'T clear qrCodeBase64 — keep old QR visible while fetching new one
-            if (connectingDevice) {
-              callApi({ action: "refreshQr", deviceId: connectingDevice.id }).then(result => {
-                if (result?.alreadyConnected) {
-                  setConnectStep("done");
-                  queryClient.invalidateQueries({ queryKey: ["devices"] });
-                  return;
-                }
-                const b64 = result?.base64 || result?.qr;
-                if (b64) setQrCodeBase64(b64.startsWith("data:") ? b64 : `data:image/png;base64,${b64}`);
-              }).catch(() => {});
-            }
-            return 30;
+            // Trigger refresh; keep old QR visible meanwhile
+            void refreshQrWithRetry();
+            return 30; // optimistic reset; refresh fn will adjust on failure
           }
           return prev - 1;
         });
       }, 1000);
     } else {
       if (qrCountdownRef.current) { clearInterval(qrCountdownRef.current); qrCountdownRef.current = null; }
+      qrRefreshLockRef.current = false;
+      setQrRefreshing(false);
     }
     return () => { if (qrCountdownRef.current) { clearInterval(qrCountdownRef.current); qrCountdownRef.current = null; } };
   }, [connectStep, qrCodeBase64, connectingDevice]);
