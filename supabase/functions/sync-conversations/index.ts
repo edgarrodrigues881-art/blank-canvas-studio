@@ -535,7 +535,7 @@ async function syncSingleConversation(
 
       for (const msg of messages) {
         const msgNodes = collectMessageNodes(msg);
-        const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `sync-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const waId = msg.id || msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || msg.messageid || `sync-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
         const content = firstString(
           msg.body, msg.text, msg.caption, msg.content,
           ...msgNodes.flatMap((node) => [
