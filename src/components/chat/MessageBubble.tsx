@@ -226,10 +226,11 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const onRef = useCallback((el: HTMLAudioElement | null) => {
     (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = el;
     if (!el) return;
+    el.playbackRate = playbackRate;
     el.onplay = () => { setPlaying(true); setLoading(false); rafRef.current = requestAnimationFrame(updateProgress); };
     el.onpause = () => { setPlaying(false); cancelAnimationFrame(rafRef.current); };
     el.onended = () => { cancelAnimationFrame(rafRef.current); setPlaying(false); setProgress(0); setCurrentTime(0); };
-    el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); };
+    el.onloadedmetadata = () => { if (el.duration && isFinite(el.duration)) setTotalDuration(el.duration); el.playbackRate = playbackRate; };
     el.onwaiting = () => setLoading(true);
     el.oncanplay = () => setLoading(false);
     el.onerror = () => { setLoading(false); setPlaying(false); setError("Erro ao carregar áudio"); };
