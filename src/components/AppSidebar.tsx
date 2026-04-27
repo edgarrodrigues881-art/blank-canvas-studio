@@ -89,6 +89,7 @@ const menuGroups = [
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, exact: true },
       { title: "Instâncias", url: "/dashboard/devices", icon: Smartphone },
+      { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
       { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
