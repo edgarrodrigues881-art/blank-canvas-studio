@@ -371,7 +371,12 @@ Deno.serve(async (req) => {
       `- ready_to_buy → "fechamento"`,
       `- objection → "objecao"`,
       ``,
-      flowSteps ? `MENSAGENS-BASE POR ETAPA:\n${flowSteps}` : "",
+      flowSteps ? [
+        `FLUXO DE CONVERSAÇÃO OBRIGATÓRIO:`,
+        `Você DEVE usar as mensagens abaixo como base para cada etapa. Adapte ao contexto mas mantenha a essência:`,
+        flowSteps,
+        `REGRA DO FLUXO: Identifique a intenção e use EXATAMENTE a mensagem-base da etapa correspondente como ponto de partida da sua resposta. Não invente uma resposta diferente quando há uma mensagem-base definida.`,
+      ].join("\n") : "",
       ``,
       `DETECÇÃO DE AGENDAMENTO (REUNIÃO/RETORNO):`,
       `Se o cliente concordar com uma data/hora para reunião, retorno ou follow-up, extraia os dados.`,

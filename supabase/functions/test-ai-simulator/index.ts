@@ -129,7 +129,7 @@ serve(async (req) => {
       cleanInstructions ? `Instruções adicionais: ${cleanInstructions}` : "",
       kbContext,
       learningContext,
-      flowSteps ? `\nFLUXO DE CONVERSAÇÃO — mensagens-base por etapa:\n${flowSteps}` : "",
+      flowSteps ? `\nFLUXO DE CONVERSAÇÃO OBRIGATÓRIO:\nVocê DEVE usar as mensagens abaixo como base para cada etapa. Adapte ao contexto mas mantenha a essência:\n${flowSteps}\nREGRA DO FLUXO: Identifique a intenção e use EXATAMENTE a mensagem-base da etapa correspondente como ponto de partida. Não invente resposta diferente quando há mensagem-base definida.` : "",
       `\nDETECÇÃO DE INTENÇÃO — classifique a mensagem do cliente:`,
       `- "curious": explorando sem compromisso`,
       `- "interested": interesse real, faz perguntas específicas`,
