@@ -305,15 +305,17 @@ const Conversations = () => {
       });
     }
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter((c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ||
-        c.phone.includes(q) ||
-        (c.lastMessage && c.lastMessage.toLowerCase().includes(q)) ||
-        (c.tags && c.tags.some((t) => t.toLowerCase().includes(q)))
-      );
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, "");
+      const isNumericSearch = qDigits.length >= 2 && qDigits.length === q.replace(/\s/g, "").length;
+      list = list.filter((c) => {
+        const nameMatch = c.name.toLowerCase().includes(q);
+        const phoneMatch = qDigits.length >= 2 && c.phone.replace(/\D/g, "").includes(qDigits);
+        const tagMatch = (c.tags || []).some((t) => t.toLowerCase().includes(q));
+        // Only match by phone digits when the user is actually searching numbers
+        return nameMatch || tagMatch || (isNumericSearch && phoneMatch);
+      });
     }
 
     return list;
