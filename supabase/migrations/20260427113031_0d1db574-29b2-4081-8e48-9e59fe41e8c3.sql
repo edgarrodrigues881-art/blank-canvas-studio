@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Admins read all devices" ON public.devices;
