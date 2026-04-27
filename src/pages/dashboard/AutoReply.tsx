@@ -112,35 +112,44 @@ function FlowCanvas() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const { screenToFlowPosition } = useReactFlow();
 
+  // Refs hold the latest state so the debounced snapshot stays cheap and
+  // doesn't re-create on every keystroke.
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
+  useEffect(() => { selectedNodeIdRef.current = selectedNodeId; }, [selectedNodeId]);
+
   const snapshotFlow = useCallback((): FlowSnapshot => {
     return {
-      nodes: structuredClone(nodes),
-      edges: structuredClone(edges),
-      selectedNodeId,
+      nodes: structuredClone(nodesRef.current),
+      edges: structuredClone(edgesRef.current),
+      selectedNodeId: selectedNodeIdRef.current,
     };
-  }, [nodes, edges, selectedNodeId]);
+  }, []);
 
+  // Debounced history capture: avoids snapshotting on every keystroke. A
+  // single snapshot is recorded ~350ms after the user stops editing.
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rememberHistory = useCallback(() => {
     if (!initialLoadDone.current || isRestoringRef.current) return;
-
-    const snapshot = snapshotFlow();
-
-    setUndoStack((prev) => {
-      const last = prev[prev.length - 1];
-      if (last) {
-        const isSame =
-          JSON.stringify(last.nodes) === JSON.stringify(snapshot.nodes) &&
-          JSON.stringify(last.edges) === JSON.stringify(snapshot.edges) &&
-          last.selectedNodeId === snapshot.selectedNodeId;
-
-        if (isSame) return prev;
-      }
-
-      const next = [...prev, snapshot];
-      return next.length > 50 ? next.slice(-50) : next;
-    });
-    setRedoStack([]);
+    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+    historyTimerRef.current = setTimeout(() => {
+      historyTimerRef.current = null;
+      if (isRestoringRef.current) return;
+      const snapshot = snapshotFlow();
+      setUndoStack((prev) => {
+        const next = [...prev, snapshot];
+        return next.length > 50 ? next.slice(-50) : next;
+      });
+      setRedoStack([]);
+    }, 350);
   }, [snapshotFlow]);
+
+  useEffect(() => () => {
+    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+  }, []);
 
   const restoreSnapshot = useCallback((snapshot: FlowSnapshot) => {
     isRestoringRef.current = true;
