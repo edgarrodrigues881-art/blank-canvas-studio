@@ -265,6 +265,8 @@ interface FlowNode {
     delaySeconds?: number;
     action?: string;
     templateId?: string;
+    /** Cooldown (hours) before this flow can re-trigger for the same lead. 0 = always. */
+    restartAfterHours?: number;
   };
 }
 
