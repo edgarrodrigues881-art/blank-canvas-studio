@@ -10,6 +10,7 @@ import { config } from "../core/config";
 const log = createLogger("autoreply");
 
 let _lastTickAt: Date | null = null;
+let _lastCleanupAt: number | null = null;
 let _processing = false;
 let _stats = { processed: 0, errors: 0, skipped: 0, deduplicated: 0 };
 
@@ -88,6 +89,66 @@ function buildChoice(b: FlowBtnPayload): string {
     return `${label}|${ph}`;
   }
   return `${label}|${b.id}`;
+}
+
+// ── Variable interpolation ──
+// Replaces {nome}, {numero}, {email}, {empresa} (and {{var}} variants) using
+// data from the conversations/service_contacts tables. First name only for {nome}.
+interface LeadVars {
+  nome: string;
+  numero: string;
+  email: string;
+  empresa: string;
+}
+
+async function loadLeadVars(db: SupabaseClient, userId: string, phone: string): Promise<LeadVars> {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const vars: LeadVars = { nome: "", numero: cleanPhone, email: "", empresa: "" };
+
+  try {
+    const { data: conv } = await db.from("conversations")
+      .select("name, email, company")
+      .eq("user_id", userId)
+      .eq("phone", cleanPhone)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (conv) {
+      vars.nome = (conv.name || "").trim();
+      vars.email = (conv.email || "").trim();
+      vars.empresa = (conv.company || "").trim();
+    }
+  } catch {}
+
+  if (!vars.nome) {
+    try {
+      const { data: sc } = await db.from("service_contacts")
+        .select("name, email, company")
+        .eq("user_id", userId)
+        .eq("phone", cleanPhone)
+        .limit(1)
+        .maybeSingle();
+      if (sc) {
+        vars.nome = vars.nome || (sc.name || "").trim();
+        vars.email = vars.email || (sc.email || "").trim();
+        vars.empresa = vars.empresa || (sc.company || "").trim();
+      }
+    } catch {}
+  }
+
+  // Use only the first name to soar humanization
+  if (vars.nome) vars.nome = vars.nome.split(/\s+/)[0];
+  // Fallback when no name is known: empty string (avoid raw "{nome}")
+  return vars;
+}
+
+function interpolate(text: string, vars: LeadVars): string {
+  if (!text) return text;
+  return text
+    .replace(/\{\{?\s*nome\s*\}?\}/gi, vars.nome)
+    .replace(/\{\{?\s*numero\s*\}?\}/gi, vars.numero)
+    .replace(/\{\{?\s*email\s*\}?\}/gi, vars.email)
+    .replace(/\{\{?\s*empresa\s*\}?\}/gi, vars.empresa);
 }
 
 async function sendFlowMessage(
@@ -183,8 +244,10 @@ function matchesTrigger(startNode: FlowNode, messageText: string, isFirstMessage
 async function processNodeChain(
   db: SupabaseClient, baseUrl: string, token: string, phone: string,
   startNodeId: string, nodes: FlowNode[], edges: FlowEdge[],
-  sessionId: string, flowId: string, deviceId: string, userId: string
+  sessionId: string, flowId: string, deviceId: string, userId: string,
+  vars?: LeadVars
 ) {
+  if (!vars) vars = await loadLeadVars(db, userId, phone);
   let currentNodeId = startNodeId;
   let maxSteps = 20;
 
@@ -194,7 +257,8 @@ async function processNodeChain(
 
     switch (node.type) {
       case "messageNode": {
-        const text = node.data.text || "";
+        const rawText = node.data.text || "";
+        const text = interpolate(rawText, vars);
         const hasMedia = !!node.data.imageUrl;
         const hasButtons = (node.data.buttons?.length ?? 0) > 0;
         // Send if there is any payload (text, media, or buttons)
@@ -202,7 +266,7 @@ async function processNodeChain(
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })) : undefined);
+              hasButtons ? node.data.buttons!.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })) : undefined);
             log.info(`Message sent: "${text.substring(0, 50) || '[media/buttons]'}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
@@ -424,6 +488,9 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   const isFirstMessage = (priorSessions || 0) === 0;
 
+  // Load lead variables once for the whole flow execution
+  const vars = await loadLeadVars(db, userId, fromPhone);
+
   for (const flow of matchingFlows) {
     const nodes = flow.nodes as FlowNode[];
     const edges = flow.edges as FlowEdge[];
@@ -446,9 +513,9 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
     // Send start message if exists
     if (startNode.data.text) {
       try {
-        await sendFlowMessage(baseUrl, deviceToken, fromPhone, startNode.data.text,
+        await sendFlowMessage(baseUrl, deviceToken, fromPhone, interpolate(startNode.data.text, vars),
           startNode.data.imageUrl || undefined,
-          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })),
+          startNode.data.buttons?.map(b => ({ id: b.id, label: interpolate(b.label, vars), type: b.type, url: b.url, phone: b.phone })),
           true);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
@@ -464,7 +531,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
     const nextNodes = findNextNodes(startNode.id, edges);
     if (nextNodes.length > 0) {
-      await processNodeChain(db, baseUrl, deviceToken, fromPhone, nextNodes[0], nodes, edges, newSession!.id, flow.id, deviceId, userId);
+      await processNodeChain(db, baseUrl, deviceToken, fromPhone, nextNodes[0], nodes, edges, newSession!.id, flow.id, deviceId, userId, vars);
     }
     return;
   }
@@ -525,12 +592,16 @@ export async function autoreplyTick(db: SupabaseClient): Promise<void> {
 
     _lastTickAt = new Date();
 
-    // Cleanup old processed items (>24h)
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    await db.from("autoreply_queue")
-      .delete()
-      .in("status", ["done", "failed"])
-      .lt("created_at", cutoff);
+    // Cleanup old processed items (>24h) — throttled to every 5 minutes to
+    // avoid hammering the queue table on every 500ms tick.
+    if (!_lastCleanupAt || Date.now() - _lastCleanupAt > 5 * 60 * 1000) {
+      _lastCleanupAt = Date.now();
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await db.from("autoreply_queue")
+        .delete()
+        .in("status", ["done", "failed"])
+        .lt("created_at", cutoff);
+    }
 
   } finally {
     _processing = false;
