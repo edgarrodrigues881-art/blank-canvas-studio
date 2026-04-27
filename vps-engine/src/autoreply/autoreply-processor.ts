@@ -225,7 +225,8 @@ async function sendFlowMessage(
   // Audio nodes → recording; everything else (text, image, buttons) → composing.
   const isAudio = !!audioUrl;
   const presenceKind: "composing" | "recording" = isAudio ? "recording" : "composing";
-  const dwellMs = presenceDurationMs(text, isAudio);
+  const audioSeconds = isAudio ? await estimateAudioSeconds(audioUrl!) : undefined;
+  const dwellMs = presenceDurationMs(text, isAudio, audioSeconds);
   // Fire presence and wait the dwell time before sending the actual message.
   await sendPresence(baseUrl, token, cleanPhone, presenceKind, dwellMs);
   await new Promise(r => setTimeout(r, dwellMs));
