@@ -132,14 +132,34 @@ Deno.serve(async (req) => {
       return json({ skipped: "pause_word_detected" });
     }
 
-    // 4. Handle media — multimodal only available if user uses Gemini with own key
-    const userProvider = settings.ai_provider || "openai";
-    const supportsMultimodal = userProvider === "gemini" && !!settings.api_key;
-    const isMediaMessage = ["image", "sticker", "audio", "ptt", "video", "document"].includes(media_type || "");
+    // 4. IGNORE stickers entirely — no reply, no processing
+    if (media_type === "sticker") {
+      console.log("Sticker received, ignoring (no AI reply)");
+      return json({ skipped: "sticker_ignored" });
+    }
+
+    // 5. Handle media — multimodal works with the user's OWN key (any provider that supports it)
+    // Provider support: Gemini (image/audio/video/doc), OpenAI (image/audio), Anthropic (image),
+    // DeepSeek/Groq (text only). The user pays for their own usage.
+    const userProvider = (settings.ai_provider || "openai").toLowerCase();
+    const isMediaMessage = ["image", "audio", "ptt", "video", "document"].includes(media_type || "");
+    const hasOwnKey = !!settings.api_key;
+
+    const providerCapabilities: Record<string, { image: boolean; audio: boolean; video: boolean; document: boolean }> = {
+      gemini:   { image: true,  audio: true,  video: true,  document: true  },
+      openai:   { image: true,  audio: true,  video: false, document: false },
+      anthropic:{ image: true,  audio: false, video: false, document: false },
+      deepseek: { image: false, audio: false, video: false, document: false },
+      groq:     { image: false, audio: false, video: false, document: false },
+    };
+    const caps = providerCapabilities[userProvider] || { image: false, audio: false, video: false, document: false };
+    const mediaCapKey = (media_type === "ptt" ? "audio" : media_type) as keyof typeof caps;
+    const providerSupportsThisMedia = isMediaMessage && hasOwnKey && caps[mediaCapKey];
+
     let mediaBase64Content: { type: string; image_url?: { url: string }; input_audio?: { data: string; format: string } } | null = null;
     let mediaAnalysisPrompt = "";
 
-    if (isMediaMessage && media_url && supportsMultimodal) {
+    if (isMediaMessage && media_url && providerSupportsThisMedia) {
       try {
         const mediaRes = await fetch(media_url, { headers: { Accept: "*/*" } });
         if (mediaRes.ok) {
@@ -147,7 +167,7 @@ Deno.serve(async (req) => {
           const base64 = btoa(String.fromCharCode(...mediaBytes));
           const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
 
-          if (["image", "sticker"].includes(media_type!)) {
+          if (media_type === "image") {
             mediaBase64Content = {
               type: "image_url",
               image_url: { url: `data:${contentType};base64,${base64}` },
@@ -185,11 +205,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If media but multimodal unavailable (non-Gemini provider) or fetch failed, use text fallbacks
+    // If media but provider can't handle it (or fetch failed), use text fallbacks
     if (isMediaMessage && !mediaBase64Content) {
       const fallbacks: Record<string, string> = {
         image: settings.fallback_image || "Não consigo ver imagens, pode descrever por texto?",
-        sticker: settings.fallback_image || "Não consigo ver imagens, pode descrever por texto?",
         audio: settings.fallback_audio || "Não consigo ouvir áudios, pode escrever?",
         ptt: settings.fallback_audio || "Não consigo ouvir áudios, pode escrever?",
         video: "Não consigo assistir vídeos, pode descrever?",
