@@ -52,9 +52,13 @@ export default function GroupLeadExtractor() {
   const { data: devices = [] } = useQuery({
     queryKey: ["devices-for-extractor"],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
       const { data } = await supabase
         .from("devices")
         .select("id, name, number, status, uazapi_base_url")
+        .eq("user_id", user.id)
+        .neq("login_type", "report_wa")
         .not("uazapi_base_url", "is", null)
         .order("name");
       return (data || []).filter(d =>
