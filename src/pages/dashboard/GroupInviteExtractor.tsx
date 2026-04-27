@@ -39,12 +39,12 @@ interface ExtractedLink {
 function isPermissionDeniedResult(result: ExtractedLink) {
   return result.diagnostics?.error_stage === "permission_denied"
     || (result.error || "").toLowerCase().includes("sem permissão")
-    || (result.error || "").toLowerCase().includes("uazapi bloqueou");
+    || (result.error || "").toLowerCase().includes("api bloqueou");
 }
 
 function isRateLimitedResult(result: ExtractedLink) {
   return result.diagnostics?.error_stage === "rate_limited"
-    || (result.error || "").toLowerCase().includes("limite temporário da uazapi");
+    || (result.error || "").toLowerCase().includes("limite temporário da api");
 }
 
 function getFriendlyErrorMessage(result: ExtractedLink) {
