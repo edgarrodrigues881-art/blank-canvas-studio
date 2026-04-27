@@ -786,7 +786,8 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
               : isSent
                 ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
                 : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
-            msg.status === "failed" && "opacity-70"
+            msg.status === "failed" && "opacity-70",
+            hideMessages && "privacy-blur"
           )}
         >
           {/* Forwarded indicator */}
