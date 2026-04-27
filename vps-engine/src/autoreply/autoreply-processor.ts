@@ -43,22 +43,11 @@ function markProcessed(key: string): void {
   }
 }
 
-// ── Humanized delay helpers ──
-
-function randomBetween(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
-/** Calculate a human-like delay based on message length */
-function humanTypingDelay(text: string): number {
-  const len = text.length;
-  if (len <= 30) return randomBetween(1000, 3000);       // Short: 1-3s
-  if (len <= 120) return randomBetween(3000, 6000);      // Medium: 3-6s
-  return randomBetween(5000, 10000);                      // Long: 5-10s
-}
-
-/** Minimum floor delay — never respond under 1s */
-const MIN_RESPONSE_DELAY_MS = 1000;
+// ── Inter-message spacing ──
+// Envio instantâneo: o usuário pediu para que o fluxo dispare sem delays
+// artificiais. Mantemos apenas um pequeno espaçamento entre mensagens
+// subsequentes (150ms) para garantir ordem de chegada no WhatsApp.
+const INTER_MESSAGE_SPACING_MS = 150;
 
 export function getAutoreplyStatus() {
   return { ..._stats, lastTick: _lastTickAt?.toISOString() || null };
