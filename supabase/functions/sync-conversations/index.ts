@@ -259,8 +259,8 @@ Deno.serve(async (req) => {
           const lastMsgAt = lastMsgTs
             ? new Date(typeof lastMsgTs === "number" && lastMsgTs < 1e12 ? lastMsgTs * 1000 : lastMsgTs).toISOString()
             : new Date().toISOString();
-          const unread = chat.UnreadCount || chat.unreadCount || chat.unread || 0;
-          const avatar = chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
+          const unread = chat.wa_unreadCount || chat.UnreadCount || chat.unreadCount || chat.unread || 0;
+          const avatar = chat.image || chat.imagePreview || chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
 
           const { error: upsertErr } = await upsertConversationForEquivalentJid(admin, userId, device.id, {
             remoteJid: jid,
