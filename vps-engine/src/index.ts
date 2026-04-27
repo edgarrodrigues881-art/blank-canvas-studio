@@ -27,6 +27,9 @@ import { syncDevicesTick, lastSyncDevicesTickAt } from "./workers/sync-devices-w
 import { syncConversationsTick, lastSyncConversationsTickAt } from "./workers/sync-conversations-worker";
 import { statusScheduleTick, lastStatusScheduleTickAt } from "./workers/status-schedule-worker";
 import { reportWaTick, lastReportWaTickAt } from "./workers/report-wa-worker";
+import { trialCleanupTick, lastTrialCleanupTickAt } from "./workers/trial-cleanup-worker";
+import { massInjectWatchdogTick, lastMassInjectWatchdogTickAt } from "./workers/mass-inject-watchdog-worker";
+import { scheduledCampaignsTick, lastScheduledCampaignsTickAt } from "./workers/scheduled-campaigns-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
