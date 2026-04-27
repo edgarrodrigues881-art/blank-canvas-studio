@@ -2692,6 +2692,17 @@ const Devices = () => {
                   </div>
                 </div>
 
+                {/* Proxy error alert */}
+                {connectError && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10">
+                    <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-red-500">Proxy inválido</p>
+                      <p className="text-[11px] text-red-400/90 mt-0.5 leading-snug">{connectError}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Proxy selector */}
                 <div className="space-y-2">
                   <Select value={selectedProxy} onValueChange={setSelectedProxy}>
