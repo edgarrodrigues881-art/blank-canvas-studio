@@ -30,6 +30,9 @@ export default function AISmartAlerts() {
   // Settings
   const [config, setConfig] = useState<any>(null);
   const [devices, setDevices] = useState<any[]>([]);
+  const [targetMode, setTargetMode] = useState<"phone" | "group">("phone");
+  const [groups, setGroups] = useState<{ id: string; name: string; participants?: number }[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -39,14 +42,18 @@ export default function AISmartAlerts() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-      setConfig(data || {
+      const cfg: any = data || {
         enabled: true,
         alert_human_request: true,
         alert_closing_opportunity: true,
         notify_whatsapp: false,
         whatsapp_device_id: null,
         whatsapp_target_phone: "",
-      });
+        whatsapp_target_jid: null,
+        whatsapp_target_label: null,
+      };
+      setConfig(cfg);
+      setTargetMode(cfg.whatsapp_target_jid ? "group" : "phone");
 
       const { data: devs } = await supabase
         .from("devices")
@@ -57,8 +64,42 @@ export default function AISmartAlerts() {
     })();
   }, [user]);
 
+  const loadGroups = async () => {
+    if (!user) return;
+    setLoadingGroups(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whapi-chats?action=list_all_groups`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      );
+      const data = await res.json();
+      const list = (data?.chats || [])
+        .filter((c: any) => c.id)
+        .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setGroups(list);
+      if (list.length === 0) toast.info("Nenhum grupo encontrado nas suas instâncias conectadas.");
+    } catch (e: any) {
+      toast.error("Erro ao carregar grupos: " + (e.message || ""));
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  useEffect(() => {
+    if (targetMode === "group" && config?.notify_whatsapp && groups.length === 0 && !loadingGroups) {
+      loadGroups();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetMode, config?.notify_whatsapp]);
+
   const saveConfig = async () => {
     if (!user || !config) return;
+    if (config.notify_whatsapp) {
+      if (!config.whatsapp_device_id) { toast.error("Escolha uma instância para enviar"); return; }
+      if (targetMode === "phone" && !config.whatsapp_target_phone) { toast.error("Informe o número de destino"); return; }
+      if (targetMode === "group" && !config.whatsapp_target_jid) { toast.error("Selecione um grupo de destino"); return; }
+    }
     const payload = {
       user_id: user.id,
       enabled: config.enabled,
@@ -66,7 +107,9 @@ export default function AISmartAlerts() {
       alert_closing_opportunity: config.alert_closing_opportunity,
       notify_whatsapp: config.notify_whatsapp,
       whatsapp_device_id: config.whatsapp_device_id,
-      whatsapp_target_phone: config.whatsapp_target_phone,
+      whatsapp_target_phone: targetMode === "phone" ? config.whatsapp_target_phone : null,
+      whatsapp_target_jid: targetMode === "group" ? config.whatsapp_target_jid : null,
+      whatsapp_target_label: targetMode === "group" ? config.whatsapp_target_label : null,
     };
     const { error } = await supabase.from("ai_alerts_config" as any).upsert(payload, { onConflict: "user_id" });
     if (error) toast.error("Erro ao salvar"); else toast.success("Configurações salvas");
