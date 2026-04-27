@@ -239,7 +239,7 @@ function AudioPlayer({ src, duration, isSent }: { src: string; duration?: number
   const playedBars = Math.floor((progress / 100) * waveformBars.length);
 
   return (
-    <div className="flex items-center gap-2 min-w-[220px] max-w-[320px]">
+    <div className="flex items-center gap-2 min-w-[260px] max-w-[360px]">
       <audio
         ref={onRef}
         src={src}
