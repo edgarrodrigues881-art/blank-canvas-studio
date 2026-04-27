@@ -109,19 +109,9 @@ export default function AutoReplyList() {
       const { error } = await supabase.from("autoreply_flows").update({ is_active }).eq("id", id);
       if (error) throw error;
 
-      if (flow?.device_id) {
-        const action = is_active ? "register_webhook" : "disable_webhook";
-        const { data, error: webhookError } = await supabase.functions.invoke("autoreply-webhook", {
-          body: { action, device_id: flow.device_id },
-        });
-
-        const webhookMessage = webhookError?.message || (data?.error ? `${data.error}${data.details ? ` ${data.details}` : ""}` : "");
-
-        if (is_active && webhookMessage) {
-          await supabase.from("autoreply_flows").update({ is_active: false }).eq("id", id);
-          throw new Error(`WEBHOOK_REGISTRATION_FAILED:${webhookMessage}`);
-        }
-      }
+      // O webhook de mensagens é unificado em `webhook-conversations`,
+      // que já enfileira para `autoreply_queue` quando há flow ativo.
+      // Não é necessário registrar/desregistrar webhook adicional aqui.
     },
     onMutate: async (vars) => {
       await queryClient.cancelQueries({ queryKey: ["autoreply_flows", user?.id] });
