@@ -203,14 +203,14 @@ export default function AISmartAlerts() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-medium">Receber também no WhatsApp</h3>
-                <p className="text-xs text-muted-foreground">Você receberá uma mensagem no seu WhatsApp pessoal a cada novo alerta.</p>
+                <h3 className="font-medium">Notificar no WhatsApp</h3>
+                <p className="text-xs text-muted-foreground">A IA enviará uma mensagem para um número ou grupo sempre que precisar de atendimento humano.</p>
               </div>
               <Switch checked={config.notify_whatsapp} onCheckedChange={(v) => setConfig({ ...config, notify_whatsapp: v })} />
             </div>
 
             {config.notify_whatsapp && (
-              <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="space-y-4 pt-2 border-t border-border/40">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Instância que enviará o alerta</Label>
                   <Select
@@ -225,18 +225,95 @@ export default function AISmartAlerts() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Seu número (com DDD)</Label>
-                  <Input
-                    value={config.whatsapp_target_phone || ""}
-                    onChange={(e) => setConfig({ ...config, whatsapp_target_phone: e.target.value.replace(/\D/g, "") })}
-                    placeholder="ex: 11999999999"
-                    maxLength={13}
-                  />
-                  <p className="text-[11px] text-muted-foreground/70">
-                    Sem o +55. Apenas DDD + número.
-                  </p>
+
+                {/* Destination type tabs */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Para onde enviar</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTargetMode("phone")}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
+                        targetMode === "phone"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/40 text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      <Phone className="w-3.5 h-3.5" /> Número individual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetMode("group")}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
+                        targetMode === "group"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/40 text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Grupo do WhatsApp
+                    </button>
+                  </div>
                 </div>
+
+                {targetMode === "phone" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Número de destino (com DDD)</Label>
+                    <Input
+                      value={config.whatsapp_target_phone || ""}
+                      onChange={(e) => setConfig({ ...config, whatsapp_target_phone: e.target.value.replace(/\D/g, "") })}
+                      placeholder="ex: 11999999999"
+                      maxLength={13}
+                    />
+                    <p className="text-[11px] text-muted-foreground/70">
+                      Sem o +55. Apenas DDD + número.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Grupo de destino</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadGroups}
+                        disabled={loadingGroups}
+                        className="h-6 gap-1 text-[11px]"
+                      >
+                        {loadingGroups ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Atualizar
+                      </Button>
+                    </div>
+                    <Select
+                      value={config.whatsapp_target_jid || ""}
+                      onValueChange={(v) => {
+                        const g = groups.find((x) => x.id === v);
+                        setConfig({ ...config, whatsapp_target_jid: v, whatsapp_target_label: g?.name || v });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingGroups ? "Carregando grupos..." : groups.length === 0 ? "Nenhum grupo (clique em Atualizar)" : "Selecione um grupo"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {groups.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-3 h-3 opacity-60" />
+                              <span>{g.name || g.id}</span>
+                              {g.participants ? <span className="text-[10px] opacity-60">({g.participants})</span> : null}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {config.whatsapp_target_label && (
+                      <p className="text-[11px] text-emerald-400">Selecionado: {config.whatsapp_target_label}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground/70">
+                      A IA enviará no grupo: nome do cliente, número e o motivo do alerta.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </Card>
