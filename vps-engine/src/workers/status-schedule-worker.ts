@@ -155,8 +155,8 @@ export async function statusScheduleTick(): Promise<void> {
   const db = getDb();
   const now = new Date();
   const { date, hhmm, weekday } = brtParts(now);
-  const fallbackBaseUrl = (appConfig.uazapiBaseUrl || "").trim();
-  const fallbackToken = (appConfig.uazapiToken || "").trim();
+  const fallbackBaseUrl = (appConfig.defaultUazapiBaseUrl || "").trim();
+  const fallbackToken = (appConfig.defaultUazapiToken || "").trim();
 
   const { data: schedules, error } = await db
     .from("status_schedules")
