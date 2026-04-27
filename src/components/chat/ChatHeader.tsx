@@ -110,6 +110,7 @@ export const ChatHeader = memo(function ChatHeader({
   onSelectMessages,
 }: ChatHeaderProps) {
   const currentStatusCfg = attendingStatusConfig[currentStatus];
+  const { hideIdentity } = useChatPrivacy();
 
   return (
     <>
