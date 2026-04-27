@@ -362,71 +362,72 @@ async function adminCreateInstance(
   return { ok: false, error: `All auth methods failed: ${errors.join('; ')}` };
 }
 
-// ── Proxy connectivity test ──────────────────────────────────────────────
-async function testProxyConnectivity(
-  proxy: { host: string; port: string; username?: string; password?: string; type?: string },
-): Promise<{ alive: boolean; error?: string }> {
-  const TIMEOUT_MS = 3000; // Fast feedback — 3s max
+// ── Proxy reachability test (permissive: TCP-only) ───────────────────────
+// Accepts ANY proxy type (HTTP, HTTPS, SOCKS4, SOCKS5, residential).
+// We only verify the TCP socket opens — the actual protocol negotiation is
+// delegated to UAZAPI, which knows how to handshake every type.
+async function testProxyReachable(
+  proxy: { host: string; port: string },
+): Promise<{ reachable: boolean; error?: string }> {
+  const TIMEOUT_MS = 8000; // residential proxies can be slow on first hop
   try {
     const conn = await Promise.race([
       Deno.connect({ hostname: proxy.host, port: Number(proxy.port) }),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("TCP timeout")), TIMEOUT_MS)),
-    ]);
-
-    const authHeader = proxy.username
-      ? `Proxy-Authorization: Basic ${btoa(`${proxy.username}:${proxy.password || ""}`)}\r\n`
-      : "";
-    const httpReq = `GET http://httpbin.org/ip HTTP/1.1\r\nHost: httpbin.org\r\n${authHeader}Connection: close\r\n\r\n`;
-
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    await conn.write(encoder.encode(httpReq));
-
-    const buf = new Uint8Array(4096);
-    const n = await Promise.race([
-      conn.read(buf),
-      new Promise<null>((_, rej) => setTimeout(() => rej(new Error("Read timeout")), TIMEOUT_MS)),
-    ]);
-
+    ]) as Deno.Conn;
     try { conn.close(); } catch { /* ignore */ }
-
-    if (!n || n === 0) return { alive: false, error: "Proxy retornou resposta vazia" };
-
-    const response = decoder.decode(buf.subarray(0, n));
-    const statusCode = parseInt((response.split("\r\n")[0] || "").split(" ")[1] || "0", 10);
-
-    if (statusCode >= 200 && statusCode < 400) return { alive: true };
-    if (statusCode === 407) return { alive: false, error: "Proxy requer autenticação (credenciais inválidas)" };
-    return { alive: false, error: `Proxy retornou status ${statusCode}` };
+    return { reachable: true };
   } catch (e: any) {
-    const msg = e?.message || String(e);
-    if (msg.includes("timeout") || msg.includes("TCP")) return { alive: false, error: "Proxy inacessível (timeout)" };
-    if (msg.includes("refused")) return { alive: false, error: "Conexão recusada pela proxy" };
-    return { alive: false, error: `Erro: ${msg.substring(0, 100)}` };
+    const msg = (e?.message || String(e)).toLowerCase();
+    if (msg.includes("timeout")) return { reachable: false, error: "Proxy inacessível (timeout de 8s)" };
+    if (msg.includes("refused")) return { reachable: false, error: "Conexão recusada pela proxy (porta fechada?)" };
+    if (msg.includes("dns") || msg.includes("resolve")) return { reachable: false, error: "Host da proxy não encontrado (DNS)" };
+    return { reachable: false, error: `Proxy inacessível: ${msg.substring(0, 100)}` };
   }
 }
 
 // ── Proxy setter ─────────────────────────────────────────────────────────
+// Strategy: only block on TCP unreachable (clearly broken). For everything
+// else, send to UAZAPI with multiple type variants — it will figure out the
+// right protocol (HTTP/HTTPS/SOCKS4/SOCKS5) automatically.
 async function setProxy(
   baseUrl: string,
   token: string,
   proxy: { host: string; port: string; username?: string; password?: string; type?: string },
 ): Promise<{ ok: boolean; error?: string }> {
-  const test = await testProxyConnectivity(proxy);
-  if (!test.alive) return { ok: false, error: test.error || "Proxy inválida" };
+  // Only fail-fast if the host:port itself is unreachable (clearly broken proxy).
+  const reach = await testProxyReachable(proxy);
+  if (!reach.reachable) return { ok: false, error: reach.error || "Proxy inacessível" };
 
-  const payload = {
-    host: proxy.host, port: proxy.port,
-    username: proxy.username || "", password: proxy.password || "",
-    type: (proxy.type || "HTTP").toLowerCase(),
-  };
-  // Try all endpoints in PARALLEL — first success wins
+  // Determine type variants to try (user-specified first, then common fallbacks).
+  const userType = (proxy.type || "").toLowerCase().trim();
+  const typeVariants = userType
+    ? [userType, ...["http", "https", "socks5", "socks4"].filter(t => t !== userType)]
+    : ["http", "socks5", "https", "socks4"]; // unknown → try most common first
+
   const endpoints = ["/instance/proxy", "/proxy/set", "/settings/proxy"];
-  const results = await Promise.allSettled(
-    endpoints.map(ep => uazapi(baseUrl, ep, token, "POST", payload, { timeoutMs: 4000, retries: 0 }))
-  );
-  if (results.some(r => r.status === "fulfilled" && r.value.ok)) return { ok: true };
-  return { ok: false, error: "Falha ao configurar proxy no provedor" };
+
+  // Try each type with each endpoint until one sticks.
+  const errors: string[] = [];
+  for (const type of typeVariants) {
+    const payload = {
+      host: proxy.host,
+      port: proxy.port,
+      username: proxy.username || "",
+      password: proxy.password || "",
+      type,
+    };
+    const results = await Promise.allSettled(
+      endpoints.map(ep => uazapi(baseUrl, ep, token, "POST", payload, { timeoutMs: 5000, retries: 0 }))
+    );
+    if (results.some(r => r.status === "fulfilled" && r.value.ok)) {
+      console.log(`[setProxy] success with type=${type}`);
+      return { ok: true };
+    }
+    errors.push(`type=${type}: ${results.map(r => r.status === "fulfilled" ? `${r.value.status}` : "rej").join(",")}`);
+  }
+  console.warn(`[setProxy] all variants failed: ${errors.join(" | ")}`);
+  return { ok: false, error: "O provedor não aceitou a proxy (tente outro tipo: HTTP, HTTPS, SOCKS5)" };
 }
 
 function formatBrPhone(phone: string): string {
