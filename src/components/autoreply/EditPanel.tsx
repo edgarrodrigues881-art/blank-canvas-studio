@@ -268,11 +268,19 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
                     <SelectItem value="keyword">
                       <div className="flex items-center gap-2"><Hash className="w-3.5 h-3.5" /> Palavra-chave</div>
                     </SelectItem>
+                    <SelectItem value="any_message">
+                      <div className="flex items-center gap-2"><MessageSquare className="w-3.5 h-3.5" /> Qualquer mensagem</div>
+                    </SelectItem>
                     <SelectItem value="template">
                       <div className="flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> Template disparado</div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
+                {d.trigger === "any_message" && (
+                  <p className="text-[10px] text-muted-foreground/40">
+                    O fluxo é iniciado sempre que o contato enviar qualquer mensagem (respeitando o tempo de reinício abaixo).
+                  </p>
+                )}
               </div>
 
               {d.trigger === "keyword" && (
@@ -308,6 +316,60 @@ export function EditPanel({ node, onUpdate, onDelete, onDuplicate, onClose }: Pr
                   {renderModelPicker()}
                 </div>
               )}
+
+              {/* ── Cooldown / restart window ────────────── */}
+              <div className="space-y-2">
+                <SectionLabel>Reiniciar fluxo após</SectionLabel>
+                <Select
+                  value={(() => {
+                    const h = d.restartAfterHours ?? 24;
+                    const presets = [0, 1, 6, 12, 24, 48, 168];
+                    return presets.includes(h) ? String(h) : "custom";
+                  })()}
+                  onValueChange={(v) => {
+                    if (v === "custom") {
+                      onUpdate(node.id, { restartAfterHours: d.restartAfterHours ?? 24 });
+                    } else {
+                      onUpdate(node.id, { restartAfterHours: Number(v) });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Sempre (sem espera)</SelectItem>
+                    <SelectItem value="1">1 hora</SelectItem>
+                    <SelectItem value="6">6 horas</SelectItem>
+                    <SelectItem value="12">12 horas</SelectItem>
+                    <SelectItem value="24">24 horas</SelectItem>
+                    <SelectItem value="48">48 horas</SelectItem>
+                    <SelectItem value="168">7 dias</SelectItem>
+                    <SelectItem value="custom">Personalizado…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const h = d.restartAfterHours ?? 24;
+                  const presets = [0, 1, 6, 12, 24, 48, 168];
+                  if (presets.includes(h)) return null;
+                  return (
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="Ex: 36"
+                        value={String(h)}
+                        onChange={(e) => onUpdate(node.id, { restartAfterHours: Math.max(0, Number(e.target.value) || 0) })}
+                        className="h-9 text-sm pl-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/50">horas</span>
+                    </div>
+                  );
+                })()}
+                <p className="text-[10px] text-muted-foreground/40">
+                  Tempo mínimo desde o último disparo deste fluxo para o mesmo contato. Use “Sempre” para reiniciar a cada mensagem.
+                </p>
+              </div>
             </>
           )}
 
