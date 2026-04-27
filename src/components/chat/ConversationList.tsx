@@ -174,6 +174,7 @@ export function ConversationList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
+  const { hideMessages, hideIdentity } = useChatPrivacy();
 
   const toggleInstance = (id: string) => {
     if (!onFilterInstancesChange) return;
