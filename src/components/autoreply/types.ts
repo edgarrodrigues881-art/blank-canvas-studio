@@ -1,7 +1,12 @@
+export type FlowButtonType = "reply" | "url" | "phone";
+
 export interface FlowButton {
   id: string;
   label: string;
+  type: FlowButtonType;
   targetNodeId: string;
+  url?: string;
+  phone?: string;
 }
 
 export interface FlowCondition {

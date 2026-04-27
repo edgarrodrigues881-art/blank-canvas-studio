@@ -1,11 +1,12 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { MessageSquare, Image, Clock, FileText, Mic, Paperclip, Link2, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { MessageSquare, Image, Clock, FileText, Mic, Paperclip, Link2, CheckCircle2, AlertTriangle, XCircle, MessageCircleReply, Phone } from "lucide-react";
 import type { FlowNodeData } from "./types";
 
 export function MessageNode({ data, selected }: NodeProps) {
   const d = data as FlowNodeData;
   const mediaType = d.mediaType || (d.imageUrl ? "image" : "none");
   const hasButtons = d.buttons && d.buttons.length > 0;
+  const hasReplyButtons = hasButtons && d.buttons!.some((b) => !b.type || b.type === "reply");
   const isUsingModel = !!d.templateId;
 
   const mediaMeta: Record<string, { icon: any; label: string }> = {
@@ -80,19 +81,35 @@ export function MessageNode({ data, selected }: NodeProps) {
       {/* Buttons */}
       {hasButtons && (
         <div className="border-t border-border/30 px-3 py-2 space-y-1.5">
-          {d.buttons!.map((btn) => (
-            <div key={btn.id} className="relative flex items-center">
-              <div className="flex-1 text-[11px] font-medium text-center py-1.5 rounded-lg bg-blue-500/8 text-blue-400 border border-blue-500/20">
-                {btn.label}
+          {d.buttons!.map((btn) => {
+            const BtnIcon = btn.type === "url" ? Link2 : btn.type === "phone" ? Phone : MessageCircleReply;
+            const btnColor = btn.type === "url"
+              ? "bg-violet-500/8 text-violet-400 border-violet-500/20"
+              : btn.type === "phone"
+              ? "bg-emerald-500/8 text-emerald-400 border-emerald-500/20"
+              : "bg-blue-500/8 text-blue-400 border-blue-500/20";
+            const handleColor = btn.type === "url"
+              ? "!bg-violet-500"
+              : btn.type === "phone"
+              ? "!bg-emerald-500"
+              : "!bg-blue-500";
+            return (
+              <div key={btn.id} className="relative flex items-center">
+                <div className={`flex-1 text-[11px] font-medium flex items-center justify-center gap-1.5 py-1.5 rounded-lg border ${btnColor}`}>
+                  <BtnIcon className="w-2.5 h-2.5 shrink-0" />
+                  <span className="truncate">{btn.label}</span>
+                </div>
+                {btn.type === "reply" && (
+                  <Handle
+                    type="source"
+                    position={Position.Right}
+                    id={`btn-${btn.id}`}
+                    className={`!w-3 !h-3 ${handleColor} !border-[2px] !border-card !rounded-full !-right-1.5`}
+                  />
+                )}
               </div>
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={`btn-${btn.id}`}
-                className="!w-3 !h-3 !bg-blue-500 !border-[2px] !border-card !rounded-full !-right-1.5"
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -110,8 +127,8 @@ export function MessageNode({ data, selected }: NodeProps) {
         ))}
       </div>
 
-      {/* Default output */}
-      {!hasButtons && (
+      {/* Default output — shown when no reply buttons (URL/phone buttons don't branch the flow) */}
+      {!hasReplyButtons && (
         <Handle
           type="source"
           position={Position.Right}
