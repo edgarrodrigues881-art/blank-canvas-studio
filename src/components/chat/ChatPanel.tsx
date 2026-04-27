@@ -5,6 +5,7 @@ import { useQuickReplies, resolveVariables, getQuickReplyBlocks, QUICK_REPLY_CAT
 import { toast } from "sonner";
 import { QuickRepliesManager } from "./QuickRepliesManager";
 import { useSendMessage } from "@/hooks/chat/useSendMessage";
+import { useChatPresence } from "@/hooks/chat/useChatPresence";
 import { MessageBubble } from "./MessageBubble";
 import { ChatHeader } from "./ChatHeader";
 import { supabase } from "@/integrations/supabase/client";
