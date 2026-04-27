@@ -243,8 +243,10 @@ function matchesTrigger(startNode: FlowNode, messageText: string, isFirstMessage
 async function processNodeChain(
   db: SupabaseClient, baseUrl: string, token: string, phone: string,
   startNodeId: string, nodes: FlowNode[], edges: FlowEdge[],
-  sessionId: string, flowId: string, deviceId: string, userId: string
+  sessionId: string, flowId: string, deviceId: string, userId: string,
+  vars?: LeadVars
 ) {
+  if (!vars) vars = await loadLeadVars(db, userId, phone);
   let currentNodeId = startNodeId;
   let maxSteps = 20;
 
