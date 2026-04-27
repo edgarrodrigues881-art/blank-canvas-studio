@@ -4952,6 +4952,7 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           results: Json
+          schedule_id: string | null
           status: string
           success_count: number
           text_content: string | null
@@ -4971,6 +4972,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           results?: Json
+          schedule_id?: string | null
           status?: string
           success_count?: number
           text_content?: string | null
@@ -4990,12 +4992,87 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           results?: Json
+          schedule_id?: string | null
           status?: string
           success_count?: number
           text_content?: string | null
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_posts_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "status_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      status_schedules: {
+        Row: {
+          background_color: string | null
+          caption: string | null
+          created_at: string
+          device_ids: string[]
+          device_mode: string
+          enabled: boolean
+          font: number | null
+          id: string
+          last_run_at: string | null
+          last_run_key: string | null
+          media_url: string | null
+          name: string
+          run_count: number
+          text_content: string | null
+          times: string[]
+          type: string
+          updated_at: string
+          user_id: string
+          weekdays: number[]
+        }
+        Insert: {
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          device_ids?: string[]
+          device_mode?: string
+          enabled?: boolean
+          font?: number | null
+          id?: string
+          last_run_at?: string | null
+          last_run_key?: string | null
+          media_url?: string | null
+          name: string
+          run_count?: number
+          text_content?: string | null
+          times?: string[]
+          type: string
+          updated_at?: string
+          user_id: string
+          weekdays?: number[]
+        }
+        Update: {
+          background_color?: string | null
+          caption?: string | null
+          created_at?: string
+          device_ids?: string[]
+          device_mode?: string
+          enabled?: boolean
+          font?: number | null
+          id?: string
+          last_run_at?: string | null
+          last_run_key?: string | null
+          media_url?: string | null
+          name?: string
+          run_count?: number
+          text_content?: string | null
+          times?: string[]
+          type?: string
+          updated_at?: string
+          user_id?: string
+          weekdays?: number[]
         }
         Relationships: []
       }
