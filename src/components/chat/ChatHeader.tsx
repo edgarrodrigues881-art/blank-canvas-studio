@@ -154,7 +154,7 @@ export const ChatHeader = memo(function ChatHeader({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <span className="text-[10px] text-muted-foreground/40 truncate hidden sm:inline">{conversation.phone}</span>
+            <span className={cn("text-[10px] text-muted-foreground/40 truncate hidden sm:inline", hideIdentity && "privacy-blur")}>{conversation.phone}</span>
           </div>
           {/* Presence / Typing subtitle */}
           <div className="h-[14px]">
