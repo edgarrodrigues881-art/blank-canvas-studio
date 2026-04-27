@@ -407,6 +407,14 @@ const Devices = () => {
     return "NOVA";
   };
   const statusOrder: Record<string, number> = { NOVA: 0, USANDO: 1, USADA: 2, INVALID: 3 };
+  const proxyToDeviceMap = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    devices.forEach(d => {
+      if (d.proxy_id) map.set(d.proxy_id, { id: d.id, name: d.name });
+    });
+    return map;
+  }, [devices]);
+
   const availableProxies = [...dbProxies]
     .sort((a: any, b: any) => {
       const aOrder = statusOrder[normalizeProxyStatus(a.status)] ?? 4;
@@ -422,6 +430,8 @@ const Devices = () => {
       password: p.password,
       type: p.type,
       status: normalizeProxyStatus(p.status),
+      usedByDeviceId: proxyToDeviceMap.get(p.id)?.id ?? null,
+      usedByDeviceName: proxyToDeviceMap.get(p.id)?.name ?? null,
     }));
 
   // Helper to get proxy status for a device
@@ -2682,12 +2692,26 @@ const Devices = () => {
                         </div>
                       </SelectItem>
                       {availableProxies.map(p => {
-                        const cls = p.status === "NOVA" ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/10" : p.status === "USANDO" ? "text-amber-500 border-amber-500/20 bg-amber-500/10" : p.status === "USADA" ? "text-red-400 border-red-500/20 bg-red-500/10" : "text-muted-foreground border-muted bg-muted/30";
+                        const isCurrent = !!connectingDevice && p.usedByDeviceId === connectingDevice.id;
+                        const isBusyElsewhere = !!p.usedByDeviceId && !isCurrent;
+                        const displayStatus = isCurrent ? "ATUAL" : (isBusyElsewhere ? "OCUPADO" : p.status);
+                        const cls = displayStatus === "ATUAL"
+                          ? "text-primary border-primary/30 bg-primary/10"
+                          : displayStatus === "OCUPADO"
+                            ? "text-amber-500 border-amber-500/20 bg-amber-500/10"
+                            : displayStatus === "NOVA"
+                              ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/10"
+                              : displayStatus === "USADA"
+                                ? "text-red-400 border-red-500/20 bg-red-500/10"
+                                : "text-muted-foreground border-muted bg-muted/30";
                         return (
                           <SelectItem key={p.id} value={p.id}>
                             <div className="flex items-center gap-2">
                               <span className="text-sm">{p.label}</span>
-                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold ${cls}`}>{p.status}</Badge>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 font-semibold ${cls}`}>{displayStatus}</Badge>
+                              {isBusyElsewhere && p.usedByDeviceName && (
+                                <span className="text-[10px] text-muted-foreground/60">por {p.usedByDeviceName}</span>
+                              )}
                             </div>
                           </SelectItem>
                         );
