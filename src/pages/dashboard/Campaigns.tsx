@@ -368,9 +368,12 @@ const Campaigns = () => {
     const loadDefaults = async () => {
       try {
         // Fetch last campaign's delay settings
+        const userId = session?.user?.id;
+        if (!userId) return;
         const { data: lastCampaign } = await supabase
           .from("campaigns")
           .select("min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max")
+          .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(1)
           .single();
