@@ -1499,6 +1499,8 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      </>)}
+
       </>}
 
       {activeTab === "identidade" && <>
@@ -1855,8 +1857,6 @@ const AISettings = () => {
           </TooltipProvider>
         </CardContent>
       </Card>
-
-      </>)}
 
       {/* Segurança e Controle */}
       <Card>
