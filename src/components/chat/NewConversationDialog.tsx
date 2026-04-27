@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, MessageSquarePlus, Smartphone, User, ChevronDown, Check, Phone } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, MessageSquarePlus, Smartphone, ChevronDown, Check, Phone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,6 @@ interface DeviceOption {
   number: string | null;
   status: string | null;
   uazapi_base_url: string | null;
-}
-
-interface ContactSuggestion {
-  id: string;
-  name: string;
-  phone: string;
 }
 
 interface NewConversationDialogProps {
@@ -77,31 +71,19 @@ export function NewConversationDialog({
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deviceId, setDeviceId] = useState("");
-  const [searchInput, setSearchInput] = useState(""); // texto livre: nome ou número
-  const [phoneRaw, setPhoneRaw] = useState(""); // número confirmado/digitado (digits)
+  const [phoneRaw, setPhoneRaw] = useState("");
   const [name, setName] = useState("");
-  const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [autoFilledName, setAutoFilledName] = useState(false);
   const [showDevices, setShowDevices] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const phoneInputRef = useRef<HTMLInputElement>(null);
 
-  // Detecta se o input parece um número (>= 50% dígitos)
-  const inputDigits = cleanPhone(searchInput);
-  const looksLikePhone = searchInput.trim().length > 0 && inputDigits.length >= Math.ceil(searchInput.replace(/\s/g, "").length * 0.5);
-
-  // Número final a usar (do input se parece telefone, ou do phoneRaw se veio de seleção)
-  const phoneDigits = phoneRaw || (looksLikePhone ? inputDigits : "");
-  const phoneDisplay = phoneRaw ? applyPhoneMask(phoneRaw) : (looksLikePhone ? applyPhoneMask(inputDigits) : "");
+  const phoneDigits = cleanPhone(phoneRaw);
+  const phoneDisplay = applyPhoneMask(phoneRaw);
+  const isPhoneValid = phoneDigits.length >= 12;
 
   const resetForm = useCallback(() => {
     setDeviceId("");
-    setSearchInput("");
     setPhoneRaw("");
     setName("");
-    setSuggestions([]);
-    setAutoFilledName(false);
     setShowDevices(false);
   }, []);
 
@@ -138,65 +120,23 @@ export function NewConversationDialog({
   useEffect(() => {
     if (!open) return;
     fetchDevices();
-    setTimeout(() => searchInputRef.current?.focus(), 200);
+    setTimeout(() => phoneInputRef.current?.focus(), 200);
   }, [open, fetchDevices]);
 
   useEffect(() => {
-    if (open && devices.length === 1 && !deviceId) {
+    if (open && devices.length === 1 && !deviceId && isPhoneValid) {
       setDeviceId(devices[0].id);
     }
-  }, [open, devices, deviceId]);
+  }, [open, devices, deviceId, isPhoneValid]);
 
-  // Busca contatos por nome OU número (a partir de 2 caracteres)
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const term = searchInput.trim();
-    if (term.length < 2) {
-      setSuggestions([]);
-      return;
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const digits = cleanPhone(raw);
+    if (digits.length >= 2 && !digits.startsWith("55") && digits.length <= 11) {
+      setPhoneRaw("55" + digits);
+    } else {
+      setPhoneRaw(digits);
     }
-
-    debounceRef.current = setTimeout(async () => {
-      setLoadingSuggestions(true);
-      const digits = cleanPhone(term);
-      const filters: string[] = [`name.ilike.%${term}%`];
-      if (digits.length >= 2) filters.push(`phone.ilike.%${digits}%`);
-
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      let query = supabase
-        .from("contacts")
-        .select("id, name, phone")
-        .or(filters.join(","))
-        .limit(8);
-      if (uid) query = query.eq("user_id", uid);
-      const { data } = await query;
-
-      setSuggestions(data || []);
-      setLoadingSuggestions(false);
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchInput]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value);
-    setPhoneRaw(""); // reseta seleção anterior
-    if (autoFilledName) {
-      setName("");
-      setAutoFilledName(false);
-    }
-  };
-
-  const selectSuggestion = (contact: ContactSuggestion) => {
-    const digits = cleanPhone(contact.phone);
-    setPhoneRaw(digits);
-    setSearchInput(contact.name || applyPhoneMask(digits));
-    setName(contact.name || "");
-    setAutoFilledName(!!contact.name);
-    setSuggestions([]);
   };
 
   const handleDialogChange = (nextOpen: boolean) => {
@@ -204,16 +144,15 @@ export function NewConversationDialog({
     onOpenChange(nextOpen);
   };
 
-  const isPhoneValid = phoneDigits.length >= 12;
   const selectedDevice = devices.find((d) => d.id === deviceId);
 
   const handleSubmit = async () => {
-    if (!deviceId) {
-      toast.warning("Selecione uma instância");
-      return;
-    }
     if (!isPhoneValid) {
       toast.warning("Digite um número completo com DDI e DDD");
+      return;
+    }
+    if (!deviceId) {
+      toast.warning("Selecione uma instância");
       return;
     }
 
@@ -236,7 +175,6 @@ export function NewConversationDialog({
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="sm:max-w-[380px] p-0 gap-0 overflow-hidden max-h-[85dvh] flex flex-col rounded-2xl">
-        {/* Header */}
         <DialogHeader className="px-4 pt-4 pb-3">
           <DialogTitle className="flex items-center gap-2.5 text-sm font-bold">
             <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -247,19 +185,18 @@ export function NewConversationDialog({
         </DialogHeader>
 
         <div className="px-4 pb-3 space-y-3 overflow-y-auto min-h-0">
-          {/* Buscar / Número */}
+          {/* Número */}
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">
-              Contato ou número
-            </label>
+            <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">Número</label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
               <Input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Buscar nome ou digitar +55..."
-                value={searchInput}
-                onChange={handleInputChange}
+                ref={phoneInputRef}
+                type="tel"
+                inputMode="numeric"
+                placeholder="+55 (62) 99999-9999"
+                value={phoneDisplay}
+                onChange={handlePhoneChange}
                 disabled={submitting}
                 className={cn(
                   "h-10 text-sm pl-9 pr-8 rounded-lg transition-all",
@@ -272,182 +209,141 @@ export function NewConversationDialog({
                 </div>
               )}
             </div>
-
-            {looksLikePhone && !phoneRaw && phoneDisplay && (
-              <p className="text-[10px] text-muted-foreground/60 px-1">
-                Número: <span className="font-mono text-foreground/80">{phoneDisplay}</span>
-                {!isPhoneValid && <span className="text-amber-500/80"> · incompleto</span>}
-              </p>
+            {phoneDigits.length > 0 && !isPhoneValid && (
+              <p className="text-[10px] text-amber-500/70 px-1">Número incompleto</p>
             )}
+          </div>
 
-            {suggestions.length > 0 && (
-              <div className="rounded-lg border border-border/40 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-                <div className="max-h-[180px] overflow-y-auto overscroll-contain">
-                  {suggestions.map((contact) => (
-                    <button
-                      key={contact.id}
-                      onClick={() => selectSuggestion(contact)}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-muted/30 transition-colors text-left"
-                    >
-                      <div className="w-6 h-6 rounded-full bg-primary/8 flex items-center justify-center shrink-0">
-                        <User className="w-3 h-3 text-primary/70" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-foreground truncate">{contact.name || "Sem nome"}</p>
-                        <p className="text-[10px] text-muted-foreground/60 truncate">{applyPhoneMask(contact.phone)}</p>
-                      </div>
-                    </button>
-                  ))}
+          {/* Nome (opcional) — só aparece quando número válido */}
+          {isPhoneValid && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              <label className="text-[11px] text-muted-foreground/60">
+                Nome <span className="text-muted-foreground/30">(opcional)</span>
+              </label>
+              <Input
+                placeholder="Ex: João Silva"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={submitting}
+                className="h-9 text-sm rounded-lg bg-muted/5 border-border/25"
+              />
+            </div>
+          )}
+
+          {/* Instância — só aparece quando número válido */}
+          {isPhoneValid && (
+            <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+              <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">Instância</label>
+
+              {loadingDevices ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/50 py-2 justify-center">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Carregando...
                 </div>
-              </div>
-            )}
-            {loadingSuggestions && (
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 px-1">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Buscando...
-              </div>
-            )}
-            {!loadingSuggestions && searchInput.trim().length >= 2 && suggestions.length === 0 && !looksLikePhone && (
-              <p className="text-[10px] text-muted-foreground/50 px-1">
-                Nenhum contato encontrado · digite o número para iniciar uma nova conversa
-              </p>
-            )}
-          </div>
-
-          {/* Name */}
-          <div className="space-y-1">
-            <label className="text-[11px] text-muted-foreground/60">
-              Nome <span className="text-muted-foreground/30">(opcional)</span>
-            </label>
-            <Input
-              placeholder="Ex: João Silva"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setAutoFilledName(false); }}
-              disabled={submitting}
-              className={cn(
-                "h-9 text-sm rounded-lg bg-muted/5 border-border/25",
-                autoFilledName && "border-primary/25 bg-primary/3"
-              )}
-            />
-            {autoFilledName && (
-              <p className="text-[10px] text-primary/60 px-0.5">✨ Preenchido automaticamente</p>
-            )}
-          </div>
-
-          {/* Instance selector — chip style */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-foreground/70 uppercase tracking-wider">Instância</label>
-
-            {loadingDevices ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground/50 py-2 justify-center">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Carregando...
-              </div>
-            ) : devices.length === 0 ? (
-              <div className="rounded-lg border border-border/30 bg-muted/10 px-3 py-2.5 text-xs text-muted-foreground/50 text-center">
-                Nenhuma instância conectada
-              </div>
-            ) : devices.length <= 3 ? (
-              /* Grid de chips para poucas instâncias */
-              <div className="grid grid-cols-1 gap-1.5">
-                {devices.map((device) => {
-                  const isActive = device.id === deviceId;
-                  return (
-                    <button
-                      key={device.id}
-                      onClick={() => setDeviceId(device.id)}
-                      disabled={submitting}
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150",
-                        isActive
-                          ? "border-primary/50 bg-primary/8 ring-1 ring-primary/20"
-                          : "border-border/30 bg-card/30 hover:bg-muted/20 hover:border-border/50"
-                      )}
-                    >
-                      <Smartphone className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground/40")} />
-                      <span className={cn("text-xs font-medium truncate flex-1", isActive ? "text-foreground" : "text-foreground/70")}>
-                        {device.name}
-                      </span>
-                      {device.number && (
-                        <span className="text-[10px] text-muted-foreground/40 truncate max-w-[80px]">
-                          {formatDeviceNumber(device.number)}
+              ) : devices.length === 0 ? (
+                <div className="rounded-lg border border-border/30 bg-muted/10 px-3 py-2.5 text-xs text-muted-foreground/50 text-center">
+                  Nenhuma instância conectada
+                </div>
+              ) : devices.length <= 3 ? (
+                <div className="grid grid-cols-1 gap-1.5">
+                  {devices.map((device) => {
+                    const isActive = device.id === deviceId;
+                    return (
+                      <button
+                        key={device.id}
+                        onClick={() => setDeviceId(device.id)}
+                        disabled={submitting}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150",
+                          isActive
+                            ? "border-primary/50 bg-primary/8 ring-1 ring-primary/20"
+                            : "border-border/30 bg-card/30 hover:bg-muted/20 hover:border-border/50"
+                        )}
+                      >
+                        <Smartphone className={cn("w-3.5 h-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground/40")} />
+                        <span className={cn("text-xs font-medium truncate flex-1", isActive ? "text-foreground" : "text-foreground/70")}>
+                          {device.name}
                         </span>
-                      )}
-                      {isActive && (
-                        <div className="w-4 h-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 text-primary" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Dropdown para muitas instâncias */
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowDevices(!showDevices)}
-                  disabled={submitting}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all",
-                    selectedDevice
-                      ? "border-primary/40 bg-primary/5"
-                      : "border-border/30 bg-card/30 hover:bg-muted/20"
-                  )}
-                >
-                  <Smartphone className={cn("w-3.5 h-3.5 shrink-0", selectedDevice ? "text-primary" : "text-muted-foreground/40")} />
-                  <span className={cn("text-xs flex-1 min-w-0 truncate", selectedDevice ? "font-medium text-foreground" : "text-muted-foreground/60")}>
-                    {selectedDevice ? selectedDevice.name : "Selecionar instância"}
-                  </span>
-                  {selectedDevice?.number && (
-                    <span className="text-[10px] text-muted-foreground/40 truncate max-w-[80px]">
-                      {formatDeviceNumber(selectedDevice.number)}
+                        {device.number && (
+                          <span className="text-[10px] text-muted-foreground/40 truncate max-w-[80px]">
+                            {formatDeviceNumber(device.number)}
+                          </span>
+                        )}
+                        {isActive && (
+                          <div className="w-4 h-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                            <Check className="w-2.5 h-2.5 text-primary" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowDevices(!showDevices)}
+                    disabled={submitting}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all",
+                      selectedDevice
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-border/30 bg-card/30 hover:bg-muted/20"
+                    )}
+                  >
+                    <Smartphone className={cn("w-3.5 h-3.5 shrink-0", selectedDevice ? "text-primary" : "text-muted-foreground/40")} />
+                    <span className={cn("text-xs flex-1 min-w-0 truncate", selectedDevice ? "font-medium text-foreground" : "text-muted-foreground/60")}>
+                      {selectedDevice ? selectedDevice.name : "Selecionar instância"}
                     </span>
-                  )}
-                  <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/40 transition-transform duration-150", showDevices && "rotate-180")} />
-                </button>
+                    {selectedDevice?.number && (
+                      <span className="text-[10px] text-muted-foreground/40 truncate max-w-[80px]">
+                        {formatDeviceNumber(selectedDevice.number)}
+                      </span>
+                    )}
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground/40 transition-transform duration-150", showDevices && "rotate-180")} />
+                  </button>
 
-                {showDevices && (
-                  <div className="rounded-lg border border-border/30 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
-                    <ScrollArea className="max-h-[220px]">
-                      {devices.map((device) => {
-                        const isActive = device.id === deviceId;
-                        return (
-                          <button
-                            key={device.id}
-                            onClick={() => { setDeviceId(device.id); setShowDevices(false); }}
-                            className={cn(
-                              "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
-                              isActive ? "bg-primary/8" : "hover:bg-muted/15"
-                            )}
-                          >
-                            <Smartphone className={cn("w-3 h-3 shrink-0", isActive ? "text-primary" : "text-muted-foreground/40")} />
-                            <span className={cn("text-xs font-medium truncate flex-1", isActive ? "text-primary" : "text-foreground/70")}>
-                              {device.name}
-                            </span>
-                            {device.number && (
-                              <span className="text-[10px] text-muted-foreground/35 truncate max-w-[80px]">
-                                {formatDeviceNumber(device.number)}
+                  {showDevices && (
+                    <div className="rounded-lg border border-border/30 bg-card overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100">
+                      <ScrollArea className="max-h-[220px]">
+                        {devices.map((device) => {
+                          const isActive = device.id === deviceId;
+                          return (
+                            <button
+                              key={device.id}
+                              onClick={() => { setDeviceId(device.id); setShowDevices(false); }}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
+                                isActive ? "bg-primary/8" : "hover:bg-muted/15"
+                              )}
+                            >
+                              <Smartphone className={cn("w-3 h-3 shrink-0", isActive ? "text-primary" : "text-muted-foreground/40")} />
+                              <span className={cn("text-xs font-medium truncate flex-1", isActive ? "text-primary" : "text-foreground/70")}>
+                                {device.name}
                               </span>
-                            )}
-                            {isActive && <Check className="w-3 h-3 text-primary shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </ScrollArea>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                              {device.number && (
+                                <span className="text-[10px] text-muted-foreground/35 truncate max-w-[80px]">
+                                  {formatDeviceNumber(device.number)}
+                                </span>
+                              )}
+                              {isActive && <Check className="w-3 h-3 text-primary shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </ScrollArea>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-4 pb-4 pt-2 space-y-1.5">
           <Button
             onClick={handleSubmit}
-            disabled={submitting || loadingDevices || devices.length === 0 || !isPhoneValid || !deviceId}
+            disabled={submitting || !isPhoneValid || !deviceId}
             className="w-full h-10 rounded-lg text-sm font-semibold gap-2"
           >
             {submitting ? (
