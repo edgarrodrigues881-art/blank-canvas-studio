@@ -671,28 +671,47 @@ Deno.serve(async (req) => {
             status: "unread",
           }).select("id").single();
 
-          // Send WhatsApp notification if configured
-          if (alertsConfig?.notify_whatsapp && alertsConfig?.whatsapp_device_id && alertsConfig?.whatsapp_target_phone && alertRow?.id) {
+          // Send WhatsApp notification if configured (group JID or individual phone)
+          const targetJid = alertsConfig?.whatsapp_target_jid as string | undefined;
+          const targetPhone = alertsConfig?.whatsapp_target_phone as string | undefined;
+          const hasTarget = !!(targetJid || targetPhone);
+          if (alertsConfig?.notify_whatsapp && alertsConfig?.whatsapp_device_id && hasTarget && alertRow?.id) {
             try {
               const labelMap: Record<string, string> = {
-                human_request: "🙋 PEDIU HUMANO",
+                human_request: "🙋 ATENDIMENTO HUMANO SOLICITADO",
                 closing_opportunity: "🔥 OPORTUNIDADE DE FECHAMENTO",
               };
-              const waMsg = `${labelMap[a.type] || "⚠ ALERTA"}\n\n*${a.title}*\n\n${a.description}\n\n📱 ${leadMemory.contact_name || contactPhone}\n☎ ${contactPhone}`;
-              const waRes = await fetch(`${supabaseUrl}/functions/v1/chat-send`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  device_id: alertsConfig.whatsapp_device_id,
-                  to: alertsConfig.whatsapp_target_phone,
-                  content: waMsg,
-                  user_id,
-                }),
-              });
-              if (waRes.ok) {
-                await admin.from("ai_smart_alerts").update({ whatsapp_sent: true, whatsapp_sent_at: new Date().toISOString() }).eq("id", alertRow.id);
+              const isGroup = !!targetJid && targetJid.endsWith("@g.us");
+              const intro = isGroup
+                ? `${labelMap[a.type] || "⚠ ALERTA"}\n\nA IA precisa de um atendente humano para este cliente:`
+                : `${labelMap[a.type] || "⚠ ALERTA"}`;
+              const waMsg = `${intro}\n\n*${a.title}*\n${a.description}\n\n👤 *Cliente:* ${leadMemory.contact_name || contactPhone}\n📞 *Número:* ${contactPhone}${a.reasoning ? `\n\n💡 ${String(a.reasoning).substring(0, 200)}` : ""}\n\n_Mensagem do cliente:_\n"${(message_content || "").substring(0, 240)}"`;
+
+              // Resolve device UAZAPI credentials
+              const { data: dev } = await admin
+                .from("devices")
+                .select("uazapi_token, uazapi_base_url")
+                .eq("id", alertsConfig.whatsapp_device_id)
+                .eq("user_id", user_id)
+                .maybeSingle();
+              const baseUrl = String(dev?.uazapi_base_url || Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
+              const token = String(dev?.uazapi_token || Deno.env.get("UAZAPI_TOKEN") || "").trim();
+
+              if (!baseUrl || !token) {
+                await admin.from("ai_smart_alerts").update({ whatsapp_error: "Instância sem credenciais UAZAPI" }).eq("id", alertRow.id);
               } else {
-                await admin.from("ai_smart_alerts").update({ whatsapp_error: `HTTP ${waRes.status}` }).eq("id", alertRow.id);
+                const number = targetJid || (targetPhone || "").replace(/\D/g, "");
+                const waRes = await fetch(`${baseUrl}/send/text`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", token },
+                  body: JSON.stringify({ number, text: waMsg }),
+                });
+                if (waRes.ok) {
+                  await admin.from("ai_smart_alerts").update({ whatsapp_sent: true, whatsapp_sent_at: new Date().toISOString() }).eq("id", alertRow.id);
+                } else {
+                  const errTxt = await waRes.text().catch(() => "");
+                  await admin.from("ai_smart_alerts").update({ whatsapp_error: `HTTP ${waRes.status}: ${errTxt.substring(0, 180)}` }).eq("id", alertRow.id);
+                }
               }
             } catch (waErr: any) {
               await admin.from("ai_smart_alerts").update({ whatsapp_error: waErr.message?.substring(0, 200) }).eq("id", alertRow.id);
