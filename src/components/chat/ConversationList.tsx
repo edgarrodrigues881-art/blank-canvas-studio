@@ -240,22 +240,25 @@ export function ConversationList({
     <div className="flex flex-col h-full bg-background transition-colors duration-200">
       {/* Search */}
       <div className="px-3 pt-3 pb-2 space-y-2.5">
-        <div className="relative group/search">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 transition-colors group-focus-within/search:text-primary/70" />
-          <Input
-            placeholder="Buscar conversa, nome ou número..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9 pr-9 h-9 text-sm bg-muted/15 border-border/20 rounded-xl placeholder:text-muted-foreground/35 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] transition-all duration-200"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
+        <div className="flex items-center gap-1.5">
+          <div className="relative group/search flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 transition-colors group-focus-within/search:text-primary/70" />
+            <Input
+              placeholder="Buscar conversa, nome ou número..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9 pr-9 h-9 text-sm bg-muted/15 border-border/20 rounded-xl placeholder:text-muted-foreground/35 focus:bg-background focus:border-primary/30 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)] transition-all duration-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <PrivacyToggle />
         </div>
 
         {trimmedQuery && (
