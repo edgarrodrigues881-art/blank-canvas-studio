@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+// radio-group not available; using custom toggle
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X } from "lucide-react";
@@ -370,22 +370,18 @@ function ScheduleDialog({
 
           <div>
             <Label>Instâncias</Label>
-            <RadioGroup value={deviceMode} onValueChange={(v) => setDeviceMode(v as any)} className="mt-2 space-y-2">
-              <label className="flex items-start gap-2 p-3 border rounded-md cursor-pointer hover:bg-accent">
-                <RadioGroupItem value="all_online" className="mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Todas as conectadas</p>
-                  <p className="text-xs text-muted-foreground">No momento da execução, usa todas as instâncias online</p>
-                </div>
-              </label>
-              <label className="flex items-start gap-2 p-3 border rounded-md cursor-pointer hover:bg-accent">
-                <RadioGroupItem value="fixed" className="mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Instâncias específicas</p>
-                  <p className="text-xs text-muted-foreground">Apenas as que você selecionar abaixo</p>
-                </div>
-              </label>
-            </RadioGroup>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setDeviceMode("all_online")}
+                className={`text-left p-3 border rounded-md transition ${deviceMode === "all_online" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                <p className="text-sm font-medium">Todas as conectadas</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Usa instâncias online no momento da execução</p>
+              </button>
+              <button type="button" onClick={() => setDeviceMode("fixed")}
+                className={`text-left p-3 border rounded-md transition ${deviceMode === "fixed" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                <p className="text-sm font-medium">Instâncias específicas</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Apenas as selecionadas abaixo</p>
+              </button>
+            </div>
 
             {deviceMode === "fixed" && (
               <div className="mt-3 max-h-48 overflow-auto border rounded-md p-2 space-y-1">
