@@ -407,6 +407,14 @@ const Devices = () => {
     return "NOVA";
   };
   const statusOrder: Record<string, number> = { NOVA: 0, USANDO: 1, USADA: 2, INVALID: 3 };
+  const proxyToDeviceMap = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    devices.forEach(d => {
+      if (d.proxy_id) map.set(d.proxy_id, { id: d.id, name: d.name });
+    });
+    return map;
+  }, [devices]);
+
   const availableProxies = [...dbProxies]
     .sort((a: any, b: any) => {
       const aOrder = statusOrder[normalizeProxyStatus(a.status)] ?? 4;
@@ -422,6 +430,8 @@ const Devices = () => {
       password: p.password,
       type: p.type,
       status: normalizeProxyStatus(p.status),
+      usedByDeviceId: proxyToDeviceMap.get(p.id)?.id ?? null,
+      usedByDeviceName: proxyToDeviceMap.get(p.id)?.name ?? null,
     }));
 
   // Helper to get proxy status for a device
