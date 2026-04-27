@@ -172,15 +172,39 @@ async function sendPresence(
   }
 }
 
-// Humanized "thinking" duration based on text length (caps to keep flow snappy)
-function presenceDurationMs(text: string, isAudio: boolean): number {
+// Humanized "thinking" duration based on text length.
+// IMPORTANT: presence is shown until the message is actually delivered, so we
+// no longer cap aggressively. We just enforce a humane minimum (so it never
+// flickers) and a hard safety ceiling (30s) to avoid runaway loops.
+const PRESENCE_HARD_CAP_MS = 30_000;
+function presenceDurationMs(text: string, isAudio: boolean, audioSeconds?: number): number {
   if (isAudio) {
-    // 1.8s base + 60ms per char (caption length), cap 6s
-    return Math.min(1800 + (text?.length || 0) * 60, 6000);
+    // If we know how long the audio actually is, mirror it (recording feels real).
+    if (audioSeconds && audioSeconds > 0) {
+      return Math.min(Math.max(1800, Math.round(audioSeconds * 1000)), PRESENCE_HARD_CAP_MS);
+    }
+    // Fallback: scale by caption length (~120ms/char) with min 1.8s, no low cap.
+    const len = text?.length || 0;
+    return Math.min(Math.max(1800, len * 120), PRESENCE_HARD_CAP_MS);
   }
-  // Typing: ~45 wpm reading speed → ~80ms/char, min 800ms, cap 4.5s
+  // Typing: ~80ms/char, min 800ms, soft cap 30s.
   const len = text?.length || 0;
-  return Math.min(Math.max(800, len * 80), 4500);
+  return Math.min(Math.max(800, len * 80), PRESENCE_HARD_CAP_MS);
+}
+
+// Best-effort estimate of audio duration via HEAD/range probe — returns undefined silently.
+async function estimateAudioSeconds(url: string): Promise<number | undefined> {
+  try {
+    // Some hosts serve duration in headers; otherwise rely on file size heuristic.
+    const head = await fetch(url, { method: "HEAD" });
+    const len = Number(head.headers.get("content-length") || 0);
+    if (!len) return undefined;
+    // Opus/PTT typical ~16 kbps → seconds ≈ bytes / 2000
+    const seconds = Math.max(2, Math.min(120, Math.round(len / 2000)));
+    return seconds;
+  } catch {
+    return undefined;
+  }
 }
 
 async function sendFlowMessage(
