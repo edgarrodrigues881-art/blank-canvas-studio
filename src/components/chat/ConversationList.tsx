@@ -401,7 +401,8 @@ export function ConversationList({
                         <span className="flex items-center gap-1.5 min-w-0">
                           <span className={cn(
                             "truncate text-[13.5px] leading-tight",
-                            hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85"
+                            hasUnread ? "font-bold text-foreground" : "font-medium text-foreground/85",
+                            hideIdentity && "privacy-blur"
                           )}>
                             {trimmedQuery ? (
                               <HighlightText text={displayName || formatPhone(c.phone)} query={trimmedQuery} />
