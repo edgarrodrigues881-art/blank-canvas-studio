@@ -90,6 +90,66 @@ function buildChoice(b: FlowBtnPayload): string {
   return `${label}|${b.id}`;
 }
 
+// ── Variable interpolation ──
+// Replaces {nome}, {numero}, {email}, {empresa} (and {{var}} variants) using
+// data from the conversations/service_contacts tables. First name only for {nome}.
+interface LeadVars {
+  nome: string;
+  numero: string;
+  email: string;
+  empresa: string;
+}
+
+async function loadLeadVars(db: SupabaseClient, userId: string, phone: string): Promise<LeadVars> {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const vars: LeadVars = { nome: "", numero: cleanPhone, email: "", empresa: "" };
+
+  try {
+    const { data: conv } = await db.from("conversations")
+      .select("name, email, company")
+      .eq("user_id", userId)
+      .eq("phone", cleanPhone)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (conv) {
+      vars.nome = (conv.name || "").trim();
+      vars.email = (conv.email || "").trim();
+      vars.empresa = (conv.company || "").trim();
+    }
+  } catch {}
+
+  if (!vars.nome) {
+    try {
+      const { data: sc } = await db.from("service_contacts")
+        .select("name, email, company")
+        .eq("user_id", userId)
+        .eq("phone", cleanPhone)
+        .limit(1)
+        .maybeSingle();
+      if (sc) {
+        vars.nome = vars.nome || (sc.name || "").trim();
+        vars.email = vars.email || (sc.email || "").trim();
+        vars.empresa = vars.empresa || (sc.company || "").trim();
+      }
+    } catch {}
+  }
+
+  // Use only the first name to soar humanization
+  if (vars.nome) vars.nome = vars.nome.split(/\s+/)[0];
+  // Fallback when no name is known: empty string (avoid raw "{nome}")
+  return vars;
+}
+
+function interpolate(text: string, vars: LeadVars): string {
+  if (!text) return text;
+  return text
+    .replace(/\{\{?\s*nome\s*\}?\}/gi, vars.nome)
+    .replace(/\{\{?\s*numero\s*\}?\}/gi, vars.numero)
+    .replace(/\{\{?\s*email\s*\}?\}/gi, vars.email)
+    .replace(/\{\{?\s*empresa\s*\}?\}/gi, vars.empresa);
+}
+
 async function sendFlowMessage(
   baseUrl: string, token: string, phone: string, text: string,
   imageUrl?: string, buttons?: FlowBtnPayload[],
