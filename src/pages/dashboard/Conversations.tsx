@@ -74,13 +74,22 @@ const Conversations = () => {
   const [editTarget, setEditTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; content: string } | null>(null);
   const [editText, setEditText] = useState("");
 
-  // Handle ?open=convId from queue
+  // Handle ?open=convId or ?phone=<phone> from external navigation
   useEffect(() => {
     const openId = searchParams.get("open");
     if (openId && realConvs.length > 0) {
       selectConversation(openId);
+      return;
     }
-  }, [searchParams, realConvs.length]);
+    const phoneParam = searchParams.get("phone");
+    if (phoneParam && allConversations.length > 0) {
+      const key = normalizePhoneKey(phoneParam);
+      const match = allConversations.find((c) => normalizePhoneKey(c.phone) === key);
+      if (match) {
+        selectConversation(match._rawId);
+      }
+    }
+  }, [searchParams, realConvs.length, allConversations]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
