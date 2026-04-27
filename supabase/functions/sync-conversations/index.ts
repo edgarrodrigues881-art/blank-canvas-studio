@@ -183,196 +183,25 @@ Deno.serve(async (req) => {
       return await syncSingleConversation(admin, userId, devices, targetConversationId, targetRemoteJid);
     }
 
-    let totalSynced = 0;
-    const errors: string[] = [];
-
-    // Devices are processed in PARALLEL batches (was sequential, causing CPU timeout)
-    const eligibleDevices = devices.filter((d: any) =>
+    // ── Bulk sync mode ──
+    // The full multi-device sync is now handled by the VPS engine
+    // (workers/sync-conversations-worker.ts), which runs every 60s
+    // without the Supabase Edge Function CPU limit. This branch
+    // only returns a stub so the UI's "Sincronizar agora" button
+    // doesn't 500. The VPS keeps everything fresh in background.
+    const eligibleCount = devices.filter((d: any) =>
       d.uazapi_base_url && d.uazapi_token && ["Ready", "Connected", "authenticated"].includes(d.status)
+    ).length;
+
+    return new Response(
+      JSON.stringify({
+        synced: 0,
+        devices: eligibleCount,
+        delegated_to: "vps-engine",
+        message: "Sincronização em background ativa — novas conversas e mensagens chegam automaticamente.",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
-    const fetchWithTimeout = async (url: string, headers: any, method = "GET", body?: any, timeoutMs = 8000): Promise<any> => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-        const opts: RequestInit = { method, headers, signal: controller.signal };
-        if (body && method === "POST") opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        return await res.json();
-      } catch { return null; }
-    };
-
-    const syncDevice = async (device: any): Promise<{ synced: number; error?: string }> => {
-      const baseUrl = device.uazapi_base_url.replace(/\/$/, "");
-      const apiHeaders = {
-        token: device.uazapi_token,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      };
-      let deviceSynced = 0;
-
-      try {
-        // Fetch chat list — primary endpoint with one fallback
-        let chats: any[] = [];
-        const chatData = await fetchWithTimeout(
-          `${baseUrl}/chat/find`, apiHeaders, "POST",
-          { operator: "AND", sort: "-wa_lastMsgTimestamp", limit: 30 },
-        );
-        if (chatData) {
-          const arr = chatData.chats || chatData.data || chatData.result || (Array.isArray(chatData) ? chatData : null);
-          if (Array.isArray(arr)) chats = arr;
-        }
-        if (chats.length === 0) {
-          const fb = await fetchWithTimeout(`${baseUrl}/chats?count=30`, apiHeaders, "GET");
-          if (fb) {
-            const arr = fb.chats || fb.data || (Array.isArray(fb) ? fb : null);
-            if (Array.isArray(arr)) chats = arr;
-          }
-        }
-        if (chats.length === 0) {
-          return { synced: 0, error: `${device.name}: nenhum chat encontrado` };
-        }
-
-        const privateChats = chats.filter((c: any) => {
-          const jid = c.wa_chatid || c.JID || c.jid || c.id || c.chatId || c.chatid || "";
-          return jid && !jid.endsWith("@g.us") && !jid.includes("status@") && jid !== "status";
-        });
-
-        console.log(`[${device.name}] ${privateChats.length} private chats`);
-
-        for (const chat of privateChats) {
-          const jid = chat.wa_chatid || chat.JID || chat.jid || chat.id || chat.chatId || chat.chatid || "";
-          const phone = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-          const name = chat.wa_name || chat.lead_name || chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
-          const lastMsg = chat.wa_lastMessageText || chat.wa_lastMsgText || chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
-          const lastMsgTs = chat.wa_lastMsgTimestamp || chat.wa_lastMessageTimestamp || chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
-          const lastMsgAt = lastMsgTs
-            ? new Date(typeof lastMsgTs === "number" && lastMsgTs < 1e12 ? lastMsgTs * 1000 : lastMsgTs).toISOString()
-            : new Date().toISOString();
-          const unread = chat.wa_unreadCount || chat.UnreadCount || chat.unreadCount || chat.unread || 0;
-          const avatar = chat.image || chat.imagePreview || chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
-
-          const { error: upsertErr } = await upsertConversationForEquivalentJid(admin, userId, device.id, {
-            remoteJid: jid, name, phone, avatar,
-            lastMessage: lastMsg || "",
-            lastMessageAt: lastMsgAt,
-            unreadCount: unread,
-          });
-          if (!upsertErr) deviceSynced++;
-        }
-
-        // Fetch recent messages — TOP 15 only, in PARALLEL
-        const { data: convs } = await admin
-          .from("conversations")
-          .select("id, remote_jid")
-          .eq("user_id", userId)
-          .eq("device_id", device.id)
-          .order("last_message_at", { ascending: false })
-          .limit(15);
-
-        if (!convs || convs.length === 0) return { synced: deviceSynced };
-
-        const msgResults = await Promise.all(convs.map(async (conv: any) => {
-          const data = await fetchWithTimeout(
-            `${baseUrl}/message/find`, apiHeaders, "POST",
-            { chatid: conv.remote_jid, limit: 20 },
-          );
-          let arr: any[] = [];
-          if (data) {
-            arr = data.messages || data.data || data.result || (Array.isArray(data) ? data : []);
-            if (!Array.isArray(arr)) arr = [];
-          }
-          return { conv, messages: arr };
-        }));
-
-        for (const { conv, messages } of msgResults) {
-          if (messages.length === 0) continue;
-          console.log(`[${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
-
-          for (const msg of messages) {
-            const messageNodes = collectMessageNodes(msg);
-            const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-            const content = firstString(
-              msg.body, msg.text, msg.caption, msg.content,
-              ...messageNodes.flatMap((node) => [
-                node.conversation, node.text, node.body,
-                node.extendedTextMessage?.text,
-                node.imageMessage?.caption,
-                node.videoMessage?.caption,
-                node.documentMessage?.caption,
-                node.documentMessage?.fileName,
-                typeof node.content === "string" ? node.content : "",
-                node.content?.text,
-              ]),
-            );
-            const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
-            const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
-            const timestamp = rawTs
-              ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
-              : new Date().toISOString();
-
-            const mediaUrl = firstString(
-              msg.mediaUrl, msg.media_url, msg.file, msg.fileUrl, msg.url,
-              ...messageNodes.flatMap((node) => [
-                node.mediaUrl, node.media_url, node.file, node.fileUrl, node.file_url,
-                node.url, node.link,
-                node.imageMessage?.url, node.audioMessage?.url, node.pttMessage?.url,
-                node.videoMessage?.url, node.documentMessage?.url,
-              ]),
-            ) || null;
-
-            const mediaType = inferMediaType(
-              firstString(msg.type, msg.messageType, msg.TypeMessage, ...messageNodes.flatMap((node) => [node.type, node.messageType, node.TypeMessage])),
-              firstString(msg.mimetype, msg.mimeType, ...messageNodes.flatMap((node) => [node.mimetype, node.mimeType, node.audioMessage?.mimetype, node.imageMessage?.mimetype, node.videoMessage?.mimetype, node.documentMessage?.mimetype])),
-              mediaUrl || "",
-            );
-
-            const audioDuration = mediaType === "audio"
-              ? Number(msg.duration || msg.seconds || messageNodes.map((node) => node.audioMessage?.seconds || node.pttMessage?.seconds || node.duration || node.seconds || null).find((value) => typeof value === "number" && value > 0) || 0) || null
-              : null;
-
-            await admin.from("conversation_messages").upsert(
-              {
-                conversation_id: conv.id,
-                user_id: userId,
-                remote_jid: conv.remote_jid,
-                content: content.substring(0, 5000),
-                direction: fromMe ? "sent" : "received",
-                status: fromMe ? (msg.ack >= 3 ? "read" : msg.ack >= 2 ? "delivered" : "sent") : "received",
-                media_type: mediaType,
-                media_url: mediaUrl,
-                audio_duration: audioDuration,
-                whatsapp_message_id: waId,
-                created_at: timestamp,
-              },
-              { onConflict: "whatsapp_message_id" }
-            );
-          }
-        }
-
-        return { synced: deviceSynced };
-      } catch (e: any) {
-        console.error(`[${device.name}] sync error:`, e.message);
-        return { synced: deviceSynced, error: `${device.name}: ${e.message}` };
-      }
-    };
-
-    // Process devices in parallel batches of 6
-    const BATCH_SIZE = 6;
-    for (let i = 0; i < eligibleDevices.length; i += BATCH_SIZE) {
-      const batch = eligibleDevices.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(batch.map(syncDevice));
-      for (const r of results) {
-        totalSynced += r.synced;
-        if (r.error) errors.push(r.error);
-      }
-    }
-
-    return new Response(JSON.stringify({ synced: totalSynced, devices: eligibleDevices.length, errors }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (err: any) {
     console.error("sync-conversations error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
