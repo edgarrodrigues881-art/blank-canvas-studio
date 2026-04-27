@@ -868,36 +868,57 @@ const AISettings = () => {
             }} />
           </div>
 
-          {iaActive && apiKeyStatus === "valid" && (
-            <div className="mt-5 pt-5 border-t border-border/20 animate-fade-in">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
-                  <span className="text-xl font-bold text-foreground tracking-tight">{aiMessagesToday}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Respostas hoje</p>
+          {iaActive && (
+            <div className="mt-5 pt-4 border-t border-border/15 animate-fade-in space-y-4">
+              {/* Saúde do sistema */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground font-medium">Saúde do sistema</span>
+                  <span className={`text-[11px] font-bold ${apiKeyStatus === "valid" ? "text-emerald-400" : "text-amber-400"}`}>
+                    {apiKeyStatus === "valid" ? "100%" : "45%"}
+                  </span>
                 </div>
-                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
-                  <span className="text-xl font-bold text-foreground tracking-tight">{aiLeadsToday}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Leads qualificados</p>
+                <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-700 ease-out ${
+                    apiKeyStatus === "valid"
+                      ? "w-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                      : "w-[45%] bg-gradient-to-r from-amber-500 to-amber-400"
+                  }`} />
                 </div>
-                <div className="rounded-xl bg-muted/15 border border-border/20 p-4 text-center space-y-1">
-                  <span className="text-xl font-bold text-foreground tracking-tight">{aiActiveConvos}</span>
-                  <p className="text-[10px] text-muted-foreground font-medium tracking-wide">Conversas ativas</p>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {([
+                    { label: "Sistema ativo",    ok: true },
+                    { label: "API Key",           ok: apiKeyStatus === "valid" },
+                    { label: "Banco de dados",    ok: true },
+                    { label: "Modo configurado",  ok: !!selectedMode },
+                  ] as { label: string; ok: boolean }[]).map((item) => (
+                    <span key={item.label} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                      item.ok
+                        ? "bg-emerald-500/8 border-emerald-500/20 text-emerald-400"
+                        : "bg-amber-500/8 border-amber-500/20 text-amber-400"
+                    }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${item.ok ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      {item.label}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-5 mt-4">
-                <div className="flex items-center gap-1.5">
-                  <TrendingUp className="h-3 w-3 text-emerald-400" strokeWidth={2} />
-                  <span className="text-[10px] text-muted-foreground">Aumenta taxa de resposta</span>
+
+              {/* Métricas rápidas */}
+              {apiKeyStatus === "valid" && (
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    { value: aiMessagesToday, label: "Respostas hoje",     color: "text-primary",     bg: "bg-primary/6",     border: "border-primary/15"     },
+                    { value: aiLeadsToday,    label: "Leads qualificados", color: "text-emerald-400", bg: "bg-emerald-500/6", border: "border-emerald-500/15" },
+                    { value: aiActiveConvos,  label: "Conversas ativas",   color: "text-blue-400",    bg: "bg-blue-500/6",    border: "border-blue-500/15"    },
+                  ] as { value: number; label: string; color: string; bg: string; border: string }[]).map((m) => (
+                    <div key={m.label} className={`rounded-xl border ${m.border} ${m.bg} p-4 text-center space-y-1`}>
+                      <span className={`text-xl font-bold tracking-tight ${m.color}`}>{m.value}</span>
+                      <p className="text-[10px] text-muted-foreground font-medium tracking-wide leading-tight">{m.label}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Timer className="h-3 w-3 text-primary/70" strokeWidth={2} />
-                  <span className="text-[10px] text-muted-foreground">Reduz tempo de atendimento</span>
-                </div>
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <Brain className="h-3 w-3 text-muted-foreground/50" strokeWidth={1.5} />
-                  <span className="text-[10px] text-muted-foreground/50">Aprendendo com interações</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -972,70 +993,84 @@ const AISettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5 px-6 pb-6">
-          <div className="grid grid-cols-2 gap-4">
-            {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => {
-              const IconMap: Record<string, React.ElementType> = { Rocket, MessageCircle: MessageSquare, Headphones: Headset, Calendar };
-              const Icon = IconMap[preset.icon] || Rocket;
-              const isSelected = selectedMode === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => applyMode(key)}
-                  className={`group relative rounded-xl border p-5 text-left transition-all duration-150 ${
-                    isSelected
-                      ? "border-primary/40 bg-primary/[0.04] ring-2 ring-primary/20"
-                      : "border-border/30 hover:border-border/60 hover:bg-muted/20"
-                  }`}
-                >
-                  {preset.recommended && (
-                    <Badge className="absolute -top-2.5 right-3 text-[10px] px-2 py-0.5 bg-primary text-primary-foreground font-medium shadow-sm">
-                      Recomendado
-                    </Badge>
-                  )}
-                  <div className="flex items-start gap-4">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-150 ${
-                      isSelected ? "bg-primary/10" : "bg-muted/40 group-hover:bg-muted/60"
-                    }`}>
-                      <Icon className={`h-[18px] w-[18px] transition-colors duration-150 ${isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground/60"}`} strokeWidth={1.5} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold tracking-tight transition-colors ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{preset.label}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{preset.desc}</p>
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <div className="absolute top-4 right-4">
-                      <CheckCircle2 className="h-4 w-4 text-primary" strokeWidth={2} />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {(() => {
+            const modeColors: Record<AiMode, { selBorder: string; selBg: string; selRing: string; iconBg: string; iconColor: string; strip: string; tagBg: string; tagBorder: string; tagText: string; previewBorder: string; previewBg: string; sparkle: string }> = {
+              vendas:      { selBorder: "border-orange-500/45", selBg: "bg-orange-500/[0.04]", selRing: "ring-orange-500/20", iconBg: "bg-orange-500/12", iconColor: "text-orange-400", strip: "bg-gradient-to-r from-orange-500 to-amber-400",   tagBg: "bg-orange-500/8",  tagBorder: "border-orange-500/25",  tagText: "text-orange-400",  previewBorder: "border-orange-500/20", previewBg: "bg-orange-500/[0.03]", sparkle: "text-orange-400" },
+              atendimento: { selBorder: "border-blue-500/45",   selBg: "bg-blue-500/[0.04]",   selRing: "ring-blue-500/20",   iconBg: "bg-blue-500/12",   iconColor: "text-blue-400",   strip: "bg-gradient-to-r from-blue-500 to-sky-400",     tagBg: "bg-blue-500/8",    tagBorder: "border-blue-500/25",    tagText: "text-blue-400",    previewBorder: "border-blue-500/20",   previewBg: "bg-blue-500/[0.03]",   sparkle: "text-blue-400"   },
+              suporte:     { selBorder: "border-violet-500/45", selBg: "bg-violet-500/[0.04]", selRing: "ring-violet-500/20", iconBg: "bg-violet-500/12", iconColor: "text-violet-400", strip: "bg-gradient-to-r from-violet-500 to-purple-400", tagBg: "bg-violet-500/8",  tagBorder: "border-violet-500/25",  tagText: "text-violet-400",  previewBorder: "border-violet-500/20", previewBg: "bg-violet-500/[0.03]", sparkle: "text-violet-400" },
+              agendamento: { selBorder: "border-emerald-500/45",selBg: "bg-emerald-500/[0.04]",selRing: "ring-emerald-500/20",iconBg: "bg-emerald-500/12",iconColor: "text-emerald-400",strip: "bg-gradient-to-r from-emerald-500 to-green-400", tagBg: "bg-emerald-500/8", tagBorder: "border-emerald-500/25", tagText: "text-emerald-400", previewBorder: "border-emerald-500/20",previewBg: "bg-emerald-500/[0.03]",sparkle: "text-emerald-400"},
+            };
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  {(Object.entries(MODE_PRESETS) as [AiMode, ModePreset][]).map(([key, preset]) => {
+                    const IconMap: Record<string, React.ElementType> = { Rocket, MessageCircle: MessageSquare, Headphones: Headset, Calendar };
+                    const Icon = IconMap[preset.icon] || Rocket;
+                    const isSelected = selectedMode === key;
+                    const c = modeColors[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => applyMode(key)}
+                        className={`group relative rounded-xl border overflow-hidden text-left transition-all duration-200 ${
+                          isSelected
+                            ? `${c.selBorder} ${c.selBg} ring-2 ${c.selRing} shadow-sm`
+                            : "border-border/30 hover:border-border/50 hover:bg-muted/20"
+                        }`}
+                      >
+                        {/* Faixa colorida no topo */}
+                        <div className={`h-1 w-full transition-all duration-200 ${isSelected ? c.strip : "bg-border/20 group-hover:bg-border/35"}`} />
+                        <div className="p-4 pt-3.5">
+                          {preset.recommended && (
+                            <Badge className="absolute top-3.5 right-3 text-[10px] px-2 py-0.5 bg-primary text-primary-foreground font-medium shadow-sm">
+                              Recomendado
+                            </Badge>
+                          )}
+                          <div className="flex items-start gap-3">
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
+                              isSelected ? c.iconBg : "bg-muted/40 group-hover:bg-muted/60"
+                            }`}>
+                              <Icon className={`h-[18px] w-[18px] transition-colors duration-200 ${isSelected ? c.iconColor : "text-muted-foreground group-hover:text-foreground/60"}`} strokeWidth={1.5} />
+                            </div>
+                            <div className="flex-1 min-w-0 pt-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-semibold tracking-tight text-foreground">{preset.label}</p>
+                                {isSelected && <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${c.iconColor}`} strokeWidth={2.5} />}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{preset.desc}</p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-border/20">
+                              {[
+                                preset.commStyle === "persuasivo" ? "Persuasivo" : preset.commStyle === "tecnico" ? "Técnico" : preset.commStyle === "amigavel" ? "Amigável" : "Direto",
+                                `Insist. ${preset.insistence}/5`,
+                                preset.strategy === "fechamento" ? "Foco em fechamento" : preset.strategy === "direto" ? "Direto" : "Faz perguntas",
+                              ].map((tag) => (
+                                <span key={tag} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${c.tagBg} ${c.tagBorder} ${c.tagText}`}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-          {selectedMode && (
-            <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-5 space-y-3 animate-fade-in">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
-                <p className="text-xs font-semibold text-primary tracking-tight">Comportamento aplicado</p>
-              </div>
-              <p className="text-sm text-foreground/75 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Badge variant="outline" className="text-[10px] font-normal">
-                  {MODE_PRESETS[selectedMode].commStyle === "persuasivo" ? "Persuasivo" :
-                   MODE_PRESETS[selectedMode].commStyle === "tecnico" ? "Técnico" :
-                   MODE_PRESETS[selectedMode].commStyle === "amigavel" ? "Amigável" : "Direto"}
-                </Badge>
-                <Badge variant="outline" className="text-[10px] font-normal">
-                  Insistência {MODE_PRESETS[selectedMode].insistence}/5
-                </Badge>
-                <Badge variant="outline" className="text-[10px] font-normal">
-                  {MODE_PRESETS[selectedMode].strategy === "fechamento" ? "Foco em fechamento" :
-                   MODE_PRESETS[selectedMode].strategy === "direto" ? "Direto ao ponto" : "Faz perguntas"}
-                </Badge>
-              </div>
-            </div>
-          )}
+                {selectedMode && (
+                  <div className={`rounded-xl border ${modeColors[selectedMode].previewBorder} ${modeColors[selectedMode].previewBg} p-4 space-y-2 animate-fade-in`}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className={`h-3.5 w-3.5 ${modeColors[selectedMode].sparkle}`} strokeWidth={1.5} />
+                      <p className={`text-xs font-semibold tracking-tight ${modeColors[selectedMode].sparkle}`}>Comportamento aplicado</p>
+                    </div>
+                    <p className="text-sm text-foreground/75 leading-relaxed">{MODE_PRESETS[selectedMode].preview}</p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 
