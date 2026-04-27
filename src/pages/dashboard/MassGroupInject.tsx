@@ -1738,30 +1738,20 @@ function CreateCampaign({ onBack, onCampaignCreated, prefillContacts, prefillNam
       setStep("preview");
       toast.success(`${data.validCount} contatos válidos prontos para envio`);
 
-      // Auto-check participants in the first group
+      // Phase 3: check de participantes é deferred (validado pelo worker da VPS no envio).
+      // A chamada abaixo retorna instantaneamente (sem timeout). Mantida apenas para preencher o estado da UI.
       if (data.valid?.length > 0 && primaryDeviceId && activeGroupId) {
         setIsChecking(true);
         try {
           const { data: checkData, error: checkError } = await supabase.functions.invoke("mass-group-inject", {
             body: { action: "check-participants", groupId: activeGroupId, deviceId: primaryDeviceId, contacts: data.valid },
           });
-          if (checkError) {
-            console.warn("check-participants error:", checkError);
-            toast.warning("Não foi possível verificar participantes do grupo. Você pode tentar novamente manualmente.");
-          } else if (checkData?.error) {
-            console.warn("check-participants API error:", checkData.error);
-            toast.warning(`Verificação de participantes: ${checkData.error}`);
-          } else if (checkData) {
+          if (!checkError && checkData) {
             setParticipantCheck(checkData);
-            if (checkData.alreadyExistsCount > 0) {
-              toast.info(`${checkData.alreadyExistsCount} contato(s) já estão no grupo`);
-            } else {
-              toast.success("Nenhum contato duplicado no grupo!");
-            }
           }
         } catch (checkErr: any) {
-          console.warn("check-participants exception:", checkErr);
-          toast.warning("Falha ao verificar participantes: " + (checkErr?.message || "erro desconhecido"));
+          // silencioso — não é mais crítico, o VPS valida no envio
+          console.warn("check-participants (deferred):", checkErr);
         }
         finally { setIsChecking(false); }
       }
