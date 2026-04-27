@@ -387,10 +387,11 @@ const Conversations = () => {
 
       // Apaga a mensagem falha localmente (não foi enviada de qualquer jeito)
       // e dispara um envio limpo pela instância recém-selecionada.
-      deleteMessage(messageId, failedMsg.conversation_id);
+      // Remoção silenciosa: não chamamos deleteMessage (que toca o WhatsApp e mostra toast).
+      void supabase.from("conversation_messages").delete().eq("id", messageId);
       sendMessage(targetId, failedMsg.content || "");
     },
-    [realMsgs, selectedInstanceId, retryMessage, deleteMessage, sendMessage]
+    [realMsgs, selectedInstanceId, retryMessage, sendMessage]
   );
 
   const handleDeleteMessage = useCallback(
