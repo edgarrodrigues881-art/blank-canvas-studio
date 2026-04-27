@@ -46,6 +46,7 @@ import {
   Workflow,
   Zap,
   Plug,
+  BellRing,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
