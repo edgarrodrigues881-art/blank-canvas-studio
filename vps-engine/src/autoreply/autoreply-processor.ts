@@ -43,22 +43,11 @@ function markProcessed(key: string): void {
   }
 }
 
-// ── Humanized delay helpers ──
-
-function randomBetween(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
-
-/** Calculate a human-like delay based on message length */
-function humanTypingDelay(text: string): number {
-  const len = text.length;
-  if (len <= 30) return randomBetween(1000, 3000);       // Short: 1-3s
-  if (len <= 120) return randomBetween(3000, 6000);      // Medium: 3-6s
-  return randomBetween(5000, 10000);                      // Long: 5-10s
-}
-
-/** Minimum floor delay — never respond under 1s */
-const MIN_RESPONSE_DELAY_MS = 1000;
+// ── Inter-message spacing ──
+// Envio instantâneo: o usuário pediu para que o fluxo dispare sem delays
+// artificiais. Mantemos apenas um pequeno espaçamento entre mensagens
+// subsequentes (150ms) para garantir ordem de chegada no WhatsApp.
+const INTER_MESSAGE_SPACING_MS = 150;
 
 export function getAutoreplyStatus() {
   return { ..._stats, lastTick: _lastTickAt?.toISOString() || null };
@@ -87,24 +76,35 @@ async function uazapiSend(baseUrl: string, token: string, endpoint: string, payl
   }
 }
 
+type FlowBtnPayload = { id: string; label: string; type?: "reply" | "url" | "phone"; url?: string; phone?: string };
+
+function buildChoice(b: FlowBtnPayload): string {
+  const label = (b.label || "").trim();
+  if (b.type === "url" && b.url) {
+    return `${label}|${b.url.trim()}`;
+  }
+  if (b.type === "phone" && b.phone) {
+    const ph = b.phone.replace(/[^\d+]/g, "");
+    return `${label}|${ph}`;
+  }
+  return `${label}|${b.id}`;
+}
+
 async function sendFlowMessage(
   baseUrl: string, token: string, phone: string, text: string,
-  imageUrl?: string, buttons?: { id: string; label: string }[],
+  imageUrl?: string, buttons?: FlowBtnPayload[],
   isFirst: boolean = false
 ) {
   const cleanPhone = phone.replace(/\D/g, "");
 
-  // ── Humanized delay: simulate reading + typing ──
-  // First message of flow → respond instantly (only minimum floor).
-  // Subsequent messages → human-like typing delay.
-  const typingDelay = isFirst
-    ? 200
-    : Math.max(humanTypingDelay(text), MIN_RESPONSE_DELAY_MS);
-  log.info(`Simulating ${(typingDelay / 1000).toFixed(1)}s typing delay for ${text.length} chars (first=${isFirst})`);
-  await new Promise(r => setTimeout(r, typingDelay));
+  // Envio instantâneo: a primeira mensagem dispara imediatamente; as
+  // subsequentes recebem apenas um espaçamento mínimo para ordenação.
+  if (!isFirst) {
+    await new Promise(r => setTimeout(r, INTER_MESSAGE_SPACING_MS));
+  }
 
   if (buttons && buttons.length > 0) {
-    const choices = buttons.map(b => `${b.label}|${b.id}`).filter(Boolean);
+    const choices = buttons.map(buildChoice).filter(Boolean);
     const payload: any = { number: cleanPhone, type: "button", text, choices };
     if (imageUrl) payload.imageButton = imageUrl;
     return uazapiSend(baseUrl, token, "/send/menu", payload);
@@ -127,7 +127,7 @@ interface FlowNode {
     text?: string;
     imageUrl?: string;
     imageCaption?: string;
-    buttons?: { id: string; label: string; targetNodeId: string }[];
+    buttons?: { id: string; label: string; targetNodeId: string; type?: "reply" | "url" | "phone"; url?: string; phone?: string }[];
     delaySeconds?: number;
     action?: string;
     templateId?: string;
@@ -199,7 +199,7 @@ async function processNodeChain(
           try {
             await sendFlowMessage(baseUrl, token, phone, text,
               node.data.imageUrl || undefined,
-              node.data.buttons?.map(b => ({ id: b.id, label: b.label })));
+              node.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })));
             log.info(`Message sent: "${text.substring(0, 50)}" to ${phone}`);
           } catch (err: any) {
             log.error(`Failed to send message node ${node.id}: ${err.message}`);
@@ -441,7 +441,7 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
       try {
         await sendFlowMessage(baseUrl, deviceToken, fromPhone, startNode.data.text,
           startNode.data.imageUrl || undefined,
-          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label })),
+          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label, type: b.type, url: b.url, phone: b.phone })),
           true);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
