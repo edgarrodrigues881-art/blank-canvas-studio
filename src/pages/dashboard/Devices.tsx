@@ -2447,7 +2447,10 @@ const Devices = () => {
                 onChange={e => setInstanceName(e.target.value)}
                 placeholder="Ex: Chip 01"
                 className="h-11 text-sm rounded-xl"
-                autoFocus
+                onFocus={e => {
+                  const v = e.target.value;
+                  e.target.setSelectionRange(v.length, v.length);
+                }}
                 onKeyDown={e => { if (e.key === "Enter") handleCreate(); }}
               />
             </div>
