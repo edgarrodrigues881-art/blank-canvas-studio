@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useWarmupCycles, useWarmupCyclesRealtime } from "@/hooks/useWarmupV2";
 import { useWarmupEngine } from "@/hooks/useWarmupEngine";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useWarmupFolders } from "@/hooks/useWarmupFolders";
 import { TagManagerDialog, type FolderTag } from "@/components/warmup/TagManagerDialog";
