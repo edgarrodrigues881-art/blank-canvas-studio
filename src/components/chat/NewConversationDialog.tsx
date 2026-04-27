@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageSquarePlus, Smartphone, ChevronDown, Check, Phone } from "lucide-react";
+import { Loader2, MessageSquarePlus, Smartphone, ChevronDown, Check, Phone, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -203,7 +203,21 @@ export function NewConversationDialog({
                   isPhoneValid && "border-emerald-500/40 focus-visible:ring-emerald-500/20"
                 )}
               />
-              {isPhoneValid && (
+              {phoneDigits.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneRaw("");
+                    phoneInputRef.current?.focus();
+                  }}
+                  disabled={submitting}
+                  aria-label="Limpar número"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {isPhoneValid && phoneDigits.length === 0 && (
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
