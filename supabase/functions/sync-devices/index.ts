@@ -893,7 +893,7 @@ Deno.serve(async (req) => {
               // Auto-import últimas conversas/mensagens (50 chats x 40 msgs)
               const internalSecret = Deno.env.get("WATCHDOG_SECRET");
               if (internalSecret) {
-                fetch(`${supabaseUrl}/functions/v1/sync-conversations`, {
+                fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/sync-conversations`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
                   body: JSON.stringify({ user_id: userId, device_id: device.id }),
