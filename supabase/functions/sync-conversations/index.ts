@@ -131,36 +131,45 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const internalSecret = req.headers.get("x-internal-secret");
+    const isInternal = internalSecret && internalSecret === Deno.env.get("WATCHDOG_SECRET");
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let userId: string;
+    if (isInternal && body.user_id) {
+      userId = body.user_id;
+    } else {
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader?.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(token);
+      if (claimsErr || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      userId = claimsData.claims.sub;
     }
-    const userId = claimsData.claims.sub;
 
     const admin = createClient(supabaseUrl, serviceKey);
 
-    // Check if this is a single-conversation sync request
-    let body: any = {};
-    try { body = await req.json(); } catch { body = {}; }
     const targetConversationId = body.conversation_id || null;
     const targetRemoteJid = body.remote_jid || null;
+    const targetDeviceId = body.device_id || null;
 
-    // Get all user devices with tokens
-    const { data: devices, error: devErr } = await admin
+    // Get user devices with tokens (optionally filter to a single device for on-connect sync)
+    let devicesQuery = admin
       .from("devices")
       .select("id, name, uazapi_base_url, uazapi_token, number, status")
       .eq("user_id", userId)
       .neq("login_type", "report_wa");
+    if (targetDeviceId) devicesQuery = devicesQuery.eq("id", targetDeviceId);
+    const { data: devices, error: devErr } = await devicesQuery;
 
     if (devErr) throw devErr;
     if (!devices || devices.length === 0) {
