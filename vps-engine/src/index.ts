@@ -1004,6 +1004,7 @@ async function mainLoop() {
     autoreply: false,
     scheduledMsg: false,
     syncDevices: false,
+    syncConversations: false,
   };
 
   function guardedLoop(
