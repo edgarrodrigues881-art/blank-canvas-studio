@@ -1372,8 +1372,9 @@ const WarmupInstances = () => {
                   className="w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-teal-500/30 hover:shadow-teal-400/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100"
                   disabled={!agreedResponsibility}
                   onClick={() => {
-                    // Persist by default — once accepted, never show again on this browser
+                    // Persist by default — once accepted, never show again for this user
                     localStorage.setItem(WARNING_DISMISS_KEY, "true");
+                    dismissWarning(WARNING_DISMISS_KEY);
                     setShowWarning(false);
                   }}
                 >
