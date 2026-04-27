@@ -499,7 +499,7 @@ const Conversations = () => {
           >
             {/* Clean top header */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/20 shrink-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 dark:bg-card/40 backdrop-blur-sm">
-              <h2 className="text-[15px] font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent tracking-tight">💬 Atendimento</h2>
+              <h2 className="text-[15px] font-bold text-foreground tracking-tight">Atendimento</h2>
               <div className="flex items-center gap-0.5">
                 {availableInstances.length >= 1 && (
                   <DropdownMenu>
