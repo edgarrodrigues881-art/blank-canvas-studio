@@ -186,69 +186,61 @@ Deno.serve(async (req) => {
     let totalSynced = 0;
     const errors: string[] = [];
 
-    for (const device of devices) {
-      if (!device.uazapi_base_url || !device.uazapi_token) continue;
-      if (!["Ready", "Connected", "authenticated"].includes(device.status)) continue;
+    // Devices are processed in PARALLEL batches (was sequential, causing CPU timeout)
+    const eligibleDevices = devices.filter((d: any) =>
+      d.uazapi_base_url && d.uazapi_token && ["Ready", "Connected", "authenticated"].includes(d.status)
+    );
 
+    const fetchWithTimeout = async (url: string, headers: any, method = "GET", body?: any, timeoutMs = 8000): Promise<any> => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        const opts: RequestInit = { method, headers, signal: controller.signal };
+        if (body && method === "POST") opts.body = JSON.stringify(body);
+        const res = await fetch(url, opts);
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    };
+
+    const syncDevice = async (device: any): Promise<{ synced: number; error?: string }> => {
       const baseUrl = device.uazapi_base_url.replace(/\/$/, "");
       const apiHeaders = {
         token: device.uazapi_token,
         Accept: "application/json",
         "Content-Type": "application/json",
       };
-
-      const fetchSafe = async (url: string, method = "GET", body?: any): Promise<any> => {
-        try {
-          const opts: RequestInit = { method, headers: apiHeaders };
-          if (body && method === "POST") opts.body = JSON.stringify(body);
-          const res = await fetch(url, opts);
-          if (!res.ok) {
-            console.error(`[${device.name}] ${method} ${url}: ${res.status}`);
-            return null;
-          }
-          return await res.json();
-        } catch (e: any) {
-          console.error(`[${device.name}] fetch error ${url}: ${e.message}`);
-          return null;
-        }
-      };
+      let deviceSynced = 0;
 
       try {
-        // UAZAPI v2 official endpoint: POST /chat/find
+        // Fetch chat list — primary endpoint with one fallback
         let chats: any[] = [];
-
-        const findAttempts = [
-          { url: `${baseUrl}/chat/find`, method: "POST", body: { operator: "AND", sort: "-wa_lastMsgTimestamp", limit: 50 } },
-          { url: `${baseUrl}/chat/find`, method: "POST", body: { limit: 50 } },
-          { url: `${baseUrl}/chats?count=50`, method: "GET" },
-          { url: `${baseUrl}/chat/list?count=50`, method: "GET" },
-        ];
-
-        for (const att of findAttempts) {
-          if (chats.length > 0) break;
-          const data = await fetchSafe(att.url, att.method, att.body);
-          if (data) {
-            const arr = data.chats || data.data || data.result || (Array.isArray(data) ? data : null);
-            if (Array.isArray(arr) && arr.length > 0) {
-              chats = arr;
-              console.log(`[${device.name}] ${att.method} ${att.url}: ${arr.length} results`);
-            }
+        const chatData = await fetchWithTimeout(
+          `${baseUrl}/chat/find`, apiHeaders, "POST",
+          { operator: "AND", sort: "-wa_lastMsgTimestamp", limit: 30 },
+        );
+        if (chatData) {
+          const arr = chatData.chats || chatData.data || chatData.result || (Array.isArray(chatData) ? chatData : null);
+          if (Array.isArray(arr)) chats = arr;
+        }
+        if (chats.length === 0) {
+          const fb = await fetchWithTimeout(`${baseUrl}/chats?count=30`, apiHeaders, "GET");
+          if (fb) {
+            const arr = fb.chats || fb.data || (Array.isArray(fb) ? fb : null);
+            if (Array.isArray(arr)) chats = arr;
           }
         }
-
         if (chats.length === 0) {
-          console.log(`[${device.name}] No chats found from any endpoint`);
-          errors.push(`${device.name}: nenhum chat encontrado`);
-          continue;
+          return { synced: 0, error: `${device.name}: nenhum chat encontrado` };
         }
 
-        // Filter only private chats (exclude groups and status)
         const privateChats = chats.filter((c: any) => {
           const jid = c.wa_chatid || c.JID || c.jid || c.id || c.chatId || c.chatid || "";
           return jid && !jid.endsWith("@g.us") && !jid.includes("status@") && jid !== "status";
         });
 
-        console.log(`[${device.name}] ${privateChats.length} private chats (of ${chats.length} total)`);
+        console.log(`[${device.name}] ${privateChats.length} private chats`);
 
         for (const chat of privateChats) {
           const jid = chat.wa_chatid || chat.JID || chat.jid || chat.id || chat.chatId || chat.chatid || "";
@@ -263,155 +255,122 @@ Deno.serve(async (req) => {
           const avatar = chat.image || chat.imagePreview || chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
 
           const { error: upsertErr } = await upsertConversationForEquivalentJid(admin, userId, device.id, {
-            remoteJid: jid,
-            name,
-            phone,
-            avatar,
+            remoteJid: jid, name, phone, avatar,
             lastMessage: lastMsg || "",
             lastMessageAt: lastMsgAt,
             unreadCount: unread,
           });
-
-          if (upsertErr) {
-            console.error(`[${device.name}] Upsert error for ${jid}:`, upsertErr.message);
-          } else {
-            totalSynced++;
-          }
+          if (!upsertErr) deviceSynced++;
         }
 
-        // Fetch recent messages for the top 15 conversations
+        // Fetch recent messages — TOP 15 only, in PARALLEL
         const { data: convs } = await admin
           .from("conversations")
           .select("id, remote_jid")
           .eq("user_id", userId)
           .eq("device_id", device.id)
           .order("last_message_at", { ascending: false })
-          .limit(50);
+          .limit(15);
 
-        if (convs && convs.length > 0) {
-          for (const conv of convs) {
-            try {
-              // Try multiple endpoints for fetching messages
-              let messages: any[] = [];
+        if (!convs || convs.length === 0) return { synced: deviceSynced };
 
-              for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
-                if (messages.length > 0) break;
+        const msgResults = await Promise.all(convs.map(async (conv: any) => {
+          const data = await fetchWithTimeout(
+            `${baseUrl}/message/find`, apiHeaders, "POST",
+            { chatid: conv.remote_jid, limit: 20 },
+          );
+          let arr: any[] = [];
+          if (data) {
+            arr = data.messages || data.data || data.result || (Array.isArray(data) ? data : []);
+            if (!Array.isArray(arr)) arr = [];
+          }
+          return { conv, messages: arr };
+        }));
 
-                const msgEndpoints = [
-                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatid: chatId, limit: 40 } },
-                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatId, limit: 40 } },
-                  { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId, count: 40 } },
-                  { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
-                  { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
-                ];
+        for (const { conv, messages } of msgResults) {
+          if (messages.length === 0) continue;
+          console.log(`[${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
 
-                for (const ep of msgEndpoints) {
-                  if (messages.length > 0) break;
-                  const data = await fetchSafe(ep.url, ep.method, ep.body);
-                  if (data) {
-                    const arr = data.messages || data.data || data.result || (Array.isArray(data) ? data : null);
-                    if (Array.isArray(arr) && arr.length > 0) messages = arr;
-                  }
-                }
-              }
+          for (const msg of messages) {
+            const messageNodes = collectMessageNodes(msg);
+            const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+            const content = firstString(
+              msg.body, msg.text, msg.caption, msg.content,
+              ...messageNodes.flatMap((node) => [
+                node.conversation, node.text, node.body,
+                node.extendedTextMessage?.text,
+                node.imageMessage?.caption,
+                node.videoMessage?.caption,
+                node.documentMessage?.caption,
+                node.documentMessage?.fileName,
+                typeof node.content === "string" ? node.content : "",
+                node.content?.text,
+              ]),
+            );
+            const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
+            const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
+            const timestamp = rawTs
+              ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
+              : new Date().toISOString();
 
-              if (messages.length === 0) continue;
+            const mediaUrl = firstString(
+              msg.mediaUrl, msg.media_url, msg.file, msg.fileUrl, msg.url,
+              ...messageNodes.flatMap((node) => [
+                node.mediaUrl, node.media_url, node.file, node.fileUrl, node.file_url,
+                node.url, node.link,
+                node.imageMessage?.url, node.audioMessage?.url, node.pttMessage?.url,
+                node.videoMessage?.url, node.documentMessage?.url,
+              ]),
+            ) || null;
 
-              console.log(`[${device.name}] ${conv.remote_jid}: ${messages.length} messages`);
+            const mediaType = inferMediaType(
+              firstString(msg.type, msg.messageType, msg.TypeMessage, ...messageNodes.flatMap((node) => [node.type, node.messageType, node.TypeMessage])),
+              firstString(msg.mimetype, msg.mimeType, ...messageNodes.flatMap((node) => [node.mimetype, node.mimeType, node.audioMessage?.mimetype, node.imageMessage?.mimetype, node.videoMessage?.mimetype, node.documentMessage?.mimetype])),
+              mediaUrl || "",
+            );
 
-              for (const msg of messages) {
-                const messageNodes = collectMessageNodes(msg);
-                const waId = msg.key?.id || msg.id?._serialized || msg.id?.id || msg.messageId || `${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-                const content = firstString(
-                  msg.body,
-                  msg.text,
-                  msg.caption,
-                  msg.content,
-                  ...messageNodes.flatMap((node) => [
-                    node.conversation,
-                    node.text,
-                    node.body,
-                    node.extendedTextMessage?.text,
-                    node.imageMessage?.caption,
-                    node.videoMessage?.caption,
-                    node.documentMessage?.caption,
-                    node.documentMessage?.fileName,
-                    typeof node.content === "string" ? node.content : "",
-                    node.content?.text,
-                  ]),
-                );
-                const fromMe = msg.key?.fromMe ?? msg.fromMe ?? false;
-                const rawTs = msg.messageTimestamp || msg.timestamp || msg.t;
-                const timestamp = rawTs
-                  ? new Date(typeof rawTs === "number" && rawTs < 1e12 ? rawTs * 1000 : Number(rawTs)).toISOString()
-                  : new Date().toISOString();
+            const audioDuration = mediaType === "audio"
+              ? Number(msg.duration || msg.seconds || messageNodes.map((node) => node.audioMessage?.seconds || node.pttMessage?.seconds || node.duration || node.seconds || null).find((value) => typeof value === "number" && value > 0) || 0) || null
+              : null;
 
-                const mediaUrl = firstString(
-                  msg.mediaUrl,
-                  msg.media_url,
-                  msg.file,
-                  msg.fileUrl,
-                  msg.url,
-                  ...messageNodes.flatMap((node) => [
-                    node.mediaUrl,
-                    node.media_url,
-                    node.file,
-                    node.fileUrl,
-                    node.file_url,
-                    node.url,
-                    node.link,
-                    node.imageMessage?.url,
-                    node.audioMessage?.url,
-                    node.pttMessage?.url,
-                    node.videoMessage?.url,
-                    node.documentMessage?.url,
-                  ]),
-                ) || null;
-
-                const mediaType = inferMediaType(
-                  firstString(msg.type, msg.messageType, msg.TypeMessage, ...messageNodes.flatMap((node) => [node.type, node.messageType, node.TypeMessage])),
-                  firstString(msg.mimetype, msg.mimeType, ...messageNodes.flatMap((node) => [node.mimetype, node.mimeType, node.audioMessage?.mimetype, node.imageMessage?.mimetype, node.videoMessage?.mimetype, node.documentMessage?.mimetype])),
-                  mediaUrl || "",
-                );
-
-                const audioDuration = mediaType === "audio"
-                  ? Number(
-                    msg.duration
-                    || msg.seconds
-                    || messageNodes.map((node) => node.audioMessage?.seconds || node.pttMessage?.seconds || node.duration || node.seconds || null).find((value) => typeof value === "number" && value > 0)
-                    || 0
-                  ) || null
-                  : null;
-
-                await admin.from("conversation_messages").upsert(
-                  {
-                    conversation_id: conv.id,
-                    user_id: userId,
-                    remote_jid: conv.remote_jid,
-                    content: content.substring(0, 5000),
-                    direction: fromMe ? "sent" : "received",
-                    status: fromMe ? (msg.ack >= 3 ? "read" : msg.ack >= 2 ? "delivered" : "sent") : "received",
-                    media_type: mediaType,
-                    media_url: mediaUrl,
-                    audio_duration: audioDuration,
-                    whatsapp_message_id: waId,
-                    created_at: timestamp,
-                  },
-                  { onConflict: "whatsapp_message_id" }
-                );
-              }
-            } catch (e: any) {
-              console.error(`[${device.name}] Messages error ${conv.remote_jid}:`, e.message);
-            }
+            await admin.from("conversation_messages").upsert(
+              {
+                conversation_id: conv.id,
+                user_id: userId,
+                remote_jid: conv.remote_jid,
+                content: content.substring(0, 5000),
+                direction: fromMe ? "sent" : "received",
+                status: fromMe ? (msg.ack >= 3 ? "read" : msg.ack >= 2 ? "delivered" : "sent") : "received",
+                media_type: mediaType,
+                media_url: mediaUrl,
+                audio_duration: audioDuration,
+                whatsapp_message_id: waId,
+                created_at: timestamp,
+              },
+              { onConflict: "whatsapp_message_id" }
+            );
           }
         }
+
+        return { synced: deviceSynced };
       } catch (e: any) {
         console.error(`[${device.name}] sync error:`, e.message);
-        errors.push(`${device.name}: ${e.message}`);
+        return { synced: deviceSynced, error: `${device.name}: ${e.message}` };
+      }
+    };
+
+    // Process devices in parallel batches of 6
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < eligibleDevices.length; i += BATCH_SIZE) {
+      const batch = eligibleDevices.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch.map(syncDevice));
+      for (const r of results) {
+        totalSynced += r.synced;
+        if (r.error) errors.push(r.error);
       }
     }
 
-    return new Response(JSON.stringify({ synced: totalSynced, devices: devices.length, errors }), {
+    return new Response(JSON.stringify({ synced: totalSynced, devices: eligibleDevices.length, errors }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
