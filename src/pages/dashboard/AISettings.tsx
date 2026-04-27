@@ -230,6 +230,7 @@ const AISettings = () => {
   const [learningInsights, setLearningInsights] = useState<any>(null);
   const [analyzingLearning, setAnalyzingLearning] = useState(false);
   const [exportingPrompt, setExportingPrompt] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ia" | "identidade" | "conhecimento" | "simulador" | "performance">("ia");
 
   // Load settings from DB
   useEffect(() => {
@@ -914,12 +915,43 @@ const AISettings = () => {
         </div>
       )}
 
-
-
+      {/* Navegação por Abas */}
+      <div className="flex gap-1 rounded-xl bg-muted/40 border border-border/40 p-1">
+        {([
+          { key: "ia",          icon: Bot,       label: "IA"           },
+          { key: "identidade",  icon: Building2, label: "Identidade"   },
+          { key: "conhecimento",icon: BookOpen,  label: "Conhecimento" },
+          { key: "simulador",   icon: MessageSquare, label: "Simulador"},
+          { key: "performance", icon: TrendingUp,label: "Performance"  },
+        ] as const).map(({ key, icon: Icon, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
+              activeTab === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Simulador */}
-      {iaActive && apiKeyStatus === "valid" && <AISimulator />}
+      {activeTab === "simulador" && iaActive && apiKeyStatus === "valid" && <AISimulator />}
+      {activeTab === "simulador" && (!iaActive || apiKeyStatus !== "valid") && (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-muted/40 flex items-center justify-center">
+            <MessageSquare className="h-5 w-5 text-muted-foreground/50" strokeWidth={1.5} />
+          </div>
+          <p className="text-sm font-medium text-foreground">Simulador indisponível</p>
+          <p className="text-xs text-muted-foreground max-w-xs">Ative a IA e configure uma chave de API válida para testar o assistente.</p>
+        </div>
+      )}
 
+      {activeTab === "ia" && <>
       {/* Modo de Operação */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
@@ -1467,6 +1499,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      </>}
+
+      {activeTab === "identidade" && <>
       {/* Informações do Negócio */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
@@ -1510,6 +1545,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      </>}
+
+      {activeTab === "conhecimento" && <>
       {/* Base de Conhecimento */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
@@ -1714,7 +1752,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* Modal de Upload */}
+      </>}
+
+      {/* Modal de Upload — sempre montado pois é um Dialog */}
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Adicionar à Base de Conhecimento</DialogTitle></DialogHeader>
@@ -1764,6 +1804,7 @@ const AISettings = () => {
         </DialogContent>
       </Dialog>
 
+      {activeTab === "ia" && <>
       {/* Modo de Atendimento */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
@@ -2004,6 +2045,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
+      </>}
+
+      {activeTab === "performance" && <>
       {/* Memória de Leads */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
@@ -2249,7 +2293,9 @@ const AISettings = () => {
         </CardContent>
       </Card>
 
-      {/* Lead History Dialog */}
+      </>}
+
+      {/* Lead History Dialog — sempre montado pois é um Dialog */}
       <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
