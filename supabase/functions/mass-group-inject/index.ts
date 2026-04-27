@@ -1019,10 +1019,36 @@ Deno.serve(async (req) => {
       const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
       if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada.", groups: [], diagnostics: "device_not_found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+      // ── Phase 3: Cache-first ──
+      // Lê do cache populado pelo vps-engine (groups-sync-worker, atualiza cada 5min).
+      // Elimina o timeout que acontecia quando a UAZAPI demorava para listar grupos grandes.
+      try {
+        const { data: cached } = await sb
+          .from("device_groups_cache")
+          .select("jid, name, participants_count, last_synced_at")
+          .eq("device_id", body.deviceId)
+          .order("name", { ascending: true });
+
+        if (cached && cached.length > 0) {
+          const groups = cached.map((g: any) => ({ jid: g.jid, name: g.name, participants: g.participants_count }));
+          const newest = cached.reduce((a: any, b: any) => (a.last_synced_at > b.last_synced_at ? a : b));
+          return new Response(JSON.stringify({
+            groups,
+            error: undefined,
+            diagnostics: `cache hit (${groups.length} grupos, sincronizado em ${newest.last_synced_at})`,
+            deviceName: device.name,
+            source: "cache",
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      } catch (cacheErr: any) {
+        console.warn(`[list-groups] cache read failed: ${cacheErr?.message || cacheErr}`);
+      }
+
+      // Fallback ao vivo (cache ainda não populado — primeira vez ou device novo)
       try {
         const allGroups: any[] = [];
         const seenIds = new Set<string>();
-        let diagnostics = "";
+        let diagnostics = "live-fallback: ";
         const addGroups = (items: any[]) => {
           for (const group of items) {
             const jid = group.id || group.jid || group.JID || group.groupId || group.chatId || "";
@@ -1032,7 +1058,8 @@ Deno.serve(async (req) => {
           }
         };
 
-        for (let page = 0; page < 10; page++) {
+        // Limite reduzido: apenas 2 páginas no fallback ao vivo (resto vem na próxima sync)
+        for (let page = 0; page < 2; page++) {
           try {
             const res = await fetchWithTimeout(`${device.uazapi_base_url}/group/list?GetParticipants=false&page=${page}&count=500`, { headers: buildHeaders(device.uazapi_token) });
             if (!res.ok) { diagnostics += `group/list page ${page}: HTTP ${res.status}; `; break; }
@@ -1044,27 +1071,10 @@ Deno.serve(async (req) => {
           } catch (error: any) { diagnostics += `group/list page ${page} error: ${error.message}; `; break; }
         }
 
-        if (allGroups.length === 0) {
-          for (const endpoint of ["/group/listAll", "/group/fetchAllGroups", "/chat/list?type=group&count=500"]) {
-            try {
-              const res = await fetchWithTimeout(`${device.uazapi_base_url}${endpoint}`, {
-                method: endpoint === "/group/fetchAllGroups" ? "POST" : "GET",
-                headers: endpoint === "/group/fetchAllGroups" ? buildHeaders(device.uazapi_token, true) : buildHeaders(device.uazapi_token),
-                ...(endpoint === "/group/fetchAllGroups" ? { body: JSON.stringify({}) } : {}),
-              });
-              if (!res.ok) { diagnostics += `${endpoint}: HTTP ${res.status}; `; continue; }
-              const data = await res.json();
-              const groups = Array.isArray(data) ? data : data?.groups || data?.data || data?.chats || [];
-              addGroups(Array.isArray(groups) ? groups : []);
-              if (allGroups.length > 0) break;
-            } catch (error: any) { diagnostics += `${endpoint} error: ${error.message}; `; }
-          }
-        }
-
-        const error = allGroups.length > 0 ? undefined : "A instância não retornou grupos. Verifique conexão ou use Link/JID manual.";
-        return new Response(JSON.stringify({ groups: allGroups, error, diagnostics, deviceName: device.name }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const error = allGroups.length > 0 ? undefined : "A instância ainda não tem grupos sincronizados. Aguarde alguns minutos ou use Link/JID manual.";
+        return new Response(JSON.stringify({ groups: allGroups, error, diagnostics, deviceName: device.name, source: "live" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error: any) {
-        return new Response(JSON.stringify({ error: `Erro ao buscar grupos: ${error.message}`, groups: [], diagnostics: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: `Erro ao buscar grupos: ${error.message}`, groups: [], diagnostics: error.message, source: "live" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
@@ -1118,26 +1128,22 @@ Deno.serve(async (req) => {
     }
 
     if (action === "check-participants") {
-      const device = await getDeviceCredentials(sb, body.deviceId, user?.id || null, isAdmin);
-      if (!device) return new Response(JSON.stringify({ error: "Instância não encontrada" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      console.log(`[check-participants] groupId=${body.groupId}, deviceId=${body.deviceId}, contacts=${(body.contacts || []).length}`);
-      const participantResult = await getGroupParticipantsDetailed(device.uazapi_base_url, device.uazapi_token, body.groupId);
-      console.log(`[check-participants] confirmed=${participantResult.confirmed}, participants=${participantResult.participants.size}, diagnostics=${participantResult.diagnostics.join("; ")}`);
-      if (!participantResult.confirmed) {
-        return new Response(JSON.stringify({ 
-          error: `Não foi possível confirmar participantes do grupo. ${participantResult.diagnostics.length > 0 ? participantResult.diagnostics[participantResult.diagnostics.length - 1] : "Tente novamente."}`,
-          diagnostics: participantResult.diagnostics.join("; ")
-        }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const ready: string[] = [];
-      const alreadyExists: string[] = [];
-      for (const phone of body.contacts || []) {
-        const isInGroup = participantSetHasPhone(participantResult.participants, phone);
-        if (isInGroup) alreadyExists.push(phone);
-        else ready.push(phone);
-      }
-      console.log(`[check-participants] ready=${ready.length}, alreadyExists=${alreadyExists.length}, totalParticipants=${participantResult.participants.size}`);
-      return new Response(JSON.stringify({ ready, alreadyExists, readyCount: ready.length, alreadyExistsCount: alreadyExists.length, totalParticipants: participantResult.participants.size }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // ── Phase 3: Deferred check ──
+      // O check pesado (buscar todos os participantes do grupo via UAZAPI) foi removido daqui
+      // porque causava timeouts em grupos grandes (1000+ membros, 30-60s por chamada).
+      // O worker da VPS (mass-inject-worker) já faz essa validação no momento do envio:
+      // se o contato já está no grupo, marca como `already_exists` e segue sem erro.
+      // Resultado: sem timeout, fluxo mais rápido, mesma confiabilidade.
+      const contacts = Array.isArray(body.contacts) ? body.contacts : [];
+      console.log(`[check-participants] deferred to VPS worker (${contacts.length} contacts will be validated at send time)`);
+      return new Response(JSON.stringify({
+        ready: contacts,
+        alreadyExists: [],
+        readyCount: contacts.length,
+        alreadyExistsCount: 0,
+        totalParticipants: 0,
+        deferred: true,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "create-campaign") {

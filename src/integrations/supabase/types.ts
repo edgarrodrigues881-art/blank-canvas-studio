@@ -3108,6 +3108,57 @@ export type Database = {
         }
         Relationships: []
       }
+      device_groups_cache: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: string
+          jid: string
+          last_synced_at: string
+          name: string
+          participants_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: string
+          jid: string
+          last_synced_at?: string
+          name?: string
+          participants_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: string
+          jid?: string
+          last_synced_at?: string
+          name?: string
+          participants_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_groups_cache_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_groups_cache_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       device_last_sent: {
         Row: {
           device_id: string
