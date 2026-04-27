@@ -204,6 +204,8 @@ const Devices = () => {
   const prefetchQrPromiseRef = useRef<Promise<any> | null>(null);
   const prewarmPromiseRef = useRef<Promise<any> | null>(null);
   const [qrLoadingStage, setQrLoadingStage] = useState<"idle" | "init" | "generating" | "connecting">("idle");
+  const [qrRefreshing, setQrRefreshing] = useState(false);
+  const qrRefreshLockRef = useRef<boolean>(false);
   // Auto-refresh do código de pareamento (expira em ~60s no WhatsApp)
   const [pairingCountdown, setPairingCountdown] = useState(50);
   const [pairingRefreshing, setPairingRefreshing] = useState(false);
