@@ -850,12 +850,12 @@ export default function Leads() {
   return (
     <div className="space-y-5 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
           <CrmPageTitle>Leads</CrmPageTitle>
           <p className="text-sm text-muted-foreground mt-2">{leads.length} leads cadastrados • Gerencie suas oportunidades com eficiência</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
           <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} className="gap-1.5 font-semibold">
             <Upload className="w-3.5 h-3.5" /> Importar
