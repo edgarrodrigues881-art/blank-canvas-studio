@@ -2048,7 +2048,195 @@ const AISettings = () => {
       </>}
 
       {activeTab === "performance" && <>
-      {/* Memória de Leads */}
+
+      {/* ── Métricas Principais ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Respostas hoje",     value: aiMessagesToday, icon: MessageSquare, color: "text-primary",      bg: "bg-primary/8",      border: "border-primary/20"      },
+          { label: "Leads qualificados", value: aiLeadsToday,    icon: UserCheck,     color: "text-emerald-400", bg: "bg-emerald-500/8",  border: "border-emerald-500/20"  },
+          { label: "Conversas ativas",   value: aiActiveConvos,  icon: PhoneCall,     color: "text-blue-400",    bg: "bg-blue-500/8",     border: "border-blue-500/20"     },
+          { label: "Taxa de conversão",  value: leads.length > 0 ? `${Math.round((leads.filter(l => l.stage === "hot").length / leads.length) * 100)}%` : "—", icon: TrendingUp, color: "text-amber-400", bg: "bg-amber-500/8", border: "border-amber-500/20" },
+        ].map((m) => (
+          <div key={m.label} className={`rounded-xl border ${m.border} ${m.bg} p-4 flex flex-col gap-2`}>
+            <m.icon className={`h-4 w-4 ${m.color}`} strokeWidth={1.5} />
+            <span className="text-2xl font-bold text-foreground tracking-tight">{m.value}</span>
+            <p className="text-[11px] text-muted-foreground leading-tight">{m.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Distribuição de Leads + Intenções ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Funil de temperatura */}
+        <Card>
+          <CardHeader className="pb-3 px-5 pt-5">
+            <div className="flex items-center gap-2">
+              <Flame className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              <CardTitle className="text-sm tracking-tight">Temperatura dos Leads</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 space-y-2.5">
+            {leads.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum lead ainda</p>
+            ) : (
+              [
+                { label: "🔥 Quentes",  stage: "hot",  color: "bg-red-500",   textColor: "text-red-400"   },
+                { label: "🌡 Mornos",   stage: "warm", color: "bg-amber-500", textColor: "text-amber-400" },
+                { label: "❄️ Frios",    stage: "cold", color: "bg-blue-500",  textColor: "text-blue-400"  },
+              ].map(({ label, stage, color, textColor }) => {
+                const count = leads.filter(l => l.stage === stage).length;
+                const pct = leads.length > 0 ? Math.round((count / leads.length) * 100) : 0;
+                return (
+                  <div key={stage} className="space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className={`font-medium ${textColor}`}>{label}</span>
+                      <span className="text-muted-foreground">{count} leads · {pct}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+            <p className="text-[10px] text-muted-foreground pt-1">Total: {leads.length} leads monitorados</p>
+          </CardContent>
+        </Card>
+
+        {/* Intenções detectadas */}
+        <Card>
+          <CardHeader className="pb-3 px-5 pt-5">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              <CardTitle className="text-sm tracking-tight">Intenções Detectadas</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 space-y-2.5">
+            {leads.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Nenhum dado ainda</p>
+            ) : (
+              (() => {
+                const intentCounts: Record<string, number> = { curious: 0, interested: 0, ready_to_buy: 0, objection: 0 };
+                leads.forEach(l => {
+                  try { const n = JSON.parse(l.notes || "{}"); if (n.last_intent) intentCounts[n.last_intent] = (intentCounts[n.last_intent] || 0) + 1; } catch {}
+                });
+                const total = Object.values(intentCounts).reduce((a, b) => a + b, 0) || 1;
+                return [
+                  { key: "curious",      label: "🔎 Curioso",          color: "bg-slate-400"   },
+                  { key: "interested",   label: "💡 Interessado",       color: "bg-blue-500"    },
+                  { key: "ready_to_buy", label: "🔥 Pronto p/ comprar", color: "bg-emerald-500" },
+                  { key: "objection",    label: "🛡️ Objeção",           color: "bg-amber-500"   },
+                ].map(({ key, label, color }) => {
+                  const count = intentCounts[key] || 0;
+                  const pct = Math.round((count / total) * 100);
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-foreground">{count} · {pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Motor de Aprendizado ── */}
+      <Card>
+        <CardHeader className="pb-4 px-6 pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Brain className="h-4 w-4 text-primary" strokeWidth={1.5} />
+              <div>
+                <CardTitle className="text-base tracking-tight">Motor de Aprendizado</CardTitle>
+                <CardDescription className="text-xs mt-0.5">A IA analisa conversas e evolui automaticamente</CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {learningInsights?.confidence_score != null && (
+                <Badge variant="outline" className="text-[10px] font-normal gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  {learningInsights.confidence_score}% confiança
+                </Badge>
+              )}
+              <Button onClick={runLearningAnalysis} disabled={analyzingLearning} size="sm" className="gap-1.5">
+                {analyzingLearning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" strokeWidth={1.5} />}
+                {analyzingLearning ? "Analisando..." : "Analisar"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 px-6 pb-6">
+          {learningInsights ? (
+            <>
+              {/* Resumo */}
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-foreground">Resumo da análise</p>
+                  <span className="text-[10px] text-muted-foreground">{learningInsights.total_conversations_analyzed || 0} conversas · {learningInsights.updated_at ? new Date(learningInsights.updated_at).toLocaleDateString("pt-BR") : "—"}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{learningInsights.insights_summary || "Nenhum resumo disponível"}</p>
+              </div>
+
+              {/* 4 blocos de insights */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { label: "✅ O que funciona",          data: learningInsights.successful_patterns, cls: "border-emerald-500/30 bg-emerald-500/5" },
+                  { label: "❌ O que não funciona",       data: learningInsights.failure_patterns,    cls: "border-red-500/30 bg-red-500/5"         },
+                  { label: "🛡️ Contorno de objeções",    data: learningInsights.objection_handlers,  cls: "border-amber-500/30 bg-amber-500/5"     },
+                  { label: "🤝 Técnicas de fechamento",  data: learningInsights.closing_techniques,  cls: "border-primary/30 bg-primary/5"         },
+                ].map((section) => (
+                  <div key={section.label} className={`rounded-lg border p-3 space-y-1.5 ${section.cls}`}>
+                    <p className="text-[11px] font-semibold text-foreground">{section.label}</p>
+                    {(section.data as string[] || []).length > 0 ? (
+                      (section.data as string[]).slice(0, 4).map((item: string, i: number) => (
+                        <p key={i} className="text-[11px] text-muted-foreground leading-relaxed flex gap-1.5"><span className="shrink-0">•</span>{item}</p>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground italic">Sem dados ainda</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Prompt evoluído */}
+              {learningInsights.evolved_prompt && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                      <p className="text-xs font-medium text-primary">Prompt Evoluído pela IA</p>
+                    </div>
+                    <Button onClick={exportEvolvedPrompt} disabled={exportingPrompt} variant="ghost" size="sm" className="h-6 text-[11px] px-2 gap-1 text-primary hover:text-primary">
+                      {exportingPrompt ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                      Exportar
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-4">{learningInsights.evolved_prompt}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-muted/40 flex items-center justify-center">
+                <Brain className="h-5 w-5 text-muted-foreground/50" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Nenhuma análise ainda</p>
+                <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">Clique em "Analisar" para a IA aprender com seus atendimentos e melhorar a persuasão automaticamente</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Memória de Leads ── */}
       <Card>
         <CardHeader className="pb-4 px-6 pt-6">
           <div className="flex items-center gap-2.5">
@@ -2171,124 +2359,6 @@ const AISettings = () => {
                 <p className="text-[10px] text-muted-foreground mt-0.5">A IA usa o nome, interesse e estágio para personalizar: "Você mencionou que queria X..." — tudo automático</p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Motor de Aprendizado */}
-      <Card>
-        <CardHeader className="pb-4 px-6 pt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-primary/8 border border-primary/10 flex items-center justify-center">
-                <Rocket className="h-4 w-4 text-primary" strokeWidth={1.5} />
-              </div>
-              <div>
-                <CardTitle className="text-base tracking-tight">Motor de Aprendizado</CardTitle>
-                <CardDescription className="text-xs mt-0.5">A IA analisa conversas e evolui automaticamente</CardDescription>
-              </div>
-            </div>
-            {learningInsights?.confidence_score != null && (
-              <Badge variant="outline" className="text-[10px] font-normal">
-                Confiança: {learningInsights.confidence_score}%
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5 px-6 pb-6">
-          {/* Status */}
-          {learningInsights ? (
-            <div className="space-y-3">
-              <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                <p className="text-xs font-medium text-foreground mb-1">Resumo da Analise</p>
-                <p className="text-[11px] text-muted-foreground">{learningInsights.insights_summary || "Nenhum resumo disponível"}</p>
-                <p className="text-[10px] text-muted-foreground mt-2">
-                  Conversas analisadas: {learningInsights.total_conversations_analyzed || 0} • 
-                  Última análise: {learningInsights.updated_at ? new Date(learningInsights.updated_at).toLocaleDateString("pt-BR") : "—"}
-                </p>
-              </div>
-
-              {/* Patterns grid */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { label: "O que funciona", data: learningInsights.successful_patterns, color: "border-green-500/30 bg-green-500/5" },
-                  { label: "O que nao funciona", data: learningInsights.failure_patterns, color: "border-red-500/30 bg-red-500/5" },
-                  { label: "Contorno de objecoes", data: learningInsights.objection_handlers, color: "border-amber-500/30 bg-amber-500/5" },
-                  { label: "Tecnicas de fechamento", data: learningInsights.closing_techniques, color: "border-primary/30 bg-primary/5" },
-                ].map((section) => (
-                  <div key={section.label} className={`rounded-lg border p-2.5 ${section.color}`}>
-                    <p className="text-[10px] font-semibold mb-1">{section.label}</p>
-                    {(section.data as string[] || []).slice(0, 3).map((item: string, i: number) => (
-                      <p key={i} className="text-[10px] text-muted-foreground leading-relaxed">• {item}</p>
-                    ))}
-                    {(!section.data || (section.data as string[]).length === 0) && (
-                      <p className="text-[10px] text-muted-foreground italic">Sem dados ainda</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Evolved prompt preview */}
-              {learningInsights.evolved_prompt && (
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-                  <div className="flex items-start gap-2">
-                    <Brain className="h-4 w-4 text-primary mt-0.5 shrink-0" strokeWidth={1.5} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-primary">Prompt Evoluído</p>
-                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-3">{learningInsights.evolved_prompt}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-4 text-center">
-              <Brain className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
-              <p className="text-sm font-medium text-foreground">Nenhuma análise ainda</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Clique em "Analisar Conversas" para a IA aprender com seus atendimentos</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              onClick={runLearningAnalysis}
-              disabled={analyzingLearning}
-              className="flex-1"
-              size="sm"
-            >
-              {analyzingLearning ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  Analisando...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-3.5 w-3.5 mr-1.5" />
-                  Analisar Conversas
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={exportEvolvedPrompt}
-              disabled={exportingPrompt || !learningInsights?.evolved_prompt}
-              variant="outline"
-              size="sm"
-            >
-              {exportingPrompt ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-              ) : (
-                <FileText className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Exportar Prompt
-            </Button>
-          </div>
-
-          <div className="rounded-lg border border-muted bg-muted/10 p-2.5">
-            <p className="text-[10px] text-muted-foreground">
-              <strong>Como funciona:</strong> A IA analisa conversas bem-sucedidas vs. perdidas, identifica padroes de persuasao que funcionam, 
-              tecnicas de fechamento eficazes e pontos onde leads sao perdidos. O prompt evolui automaticamente a cada analise.
-            </p>
           </div>
         </CardContent>
       </Card>
