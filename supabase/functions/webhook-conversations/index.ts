@@ -334,20 +334,25 @@ Deno.serve(async (req) => {
     }
 
     // ── Idempotency check FIRST (before any counter mutation) ──
-    // Prevents duplicate webhooks from inflating unread_count or last_message.
-    // UAZAPI sometimes returns waId as `<remoteJid>:<id>` (echo de envio) e outras
-    // vezes só `<id>` (mensagem chegando). Normalizamos para apenas o id final
-    // para que o id salvo pelo chat-send (apenas <id>) bata com o do webhook.
+    // Now scoped per conversation: messages exchanged between two of the user's
+    // own instances share the same UAZAPI messageid, but each instance has its
+    // own conversation. We must not skip processing for the receiving side just
+    // because the sending side already saved the echo.
     const normalizedWaId = waId && waId.includes(":") ? waId.split(":").pop()! : waId;
+    let isDuplicate = false;
     if (normalizedWaId) {
       const { data: existing } = await admin.from("conversation_messages")
         .select("id")
+        .eq("conversation_id", conversationId)
         .or(`whatsapp_message_id.eq.${normalizedWaId},whatsapp_message_id.eq.${waId}`)
         .maybeSingle();
       if (existing) {
-        console.log(`Duplicate message skipped: ${waId} (normalized: ${normalizedWaId})`);
-        return json({ ok: true, skipped: "duplicate" });
+        console.log(`Duplicate message skipped (per conversation): ${waId} (normalized: ${normalizedWaId})`);
+        isDuplicate = true;
       }
+    }
+    if (isDuplicate) {
+      return json({ ok: true, skipped: "duplicate" });
     }
 
     if (!fromMe) {
