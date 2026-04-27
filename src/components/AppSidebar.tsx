@@ -170,6 +170,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const beta = useBetaFeatures();
   const { data: stats } = useSidebarStats();
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
