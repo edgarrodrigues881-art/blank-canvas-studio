@@ -107,9 +107,17 @@ export function NewConversationDialog({
 
   const fetchDevices = useCallback(async () => {
     setLoadingDevices(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setDevices([]);
+      setLoadingDevices(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("devices")
       .select("id, name, number, status, uazapi_base_url")
+      .eq("user_id", uid)
       .not("uazapi_base_url", "is", null)
       .order("name");
 
@@ -154,11 +162,15 @@ export function NewConversationDialog({
       const filters: string[] = [`name.ilike.%${term}%`];
       if (digits.length >= 2) filters.push(`phone.ilike.%${digits}%`);
 
-      const { data } = await supabase
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      let query = supabase
         .from("contacts")
         .select("id, name, phone")
         .or(filters.join(","))
         .limit(8);
+      if (uid) query = query.eq("user_id", uid);
+      const { data } = await query;
 
       setSuggestions(data || []);
       setLoadingSuggestions(false);
