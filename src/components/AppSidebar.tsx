@@ -46,6 +46,7 @@ import {
   Workflow,
   Zap,
   Plug,
+  BellRing,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -449,6 +450,7 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Assistente", url: "/dashboard/ai-settings", icon: BotMessageSquare })}
+                  {renderNavItem({ title: "Notificações IA", url: "/dashboard/ai-alerts", icon: BellRing })}
                   {renderNavItem({ title: "Fluxo", url: "/dashboard/flows", icon: Workflow })}
                   {renderNavItem({ title: "Respostas Rápidas", url: "/dashboard/quick-replies", icon: Zap })}
                   {renderNavItem({ title: "Integrações", url: "/dashboard/crm-integrations", icon: Plug })}
