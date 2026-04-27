@@ -1114,7 +1114,7 @@ async function mainLoop() {
     guardedLoop("autoreply", async () => {
       const db = getDb();
       await autoreplyTick(db);
-    }, 2_000)(),
+    }, 500)(),
 
     guardedLoop("scheduledMsg", async () => {
       await scheduledMessagesTick();

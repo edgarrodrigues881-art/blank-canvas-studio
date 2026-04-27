@@ -44,10 +44,10 @@ function markProcessed(key: string): void {
 }
 
 // ── Inter-message spacing ──
-// Envio instantâneo: o usuário pediu para que o fluxo dispare sem delays
-// artificiais. Mantemos apenas um pequeno espaçamento entre mensagens
-// subsequentes (150ms) para garantir ordem de chegada no WhatsApp.
-const INTER_MESSAGE_SPACING_MS = 150;
+// Envio ultra-instantâneo: 0ms de espaçamento. As mensagens são despachadas
+// em sequência imediata. A ordem é garantida pelo await sequencial e pela
+// própria UAZAPI processar o socket FIFO por device.
+const INTER_MESSAGE_SPACING_MS = 0;
 
 export function getAutoreplyStatus() {
   return { ..._stats, lastTick: _lastTickAt?.toISOString() || null };
@@ -329,10 +329,9 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   if (recentSession?.last_message_at) {
     const elapsed = Date.now() - new Date(recentSession.last_message_at).getTime();
-    // Reduced from 30s → 5s. The active-session re-trigger guard below
-    // already prevents flow restarts; the cooldown only needs to absorb
-    // bursts (multiple webhook calls for the same incoming message).
-    if (elapsed < 5000 && !hasButtonResponse) {
+    // Cooldown mínimo (1s) só para absorver webhooks duplicados imediatos.
+    // A guarda de "sessão ativa" abaixo previne re-trigger real do fluxo.
+    if (elapsed < 1000 && !hasButtonResponse) {
       log.info(`Anti-loop cooldown: ${elapsed}ms since last message`);
       return;
     }
