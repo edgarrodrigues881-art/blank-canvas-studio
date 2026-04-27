@@ -249,6 +249,14 @@ export function ChatPanel({
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
 
+  // Mostra "digitando..." / "gravando áudio..." no WhatsApp do contato
+  // enquanto o atendente edita ou grava.
+  useChatPresence({
+    conversationId: conversation.id,
+    input,
+    isRecording,
+  });
+
   const allQuickReplies = dbReplies.length > 0 ? dbReplies : defaultQuickReplies;
 
   // Send a quick reply as a sequence of blocks (text/image/audio/file) with delays
