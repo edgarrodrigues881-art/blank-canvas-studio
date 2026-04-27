@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth";
 type StatusFilter = "NOVA" | "USANDO" | "USADA" | "INVALID" | null;
 
 const PROXY_DISCLAIMER_KEY = "proxy-disclaimer-accepted";
+import { useDismissedWarnings } from "@/hooks/useDismissedWarnings";
 
 const statusConfig = {
   NOVA: { label: "Livre", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", dot: "bg-emerald-400" },
