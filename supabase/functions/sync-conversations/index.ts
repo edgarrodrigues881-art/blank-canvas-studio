@@ -214,44 +214,25 @@ Deno.serve(async (req) => {
       };
 
       try {
-        // Try multiple endpoints to fetch chats (private conversations, not groups)
+        // UAZAPI v2 official endpoint: POST /chat/find
         let chats: any[] = [];
 
-        // Endpoint 1: /chats (GET) - most common
-        const data1 = await fetchSafe(`${baseUrl}/chats?count=200`);
-        if (data1) {
-          const arr = Array.isArray(data1.chats || data1.data || data1) ? (data1.chats || data1.data || data1) : [];
-          chats = arr;
-          console.log(`[${device.name}] /chats: ${arr.length} results`);
-        }
+        const findAttempts = [
+          { url: `${baseUrl}/chat/find`, method: "POST", body: { operator: "AND", sort: "-wa_lastMsgTimestamp", limit: 50 } },
+          { url: `${baseUrl}/chat/find`, method: "POST", body: { limit: 50 } },
+          { url: `${baseUrl}/chats?count=50`, method: "GET" },
+          { url: `${baseUrl}/chat/list?count=50`, method: "GET" },
+        ];
 
-        // Endpoint 2: /chat/list (GET) - fallback
-        if (chats.length === 0) {
-          const data2 = await fetchSafe(`${baseUrl}/chat/list?count=200`);
-          if (data2) {
-            const arr = Array.isArray(data2.chats || data2.data || data2) ? (data2.chats || data2.data || data2) : [];
-            chats = arr;
-            console.log(`[${device.name}] /chat/list: ${arr.length} results`);
-          }
-        }
-
-        // Endpoint 3: /chat/getChats (GET) - another fallback
-        if (chats.length === 0) {
-          const data3 = await fetchSafe(`${baseUrl}/chat/getChats`);
-          if (data3) {
-            const arr = Array.isArray(data3.chats || data3.data || data3) ? (data3.chats || data3.data || data3) : [];
-            chats = arr;
-            console.log(`[${device.name}] /chat/getChats: ${arr.length} results`);
-          }
-        }
-
-        // Endpoint 4: /chat/fetchChats (GET instead of POST)
-        if (chats.length === 0) {
-          const data4 = await fetchSafe(`${baseUrl}/chat/fetchChats`);
-          if (data4) {
-            const arr = Array.isArray(data4.chats || data4.data || data4) ? (data4.chats || data4.data || data4) : [];
-            chats = arr;
-            console.log(`[${device.name}] /chat/fetchChats GET: ${arr.length} results`);
+        for (const att of findAttempts) {
+          if (chats.length > 0) break;
+          const data = await fetchSafe(att.url, att.method, att.body);
+          if (data) {
+            const arr = data.chats || data.data || data.result || (Array.isArray(data) ? data : null);
+            if (Array.isArray(arr) && arr.length > 0) {
+              chats = arr;
+              console.log(`[${device.name}] ${att.method} ${att.url}: ${arr.length} results`);
+            }
           }
         }
 
@@ -263,23 +244,23 @@ Deno.serve(async (req) => {
 
         // Filter only private chats (exclude groups and status)
         const privateChats = chats.filter((c: any) => {
-          const jid = c.JID || c.jid || c.id || c.chatId || "";
+          const jid = c.wa_chatid || c.JID || c.jid || c.id || c.chatId || c.chatid || "";
           return jid && !jid.endsWith("@g.us") && !jid.includes("status@") && jid !== "status";
         });
 
         console.log(`[${device.name}] ${privateChats.length} private chats (of ${chats.length} total)`);
 
         for (const chat of privateChats) {
-          const jid = chat.JID || chat.jid || chat.id || chat.chatId || "";
+          const jid = chat.wa_chatid || chat.JID || chat.jid || chat.id || chat.chatId || chat.chatid || "";
           const phone = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-          const name = chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
-          const lastMsg = chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
-          const lastMsgTs = chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
+          const name = chat.wa_name || chat.lead_name || chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
+          const lastMsg = chat.wa_lastMessageText || chat.wa_lastMsgText || chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
+          const lastMsgTs = chat.wa_lastMsgTimestamp || chat.wa_lastMessageTimestamp || chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
           const lastMsgAt = lastMsgTs
             ? new Date(typeof lastMsgTs === "number" && lastMsgTs < 1e12 ? lastMsgTs * 1000 : lastMsgTs).toISOString()
             : new Date().toISOString();
-          const unread = chat.UnreadCount || chat.unreadCount || chat.unread || 0;
-          const avatar = chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
+          const unread = chat.wa_unreadCount || chat.UnreadCount || chat.unreadCount || chat.unread || 0;
+          const avatar = chat.image || chat.imagePreview || chat.ProfilePicUrl || chat.profilePicUrl || chat.imgUrl || chat.Contact?.profilePicUrl || null;
 
           const { error: upsertErr } = await upsertConversationForEquivalentJid(admin, userId, device.id, {
             remoteJid: jid,
@@ -316,22 +297,20 @@ Deno.serve(async (req) => {
               for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
                 if (messages.length > 0) break;
 
-                const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId, count: 40 });
-                if (msgData1) {
-                  messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
-                }
+                const msgEndpoints = [
+                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatid: chatId, limit: 40 } },
+                  { url: `${baseUrl}/message/find`, method: "POST", body: { chatId, limit: 40 } },
+                  { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId, count: 40 } },
+                  { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
+                  { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`, method: "GET" },
+                ];
 
-                if (messages.length === 0) {
-                  const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`);
-                  if (msgData2) {
-                    messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
-                  }
-                }
-
-                if (messages.length === 0) {
-                  const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`);
-                  if (msgData3) {
-                    messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
+                for (const ep of msgEndpoints) {
+                  if (messages.length > 0) break;
+                  const data = await fetchSafe(ep.url, ep.method, ep.body);
+                  if (data) {
+                    const arr = data.messages || data.data || data.result || (Array.isArray(data) ? data : null);
+                    if (Array.isArray(arr) && arr.length > 0) messages = arr;
                   }
                 }
               }
