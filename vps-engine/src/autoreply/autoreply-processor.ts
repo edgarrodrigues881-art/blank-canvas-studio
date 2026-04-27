@@ -127,7 +127,7 @@ interface FlowNode {
     text?: string;
     imageUrl?: string;
     imageCaption?: string;
-    buttons?: { id: string; label: string; targetNodeId: string }[];
+    buttons?: { id: string; label: string; targetNodeId: string; type?: "reply" | "url" | "phone"; url?: string; phone?: string }[];
     delaySeconds?: number;
     action?: string;
     templateId?: string;
