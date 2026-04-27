@@ -89,13 +89,18 @@ async function uazapiSend(baseUrl: string, token: string, endpoint: string, payl
 
 async function sendFlowMessage(
   baseUrl: string, token: string, phone: string, text: string,
-  imageUrl?: string, buttons?: { id: string; label: string }[]
+  imageUrl?: string, buttons?: { id: string; label: string }[],
+  isFirst: boolean = false
 ) {
   const cleanPhone = phone.replace(/\D/g, "");
 
   // ── Humanized delay: simulate reading + typing ──
-  const typingDelay = Math.max(humanTypingDelay(text), MIN_RESPONSE_DELAY_MS);
-  log.info(`Simulating ${(typingDelay / 1000).toFixed(1)}s typing delay for ${text.length} chars`);
+  // First message of flow → respond instantly (only minimum floor).
+  // Subsequent messages → human-like typing delay.
+  const typingDelay = isFirst
+    ? 200
+    : Math.max(humanTypingDelay(text), MIN_RESPONSE_DELAY_MS);
+  log.info(`Simulating ${(typingDelay / 1000).toFixed(1)}s typing delay for ${text.length} chars (first=${isFirst})`);
   await new Promise(r => setTimeout(r, typingDelay));
 
   if (buttons && buttons.length > 0) {
@@ -436,7 +441,8 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
       try {
         await sendFlowMessage(baseUrl, deviceToken, fromPhone, startNode.data.text,
           startNode.data.imageUrl || undefined,
-          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label })));
+          startNode.data.buttons?.map(b => ({ id: b.id, label: b.label })),
+          true);
       } catch (err: any) {
         log.error(`Failed to send start message: ${err.message}`);
         return;
