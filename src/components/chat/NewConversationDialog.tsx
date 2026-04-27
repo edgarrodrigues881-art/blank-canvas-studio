@@ -162,11 +162,15 @@ export function NewConversationDialog({
       const filters: string[] = [`name.ilike.%${term}%`];
       if (digits.length >= 2) filters.push(`phone.ilike.%${digits}%`);
 
-      const { data } = await supabase
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      let query = supabase
         .from("contacts")
         .select("id, name, phone")
         .or(filters.join(","))
         .limit(8);
+      if (uid) query = query.eq("user_id", uid);
+      const { data } = await query;
 
       setSuggestions(data || []);
       setLoadingSuggestions(false);
