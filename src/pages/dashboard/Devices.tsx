@@ -2447,7 +2447,10 @@ const Devices = () => {
                 onChange={e => setInstanceName(e.target.value)}
                 placeholder="Ex: Chip 01"
                 className="h-11 text-sm rounded-xl"
-                autoFocus
+                onFocus={e => {
+                  const v = e.target.value;
+                  e.target.setSelectionRange(v.length, v.length);
+                }}
                 onKeyDown={e => { if (e.key === "Enter") handleCreate(); }}
               />
             </div>
@@ -3088,6 +3091,10 @@ const Devices = () => {
                   onChange={e => setBulkPrefix(e.target.value)}
                   placeholder="Instância"
                   className="h-10 text-sm"
+                  onFocus={e => {
+                    const v = e.target.value;
+                    e.target.setSelectionRange(v.length, v.length);
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
