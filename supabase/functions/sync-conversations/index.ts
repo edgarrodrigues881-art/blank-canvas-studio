@@ -508,7 +508,11 @@ async function syncSingleConversation(
       for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
         if (messages.length > 0) break;
 
+        // UAZAPI v2 official endpoint: POST /message/find
+        // Fallbacks kept for retro-compat with older instances/forks
         const endpoints = [
+          { url: `${baseUrl}/message/find`, method: "POST", body: { chatid: chatId, limit: 50 } },
+          { url: `${baseUrl}/message/find`, method: "POST", body: { chatId, limit: 50 } },
           { url: `${baseUrl}/chat/fetchMessages`, method: "POST", body: { chatId, count: 50 } },
           { url: `${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=50`, method: "GET" },
           { url: `${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=50`, method: "GET" },
@@ -519,7 +523,10 @@ async function syncSingleConversation(
           if (messages.length > 0) break;
           const data = await fetchSafe(ep.url, ep.method, ep.body);
           if (data) {
-            messages = Array.isArray(data.messages || data.data || data) ? (data.messages || data.data || data) : [];
+            const arr = data.messages || data.data || (Array.isArray(data) ? data : null);
+            if (Array.isArray(arr) && arr.length > 0) {
+              messages = arr;
+            }
           }
         }
       }
