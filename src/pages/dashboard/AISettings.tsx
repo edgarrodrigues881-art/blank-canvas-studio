@@ -543,17 +543,7 @@ const AISettings = () => {
   };
 
   const handleSave = async () => {
-    const wasInactive = !iaActive || activating;
-    const isActivating = !saving && wasInactive;
-    
-    if (isActivating && !iaActive) {
-      setIaActive(true);
-    }
-    
     setSaving(true);
-    if (isActivating) {
-      setActivating(true);
-    }
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -561,7 +551,7 @@ const AISettings = () => {
 
       const payload = {
         user_id: user.id,
-        ia_active: isActivating ? true : iaActive,
+        ia_active: iaActive,
         api_key: apiKey,
         ai_model: aiModel,
         ai_provider: aiProvider,
@@ -594,13 +584,6 @@ const AISettings = () => {
         .upsert(payload, { onConflict: "user_id" });
 
       if (error) throw error;
-      
-      if (isActivating) {
-        await new Promise(r => setTimeout(r, 2000));
-        setActivating(false);
-        setJustActivated(true);
-        setTimeout(() => setJustActivated(false), 5000);
-      }
       
       toast.success("Configurações salvas com sucesso!");
     } catch (err: any) {
@@ -833,7 +816,7 @@ const AISettings = () => {
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving || activating} className={`gap-2 transition-all duration-150 font-semibold ${BUTTON_VARIANTS.primary}`}>
           {activating || saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" strokeWidth={1.5} />}
-          {activating ? "Ativando..." : iaActive ? "Salvar Alterações" : "Ativar automação"}
+          {saving ? "Salvando..." : "Salvar Alterações"}
         </Button>
       </div>
 
