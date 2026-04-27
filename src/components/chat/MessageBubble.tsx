@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/utils/formatters";
 import { getFileIcon, isMediaPlaceholder } from "@/utils/fileHelpers";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
 
 export { isMediaPlaceholder };
 
