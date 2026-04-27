@@ -36,11 +36,13 @@ Deno.serve(async (req) => {
       return await handleDisableWebhook(supabase, body, req);
     }
 
-    // ── Validate webhook secret ──
-    const webhookSecret = req.headers.get("x-webhook-secret") || "";
+    // ── Validate webhook secret (only if configured) ──
     const expectedSecret = Deno.env.get("WEBHOOK_SECRET") || "";
-    if (!expectedSecret || !webhookSecret || webhookSecret !== expectedSecret) {
-      return json({ error: "Unauthorized" }, 401);
+    if (expectedSecret) {
+      const webhookSecret = req.headers.get("x-webhook-secret") || "";
+      if (webhookSecret !== expectedSecret) {
+        return json({ error: "Unauthorized" }, 401);
+      }
     }
 
     // ── Extract identifiers ──
