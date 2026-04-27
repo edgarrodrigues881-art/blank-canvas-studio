@@ -1,0 +1,1 @@
+UPDATE profiles SET beta_features = ARRAY['assistant','mass_inject'] WHERE id = 'f5220141-3b20-4e85-90fd-8c85695686fa';
