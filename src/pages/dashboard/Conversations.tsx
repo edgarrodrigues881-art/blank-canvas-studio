@@ -74,13 +74,7 @@ const Conversations = () => {
   const [editTarget, setEditTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; content: string } | null>(null);
   const [editText, setEditText] = useState("");
 
-  // Handle ?open=convId from queue
-  useEffect(() => {
-    const openId = searchParams.get("open");
-    if (openId && realConvs.length > 0) {
-      selectConversation(openId);
-    }
-  }, [searchParams, realConvs.length]);
+  // ?open / ?phone handler declared after allConversations is defined (see below).
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -150,6 +144,23 @@ const Conversations = () => {
       pipelineStage: (c.pipeline_stage as any) || null,
     }))
   , [activeRealConvs]);
+
+  // Handle ?open=convId or ?phone=<phone> from external navigation (e.g., Pipeline)
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (openId && allConversations.length > 0) {
+      selectConversation(openId);
+      return;
+    }
+    const phoneParam = searchParams.get("phone");
+    if (phoneParam && allConversations.length > 0) {
+      const key = normalizePhoneKey(phoneParam);
+      const match = allConversations.find((c) => normalizePhoneKey(c.phone) === key);
+      if (match) {
+        selectConversation(match._rawId);
+      }
+    }
+  }, [searchParams, allConversations, selectConversation]);
 
   // Group conversations by phone number
   const groupedConversations: Conversation[] = useMemo(() => {
