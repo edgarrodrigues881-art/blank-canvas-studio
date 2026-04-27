@@ -217,14 +217,14 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
       if (!error) synced++;
     }
 
-    // 3) Fetch messages — top 15 conversations in PARALLEL
+    // 3) Fetch messages — top 50 conversations in PARALLEL
     const { data: convs } = await db
       .from("conversations")
-      .select("id, remote_jid")
+      .select("id, remote_jid, last_message")
       .eq("user_id", device.user_id)
       .eq("device_id", device.id)
       .order("last_message_at", { ascending: false })
-      .limit(15);
+      .limit(50);
 
     if (!convs || convs.length === 0) return { synced };
 
@@ -243,6 +243,9 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
 
     for (const { conv, messages } of msgResults) {
       if (messages.length === 0) continue;
+
+      // Track most recent message to update conversation preview
+      let newestPreview: { content: string; ts: string; mediaType: string | null } | null = null;
 
       for (const msg of messages) {
         const messageNodes = collectMessageNodes(msg);
@@ -310,6 +313,32 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
           },
           { onConflict: "whatsapp_message_id" },
         );
+
+        // Track newest message to refresh conversation preview
+        if (!newestPreview || timestamp > newestPreview.ts) {
+          newestPreview = { content: content || "", ts: timestamp, mediaType };
+        }
+      }
+
+      // Update conversation preview if we have a newer/better one
+      if (newestPreview) {
+        let preview = newestPreview.content;
+        if (!preview) {
+          if (newestPreview.mediaType === "audio") preview = "🎧 Áudio";
+          else if (newestPreview.mediaType === "image") preview = "📷 Imagem";
+          else if (newestPreview.mediaType === "video") preview = "🎥 Vídeo";
+          else if (newestPreview.mediaType === "document") preview = "📄 Documento";
+          else if (newestPreview.mediaType === "sticker") preview = "Sticker";
+        }
+        if (preview) {
+          await db.from("conversations")
+            .update({
+              last_message: preview.substring(0, 500),
+              last_message_at: newestPreview.ts,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", conv.id);
+        }
       }
     }
 
