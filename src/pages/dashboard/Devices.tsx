@@ -2841,7 +2841,15 @@ const Devices = () => {
                     }`}
                   >
                     <div className="relative p-4 rounded-2xl bg-white dark:bg-white shadow-lg">
-                      <img src={qrCodeBase64} alt="QR Code" className="w-64 h-64 rounded-lg transition-opacity duration-300" />
+                      <img src={qrCodeBase64} alt="QR Code" className={`w-64 h-64 rounded-lg transition-opacity duration-300 ${qrRefreshing ? "opacity-60" : "opacity-100"}`} />
+                      {qrRefreshing && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="bg-background/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-2 shadow-lg border border-border/40">
+                            <Loader2 size={12} className="animate-spin text-primary" />
+                            <span className="text-[11px] text-foreground font-medium">Renovando QR...</span>
+                          </div>
+                        </div>
+                      )}
                       {/* Countdown overlay */}
                       <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-card border border-border/30 rounded-full px-3 py-1 shadow-sm">
                         <svg className="w-4 h-4 -rotate-90" viewBox="0 0 24 24">
