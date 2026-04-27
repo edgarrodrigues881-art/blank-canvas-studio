@@ -34,7 +34,11 @@ async function deleteOnProvider(baseUrl: string, token: string, adminToken: stri
 
   // Fallback: admin token
   if (adminToken) {
-    for (const ah of [{ admintoken: adminToken }, { token: adminToken }]) {
+    const adminHeaders: Array<Record<string, string>> = [
+      { admintoken: adminToken },
+      { token: adminToken },
+    ];
+    for (const ah of adminHeaders) {
       try {
         const res = await fetch(`${baseUrl}/instance/delete`, {
           method: "POST",
