@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useSmartAlerts, type SmartAlert } from "@/hooks/useSmartAlerts";
-import { Bell, BellRing, Check, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon, Trophy, UserCheck, Eye, CheckCircle2 } from "lucide-react";
+import { Bell, BellRing, Check, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon, Trophy, UserCheck, Eye, CheckCircle2, Users, Loader2, RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -30,6 +30,9 @@ export default function AISmartAlerts() {
   // Settings
   const [config, setConfig] = useState<any>(null);
   const [devices, setDevices] = useState<any[]>([]);
+  const [targetMode, setTargetMode] = useState<"phone" | "group">("phone");
+  const [groups, setGroups] = useState<{ id: string; name: string; participants?: number }[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -39,14 +42,18 @@ export default function AISmartAlerts() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-      setConfig(data || {
+      const cfg: any = data || {
         enabled: true,
         alert_human_request: true,
         alert_closing_opportunity: true,
         notify_whatsapp: false,
         whatsapp_device_id: null,
         whatsapp_target_phone: "",
-      });
+        whatsapp_target_jid: null,
+        whatsapp_target_label: null,
+      };
+      setConfig(cfg);
+      setTargetMode(cfg.whatsapp_target_jid ? "group" : "phone");
 
       const { data: devs } = await supabase
         .from("devices")
@@ -57,8 +64,42 @@ export default function AISmartAlerts() {
     })();
   }, [user]);
 
+  const loadGroups = async () => {
+    if (!user) return;
+    setLoadingGroups(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whapi-chats?action=list_all_groups`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      );
+      const data = await res.json();
+      const list = (data?.chats || [])
+        .filter((c: any) => c.id)
+        .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
+      setGroups(list);
+      if (list.length === 0) toast.info("Nenhum grupo encontrado nas suas instâncias conectadas.");
+    } catch (e: any) {
+      toast.error("Erro ao carregar grupos: " + (e.message || ""));
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  useEffect(() => {
+    if (targetMode === "group" && config?.notify_whatsapp && groups.length === 0 && !loadingGroups) {
+      loadGroups();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetMode, config?.notify_whatsapp]);
+
   const saveConfig = async () => {
     if (!user || !config) return;
+    if (config.notify_whatsapp) {
+      if (!config.whatsapp_device_id) { toast.error("Escolha uma instância para enviar"); return; }
+      if (targetMode === "phone" && !config.whatsapp_target_phone) { toast.error("Informe o número de destino"); return; }
+      if (targetMode === "group" && !config.whatsapp_target_jid) { toast.error("Selecione um grupo de destino"); return; }
+    }
     const payload = {
       user_id: user.id,
       enabled: config.enabled,
@@ -66,7 +107,9 @@ export default function AISmartAlerts() {
       alert_closing_opportunity: config.alert_closing_opportunity,
       notify_whatsapp: config.notify_whatsapp,
       whatsapp_device_id: config.whatsapp_device_id,
-      whatsapp_target_phone: config.whatsapp_target_phone,
+      whatsapp_target_phone: targetMode === "phone" ? config.whatsapp_target_phone : null,
+      whatsapp_target_jid: targetMode === "group" ? config.whatsapp_target_jid : null,
+      whatsapp_target_label: targetMode === "group" ? config.whatsapp_target_label : null,
     };
     const { error } = await supabase.from("ai_alerts_config" as any).upsert(payload, { onConflict: "user_id" });
     if (error) toast.error("Erro ao salvar"); else toast.success("Configurações salvas");
@@ -203,14 +246,14 @@ export default function AISmartAlerts() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-medium">Receber também no WhatsApp</h3>
-                <p className="text-xs text-muted-foreground">Você receberá uma mensagem no seu WhatsApp pessoal a cada novo alerta.</p>
+                <h3 className="font-medium">Notificar no WhatsApp</h3>
+                <p className="text-xs text-muted-foreground">A IA enviará uma mensagem para um número ou grupo sempre que precisar de atendimento humano.</p>
               </div>
               <Switch checked={config.notify_whatsapp} onCheckedChange={(v) => setConfig({ ...config, notify_whatsapp: v })} />
             </div>
 
             {config.notify_whatsapp && (
-              <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="space-y-4 pt-2 border-t border-border/40">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Instância que enviará o alerta</Label>
                   <Select
@@ -225,18 +268,95 @@ export default function AISmartAlerts() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Seu número (com DDD)</Label>
-                  <Input
-                    value={config.whatsapp_target_phone || ""}
-                    onChange={(e) => setConfig({ ...config, whatsapp_target_phone: e.target.value.replace(/\D/g, "") })}
-                    placeholder="ex: 11999999999"
-                    maxLength={13}
-                  />
-                  <p className="text-[11px] text-muted-foreground/70">
-                    Sem o +55. Apenas DDD + número.
-                  </p>
+
+                {/* Destination type tabs */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Para onde enviar</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTargetMode("phone")}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
+                        targetMode === "phone"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/40 text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      <Phone className="w-3.5 h-3.5" /> Número individual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetMode("group")}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
+                        targetMode === "group"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/40 text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Grupo do WhatsApp
+                    </button>
+                  </div>
                 </div>
+
+                {targetMode === "phone" ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Número de destino (com DDD)</Label>
+                    <Input
+                      value={config.whatsapp_target_phone || ""}
+                      onChange={(e) => setConfig({ ...config, whatsapp_target_phone: e.target.value.replace(/\D/g, "") })}
+                      placeholder="ex: 11999999999"
+                      maxLength={13}
+                    />
+                    <p className="text-[11px] text-muted-foreground/70">
+                      Sem o +55. Apenas DDD + número.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Grupo de destino</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadGroups}
+                        disabled={loadingGroups}
+                        className="h-6 gap-1 text-[11px]"
+                      >
+                        {loadingGroups ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Atualizar
+                      </Button>
+                    </div>
+                    <Select
+                      value={config.whatsapp_target_jid || ""}
+                      onValueChange={(v) => {
+                        const g = groups.find((x) => x.id === v);
+                        setConfig({ ...config, whatsapp_target_jid: v, whatsapp_target_label: g?.name || v });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingGroups ? "Carregando grupos..." : groups.length === 0 ? "Nenhum grupo (clique em Atualizar)" : "Selecione um grupo"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {groups.map((g) => (
+                          <SelectItem key={g.id} value={g.id}>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-3 h-3 opacity-60" />
+                              <span>{g.name || g.id}</span>
+                              {g.participants ? <span className="text-[10px] opacity-60">({g.participants})</span> : null}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {config.whatsapp_target_label && (
+                      <p className="text-[11px] text-emerald-400">Selecionado: {config.whatsapp_target_label}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground/70">
+                      A IA enviará no grupo: nome do cliente, número e o motivo do alerta.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </Card>

@@ -312,6 +312,8 @@ export type Database = {
           updated_at: string
           user_id: string
           whatsapp_device_id: string | null
+          whatsapp_target_jid: string | null
+          whatsapp_target_label: string | null
           whatsapp_target_phone: string | null
         }
         Insert: {
@@ -324,6 +326,8 @@ export type Database = {
           updated_at?: string
           user_id: string
           whatsapp_device_id?: string | null
+          whatsapp_target_jid?: string | null
+          whatsapp_target_label?: string | null
           whatsapp_target_phone?: string | null
         }
         Update: {
@@ -336,6 +340,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           whatsapp_device_id?: string | null
+          whatsapp_target_jid?: string | null
+          whatsapp_target_label?: string | null
           whatsapp_target_phone?: string | null
         }
         Relationships: []
