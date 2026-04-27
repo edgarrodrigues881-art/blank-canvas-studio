@@ -12,6 +12,8 @@ import { useState, useMemo, Fragment, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { formatPhone } from "@/utils/formatters";
 import { getMessagePreview } from "@/utils/fileHelpers";
+import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
+import { PrivacyToggle } from "./PrivacyToggle";
 
 interface InstanceFilter {
   id: string;
