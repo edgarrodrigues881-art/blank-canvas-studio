@@ -390,7 +390,7 @@ export function ConversationList({
                     )}
 
                     {/* Avatar */}
-                    <div className="relative shrink-0">
+                    <div className={cn("relative shrink-0", hideIdentity && "privacy-blur")}>
                       <ConvAvatar src={c.avatar_url} initials={initials} alt={avatarLabel} colorCls={avatarCls} />
                     </div>
 
