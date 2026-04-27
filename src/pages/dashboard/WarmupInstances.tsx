@@ -1243,10 +1243,10 @@ const WarmupInstances = () => {
   const handleWarningOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowWarning(false);
-      // Uma vez fechado neste navegador, nunca mais aparece
       try { localStorage.setItem(WARNING_DISMISS_KEY, "true"); } catch {}
+      dismissWarning(WARNING_DISMISS_KEY);
     }
-  }, []);
+  }, [dismissWarning]);
 
   const handleNavigate = useCallback((path: string) => {
     navigate(activeFolderId ? `${path}?folder=${activeFolderId}` : path);
