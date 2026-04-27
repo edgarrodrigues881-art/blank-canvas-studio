@@ -217,14 +217,14 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
       if (!error) synced++;
     }
 
-    // 3) Fetch messages — top 15 conversations in PARALLEL
+    // 3) Fetch messages — top 50 conversations in PARALLEL
     const { data: convs } = await db
       .from("conversations")
-      .select("id, remote_jid")
+      .select("id, remote_jid, last_message")
       .eq("user_id", device.user_id)
       .eq("device_id", device.id)
       .order("last_message_at", { ascending: false })
-      .limit(15);
+      .limit(50);
 
     if (!convs || convs.length === 0) return { synced };
 
@@ -243,6 +243,9 @@ async function syncDevice(db: any, device: DeviceRow): Promise<{ synced: number 
 
     for (const { conv, messages } of msgResults) {
       if (messages.length === 0) continue;
+
+      // Track most recent message to update conversation preview
+      let newestPreview: { content: string; ts: string; mediaType: string | null } | null = null;
 
       for (const msg of messages) {
         const messageNodes = collectMessageNodes(msg);
