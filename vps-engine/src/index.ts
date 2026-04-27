@@ -1010,6 +1010,8 @@ async function mainLoop() {
     scheduledMsg: false,
     syncDevices: false,
     syncConversations: false,
+    statusSchedule: false,
+    reportWa: false,
   };
 
   function guardedLoop(
