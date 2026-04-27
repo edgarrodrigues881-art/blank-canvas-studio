@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       // Run all queries in parallel
       const [authUserRes, profileRes, adminDataRes, subRes, devicesRes, campaignsRes, logsRes, paymentsRes, cyclesRes, apiTokensRes, loginHistoryRes] = await Promise.all([
         adminClient.auth.admin.getUserById(target_user_id),
-        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
+        adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, beta_features, created_at, updated_at").eq("id", target_user_id).maybeSingle(),
         adminClient.from("admin_profile_data").select("id, admin_notes, risk_flag").eq("id", target_user_id).maybeSingle(),
         adminClient.from("subscriptions").select("id, user_id, plan_name, plan_price, max_instances, started_at, expires_at").eq("user_id", target_user_id).maybeSingle(),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, uazapi_token, uazapi_base_url, created_at, updated_at").eq("user_id", target_user_id).order("created_at", { ascending: false }),
