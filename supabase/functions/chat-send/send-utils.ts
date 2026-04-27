@@ -71,11 +71,13 @@ export function buildAttempts(
   const docFields = fileName?.trim() ? { docName: fileName.trim() } : {};
 
   if (type === "audio") {
+    // Sempre enviar como PTT (mensagem de voz gravada) para que o WhatsApp
+    // exiba como áudio gravado e não como anexo de arquivo de áudio.
     return [
-      { path: "/send/media", body: { number: targetChatId, file: content, type: "audio", ptt: true, ...quoteFields }, expectedChatId: targetChatId },
-      { path: "/send/media", body: { number: targetChatId, file: content, type: "ptt", ...quoteFields }, expectedChatId: targetChatId },
-      { path: "/send/media", body: { number: targetChatId, media: content, type: "audio", ptt: true, ...quoteFields }, expectedChatId: targetChatId },
+      { path: "/send/media", body: { number: targetChatId, file: content, type: "ptt", ptt: true, ...quoteFields }, expectedChatId: targetChatId },
+      { path: "/send/media", body: { number: targetChatId, media: content, type: "ptt", ptt: true, ...quoteFields }, expectedChatId: targetChatId },
       { path: "/send/audio", body: { number: targetChatId, audio: content, ptt: true, ...quoteFields }, expectedChatId: targetChatId },
+      { path: "/send/ptt", body: { number: targetChatId, audio: content, ...quoteFields }, expectedChatId: targetChatId },
     ];
   }
 
