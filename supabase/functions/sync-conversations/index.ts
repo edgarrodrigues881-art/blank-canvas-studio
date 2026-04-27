@@ -244,18 +244,18 @@ Deno.serve(async (req) => {
 
         // Filter only private chats (exclude groups and status)
         const privateChats = chats.filter((c: any) => {
-          const jid = c.JID || c.jid || c.id || c.chatId || "";
+          const jid = c.wa_chatid || c.JID || c.jid || c.id || c.chatId || c.chatid || "";
           return jid && !jid.endsWith("@g.us") && !jid.includes("status@") && jid !== "status";
         });
 
         console.log(`[${device.name}] ${privateChats.length} private chats (of ${chats.length} total)`);
 
         for (const chat of privateChats) {
-          const jid = chat.JID || chat.jid || chat.id || chat.chatId || "";
+          const jid = chat.wa_chatid || chat.JID || chat.jid || chat.id || chat.chatId || chat.chatid || "";
           const phone = jid.replace("@s.whatsapp.net", "").replace("@c.us", "");
-          const name = chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
-          const lastMsg = chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
-          const lastMsgTs = chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
+          const name = chat.wa_name || chat.lead_name || chat.Name || chat.name || chat.pushName || chat.notify || chat.Contact?.name || phone;
+          const lastMsg = chat.wa_lastMessageText || chat.wa_lastMsgText || chat.LastMessage?.Text || chat.lastMessage?.body || chat.last_message?.text || chat.msg?.conversation || "";
+          const lastMsgTs = chat.wa_lastMsgTimestamp || chat.wa_lastMessageTimestamp || chat.LastMessage?.Timestamp || chat.lastMessage?.timestamp || chat.t || chat.timestamp;
           const lastMsgAt = lastMsgTs
             ? new Date(typeof lastMsgTs === "number" && lastMsgTs < 1e12 ? lastMsgTs * 1000 : lastMsgTs).toISOString()
             : new Date().toISOString();
