@@ -58,6 +58,7 @@ const Contacts = lazyWithPreload(() => import("@/pages/dashboard/Contacts"));
 const GroupLeadExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupLeadExtractor"));
 const GroupInviteExtractor = lazyWithPreload(() => import("@/pages/dashboard/GroupInviteExtractor"));
 const LidConverter = lazyWithPreload(() => import("@/pages/dashboard/LidConverter"));
+const StatusPost = lazyWithPreload(() => import("@/pages/dashboard/StatusPost"));
 const WhatsAppVerifier = lazyWithPreload(() => import("@/pages/dashboard/WhatsAppVerifierCampaigns"));
 const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
 const CarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/CarouselTemplates"));
@@ -268,6 +269,7 @@ const App = () => (
                 <Route path="/dashboard/group-extractor" element={<ProtectedRoute><DashboardLayout><GroupLeadExtractor /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-invite-extractor" element={<ProtectedRoute><DashboardLayout><GroupInviteExtractor /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/lid-converter" element={<ProtectedRoute><DashboardLayout><LidConverter /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/status-post" element={<ProtectedRoute><DashboardLayout><StatusPost /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/whatsapp-verifier" element={<ProtectedRoute><DashboardLayout><WhatsAppVerifier /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/templates" element={<ProtectedRoute><DashboardLayout><Templates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/carousel-templates" element={<ProtectedRoute><DashboardLayout><CarouselTemplates /></DashboardLayout></ProtectedRoute>} />
