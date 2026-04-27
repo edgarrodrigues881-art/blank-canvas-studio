@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
         let chats: any[] = [];
 
         // Endpoint 1: /chats (GET) - most common
-        const data1 = await fetchSafe(`${baseUrl}/chats?count=100`);
+        const data1 = await fetchSafe(`${baseUrl}/chats?count=200`);
         if (data1) {
           const arr = Array.isArray(data1.chats || data1.data || data1) ? (data1.chats || data1.data || data1) : [];
           chats = arr;
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
 
         // Endpoint 2: /chat/list (GET) - fallback
         if (chats.length === 0) {
-          const data2 = await fetchSafe(`${baseUrl}/chat/list?count=100`);
+          const data2 = await fetchSafe(`${baseUrl}/chat/list?count=200`);
           if (data2) {
             const arr = Array.isArray(data2.chats || data2.data || data2) ? (data2.chats || data2.data || data2) : [];
             chats = arr;
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
           .eq("user_id", userId)
           .eq("device_id", device.id)
           .order("last_message_at", { ascending: false })
-          .limit(15);
+          .limit(50);
 
         if (convs && convs.length > 0) {
           for (const conv of convs) {
@@ -316,20 +316,20 @@ Deno.serve(async (req) => {
               for (const chatId of buildEquivalentChatIds(conv.remote_jid)) {
                 if (messages.length > 0) break;
 
-                const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId, count: 30 });
+                const msgData1 = await fetchSafe(`${baseUrl}/chat/fetchMessages`, "POST", { chatId, count: 40 });
                 if (msgData1) {
                   messages = Array.isArray(msgData1.messages || msgData1.data || msgData1) ? (msgData1.messages || msgData1.data || msgData1) : [];
                 }
 
                 if (messages.length === 0) {
-                  const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=30`);
+                  const msgData2 = await fetchSafe(`${baseUrl}/chat/messages?chatId=${encodeURIComponent(chatId)}&count=40`);
                   if (msgData2) {
                     messages = Array.isArray(msgData2.messages || msgData2.data || msgData2) ? (msgData2.messages || msgData2.data || msgData2) : [];
                   }
                 }
 
                 if (messages.length === 0) {
-                  const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=30`);
+                  const msgData3 = await fetchSafe(`${baseUrl}/message/list?chatId=${encodeURIComponent(chatId)}&count=40`);
                   if (msgData3) {
                     messages = Array.isArray(msgData3.messages || msgData3.data || msgData3) ? (msgData3.messages || msgData3.data || msgData3) : [];
                   }
