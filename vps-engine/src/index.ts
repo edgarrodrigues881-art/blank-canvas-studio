@@ -30,6 +30,7 @@ import { reportWaTick, lastReportWaTickAt } from "./workers/report-wa-worker";
 import { trialCleanupTick, lastTrialCleanupTickAt } from "./workers/trial-cleanup-worker";
 import { massInjectWatchdogTick, lastMassInjectWatchdogTickAt } from "./workers/mass-inject-watchdog-worker";
 import { scheduledCampaignsTick, lastScheduledCampaignsTickAt } from "./workers/scheduled-campaigns-worker";
+import { groupsSyncTick, lastGroupsSyncTickAt } from "./workers/groups-sync-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
 import { processJob, batchPreload, flushAuditLogs, ProcessJobContext } from "./warmup/warmup-processor";
@@ -70,6 +71,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastTrialCleanupTick: lastTrialCleanupTickAt?.toISOString() || null,
     lastMassInjectWatchdogTick: lastMassInjectWatchdogTickAt?.toISOString() || null,
     lastScheduledCampaignsTick: lastScheduledCampaignsTickAt?.toISOString() || null,
+    lastGroupsSyncTick: lastGroupsSyncTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
     tickCount,
@@ -1144,6 +1146,10 @@ async function mainLoop() {
     guardedLoop("trialCleanup", async () => {
       await trialCleanupTick();
     }, 60 * 60_000)(), // every 1 hour
+
+    guardedLoop("groupsSync", async () => {
+      await groupsSyncTick();
+    }, 60_000)(), // every 1 min (cada device é re-sincronizado a cada 5min internamente)
   ]);
 }
 
