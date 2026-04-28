@@ -5540,6 +5540,305 @@ export type Database = {
         }
         Relationships: []
       }
+      task_automations: {
+        Row: {
+          action_config: Json | null
+          action_type: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          name: string
+          project_id: string | null
+          runs_count: number
+          trigger_config: Json | null
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_config?: Json | null
+          action_type: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name: string
+          project_id?: string | null
+          runs_count?: number
+          trigger_config?: Json | null
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_config?: Json | null
+          action_type?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          project_id?: string | null
+          runs_count?: number
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_automations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_done_column: boolean
+          name: string
+          position: number
+          project_id: string | null
+          updated_at: string
+          user_id: string
+          wip_limit: number | null
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_done_column?: boolean
+          name: string
+          position?: number
+          project_id?: string | null
+          updated_at?: string
+          user_id: string
+          wip_limit?: number | null
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_done_column?: boolean
+          name?: string
+          position?: number
+          project_id?: string | null
+          updated_at?: string
+          user_id?: string
+          wip_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_columns_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_projects: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          lead_id: string | null
+          lead_name: string | null
+          metadata: Json | null
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          metadata?: Json | null
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          metadata?: Json | null
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      task_templates: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          structure: Json
+          updated_at: string
+          user_id: string
+          uses_count: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          structure?: Json
+          updated_at?: string
+          user_id: string
+          uses_count?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          structure?: Json
+          updated_at?: string
+          user_id?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          actual_minutes: number | null
+          checklist: Json | null
+          column_id: string | null
+          completed_at: string | null
+          created_at: string
+          daily_date: string | null
+          description: string | null
+          due_at: string | null
+          estimated_minutes: number | null
+          id: string
+          is_daily: boolean
+          labels: string[] | null
+          lead_id: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          metadata: Json | null
+          parent_task_id: string | null
+          position: number
+          priority: string
+          project_id: string | null
+          recurrence: Json | null
+          start_at: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_minutes?: number | null
+          checklist?: Json | null
+          column_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          daily_date?: string | null
+          description?: string | null
+          due_at?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          is_daily?: boolean
+          labels?: string[] | null
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json | null
+          parent_task_id?: string | null
+          position?: number
+          priority?: string
+          project_id?: string | null
+          recurrence?: Json | null
+          start_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_minutes?: number | null
+          checklist?: Json | null
+          column_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          daily_date?: string | null
+          description?: string | null
+          due_at?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          is_daily?: boolean
+          labels?: string[] | null
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          metadata?: Json | null
+          parent_task_id?: string | null
+          position?: number
+          priority?: string
+          project_id?: string | null
+          recurrence?: Json | null
+          start_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "task_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_invites: {
         Row: {
           accepted_at: string | null
