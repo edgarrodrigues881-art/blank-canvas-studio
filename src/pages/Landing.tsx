@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings,
   ArrowRight, CheckCircle2, MessageSquare, Users, Layers,
