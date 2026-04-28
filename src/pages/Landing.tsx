@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
 import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.png";
+import howtoStep1 from "@/assets/howto-step-1.png";
+import howtoStep2 from "@/assets/howto-step-2.png";
+import howtoStep3 from "@/assets/howto-step-3.png";
+import howtoStep4 from "@/assets/howto-step-4.png";
+import howtoStep5 from "@/assets/howto-step-5.png";
 import HeroDataViz from "@/components/landing/HeroDataViz";
 import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
 import { TiltCard } from "@/components/ui/tilt-card";
@@ -425,55 +430,130 @@ const TiltHighlight = () => (
   </Section>
 );
 
-// ─── 5. Use case (left text + right mockup) ───
-const UseCase = () => (
-  <Section id="uso">
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-16 lg:gap-12 items-center">
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={stagger} className="lg:col-span-5">
-        <motion.div variants={fadeUp}><Eyebrow>Como funciona</Eyebrow></motion.div>
-        <motion.div variants={fadeUp}>
-          <SectionTitle className="mb-6 md:mb-8 text-[1.625rem] md:text-[2.25rem] lg:text-[2.5rem]">
-            Como funciona na prática.
-          </SectionTitle>
-        </motion.div>
-        <motion.ol variants={fadeUp} className="space-y-5 md:space-y-7">
-          {[
-            { n: "1", title: "Conecte seus chips", desc: "Adicione e organize múltiplos números em um só lugar." },
-            { n: "2", title: "Configure sua operação", desc: "Defina intervalos, limites e regras de envio." },
-            { n: "3", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real e reduza riscos de bloqueio." },
-          ].map((step) => (
-            <li key={step.n} className="flex gap-4">
-              <span className="flex-shrink-0 w-7 h-7 rounded-full border border-white/[0.1] bg-white/[0.03] flex items-center justify-center text-[12px] font-medium text-white/65">
-                {step.n}
-              </span>
-              <div className="pt-0.5">
-                <h3 className="text-[14px] font-semibold text-white mb-1.5 tracking-tight">{step.title}</h3>
-                <p className="text-[13px] text-white/55 leading-[1.55]">{step.desc}</p>
-              </div>
-            </li>
-          ))}
-        </motion.ol>
-      </motion.div>
+// ─── 5. Use case — Scroll-pinned com crossfade entre passos ───
+const HOWTO_STEPS = [
+  { n: "1", title: "Conecte seus chips", desc: "Adicione e organize múltiplos números em um só lugar.", img: howtoStep1 },
+  { n: "2", title: "Aqueça em massa", desc: "Selecione o perfil do chip — novo, recuperado ou fraco — e deixe a progressão certa para cada um.", img: howtoStep2 },
+  { n: "3", title: "Configure grupos e dias", desc: "Defina o intervalo do ciclo e os grupos que serão usados no aquecimento.", img: howtoStep3 },
+  { n: "4", title: "Selecione as instâncias", desc: "Escolha quais chips vão entrar no aquecimento em massa, com busca e seleção rápida.", img: howtoStep4 },
+  { n: "5", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real, reduza riscos de bloqueio e veja seus chips aquecendo.", img: howtoStep5 },
+];
 
-      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, ease: easeOut }} className="lg:col-span-7 relative">
-        {/* Gradient border wrapper */}
-        <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.02)]">
-          <div className="rounded-2xl overflow-hidden bg-[#0a0e1a] ring-1 ring-inset ring-white/[0.04]">
-            <img
-              src={heroInstancesPanel}
-              alt="Painel de instâncias"
-              className="block w-full h-auto"
-              loading="lazy"
-              style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.25)" }}
-            />
+const UseCase = () => {
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end end"],
+  });
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const unsub = scrollYProgress.on("change", (v) => {
+      // Mapeia 0..1 para o índice do passo atual
+      const idx = Math.min(HOWTO_STEPS.length - 1, Math.max(0, Math.floor(v * HOWTO_STEPS.length)));
+      setActive((prev) => (prev === idx ? prev : idx));
+    });
+    return () => unsub();
+  }, [scrollYProgress]);
+
+  return (
+    <section id="uso" ref={sectionRef} className="relative" style={{ height: `${HOWTO_STEPS.length * 100}vh` }}>
+      {/* Sticky viewport */}
+      <div className="sticky top-0 h-screen flex items-center overflow-hidden">
+        <div className="mx-auto w-full max-w-[1320px] px-5 md:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-center">
+            {/* LEFT — texto + lista de passos */}
+            <div className="lg:col-span-5">
+              <Eyebrow>Como funciona</Eyebrow>
+              <SectionTitle className="mb-6 md:mb-10 text-[1.625rem] md:text-[2.25rem] lg:text-[2.5rem]">
+                Como funciona na prática.
+              </SectionTitle>
+
+              <ol className="space-y-3 md:space-y-4">
+                {HOWTO_STEPS.map((step, i) => {
+                  const isActive = i === active;
+                  return (
+                    <li
+                      key={step.n}
+                      className={`flex gap-4 rounded-xl p-3 md:p-4 transition-all duration-500 ${
+                        isActive
+                          ? "bg-white/[0.04] ring-1 ring-emerald-400/20"
+                          : "bg-transparent ring-1 ring-transparent opacity-50"
+                      }`}
+                    >
+                      <span
+                        className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-medium transition-all duration-500 ${
+                          isActive
+                            ? "bg-emerald-400 text-emerald-950 shadow-[0_0_20px_-2px_rgba(16,185,129,0.7)]"
+                            : "border border-white/[0.1] bg-white/[0.03] text-white/65"
+                        }`}
+                      >
+                        {step.n}
+                      </span>
+                      <div className="pt-0.5 min-w-0">
+                        <h3
+                          className={`text-[14px] font-semibold mb-1 tracking-tight transition-colors duration-500 ${
+                            isActive ? "text-white" : "text-white/70"
+                          }`}
+                        >
+                          {step.title}
+                        </h3>
+                        <p
+                          className={`text-[13px] leading-[1.55] transition-colors duration-500 ${
+                            isActive ? "text-white/70" : "text-white/40"
+                          }`}
+                        >
+                          {step.desc}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {/* Indicador de progresso */}
+              <div className="mt-8 flex gap-1.5">
+                {HOWTO_STEPS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-0.5 flex-1 rounded-full transition-all duration-500 ${
+                      i <= active ? "bg-emerald-400" : "bg-white/10"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT — stack de imagens com crossfade */}
+            <div className="lg:col-span-7 relative">
+              <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.02)]">
+                <div className="relative rounded-2xl overflow-hidden bg-[#0a0e1a] ring-1 ring-inset ring-white/[0.04] aspect-[16/10]">
+                  {HOWTO_STEPS.map((step, i) => (
+                    <motion.img
+                      key={step.n}
+                      src={step.img}
+                      alt={step.title}
+                      className="absolute inset-0 w-full h-full object-cover object-top"
+                      loading="lazy"
+                      initial={false}
+                      animate={{
+                        opacity: i === active ? 1 : 0,
+                        scale: i === active ? 1 : 1.02,
+                      }}
+                      transition={{ duration: 0.7, ease: easeOut }}
+                      style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.2)" }}
+                    />
+                  ))}
+                </div>
+                <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
+              </div>
+            </div>
           </div>
-          {/* Reflexo sutil no topo */}
-          <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
         </div>
-      </motion.div>
-    </div>
-  </Section>
-);
+      </div>
+    </section>
+  );
+};
 
 // ─── 6. Plans (mantido, redesenhado clean) ───
 const allPlans = [
