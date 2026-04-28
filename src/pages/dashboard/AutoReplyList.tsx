@@ -744,13 +744,10 @@ export default function AutoReplyList() {
                 onChange={(e) => setNewAutomationName(e.target.value)}
                 placeholder="Ex: Boas-vindas, Atendimento inicial..."
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && newAutomationName.trim()) {
-                    setCreateDialogOpen(false);
-                    navigate("/dashboard/auto-reply/new", {
-                      state: {
-                        name: newAutomationName.trim(),
-                        group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
-                      },
+                  if (e.key === "Enter" && newAutomationName.trim() && !createAutomationMutation.isPending) {
+                    createAutomationMutation.mutate({
+                      name: newAutomationName.trim(),
+                      group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
                     });
                   }
                 }}
@@ -778,7 +775,7 @@ export default function AutoReplyList() {
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground/60">
-                A automação será organizada dentro do grupo selecionado. Você pode movê-la depois.
+                A automação será criada e organizada dentro do grupo selecionado. Você pode editá-la depois (ou deixar como está).
               </p>
               {(!groups || groups.length === 0) && (
                 <button
@@ -795,20 +792,21 @@ export default function AutoReplyList() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={createAutomationMutation.isPending}>Cancelar</Button>
             <Button
-              disabled={!newAutomationName.trim()}
+              disabled={!newAutomationName.trim() || createAutomationMutation.isPending}
               onClick={() => {
-                setCreateDialogOpen(false);
-                navigate("/dashboard/auto-reply/new", {
-                  state: {
-                    name: newAutomationName.trim(),
-                    group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
-                  },
+                createAutomationMutation.mutate({
+                  name: newAutomationName.trim(),
+                  group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
                 });
               }}
             >
-              <Plus className="w-3.5 h-3.5 mr-2" /> Criar e abrir editor
+              {createAutomationMutation.isPending ? (
+                <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> Criando...</>
+              ) : (
+                <><Plus className="w-3.5 h-3.5 mr-2" /> Criar e abrir editor</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
