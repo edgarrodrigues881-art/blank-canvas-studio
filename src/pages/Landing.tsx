@@ -765,7 +765,7 @@ const Plans = () => {
   };
 
   return (
-    <section id="planos" className="relative bg-black py-14 md:py-32 px-5 md:px-6">
+    <section id="planos" className="relative py-14 md:py-32 px-5 md:px-6">
       <div className="max-w-[1200px] mx-auto">
         <div className="max-w-3xl mb-10 md:mb-14">
           <Eyebrow>Planos</Eyebrow>
