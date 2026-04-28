@@ -141,17 +141,22 @@ const Hero = () => {
   // Hover tilt 3D suave (motion values + spring)
   const tiltX = useMotionValue(0);
   const tiltY = useMotionValue(0);
-  const springTiltX = useSpring(tiltX, { stiffness: 150, damping: 20, mass: 0.4 });
-  const springTiltY = useSpring(tiltY, { stiffness: 150, damping: 20, mass: 0.4 });
+  // Spring suave: stiffness baixa + damping alto = sem trepidação, sem overshoot
+  const springConfig = { stiffness: 60, damping: 18, mass: 0.6 };
+  const springTiltX = useSpring(tiltX, springConfig);
+  const springTiltY = useSpring(tiltY, springConfig);
 
   const handleMockupMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    const TILT = 4; // graus máximos — bem sutil
-    tiltX.set(-(py - 0.5) * (TILT * 2));
-    tiltY.set((px - 0.5) * (TILT * 2));
+    const TILT = 3; // graus máximos — bem sutil, sem distorção
+    // Clamp pra garantir que nunca passe do limite mesmo com movimentos rápidos
+    const xVal = Math.max(-TILT, Math.min(TILT, -(py - 0.5) * (TILT * 2)));
+    const yVal = Math.max(-TILT, Math.min(TILT, (px - 0.5) * (TILT * 2)));
+    tiltX.set(xVal);
+    tiltY.set(yVal);
   };
   const handleMockupLeave = () => {
     tiltX.set(0);
