@@ -105,6 +105,8 @@ const Auth = () => {
 
   const resolveLoginEmail = async (identifier: string, rawPassword: string) => {
     const trimmedIdentifier = identifier.trim();
+    if (!isPhoneIdentifier(trimmedIdentifier)) return trimmedIdentifier.toLowerCase();
+
     const normalizedIdentifier = isPhoneIdentifier(trimmedIdentifier)
       ? normalizePhone(trimmedIdentifier)
       : trimmedIdentifier.toLowerCase();
@@ -123,8 +125,7 @@ const Auth = () => {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) navigate(redirectTo, { replace: true });
+      navigate(redirectTo, { replace: true });
     };
     checkExistingSession();
   }, [navigate, redirectTo]);
