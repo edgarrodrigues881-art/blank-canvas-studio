@@ -45,6 +45,19 @@ async function sendViaUazapi(token: string, phone: string, text: string) {
   return r.json();
 }
 
+async function notify(payload: Record<string, unknown>) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/notify-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (_) { /* best-effort */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -146,6 +159,19 @@ Deno.serve(async (req) => {
           device_id: deviceId,
         }).eq("id", f.id);
 
+        notify({
+          user_id: f.user_id,
+          alert_type: "followup_event",
+          severity: "low",
+          title: "Follow-up enviado",
+          description: `Follow-up entregue para ${f.contact_name || f.contact_phone}.`,
+          source_table: "crm_followups",
+          source_id: f.id,
+          contact_name: f.contact_name,
+          contact_phone: f.contact_phone,
+          context_message: (text || "").substring(0, 200),
+        });
+
         results.push({ id: f.id, action: "sent" });
       } catch (err: any) {
         const errMsg = err?.message || String(err);
@@ -155,6 +181,20 @@ Deno.serve(async (req) => {
           status: isFinalFailure ? "failed" : "pending",
           error_message: errMsg,
         }).eq("id", f.id);
+        if (isFinalFailure) {
+          notify({
+            user_id: f.user_id,
+            alert_type: "followup_event",
+            severity: "high",
+            title: "Follow-up falhou",
+            description: `Não foi possível enviar follow-up para ${f.contact_name || f.contact_phone}.`,
+            source_table: "crm_followups",
+            source_id: f.id,
+            contact_name: f.contact_name,
+            contact_phone: f.contact_phone,
+            context_message: errMsg.substring(0, 200),
+          });
+        }
         results.push({ id: f.id, action: "error", error: errMsg });
       }
     }
