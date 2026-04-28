@@ -769,25 +769,27 @@ const Plans = () => {
   };
 
   return (
-    <Section id="planos">
-      <div className="max-w-3xl mb-10 md:mb-14">
-        <Eyebrow>Planos</Eyebrow>
-        <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
-        <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
+    <section id="planos" className="relative bg-black py-14 md:py-32 px-5 md:px-6">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="max-w-3xl mb-10 md:mb-14">
+          <Eyebrow>Planos</Eyebrow>
+          <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
+          <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
+        </div>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.05 }}
+          variants={stagger}
+          className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+        >
+          {allPlans.map(renderCard)}
+        </motion.div>
+        <p className="text-center text-[12px] text-white/40 mt-10 md:mt-12">
+          Sem contrato. Cancele quando quiser.
+        </p>
       </div>
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.05 }}
-        variants={stagger}
-        className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-      >
-        {allPlans.map(renderCard)}
-      </motion.div>
-      <p className="text-center text-[12px] text-white/40 mt-10 md:mt-12">
-        Sem contrato. Cancele quando quiser.
-      </p>
-    </Section>
+    </section>
   );
 };
 
