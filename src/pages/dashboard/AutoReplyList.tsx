@@ -504,7 +504,7 @@ export default function AutoReplyList() {
           >
             <FolderPlus className="w-4 h-4" /> Novo grupo
           </Button>
-          <Button onClick={() => navigate("/dashboard/auto-reply/new")} className="h-9 text-xs gap-2 shadow-sm">
+          <Button onClick={() => { setNewAutomationName(""); setNewAutomationGroup("none"); setCreateDialogOpen(true); }} className="h-9 text-xs gap-2 shadow-sm">
             <Plus className="w-4 h-4" /> Criar nova automação
           </Button>
         </div>
