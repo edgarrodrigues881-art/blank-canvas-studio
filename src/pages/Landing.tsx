@@ -368,6 +368,20 @@ const UseCase = () => (
 // ─── 6. Plans (mantido, redesenhado clean) ───
 const allPlans = [
   {
+    name: "Starter",
+    tagline: "Plano de entrada",
+    instances: 1,
+    price: "39,99",
+    popular: false,
+    cta: "Começar agora",
+    benefits: [
+      "1 chip simultâneo",
+      "Suporte por e-mail",
+      "Aquecimento e disparo inclusos",
+    ],
+    whatsappIncluded: false,
+  },
+  {
     name: "Essencial",
     tagline: "Para começar",
     instances: 5,
@@ -434,20 +448,6 @@ const allPlans = [
       "Até 100 chips simultâneos",
       "Suporte prioritário dedicado",
       "Relatórios e alertas via WhatsApp",
-    ],
-    whatsappIncluded: true,
-  },
-  {
-    name: "Custom",
-    tagline: "Grande escala",
-    instances: 200,
-    price: null,
-    popular: false,
-    cta: "Falar com vendas",
-    benefits: [
-      "200+ chips simultâneos",
-      "Suporte dedicado por gerente",
-      "Infraestrutura sob medida",
     ],
     whatsappIncluded: true,
   },
