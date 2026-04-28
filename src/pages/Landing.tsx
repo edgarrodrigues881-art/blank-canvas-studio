@@ -440,28 +440,45 @@ const HOWTO_STEPS = [
 ];
 
 const UseCase = () => {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-  // offset: progresso vai de 0 (seção encosta no topo) → 1 (final da seção encosta no fim da viewport)
-  // Isso faz o progresso completar 100% enquanto o sticky ainda está visível.
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start start", "end end"],
-  });
+  const sectionRef = useRef<HTMLElement | null>(null);
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    const unsub = scrollYProgress.on("change", (v) => {
-      // Distribui igualmente: cada passo ocupa 1/N do progresso.
-      // Usamos o intervalo [0, 0.95] pra o último passo aparecer antes do sticky soltar.
-      const eff = Math.min(0.999, v / 0.95);
+    const el = sectionRef.current;
+    if (!el) return;
+
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      // Distância percorrida dentro da seção (a parte "scrollável" é altura - vh, pois o sticky ocupa 1vh)
+      const scrolled = -rect.top;
+      const maxScroll = el.offsetHeight - vh;
+      if (maxScroll <= 0) return;
+      const progress = Math.min(1, Math.max(0, scrolled / maxScroll));
+      // distribui igualmente; usa 0.95 como cap pra o último passo aparecer antes do sticky soltar
+      const eff = Math.min(0.999, progress / 0.95);
       const idx = Math.min(HOWTO_STEPS.length - 1, Math.floor(eff * HOWTO_STEPS.length));
       setActive((prev) => (prev === idx ? prev : idx));
-    });
-    return () => unsub();
-  }, [scrollYProgress]);
+    };
+
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
 
   // Cada passo precisa de ~110vh de scroll pra trocar de forma confortável.
-  // Sticky ocupa 100vh, então a altura total é (N * 110vh) garantindo que cada passo "segure" antes de avançar.
   return (
     <section
       id="uso"
