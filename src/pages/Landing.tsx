@@ -1,11 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings,
   ArrowRight, CheckCircle2, MessageSquare, Users, Layers,
-  ChevronDown, Star, Lock, UsersRound, MessageCircle, ShieldCheck, Megaphone
+  ChevronDown, Star, Lock, UsersRound, MessageCircle, ShieldCheck, Megaphone, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-new.png";
@@ -37,34 +37,66 @@ const Background = () => (
   </div>
 );
 
-// ─── Navbar ───
+// ─── Navbar (tailark-style: pill central + CTA destacado) ───
 const Navbar = () => {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const scroll = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const scroll = (id: string) => { setOpen(false); document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); };
   const goToApp = () => navigate(session ? "/app" : "/login");
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const items: [string, string][] = [["produto", "Produto"], ["recursos", "Recursos"], ["uso", "Como funciona"], ["planos", "Planos"], ["faq", "FAQ"]];
+
   return (
-    <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[hsl(222,22%,5%)]/80 border-b border-white/[0.05]">
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between h-14 px-6">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
-          <span className="hidden lg:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
+    <header className="fixed top-0 inset-x-0 z-50">
+      <div className={`mx-auto transition-all duration-300 ${scrolled ? "max-w-[1100px] mt-3 px-3" : "max-w-[1320px] mt-0 px-5"}`}>
+        <div className={`flex items-center justify-between h-14 px-3 md:px-4 transition-all duration-300 ${scrolled ? "rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/85 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)]" : "border-b border-white/[0.04] bg-[hsl(222,22%,5%)]/70 backdrop-blur-xl"}`}>
+          <button onClick={() => scroll("top")} className="flex items-center gap-2.5 min-w-0">
+            <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
+            <span className="hidden sm:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
+          </button>
+
+          <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+            {items.map(([id, label]) => (
+              <button key={id} onClick={() => scroll(id)} className="text-[13px] text-white/60 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.04] transition-colors">{label}</button>
+            ))}
+            <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/85 hover:text-amber-300 px-3 py-1.5 rounded-full hover:bg-amber-400/[0.06] transition-colors">Comunidade</button>
+          </nav>
+
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" onClick={goToApp} className="hidden sm:inline-flex text-[13px] font-medium text-white/65 hover:text-white hover:bg-white/[0.04] h-8 px-3">
+              {session ? "Ir para o app" : "Entrar"}
+            </Button>
+            {!session && (
+              <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12.5px] font-semibold bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500 text-emerald-950 h-8 px-3.5 rounded-full shadow-[0_4px_14px_-4px_rgba(16,185,129,0.55)] hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.7)] transition-all">
+                Começar grátis
+              </Button>
+            )}
+            <button onClick={() => setOpen(!open)} className="md:hidden p-2 -mr-1 text-white/70 hover:text-white" aria-label="Menu">
+              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
-        <nav className="hidden md:flex items-center gap-7">
-          {[["produto", "Produto"], ["recursos", "Recursos"], ["planos", "Planos"], ["faq", "FAQ"]].map(([id, label]) => (
-            <button key={id} onClick={() => scroll(id)} className="text-[13px] text-white/55 hover:text-white transition-colors">{label}</button>
-          ))}
-          <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/80 hover:text-amber-300 transition-colors">Comunidade</button>
-        </nav>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={goToApp} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">
-            {session ? "Ir para o app" : "Acessar sistema"}
-          </Button>
-          {!session && (
-            <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Começar grátis</Button>
-          )}
-        </div>
+
+        {/* Mobile menu */}
+        {open && (
+          <div className="md:hidden mt-2 rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/95 backdrop-blur-xl p-2 shadow-2xl">
+            {items.map(([id, label]) => (
+              <button key={id} onClick={() => scroll(id)} className="block w-full text-left text-[14px] text-white/75 hover:text-white px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors">{label}</button>
+            ))}
+            <button onClick={() => scroll("comunidade")} className="block w-full text-left text-[14px] text-amber-400/90 hover:text-amber-300 px-3 py-2.5 rounded-lg hover:bg-amber-400/[0.06] transition-colors">Comunidade</button>
+            <div className="h-px bg-white/[0.06] my-1.5" />
+            <button onClick={goToApp} className="block w-full text-left text-[14px] text-white/75 hover:text-white px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors">{session ? "Ir para o app" : "Entrar"}</button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -89,148 +121,117 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
   <p className={`text-[15px] md:text-base text-white/65 md:text-white/50 leading-[1.55] md:leading-[1.6] ${className}`}>{children}</p>
 );
 
-// ─── 1. Hero ───
+// ─── 1. Hero (tailark-style: centralizado + mockup grande embaixo) ───
 const Hero = () => {
   const navigate = useNavigate();
   return (
-    <section className="relative pt-24 md:pt-32 pb-14 md:pb-32 px-5 md:px-6 overflow-hidden lg:min-h-[100vh] flex items-center">
-      {/* Background — animated data visualization (desktop) */}
-      <HeroDataViz />
+    <section id="top" className="relative pt-32 md:pt-40 pb-16 md:pb-24 px-5 md:px-6 overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1200px] h-[700px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.18)_0%,transparent_60%)] blur-[120px]" />
+        <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.08)_0%,transparent_70%)] blur-[100px]" />
+        {/* Grid */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.025]" aria-hidden>
+          <defs>
+            <pattern id="hero-grid-bg" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="white" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#hero-grid-bg)" />
+        </svg>
+      </div>
 
-      <div className="max-w-[1320px] mx-auto relative z-10 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-6 items-center">
-          <motion.div initial="hidden" animate="visible" variants={stagger} className="lg:col-span-6 text-left">
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-6 md:mb-7 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] backdrop-blur-sm">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" style={{ animationDuration: "2.4s" }} />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-              </span>
-              <span className="text-[10.5px] md:text-[11px] font-medium text-emerald-300/90 tracking-wide">+{HERO_METRICS.messagesToday.value} mensagens enviadas hoje</span>
-            </motion.div>
-
-            <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.75rem] lg:text-[4.25rem] xl:text-[4.75rem] font-semibold text-white leading-[1.08] md:leading-[1.0] tracking-[-0.03em] md:tracking-[-0.04em] mb-5 md:mb-7 [text-wrap:balance]">
-              <span className="whitespace-nowrap">Pare de perder</span>{" "}
-              <span className="whitespace-nowrap">números no</span>{" "}
-              <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">WhatsApp.</span>{" "}
-              <span className="text-white/55">Escale com controle total.</span>
-            </motion.h1>
-
-            <motion.p variants={fadeUp} className="text-[15px] md:text-[17px] text-white/65 md:text-white/60 max-w-[500px] mb-8 md:mb-9 leading-[1.55]">
-              Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
-            </motion.p>
-
-            <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <Button
-                size="lg"
-                onClick={() => navigate("/auth?mode=signup")}
-                className="group w-full sm:w-auto h-[52px] md:h-[50px] px-7 rounded-[12px] gap-2
-                  bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500
-                  text-emerald-950 text-[15px] md:text-[14.5px] font-semibold tracking-tight
-                  shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_8px_24px_-6px_rgba(16,185,129,0.55)]
-                  hover:shadow-[0_1px_0_0_rgba(255,255,255,0.3)_inset,0_14px_32px_-6px_rgba(16,185,129,0.7)]
-                  hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98]
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(222,22%,5%)]
-                  transition-all duration-200"
-              >
-                Começar agora
-                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })}
-                className="group w-full sm:w-auto h-[52px] md:h-[50px] px-5 rounded-[12px] gap-1.5
-                  bg-white/[0.03] hover:bg-white/[0.07]
-                  border border-white/10 hover:border-white/20
-                  text-white/80 hover:text-white text-[14.5px] font-medium
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(222,22%,5%)]
-                  transition-all duration-200"
-              >
-                Ver como funciona
-                <ArrowRight className="w-4 h-4 opacity-60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
-              </Button>
-            </motion.div>
-
-            <motion.p variants={fadeUp} className="text-[12px] text-white/45 md:text-white/40 mt-6 md:mt-5 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70 flex-shrink-0" />
-              Acesso imediato · Sem cartão · Sem contrato
-            </motion.p>
+      <div className="max-w-[1200px] mx-auto relative z-10">
+        <motion.div initial="hidden" animate="visible" variants={stagger} className="text-center max-w-[860px] mx-auto">
+          {/* Badge */}
+          <motion.div variants={fadeUp} className="inline-flex items-center gap-2 mb-7 md:mb-8 px-3 py-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] backdrop-blur-sm">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" style={{ animationDuration: "2.4s" }} />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+            </span>
+            <span className="text-[11px] font-medium text-emerald-300/90 tracking-wide">+{HERO_METRICS.messagesToday.value} mensagens enviadas hoje</span>
           </motion.div>
 
-          {/* Mobile/tablet — compact data viz panel (no competing screenshot) */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: easeOut, delay: 0.2 }}
-            className="lg:hidden relative mt-4"
-          >
-            <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.18)_0%,transparent_70%)] blur-2xl pointer-events-none" />
-            <div className="relative rounded-2xl border border-emerald-400/15 bg-[hsl(222,28%,7%)]/90 backdrop-blur-sm p-4 shadow-[0_20px_60px_-20px_rgba(16,185,129,0.35)] overflow-hidden">
-              {/* Subtle grid */}
-              <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" aria-hidden="true">
-                <defs>
-                  <pattern id="hero-mob-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-                    <path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgb(52,211,153)" strokeWidth="0.5" />
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#hero-mob-grid)" />
-              </svg>
+          {/* Title */}
+          <motion.h1 variants={fadeUp} className="text-[2.25rem] sm:text-[2.75rem] md:text-[4rem] lg:text-[4.75rem] font-semibold text-white leading-[1.05] tracking-[-0.04em] mb-6 md:mb-7 [text-wrap:balance]">
+            Pare de perder números no{" "}
+            <span className="bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-500 bg-clip-text text-transparent">WhatsApp.</span>
+            <br className="hidden md:block" />
+            <span className="text-white/55">Escale com controle total.</span>
+          </motion.h1>
 
-              {/* KPI row */}
-              <div className="relative grid grid-cols-2 gap-2.5 mb-4">
-                {[
-                  { label: "Mensagens hoje", ...HERO_METRICS.messagesToday },
-                  { label: "Taxa de entrega", ...HERO_METRICS.deliveryRate },
-                ].map((s, i) => (
-                  <div key={s.label} className="rounded-lg border border-emerald-400/15 bg-white/[0.02] px-3 py-2.5">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">{s.label}</span>
-                      <span className="text-[9px] text-emerald-400 font-semibold">{s.trend}</span>
-                    </div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-[17px] font-semibold text-white tabular-nums tracking-tight">{s.value}</span>
-                      <motion.span
-                        className="w-1 h-1 rounded-full bg-emerald-400"
-                        animate={{ opacity: [0.9, 0.35, 0.9] }}
-                        transition={{ duration: 2.8, repeat: Infinity, delay: i * 0.5, ease: "easeInOut" }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Subtitle */}
+          <motion.p variants={fadeUp} className="text-[15px] md:text-[18px] text-white/60 max-w-[600px] mx-auto mb-9 md:mb-10 leading-[1.55]">
+            Evite banimentos, gerencie múltiplos chips com segurança e escale sua operação sem caos.
+          </motion.p>
 
-              {/* Mini bar chart */}
-              <div className="relative">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Volume últimas 24h</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold tabular-nums">↑ {HERO_METRICS.messagesToday.trend.replace("+", "")}</span>
-                </div>
-                <div className="flex items-end gap-1 h-[68px]">
-                  {HERO_BAR_SERIES.map((v, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ height: 0 }}
-                      animate={{ height: [`${v}%`, `${Math.max(25, v - 6)}%`, `${v}%`] }}
-                      transition={{
-                        height: { duration: 5 + (i % 3), repeat: Infinity, delay: i * 0.12, ease: "easeInOut" },
-                      }}
-                      className="flex-1 rounded-t-sm bg-gradient-to-t from-emerald-600/70 via-emerald-500/85 to-emerald-300/95"
-                      style={{ boxShadow: "0 0 6px rgba(16,185,129,0.28)" }}
-                    />
-                  ))}
-                </div>
-              </div>
+          {/* CTAs */}
+          <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
+            <Button
+              size="lg"
+              onClick={() => navigate("/auth?mode=signup")}
+              className="group w-full sm:w-auto h-[52px] px-7 rounded-full gap-2
+                bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500
+                text-emerald-950 text-[15px] font-semibold tracking-tight
+                shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_10px_30px_-6px_rgba(16,185,129,0.6)]
+                hover:shadow-[0_1px_0_0_rgba(255,255,255,0.3)_inset,0_16px_40px_-6px_rgba(16,185,129,0.75)]
+                hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98]
+                transition-all duration-200"
+            >
+              Começar agora
+              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              onClick={() => document.getElementById("uso")?.scrollIntoView({ behavior: "smooth" })}
+              className="group w-full sm:w-auto h-[52px] px-6 rounded-full gap-1.5
+                bg-white/[0.03] hover:bg-white/[0.07]
+                border border-white/10 hover:border-white/20
+                text-white/80 hover:text-white text-[14.5px] font-medium
+                transition-all duration-200"
+            >
+              Ver como funciona
+            </Button>
+          </motion.div>
+
+          <motion.p variants={fadeUp} className="text-[12.5px] text-white/45 flex items-center justify-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400/70" />
+            Acesso imediato · Sem cartão · Sem contrato
+          </motion.p>
+        </motion.div>
+
+        {/* Mockup grande do dashboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: easeOut, delay: 0.3 }}
+          className="relative mt-14 md:mt-20 max-w-[1100px] mx-auto"
+        >
+          {/* Glow */}
+          <div className="absolute -inset-x-20 -top-10 -bottom-10 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.25)_0%,transparent_60%)] blur-3xl pointer-events-none" />
+
+          {/* Frame */}
+          <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)]">
+            <div className="rounded-2xl overflow-hidden bg-[hsl(222,22%,5%)] ring-1 ring-inset ring-white/[0.04]">
+              <img
+                src={heroInstancesPanel}
+                alt="Painel DG Contingência Pro — Aquecimento Automático"
+                className="block w-full h-auto"
+                loading="eager"
+              />
             </div>
-          </motion.div>
+            {/* Top reflection */}
+            <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent pointer-events-none" />
+          </div>
 
-          <div className="hidden lg:block lg:col-span-6" aria-hidden="true" />
-        </div>
+          {/* Bottom fade */}
+          <div className="absolute inset-x-0 -bottom-1 h-32 bg-gradient-to-t from-[hsl(222,22%,5%)] to-transparent pointer-events-none" />
+        </motion.div>
       </div>
     </section>
   );
 };
-
-// ─── 2. Trust (product-focused) ───
 const trustPoints = [
   "Gerenciamento de múltiplos chips em um só lugar",
   "Monitoramento contínuo das instâncias",
