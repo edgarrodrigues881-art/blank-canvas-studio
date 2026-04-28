@@ -33,6 +33,13 @@ const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp"];
 
 const topPlans: Plan[] = [
   {
+    name: "Starter", instances: "1", price: "39,99",
+    subtitle: "Plano de entrada para testar o sistema.",
+    extraCopy: null, cta: "Começar", popular: false,
+    features: featuresWithoutWhatsApp,
+    addon: null,
+  },
+  {
     name: "Essencial", instances: "5", price: "99,99",
     subtitle: "Ideal para quem está começando com poucas instâncias.",
     extraCopy: null, cta: "Começar", popular: false,
@@ -46,6 +53,9 @@ const topPlans: Plan[] = [
     features: featuresWithoutWhatsApp,
     addon: null,
   },
+];
+
+const bottomPlans: Plan[] = [
   {
     name: "Pro", instances: "30", price: "397,99",
     subtitle: "Ideal para operações em crescimento.",
@@ -53,9 +63,6 @@ const topPlans: Plan[] = [
     features: featuresWithWhatsApp,
     addon: null,
   },
-];
-
-const bottomPlans: Plan[] = [
   {
     name: "Scale", instances: "50", price: "597,99",
     subtitle: "Para quem precisa escalar com múltiplas instâncias.",
@@ -67,13 +74,6 @@ const bottomPlans: Plan[] = [
     name: "Elite", instances: "100", price: "1.097,99",
     subtitle: "Alta capacidade para operações grandes.",
     extraCopy: null, cta: "Contratar", popular: false,
-    features: featuresWithWhatsApp,
-    addon: null,
-  },
-  {
-    name: "Custom", instances: "200+", price: null, priceLabel: "Sob consulta",
-    subtitle: "Solução personalizada para grande escala.",
-    extraCopy: null, cta: "Consultar", popular: false, isCustom: true,
     features: featuresWithWhatsApp,
     addon: null,
   },
