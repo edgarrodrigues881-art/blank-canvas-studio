@@ -198,33 +198,27 @@ const Auth = () => {
     }
   };
 
-  const inputClass = "w-full h-12 px-4 rounded-xl text-sm text-white/95 placeholder:text-white/30 outline-none transition-all duration-200 bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] focus:border-emerald-400/40 focus:bg-white/[0.06] focus:ring-2 focus:ring-emerald-500/20 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.06)]";
+  const inputClass = "w-full h-12 px-4 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none transition-all duration-200 bg-black/40 border border-emerald-500/10 hover:border-emerald-500/20 hover:bg-black/60 focus:border-emerald-500/50 focus:bg-black/60 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.15)]";
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0a0a0c" }}>
-      {/* Organic ambient gradients — offset, asymmetric */}
-      <div className="pointer-events-none absolute inset-0">
-        {/* Primary emerald glow — top-left, off-center */}
-        <div className="absolute -top-[12%] -left-[8%] w-[780px] h-[780px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.13) 0%, transparent 60%)", filter: "blur(60px)" }} />
-        {/* Cool blue accent — bottom-right */}
-        <div className="absolute -bottom-[18%] -right-[10%] w-[680px] h-[680px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 65%)", filter: "blur(70px)" }} />
-        {/* Subtle teal mid-layer for depth */}
-        <div className="absolute top-[55%] left-[60%] w-[420px] h-[420px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(20,184,166,0.06) 0%, transparent 70%)", filter: "blur(50px)" }} />
-        {/* Vignette to anchor the card */}
-        <div className="absolute inset-0"
-          style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%)" }} />
-        {/* SVG grain — true noise texture */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.05] mix-blend-overlay" xmlns="http://www.w3.org/2000/svg">
-          <filter id="authNoise">
-            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-            <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0" />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#authNoise)" />
-        </svg>
-      </div>
+    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden bg-black">
+      {/* Subtle green grid pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(16,185,129,1) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,1) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+        }}
+      />
+      {/* Soft green ambient glow behind card */}
+      <div
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 60%)", filter: "blur(60px)" }}
+      />
+    </div>
 
       {/* Back button */}
       <motion.button
