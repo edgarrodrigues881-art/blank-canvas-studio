@@ -625,7 +625,7 @@ const faqs = [
   { q: "Como funciona o aquecimento automático?", a: "O sistema realiza interações graduais e controladas para amadurecer o chip antes de qualquer envio em volume." },
   { q: "Existe fidelidade ou contrato mínimo?", a: "Não. Você pode cancelar ou trocar de plano a qualquer momento, sem multas." },
   { q: "O que são os alertas via WhatsApp?", a: "Recurso adicional que envia notificações de desconexões, falhas e status de campanhas direto no seu WhatsApp." },
-  { q: "Quantas instâncias posso usar?", a: "Cada plano tem um limite: Essencial (5), Start (10), Pro (30), Scale (50), Elite (100) e Custom (200+)." },
+  { q: "Quantas instâncias posso usar?", a: "Cada plano tem um limite: Starter (1), Essencial (5), Start (10), Pro (30), Scale (50) e Elite (100)." },
 ];
 
 const FAQ = () => (
