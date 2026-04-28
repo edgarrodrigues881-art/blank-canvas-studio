@@ -104,13 +104,13 @@ export default function AutosaveSchedule() {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [timeOfDay, setTimeOfDay] = useState("13:00");
-  const [minDelay, setMinDelay] = useState(15);
-  const [maxDelay, setMaxDelay] = useState(60);
-  const [pauseEveryMin, setPauseEveryMin] = useState(10);
-  const [pauseEveryMax, setPauseEveryMax] = useState(20);
-  const [pauseDurationMin, setPauseDurationMin] = useState(30);
-  const [pauseDurationMax, setPauseDurationMax] = useState(120);
-  const [msgsPerInstance, setMsgsPerInstance] = useState(1);
+  const [minDelay, setMinDelay] = useState<number | "">(15);
+  const [maxDelay, setMaxDelay] = useState<number | "">(60);
+  const [pauseEveryMin, setPauseEveryMin] = useState<number | "">(10);
+  const [pauseEveryMax, setPauseEveryMax] = useState<number | "">(20);
+  const [pauseDurationMin, setPauseDurationMin] = useState<number | "">(30);
+  const [pauseDurationMax, setPauseDurationMax] = useState<number | "">(120);
+  const [msgsPerInstance, setMsgsPerInstance] = useState<number | "">(1);
   const [initialLimit, setInitialLimit] = useState<number | "">(20);
   const [dailyIncrement, setDailyIncrement] = useState<number | "">(5);
   const [maxLimit, setMaxLimit] = useState<number | "">(100);
@@ -160,19 +160,29 @@ export default function AutosaveSchedule() {
     if (!Number.isFinite(mx) || mx < ini) return toast.error("Limite máximo deve ser ≥ limite inicial");
     const payloadProgression = { initial_limit_per_instance: ini, daily_increment: inc, max_limit_per_instance: mx };
 
+    // Normaliza valores numéricos: vazio → 1 (apenas no momento de salvar)
+    const num = (v: number | "", fallback: number) => (typeof v === "number" && !isNaN(v) ? v : fallback);
+    const minD = Math.max(5, num(minDelay, 15));
+    const maxD = Math.max(minD, num(maxDelay, 60));
+    const peMin = Math.max(1, num(pauseEveryMin, 10));
+    const peMax = Math.max(peMin, num(pauseEveryMax, 20));
+    const pdMin = Math.max(1, num(pauseDurationMin, 30));
+    const pdMax = Math.max(pdMin, num(pauseDurationMax, 120));
+    const mpi = Math.max(1, num(msgsPerInstance, 1));
+
     try {
       await createMut.mutateAsync({
         name: name.trim() || "Agendamento Auto Save",
         device_ids: selectedDevices,
         weekdays: selectedWeekdays,
         time_of_day: timeOfDay,
-        min_delay_seconds: minDelay,
-        max_delay_seconds: maxDelay,
-        pause_every_min: pauseEveryMin,
-        pause_every_max: pauseEveryMax,
-        pause_duration_min: pauseDurationMin,
-        pause_duration_max: pauseDurationMax,
-        messages_per_instance: msgsPerInstance,
+        min_delay_seconds: minD,
+        max_delay_seconds: maxD,
+        pause_every_min: peMin,
+        pause_every_max: peMax,
+        pause_duration_min: pdMin,
+        pause_duration_max: pdMax,
+        messages_per_instance: mpi,
         ...payloadProgression,
       });
       toast.success("Agendamento recorrente criado");
@@ -572,13 +582,13 @@ export default function AutosaveSchedule() {
                 <Input
                   type="number"
                   min={1}
-                  value={msgsPerInstance || ""}
-                  placeholder="ex: 3"
+                  value={msgsPerInstance}
+                  placeholder="ex: 3 (vazio = 1)"
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === "") return setMsgsPerInstance(1);
+                    if (v === "") return setMsgsPerInstance("");
                     const n = parseInt(v, 10);
-                    if (!isNaN(n)) setMsgsPerInstance(Math.max(1, n));
+                    if (!isNaN(n) && n >= 0) setMsgsPerInstance(n);
                   }}
                 />
                 <p className="text-[11px] text-muted-foreground/80 mt-1.5">Quantidade de mensagens enviadas para cada número.</p>
@@ -596,21 +606,32 @@ export default function AutosaveSchedule() {
                       type="number"
                       min={5}
                       value={minDelay}
-                      onChange={(e) => setMinDelay(Math.max(5, parseInt(e.target.value) || 5))}
-                      onBlur={() => { if (maxDelay < minDelay) setMaxDelay(minDelay); }}
+                      placeholder="ex: 15"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") return setMinDelay("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setMinDelay(n);
+                      }}
                     />
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Máx (s)</Label>
                     <Input
                       type="number"
-                      min={minDelay}
+                      min={1}
                       value={maxDelay}
-                      onChange={(e) => setMaxDelay(Math.max(minDelay, parseInt(e.target.value) || minDelay))}
+                      placeholder="ex: 60"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") return setMaxDelay("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setMaxDelay(n);
+                      }}
                     />
                   </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground/80">Aleatório entre <span className="text-foreground font-medium">{minDelay}–{maxDelay}s</span> entre cada envio.</p>
+                <p className="text-[11px] text-muted-foreground/80">Aleatório entre <span className="text-foreground font-medium">{minDelay || "—"}–{maxDelay || "—"}s</span> entre cada envio.</p>
               </div>
 
               <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
@@ -624,25 +645,28 @@ export default function AutosaveSchedule() {
                     <Input
                       type="number"
                       min={1}
-                      value={pauseEveryMin || ""}
+                      value={pauseEveryMin}
+                      placeholder="ex: 10"
                       onChange={(e) => {
                         const v = e.target.value;
-                        const n = v === "" ? 1 : parseInt(v, 10);
-                        if (!isNaN(n)) setPauseEveryMin(Math.max(1, n));
+                        if (v === "") return setPauseEveryMin("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setPauseEveryMin(n);
                       }}
-                      onBlur={() => { if (pauseEveryMax < pauseEveryMin) setPauseEveryMax(pauseEveryMin); }}
                     />
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx)</Label>
                     <Input
                       type="number"
-                      min={pauseEveryMin}
-                      value={pauseEveryMax || ""}
+                      min={1}
+                      value={pauseEveryMax}
+                      placeholder="ex: 20"
                       onChange={(e) => {
                         const v = e.target.value;
-                        const n = v === "" ? pauseEveryMin : parseInt(v, 10);
-                        if (!isNaN(n)) setPauseEveryMax(Math.max(pauseEveryMin, n));
+                        if (v === "") return setPauseEveryMax("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setPauseEveryMax(n);
                       }}
                     />
                   </div>
@@ -651,30 +675,33 @@ export default function AutosaveSchedule() {
                     <Input
                       type="number"
                       min={1}
-                      value={pauseDurationMin || ""}
+                      value={pauseDurationMin}
+                      placeholder="ex: 30"
                       onChange={(e) => {
                         const v = e.target.value;
-                        const n = v === "" ? 1 : parseInt(v, 10);
-                        if (!isNaN(n)) setPauseDurationMin(Math.max(1, n));
+                        if (v === "") return setPauseDurationMin("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setPauseDurationMin(n);
                       }}
-                      onBlur={() => { if (pauseDurationMax < pauseDurationMin) setPauseDurationMax(pauseDurationMin); }}
                     />
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
                     <Input
                       type="number"
-                      min={pauseDurationMin}
-                      value={pauseDurationMax || ""}
+                      min={1}
+                      value={pauseDurationMax}
+                      placeholder="ex: 120"
                       onChange={(e) => {
                         const v = e.target.value;
-                        const n = v === "" ? pauseDurationMin : parseInt(v, 10);
-                        if (!isNaN(n)) setPauseDurationMax(Math.max(pauseDurationMin, n));
+                        if (v === "") return setPauseDurationMax("");
+                        const n = parseInt(v, 10);
+                        if (!isNaN(n) && n >= 0) setPauseDurationMax(n);
                       }}
                     />
                   </div>
                 </div>
-                <p className="text-[11px] text-muted-foreground/80">A cada <span className="text-foreground font-medium">{pauseEveryMin}–{pauseEveryMax}</span> mensagens, pausa por <span className="text-foreground font-medium">{pauseDurationMin}–{pauseDurationMax}s</span>.</p>
+                <p className="text-[11px] text-muted-foreground/80">A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"}</span> mensagens, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.</p>
               </div>
             </section>
 
