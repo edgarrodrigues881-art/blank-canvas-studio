@@ -2843,6 +2843,143 @@ export type Database = {
           },
         ]
       }
+      crm_agenda_categories: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crm_agenda_events: {
+        Row: {
+          all_day: boolean
+          category_id: string | null
+          color: string | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          end_at: string | null
+          event_type: string
+          google_event_id: string | null
+          google_sync_enabled: boolean
+          google_synced_at: string | null
+          id: string
+          lead_id: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          link: string | null
+          location: string | null
+          metadata: Json | null
+          pipeline_stage: string | null
+          priority: string
+          recurrence: Json | null
+          reminder_minutes_before: number | null
+          start_at: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          whatsapp_reminder: boolean
+          whatsapp_reminder_phone: string | null
+          whatsapp_reminder_sent_at: string | null
+        }
+        Insert: {
+          all_day?: boolean
+          category_id?: string | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          google_event_id?: string | null
+          google_sync_enabled?: boolean
+          google_synced_at?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          link?: string | null
+          location?: string | null
+          metadata?: Json | null
+          pipeline_stage?: string | null
+          priority?: string
+          recurrence?: Json | null
+          reminder_minutes_before?: number | null
+          start_at: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          whatsapp_reminder?: boolean
+          whatsapp_reminder_phone?: string | null
+          whatsapp_reminder_sent_at?: string | null
+        }
+        Update: {
+          all_day?: boolean
+          category_id?: string | null
+          color?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string
+          google_event_id?: string | null
+          google_sync_enabled?: boolean
+          google_synced_at?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          link?: string | null
+          location?: string | null
+          metadata?: Json | null
+          pipeline_stage?: string | null
+          priority?: string
+          recurrence?: Json | null
+          reminder_minutes_before?: number | null
+          start_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_reminder?: boolean
+          whatsapp_reminder_phone?: string | null
+          whatsapp_reminder_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_agenda_events_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "crm_agenda_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_campaign_contacts: {
         Row: {
           campaign_id: string
