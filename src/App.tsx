@@ -84,6 +84,7 @@ const CRMDashboard = lazyWithPreload(() => import("@/pages/dashboard/CRMDashboar
 const Leads = lazyWithPreload(() => import("@/pages/dashboard/Leads"));
 const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
 const CRMAgendamentos = lazyWithPreload(() => import("@/pages/dashboard/CRMAgendamentos"));
+const CRMFollowups = lazyWithPreload(() => import("@/pages/dashboard/CRMFollowups"));
 const CRMReports = lazyWithPreload(() => import("@/pages/dashboard/CRMReports"));
 const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
 const CrmDispatches = lazyWithPreload(() => import("@/pages/dashboard/CrmDispatches"));
