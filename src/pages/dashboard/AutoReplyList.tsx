@@ -52,6 +52,13 @@ export default function AutoReplyList() {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [renamingGroup, setRenamingGroup] = useState<{ id: string; name: string } | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newAutomationName, setNewAutomationName] = useState("");
+  const [newAutomationGroup, setNewAutomationGroup] = useState<string>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((s) => ({ ...s, [key]: !s[key] }));
 
   const { data: flows, isLoading } = useQuery({
     queryKey: ["autoreply_flows", user?.id],
