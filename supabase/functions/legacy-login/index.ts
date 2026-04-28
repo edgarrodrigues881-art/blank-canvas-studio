@@ -219,14 +219,6 @@ async function restoreLegacyData(adminClient: any, legacyUserId: string, newUser
   ]);
 }
 
-async function listAuthUsers(adminClient: any) {
-  const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) {
-    throw new Error(`auth_list_failed:${error.message}`);
-  }
-  return data.users || [];
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -269,30 +261,10 @@ Deno.serve(async (req) => {
       return json({ error: "profile_lookup_failed" }, 500);
     }
 
-    const authUsers = await listAuthUsers(adminClient);
-    const existingAuthUser = authUsers.find((user: { email?: string | null }) => (user.email || "").toLowerCase() === rawIdentifier);
-
     const phoneCandidates = emailIdentifier ? [] : buildPhoneCandidates(normalizedIdentifier);
     const legacyProfile = emailIdentifier
       ? resolveProfileFromEmail(profiles || [], rawIdentifier)
       : (profiles || []).find((profile: { phone: string | null }) => phoneMatches(profile.phone, phoneCandidates));
-
-    if (existingAuthUser) {
-      if (legacyProfile && existingAuthUser.id !== legacyProfile.id) {
-        await restoreLegacyData(adminClient, legacyProfile.id, existingAuthUser.id);
-        await adminClient.auth.admin.updateUserById(existingAuthUser.id, {
-          user_metadata: {
-            ...(existingAuthUser.user_metadata || {}),
-            full_name: legacyProfile.full_name || existingAuthUser.user_metadata?.full_name || "",
-            company: legacyProfile.company || existingAuthUser.user_metadata?.company || "",
-            phone: digitsOnly(legacyProfile.phone) || existingAuthUser.user_metadata?.phone || "",
-            legacy_restored_from: legacyProfile.id,
-          },
-        });
-      }
-
-      return json({ email: existingAuthUser.email, restored: false, linked: Boolean(legacyProfile) });
-    }
 
     if (!legacyProfile) {
       return json({ error: "legacy_profile_not_found" }, 404);
