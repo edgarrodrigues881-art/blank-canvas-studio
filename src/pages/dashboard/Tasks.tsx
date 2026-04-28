@@ -31,6 +31,9 @@ export default function Tasks() {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterPriority, setFilterPriority] = useState<"all" | TaskPriority>("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "todo" | "doing" | "done">("all");
+  const [filterProjectId, setFilterProjectId] = useState<"all" | string>("all");
+  const [filterLeadId, setFilterLeadId] = useState<"all" | string>("all");
 
   // Dialogs
   const [taskDialog, setTaskDialog] = useState<{ open: boolean; task?: Task | null; defaultColumn?: string | null; defaultProject?: string | null }>({ open: false });
@@ -40,13 +43,34 @@ export default function Tasks() {
 
   const activeProject = useMemo(() => t.projects.find((p) => p.id === activeProjectId) || t.projects[0] || null, [t.projects, activeProjectId]);
 
+  // Lista única de leads vinculados a tarefas (para o filtro)
+  const leadOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    t.tasks.forEach((tk) => { if (tk.lead_id && tk.lead_name) map.set(tk.lead_id, tk.lead_name); });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [t.tasks]);
+
   const filteredTasks = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return t.tasks.filter((task) => {
-      if (search && !task.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (q) {
+        const inTitle = task.title.toLowerCase().includes(q);
+        const inDesc = (task.description || "").toLowerCase().includes(q);
+        const inLead = (task.lead_name || "").toLowerCase().includes(q);
+        const inLabels = (task.labels || []).some((l) => l.toLowerCase().includes(q));
+        if (!inTitle && !inDesc && !inLead && !inLabels) return false;
+      }
       if (filterPriority !== "all" && task.priority !== filterPriority) return false;
+      if (filterStatus !== "all" && task.status !== filterStatus) return false;
+      if (filterProjectId !== "all" && task.project_id !== filterProjectId) return false;
+      if (filterLeadId !== "all" && task.lead_id !== filterLeadId) return false;
       return true;
     });
-  }, [t.tasks, search, filterPriority]);
+  }, [t.tasks, search, filterPriority, filterStatus, filterProjectId, filterLeadId]);
+
+  const hasActiveFilters = search || filterPriority !== "all" || filterStatus !== "all" || filterProjectId !== "all" || filterLeadId !== "all";
+  const clearFilters = () => { setSearch(""); setFilterPriority("all"); setFilterStatus("all"); setFilterProjectId("all"); setFilterLeadId("all"); };
+
 
   const stats = useMemo(() => {
     const today = new Date();
