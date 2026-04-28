@@ -494,6 +494,7 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Tarefas", url: "/dashboard/tasks", icon: ListTodo })}
+                  {renderNavItem({ title: "Anotações", url: "/dashboard/notes", icon: StickyNote })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
