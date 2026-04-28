@@ -479,18 +479,20 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
     offset: ["start 95%", "end 60%"],
   });
 
-  // Card: fade-in suave, sem fade-out
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.25], [0.15, 1]);
-  const cardY = useTransform(scrollYProgress, [0, 0.3], [24, 0]);
+  // Card: fade-in + translateY (30px → 0), com stagger sutil por índice
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.3], [0, 1]);
+  const cardY = useTransform(scrollYProgress, [0, 0.35], [30, 0]);
   // Borda em gradiente: leve pulso no foco
   const borderOpacity = useTransform(scrollYProgress, [0, 0.4, 1], [0.25, 0.5, 0.35]);
 
   // Imagem: parallax leve + zoom sutil
-  const imgEntryY = useTransform(scrollYProgress, [0, 0.3, 1], [24, 0, -8]);
+  const imgEntryY = useTransform(scrollYProgress, [0, 0.3, 1], [30, 0, -8]);
   const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.02, 1.03]);
 
-  const smoothCardY = useSpring(cardY, { stiffness: 110, damping: 22, mass: 0.5 });
-  const smoothImgY = useSpring(imgEntryY, { stiffness: 80, damping: 24, mass: 0.7 });
+  // Stagger: cards posteriores entram com spring um pouco mais "lento" para efeito cascata
+  const staggerDelay = Math.min(index, 4) * 4;
+  const smoothCardY = useSpring(cardY, { stiffness: 110 - staggerDelay, damping: 22, mass: 0.5 });
+  const smoothImgY = useSpring(imgEntryY, { stiffness: 80 - staggerDelay, damping: 24, mass: 0.7 });
 
   return (
     <motion.div
@@ -765,7 +767,7 @@ const Plans = () => {
   };
 
   return (
-    <section id="planos" className="relative bg-black py-14 md:py-32 px-5 md:px-6">
+    <section id="planos" className="relative py-14 md:py-32 px-5 md:px-6">
       <div className="max-w-[1200px] mx-auto">
         <div className="max-w-3xl mb-10 md:mb-14">
           <Eyebrow>Planos</Eyebrow>
