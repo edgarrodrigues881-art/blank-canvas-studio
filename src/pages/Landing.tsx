@@ -138,23 +138,24 @@ const Hero = () => {
   // Sombra mais intensa quando endireita
   const shadowOpacity = useTransform(smooth, [0, 1], [0.15, 0.45]);
 
-  // Hover tilt (3D follow cursor)
-  const [hoverTilt, setHoverTilt] = useState({ x: 0, y: 0 });
-  const [spotPos, setSpotPos] = useState({ x: 50, y: 50 });
-  const [isHovering, setIsHovering] = useState(false);
+  // Hover tilt 3D suave (motion values + spring)
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const springTiltX = useSpring(tiltX, { stiffness: 150, damping: 20, mass: 0.4 });
+  const springTiltY = useSpring(tiltY, { stiffness: 150, damping: 20, mass: 0.4 });
 
   const handleMockupMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    const TILT = 6; // graus máximos
-    setHoverTilt({ x: -(py - 0.5) * (TILT * 2), y: (px - 0.5) * (TILT * 2) });
-    setSpotPos({ x: px * 100, y: py * 100 });
+    const TILT = 4; // graus máximos — bem sutil
+    tiltX.set(-(py - 0.5) * (TILT * 2));
+    tiltY.set((px - 0.5) * (TILT * 2));
   };
   const handleMockupLeave = () => {
-    setHoverTilt({ x: 0, y: 0 });
-    setIsHovering(false);
+    tiltX.set(0);
+    tiltY.set(0);
   };
   return (
     <section id="top" className="relative pt-32 md:pt-40 pb-16 md:pb-24 px-5 md:px-6 overflow-hidden">
