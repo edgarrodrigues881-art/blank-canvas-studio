@@ -490,12 +490,12 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
         }`}
         style={{ transitionDelay: visible ? "150ms" : undefined }}
       >
-        <div className="rounded-lg overflow-hidden ring-1 ring-white/[0.06] shadow-[0_30px_80px_-25px_rgba(0,0,0,0.7)] bg-[#0a0e1a]">
+        <div className="rounded-xl overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)]">
           <img
             src={step.img}
             alt={`${step.title} — passo ${step.n}`}
             loading={index === 0 ? "eager" : "lazy"}
-            className="w-full h-auto block object-contain"
+            className="w-full h-auto block"
           />
         </div>
       </div>
