@@ -419,28 +419,67 @@ function CalendarView({ tasks, onEdit, onCreate }: any) {
   const gridEnd = endOfWeek(endOfMonth(cursor), { weekStartsOn: 0 });
   const days: Date[] = [];
   let d = gridStart; while (d <= gridEnd) { days.push(d); d = addDays(d, 1); }
+
+  // Agrupa por dia: combina tarefas com due_at e tarefas diárias (daily_date)
   const tasksByDay = useMemo(() => {
     const map = new Map<string, Task[]>();
-    (tasks as Task[]).filter((t) => t.due_at).forEach((t) => {
-      const k = format(parseISO(t.due_at!), "yyyy-MM-dd");
+    (tasks as Task[]).forEach((t) => {
+      let k: string | null = null;
+      if (t.is_daily && t.daily_date) {
+        k = t.daily_date;
+      } else if (t.due_at) {
+        k = format(parseISO(t.due_at), "yyyy-MM-dd");
+      }
+      if (!k) return;
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(t);
     });
+    // Ordena cada dia: pendentes primeiro, depois por hora (due_at)
+    map.forEach((list) => list.sort((a, b) => {
+      if ((a.status === "done") !== (b.status === "done")) return a.status === "done" ? 1 : -1;
+      const ta = a.due_at ? parseISO(a.due_at).getTime() : 0;
+      const tb = b.due_at ? parseISO(b.due_at).getTime() : 0;
+      return ta - tb;
+    }));
     return map;
   }, [tasks]);
+
+  const monthCount = useMemo(() => {
+    let total = 0;
+    days.forEach((day) => {
+      if (!isSameMonth(day, cursor)) return;
+      total += (tasksByDay.get(format(day, "yyyy-MM-dd")) || []).length;
+    });
+    return total;
+  }, [days, tasksByDay, cursor]);
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-3 border-b border-border/40">
         <Button variant="outline" size="sm" onClick={() => setCursor(subMonths(cursor, 1))} className="h-7 w-7 p-0"><ChevronLeft className="h-3 w-3" /></Button>
-        <h3 className="text-sm font-bold capitalize">{format(cursor, "MMMM 'de' yyyy", { locale: ptBR })}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-bold capitalize">{format(cursor, "MMMM 'de' yyyy", { locale: ptBR })}</h3>
+          <Badge variant="secondary" className="h-5 text-[10px]">{monthCount} {monthCount === 1 ? "tarefa" : "tarefas"}</Badge>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setCursor(new Date())}>Hoje</Button>
+        </div>
         <Button variant="outline" size="sm" onClick={() => setCursor(addMonths(cursor, 1))} className="h-7 w-7 p-0"><ChevronRight className="h-3 w-3" /></Button>
       </div>
+
+      {/* Legenda */}
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-border/30 bg-muted/10 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-violet-500/60" />Com prazo</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-amber-500/60" />Diária</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-emerald-500/60" />Concluída</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-rose-500/60" />Atrasada</span>
+        <span className="ml-auto opacity-70">Clique no dia para criar · Clique na tarefa para editar</span>
+      </div>
+
       <div className="grid grid-cols-7 border-b border-border/30 bg-muted/20">
         {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((w) => (
           <div key={w} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center py-2">{w}</div>
         ))}
       </div>
+
       <div className="flex-1 grid grid-cols-7 grid-rows-6 overflow-auto">
         {days.map((day) => {
           const k = format(day, "yyyy-MM-dd");
@@ -448,30 +487,58 @@ function CalendarView({ tasks, onEdit, onCreate }: any) {
           const inMonth = isSameMonth(day, cursor);
           const today = isToday(day);
           return (
-            <button
+            <div
               key={k}
-              onDoubleClick={() => onCreate(day)}
+              onClick={() => onCreate(day)}
               className={cn(
-                "border-r border-b border-border/20 p-1.5 text-left flex flex-col gap-1 min-h-[88px] hover:bg-muted/30 transition-colors",
+                "relative border-r border-b border-border/20 p-1.5 flex flex-col gap-1 min-h-[96px] hover:bg-muted/30 transition-colors cursor-pointer group",
                 !inMonth && "opacity-40 bg-muted/10"
               )}
             >
-              <span className={cn("text-xs font-semibold inline-flex items-center justify-center h-5 min-w-[20px] rounded", today && "bg-violet-500 text-white")}>{format(day, "d")}</span>
-              <div className="space-y-0.5 overflow-hidden">
-                {dayTasks.slice(0, 3).map((t) => (
-                  <div key={t.id} onClick={(e) => { e.stopPropagation(); onEdit(t); }} className={cn("text-[10px] px-1.5 py-0.5 rounded truncate cursor-pointer", t.status === "done" ? "bg-emerald-500/15 text-emerald-600 line-through" : "bg-violet-500/15 text-violet-600 hover:bg-violet-500/25")}>
-                    {t.title}
-                  </div>
-                ))}
-                {dayTasks.length > 3 && <div className="text-[9px] text-muted-foreground px-1">+{dayTasks.length - 3}</div>}
+              <div className="flex items-center justify-between">
+                <span className={cn("text-xs font-semibold inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded", today && "bg-violet-500 text-white")}>{format(day, "d")}</span>
+                <Plus className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-70" />
               </div>
-            </button>
+              <div className="space-y-0.5 overflow-hidden">
+                {dayTasks.slice(0, 3).map((t) => {
+                  const overdue = !t.is_daily && t.due_at && isPast(parseISO(t.due_at)) && t.status !== "done";
+                  const tone = t.status === "done"
+                    ? "bg-emerald-500/15 text-emerald-600 line-through"
+                    : overdue
+                    ? "bg-rose-500/15 text-rose-600 hover:bg-rose-500/25"
+                    : t.is_daily
+                    ? "bg-amber-500/15 text-amber-600 hover:bg-amber-500/25"
+                    : "bg-violet-500/15 text-violet-600 hover:bg-violet-500/25";
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={(e) => { e.stopPropagation(); onEdit(t); }}
+                      title={`${t.title}${t.due_at && !t.is_daily ? " — " + format(parseISO(t.due_at), "HH:mm") : ""}`}
+                      className={cn("text-[10px] px-1.5 py-0.5 rounded truncate cursor-pointer flex items-center gap-1", tone)}
+                    >
+                      {t.is_daily && <Sparkles className="h-2 w-2 shrink-0" />}
+                      {!t.is_daily && t.due_at && <span className="opacity-70 shrink-0">{format(parseISO(t.due_at), "HH:mm")}</span>}
+                      <span className="truncate">{t.title}</span>
+                    </div>
+                  );
+                })}
+                {dayTasks.length > 3 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(dayTasks[3]); }}
+                    className="text-[9px] text-muted-foreground hover:text-foreground px-1 font-medium"
+                  >
+                    +{dayTasks.length - 3} mais
+                  </button>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
     </div>
   );
 }
+
 
 // =============== DAILY VIEW ===============
 function DailyView({ tasks, onEdit, onToggle, onCreateDaily }: any) {
