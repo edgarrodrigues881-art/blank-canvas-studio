@@ -37,34 +37,66 @@ const Background = () => (
   </div>
 );
 
-// ─── Navbar ───
+// ─── Navbar (tailark-style: pill central + CTA destacado) ───
 const Navbar = () => {
   const navigate = useNavigate();
   const { session } = useAuth();
-  const scroll = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const scroll = (id: string) => { setOpen(false); document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); };
   const goToApp = () => navigate(session ? "/app" : "/login");
 
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const items: [string, string][] = [["produto", "Produto"], ["recursos", "Recursos"], ["uso", "Como funciona"], ["planos", "Planos"], ["faq", "FAQ"]];
+
   return (
-    <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-[hsl(222,22%,5%)]/80 border-b border-white/[0.05]">
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between h-14 px-6">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
-          <span className="hidden lg:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
+    <header className="fixed top-0 inset-x-0 z-50">
+      <div className={`mx-auto transition-all duration-300 ${scrolled ? "max-w-[1100px] mt-3 px-3" : "max-w-[1320px] mt-0 px-5"}`}>
+        <div className={`flex items-center justify-between h-14 px-3 md:px-4 transition-all duration-300 ${scrolled ? "rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/85 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)]" : "border-b border-white/[0.04] bg-[hsl(222,22%,5%)]/70 backdrop-blur-xl"}`}>
+          <button onClick={() => scroll("top")} className="flex items-center gap-2.5 min-w-0">
+            <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
+            <span className="hidden sm:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
+          </button>
+
+          <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+            {items.map(([id, label]) => (
+              <button key={id} onClick={() => scroll(id)} className="text-[13px] text-white/60 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/[0.04] transition-colors">{label}</button>
+            ))}
+            <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/85 hover:text-amber-300 px-3 py-1.5 rounded-full hover:bg-amber-400/[0.06] transition-colors">Comunidade</button>
+          </nav>
+
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" onClick={goToApp} className="hidden sm:inline-flex text-[13px] font-medium text-white/65 hover:text-white hover:bg-white/[0.04] h-8 px-3">
+              {session ? "Ir para o app" : "Entrar"}
+            </Button>
+            {!session && (
+              <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12.5px] font-semibold bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500 text-emerald-950 h-8 px-3.5 rounded-full shadow-[0_4px_14px_-4px_rgba(16,185,129,0.55)] hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.7)] transition-all">
+                Começar grátis
+              </Button>
+            )}
+            <button onClick={() => setOpen(!open)} className="md:hidden p-2 -mr-1 text-white/70 hover:text-white" aria-label="Menu">
+              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
-        <nav className="hidden md:flex items-center gap-7">
-          {[["produto", "Produto"], ["recursos", "Recursos"], ["planos", "Planos"], ["faq", "FAQ"]].map(([id, label]) => (
-            <button key={id} onClick={() => scroll(id)} className="text-[13px] text-white/55 hover:text-white transition-colors">{label}</button>
-          ))}
-          <button onClick={() => scroll("comunidade")} className="text-[13px] text-amber-400/80 hover:text-amber-300 transition-colors">Comunidade</button>
-        </nav>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={goToApp} className="text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] h-8 px-3">
-            {session ? "Ir para o app" : "Acessar sistema"}
-          </Button>
-          {!session && (
-            <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12px] font-medium bg-white/95 hover:bg-white text-black h-8 px-3.5 rounded-md shadow-none">Começar grátis</Button>
-          )}
-        </div>
+
+        {/* Mobile menu */}
+        {open && (
+          <div className="md:hidden mt-2 rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/95 backdrop-blur-xl p-2 shadow-2xl">
+            {items.map(([id, label]) => (
+              <button key={id} onClick={() => scroll(id)} className="block w-full text-left text-[14px] text-white/75 hover:text-white px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors">{label}</button>
+            ))}
+            <button onClick={() => scroll("comunidade")} className="block w-full text-left text-[14px] text-amber-400/90 hover:text-amber-300 px-3 py-2.5 rounded-lg hover:bg-amber-400/[0.06] transition-colors">Comunidade</button>
+            <div className="h-px bg-white/[0.06] my-1.5" />
+            <button onClick={goToApp} className="block w-full text-left text-[14px] text-white/75 hover:text-white px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors">{session ? "Ir para o app" : "Entrar"}</button>
+          </div>
+        )}
       </div>
     </header>
   );
