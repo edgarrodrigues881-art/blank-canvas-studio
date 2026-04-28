@@ -393,12 +393,11 @@ const Auth = () => {
 
             {/* Toggle */}
             <div className="text-center">
-              <p className="text-[12px] text-white/20 mb-2.5">
+              <p className="text-[12px] text-gray-400 mb-2.5">
                 {isLogin ? "Não tem conta?" : "Já tem conta?"}
               </p>
               <button onClick={() => setIsLogin(!isLogin)}
-                className="w-full py-2.5 rounded-xl text-[13px] font-medium border transition-all duration-200 text-white/40 hover:text-white/60 hover:bg-white/[0.02]"
-                style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                className="w-full py-2.5 rounded-lg text-[13px] font-medium border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/5 hover:border-emerald-500/40 transition-all duration-200">
                 {isLogin ? "Criar conta gratuita" : "Fazer login"}
               </button>
 
