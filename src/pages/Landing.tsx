@@ -368,6 +368,20 @@ const UseCase = () => (
 // ─── 6. Plans (mantido, redesenhado clean) ───
 const allPlans = [
   {
+    name: "Starter",
+    tagline: "Plano de entrada",
+    instances: 1,
+    price: "39,99",
+    popular: false,
+    cta: "Começar agora",
+    benefits: [
+      "1 chip simultâneo",
+      "Suporte por e-mail",
+      "Aquecimento e disparo inclusos",
+    ],
+    whatsappIncluded: false,
+  },
+  {
     name: "Essencial",
     tagline: "Para começar",
     instances: 5,
@@ -434,20 +448,6 @@ const allPlans = [
       "Até 100 chips simultâneos",
       "Suporte prioritário dedicado",
       "Relatórios e alertas via WhatsApp",
-    ],
-    whatsappIncluded: true,
-  },
-  {
-    name: "Custom",
-    tagline: "Grande escala",
-    instances: 200,
-    price: null,
-    popular: false,
-    cta: "Falar com vendas",
-    benefits: [
-      "200+ chips simultâneos",
-      "Suporte dedicado por gerente",
-      "Infraestrutura sob medida",
     ],
     whatsappIncluded: true,
   },
@@ -625,7 +625,7 @@ const faqs = [
   { q: "Como funciona o aquecimento automático?", a: "O sistema realiza interações graduais e controladas para amadurecer o chip antes de qualquer envio em volume." },
   { q: "Existe fidelidade ou contrato mínimo?", a: "Não. Você pode cancelar ou trocar de plano a qualquer momento, sem multas." },
   { q: "O que são os alertas via WhatsApp?", a: "Recurso adicional que envia notificações de desconexões, falhas e status de campanhas direto no seu WhatsApp." },
-  { q: "Quantas instâncias posso usar?", a: "Cada plano tem um limite: Essencial (5), Start (10), Pro (30), Scale (50), Elite (100) e Custom (200+)." },
+  { q: "Quantas instâncias posso usar?", a: "Cada plano tem um limite: Starter (1), Essencial (5), Start (10), Pro (30), Scale (50) e Elite (100)." },
 ];
 
 const FAQ = () => (
