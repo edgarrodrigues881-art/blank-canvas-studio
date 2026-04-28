@@ -164,7 +164,7 @@ export default function Tasks() {
             onTemplates={() => setTemplatesDialog(true)}
           />
         )}
-        {!t.loading && activeProject && view === "kanban" && (
+        {!t.loading && activeProject && t.tasks.length > 0 && view === "kanban" && (
           <KanbanView
             project={activeProject}
             columns={t.columns}
