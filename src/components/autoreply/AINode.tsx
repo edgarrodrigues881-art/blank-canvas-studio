@@ -45,19 +45,7 @@ export function AINode({ data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Stats bar */}
-      <div className="flex items-center border-t border-border/30 divide-x divide-border/30">
-        {[
-          { label: "Sucessos", value: 0, color: "text-emerald-400", icon: CheckCircle2 },
-          { label: "Alertas",  value: 0, color: "text-amber-400",   icon: AlertTriangle },
-          { label: "Erros",    value: 0, color: "text-rose-400",    icon: XCircle },
-        ].map((s) => (
-          <div key={s.label} className="flex-1 text-center py-2">
-            <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-            <p className="text-[9px] text-muted-foreground/50 mt-0.5">{s.label}</p>
-          </div>
-        ))}
-      </div>
+      {/* Stats bar removida — métrica unificada na lista de fluxos */}
 
       <Handle
         type="source"
