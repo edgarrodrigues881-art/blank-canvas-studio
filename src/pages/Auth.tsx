@@ -198,33 +198,26 @@ const Auth = () => {
     }
   };
 
-  const inputClass = "w-full h-12 px-4 rounded-xl text-sm text-white/95 placeholder:text-white/30 outline-none transition-all duration-200 bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] focus:border-emerald-400/40 focus:bg-white/[0.06] focus:ring-2 focus:ring-emerald-500/20 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.06)]";
+  const inputClass = "w-full h-12 px-4 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none transition-all duration-200 bg-black/40 border border-emerald-500/10 hover:border-emerald-500/20 hover:bg-black/60 focus:border-emerald-500/50 focus:bg-black/60 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.15)]";
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden" style={{ background: "#0a0a0c" }}>
-      {/* Organic ambient gradients — offset, asymmetric */}
-      <div className="pointer-events-none absolute inset-0">
-        {/* Primary emerald glow — top-left, off-center */}
-        <div className="absolute -top-[12%] -left-[8%] w-[780px] h-[780px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.13) 0%, transparent 60%)", filter: "blur(60px)" }} />
-        {/* Cool blue accent — bottom-right */}
-        <div className="absolute -bottom-[18%] -right-[10%] w-[680px] h-[680px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 65%)", filter: "blur(70px)" }} />
-        {/* Subtle teal mid-layer for depth */}
-        <div className="absolute top-[55%] left-[60%] w-[420px] h-[420px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(20,184,166,0.06) 0%, transparent 70%)", filter: "blur(50px)" }} />
-        {/* Vignette to anchor the card */}
-        <div className="absolute inset-0"
-          style={{ background: "radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%)" }} />
-        {/* SVG grain — true noise texture */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.05] mix-blend-overlay" xmlns="http://www.w3.org/2000/svg">
-          <filter id="authNoise">
-            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-            <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0" />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#authNoise)" />
-        </svg>
-      </div>
+    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden bg-black">
+      {/* Subtle green grid pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(16,185,129,1) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,1) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+        }}
+      />
+      {/* Soft green ambient glow behind card */}
+      <div
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 60%)", filter: "blur(60px)" }}
+      />
 
       {/* Back button */}
       <motion.button
@@ -244,40 +237,36 @@ const Auth = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full rounded-3xl overflow-hidden backdrop-blur-2xl relative"
+          className="w-full rounded-2xl overflow-hidden relative"
           style={{
-            background: "linear-gradient(180deg, rgba(26,26,30,0.72) 0%, rgba(14,14,18,0.86) 100%)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 1px 0 0 rgba(255,255,255,0.08) inset, 0 -1px 0 0 rgba(255,255,255,0.02) inset, 0 60px 140px -30px rgba(0,0,0,0.9), 0 0 100px -40px rgba(52,211,153,0.14)",
+            background: "#0F172A",
+            border: "1px solid rgba(16,185,129,0.20)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.05)",
           }}
         >
-          {/* Top highlight — brighter for visible edge */}
-          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-          {/* Soft side highlights */}
-          <div className="pointer-events-none absolute inset-y-10 left-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
-          <div className="pointer-events-none absolute inset-y-10 right-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
-
-          <div className="px-9 pt-10 pb-10">
+          <div className="px-8 pt-10 pb-9 sm:px-10">
             {/* Logo */}
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex flex-col items-center mb-9"
+              className="flex flex-col items-center mb-8"
             >
               <div className="relative mb-5">
-                {/* Focused logo glow — tight, behind logo only */}
-                <div className="absolute inset-0 -m-6 rounded-full pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(52,211,153,0.38) 0%, rgba(52,211,153,0.08) 40%, transparent 70%)", filter: "blur(24px)" }} />
-                <div className="relative w-[92px] h-[92px] rounded-2xl overflow-hidden ring-1 ring-white/[0.12]"
-                  style={{ boxShadow: "0 12px 48px -10px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)" }}>
+                <div
+                  className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden"
+                  style={{
+                    border: "1px solid rgba(16,185,129,0.30)",
+                    boxShadow: "0 0 30px rgba(16,185,129,0.30), 0 0 60px rgba(16,185,129,0.15)",
+                  }}
+                >
                   <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
                 </div>
               </div>
-              <h1 className="text-[21px] font-semibold text-white tracking-tight">
-                <span style={{ color: "#34d399" }}>DG</span> Contingência <span style={{ color: "#34d399" }}>Pro</span>
+              <h1 className="text-[22px] font-semibold text-white tracking-tight">
+                <span style={{ color: "#10B981" }}>DG</span> Contingência <span style={{ color: "#FBBF24" }}>Pro</span>
               </h1>
-              <p className="text-[13px] text-white/55 mt-1.5 font-normal tracking-tight">
+              <p className="text-[13px] text-gray-400 mt-1.5 font-normal tracking-tight">
                 {isLogin ? "Entre na sua conta" : "Crie sua conta"}
               </p>
             </motion.div>
@@ -369,13 +358,14 @@ const Auth = () => {
               {/* Submit */}
               <motion.div variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }} className="pt-1.5">
                 <button type="submit" disabled={loading}
-                  className="w-full h-12 rounded-xl text-[14px] font-semibold text-white transition-all duration-300 ease-out hover:scale-[1.02] hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden group"
+                  className="w-full h-12 rounded-lg text-[14px] font-bold text-white transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none relative overflow-hidden group"
                   style={{
-                    background: "linear-gradient(135deg, rgba(52,211,153,0.35) 0%, rgba(16,185,129,0.18) 100%)",
-                    border: "1px solid rgba(52,211,153,0.28)",
-                    boxShadow: "0 0 30px -8px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)",
-                  }}>
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
+                    background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                    boxShadow: "0 4px 14px rgba(16,185,129,0.35)",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 30px rgba(16,185,129,0.55), 0 4px 14px rgba(16,185,129,0.45)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 4px 14px rgba(16,185,129,0.35)"; }}
+                >
                   <span className="relative">
                     {loading ? (
                       <div className="h-4 w-4 mx-auto animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -403,12 +393,11 @@ const Auth = () => {
 
             {/* Toggle */}
             <div className="text-center">
-              <p className="text-[12px] text-white/20 mb-2.5">
+              <p className="text-[12px] text-gray-400 mb-2.5">
                 {isLogin ? "Não tem conta?" : "Já tem conta?"}
               </p>
               <button onClick={() => setIsLogin(!isLogin)}
-                className="w-full py-2.5 rounded-xl text-[13px] font-medium border transition-all duration-200 text-white/40 hover:text-white/60 hover:bg-white/[0.02]"
-                style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                className="w-full py-2.5 rounded-lg text-[13px] font-medium border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/5 hover:border-emerald-500/40 transition-all duration-200">
                 {isLogin ? "Criar conta gratuita" : "Fazer login"}
               </button>
 
