@@ -164,7 +164,21 @@ export default function Tasks() {
           />
         )}
         {!t.loading && view === "lista" && (
-          <ListView tasks={filteredTasks} projects={t.projects} onEdit={(task) => setTaskDialog({ open: true, task })} onToggle={t.toggleTaskDone} onDelete={t.deleteTask} />
+          <ListView
+            tasks={filteredTasks}
+            projects={t.projects}
+            leadOptions={leadOptions}
+            search={search} onSearch={setSearch}
+            filterStatus={filterStatus} onFilterStatus={setFilterStatus}
+            filterPriority={filterPriority} onFilterPriority={setFilterPriority}
+            filterProjectId={filterProjectId} onFilterProjectId={setFilterProjectId}
+            filterLeadId={filterLeadId} onFilterLeadId={setFilterLeadId}
+            hasActiveFilters={hasActiveFilters} onClearFilters={clearFilters}
+            totalCount={t.tasks.length}
+            onEdit={(task) => setTaskDialog({ open: true, task })}
+            onToggle={t.toggleTaskDone}
+            onDelete={t.deleteTask}
+          />
         )}
         {!t.loading && view === "calendario" && (
           <CalendarView tasks={filteredTasks} onEdit={(task) => setTaskDialog({ open: true, task })} onCreate={(date) => setTaskDialog({ open: true, defaultProject: activeProject?.id, task: { due_at: date.toISOString() } as any })} />
