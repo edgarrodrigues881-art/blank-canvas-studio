@@ -303,12 +303,19 @@ export type Database = {
       }
       ai_alerts_config: {
         Row: {
+          alert_appointment_reminder: boolean
           alert_closing_opportunity: boolean
+          alert_followup_event: boolean
           alert_human_request: boolean
+          alert_scheduled_dispatch: boolean
+          alert_task_reminder: boolean
+          appointment_lead_minutes: number
           created_at: string
           enabled: boolean
           id: string
           notify_whatsapp: boolean
+          share_with_report_wa: boolean
+          task_lead_minutes: number
           updated_at: string
           user_id: string
           whatsapp_device_id: string | null
@@ -317,12 +324,19 @@ export type Database = {
           whatsapp_target_phone: string | null
         }
         Insert: {
+          alert_appointment_reminder?: boolean
           alert_closing_opportunity?: boolean
+          alert_followup_event?: boolean
           alert_human_request?: boolean
+          alert_scheduled_dispatch?: boolean
+          alert_task_reminder?: boolean
+          appointment_lead_minutes?: number
           created_at?: string
           enabled?: boolean
           id?: string
           notify_whatsapp?: boolean
+          share_with_report_wa?: boolean
+          task_lead_minutes?: number
           updated_at?: string
           user_id: string
           whatsapp_device_id?: string | null
@@ -331,12 +345,19 @@ export type Database = {
           whatsapp_target_phone?: string | null
         }
         Update: {
+          alert_appointment_reminder?: boolean
           alert_closing_opportunity?: boolean
+          alert_followup_event?: boolean
           alert_human_request?: boolean
+          alert_scheduled_dispatch?: boolean
+          alert_task_reminder?: boolean
+          appointment_lead_minutes?: number
           created_at?: string
           enabled?: boolean
           id?: string
           notify_whatsapp?: boolean
+          share_with_report_wa?: boolean
+          task_lead_minutes?: number
           updated_at?: string
           user_id?: string
           whatsapp_device_id?: string | null
@@ -676,13 +697,16 @@ export type Database = {
           alert_type: string
           contact_id: string | null
           contact_name: string | null
-          contact_phone: string
+          contact_phone: string | null
           context_message: string | null
           created_at: string
           description: string
           id: string
+          metadata: Json
           resolved_at: string | null
           severity: string
+          source_id: string | null
+          source_table: string | null
           status: string
           title: string
           updated_at: string
@@ -696,13 +720,16 @@ export type Database = {
           alert_type: string
           contact_id?: string | null
           contact_name?: string | null
-          contact_phone: string
+          contact_phone?: string | null
           context_message?: string | null
           created_at?: string
           description: string
           id?: string
+          metadata?: Json
           resolved_at?: string | null
           severity?: string
+          source_id?: string | null
+          source_table?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -716,13 +743,16 @@ export type Database = {
           alert_type?: string
           contact_id?: string | null
           contact_name?: string | null
-          contact_phone?: string
+          contact_phone?: string | null
           context_message?: string | null
           created_at?: string
           description?: string
           id?: string
+          metadata?: Json
           resolved_at?: string | null
           severity?: string
+          source_id?: string | null
+          source_table?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -7711,6 +7741,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_effective_device: {
+        Row: {
+          device_id: string | null
+          enabled: boolean | null
+          notify_whatsapp: boolean | null
+          user_id: string | null
+          whatsapp_target_jid: string | null
+          whatsapp_target_label: string | null
+          whatsapp_target_phone: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
