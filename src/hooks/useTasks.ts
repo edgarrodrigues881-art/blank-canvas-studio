@@ -151,9 +151,107 @@ export function useTasks() {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${user.id}` }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "task_projects", filter: `user_id=eq.${user.id}` }, () => fetchAll())
       .on("postgres_changes", { event: "*", schema: "public", table: "task_columns", filter: `user_id=eq.${user.id}` }, () => fetchAll())
+      .on("postgres_changes", { event: "*", schema: "public", table: "task_history", filter: `user_id=eq.${user.id}` }, () => fetchAll())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, fetchAll]);
+
+  // ============ AUTOMATION ENGINE ============
+  // Runs after a task mutation. Triggers supported:
+  //  - task_completed: when status becomes "done"
+  //  - column_changed: when column_id changes (optional from_column_id / to_column_id in trigger_config)
+  //  - label_added: when a new label is added (optional label in trigger_config)
+  //  - due_overdue: when task has past due_at and not done
+  // Actions supported:
+  //  - move_to_column { column_id }
+  //  - set_priority { priority }
+  //  - add_label { label }
+  //  - mark_done {}
+  //  - notify { message? }
+  const runAutomations = useCallback(async (
+    triggerType: "task_completed" | "column_changed" | "label_added" | "due_overdue",
+    task: Task,
+    context: { previousTask?: Task | null; addedLabels?: string[] } = {}
+  ) => {
+    if (!user) return;
+    const matching = automations.filter((a) => {
+      if (!a.enabled) return false;
+      if (a.trigger_type !== triggerType) return false;
+      if (a.project_id && a.project_id !== task.project_id) return false;
+      const cfg = a.trigger_config || {};
+      if (triggerType === "column_changed") {
+        if (cfg.from_column_id && context.previousTask?.column_id !== cfg.from_column_id) return false;
+        if (cfg.to_column_id && task.column_id !== cfg.to_column_id) return false;
+      }
+      if (triggerType === "label_added" && cfg.label) {
+        if (!(context.addedLabels || []).includes(cfg.label)) return false;
+      }
+      return true;
+    });
+
+    for (const auto of matching) {
+      const cfg = auto.action_config || {};
+      const patch: Partial<Task> = {};
+      let actionDesc = "";
+      switch (auto.action_type) {
+        case "move_to_column": {
+          if (!cfg.column_id || cfg.column_id === task.column_id) continue;
+          const targetCol = columns.find((c) => c.id === cfg.column_id);
+          patch.column_id = cfg.column_id;
+          if (targetCol?.is_done_column) {
+            patch.status = "done";
+            patch.completed_at = new Date().toISOString();
+          }
+          actionDesc = `movida para coluna "${targetCol?.name || "—"}"`;
+          break;
+        }
+        case "set_priority": {
+          if (!cfg.priority || cfg.priority === task.priority) continue;
+          patch.priority = cfg.priority;
+          actionDesc = `prioridade definida como "${cfg.priority}"`;
+          break;
+        }
+        case "add_label": {
+          if (!cfg.label) continue;
+          const existing = task.labels || [];
+          if (existing.includes(cfg.label)) continue;
+          patch.labels = [...existing, cfg.label];
+          actionDesc = `etiqueta "${cfg.label}" adicionada`;
+          break;
+        }
+        case "mark_done": {
+          if (task.status === "done") continue;
+          patch.status = "done";
+          patch.completed_at = new Date().toISOString();
+          actionDesc = `marcada como concluída`;
+          break;
+        }
+        case "notify": {
+          actionDesc = cfg.message || `notificação disparada`;
+          toast.info(`⚡ ${auto.name}`, { description: `${task.title}: ${actionDesc}` });
+          break;
+        }
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await supabase.from("tasks" as any).update(patch as any).eq("id", task.id);
+      }
+      await supabase.from("task_automations" as any).update({
+        runs_count: (auto.runs_count || 0) + 1,
+        last_run_at: new Date().toISOString(),
+      } as any).eq("id", auto.id);
+      await logHistory({
+        task_id: task.id,
+        project_id: task.project_id,
+        automation_id: auto.id,
+        event_type: "automation_run",
+        description: `Automação "${auto.name}" → ${actionDesc}`,
+        task_title: task.title,
+        from_value: null,
+        to_value: patch as any,
+      });
+    }
+  }, [user, automations, columns, logHistory]);
 
   // PROJECT
   const createProject = async (input: Partial<TaskProject> & { name: string }) => {
