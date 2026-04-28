@@ -1,38 +1,25 @@
+## Situação
 
-## Plano: Verificador de WhatsApp — Lotes Persistentes em Background
+O preview agora carrega normalmente (sem mais erro de "Failed to fetch dynamically imported module"), mas você foi redirecionado para `/auth` porque a limpeza dos service workers invalidou a sessão local. O app está funcional — falta apenas reautenticar e validar.
 
-### Problema atual
-- A verificação roda **só no navegador** — ao fechar a aba, tudo para e os resultados somem
-- Não existe conceito de "campanha de verificação" — é um processo único sem histórico
-- Notificações erradas de "campanha finalizada" aparecem porque não há distinção
+## Passos
 
-### Solução
+1. **Login**: na tela `/auth` que está aberta, faça login com sua conta normalmente. Isso vai te levar de volta ao dashboard.
 
-#### 1. Criar tabelas no banco de dados
-- **`verify_jobs`** — cada lote de verificação (nome, instância, status, progresso, totais)
-  - Campos: `id`, `user_id`, `device_id`, `name`, `status` (pending/running/completed/failed/canceled), `total_phones`, `verified_count`, `success_count`, `no_whatsapp_count`, `error_count`, `created_at`, `updated_at`, `completed_at`
-- **`verify_results`** — resultado individual de cada número
-  - Campos: `id`, `job_id`, `phone`, `status` (pending/success/no_whatsapp/error), `detail`, `checked_at`
-- RLS para isolamento por usuário
-- Trigger de notificação quando o job completa (título "Verificação concluída", não "Campanha")
+2. **Validar carregamento do AutoReply**: abrir o Editor de Fluxo (`/dashboard/autoreply/:id`) e confirmar que não trava mais em "Carregando…". Os `console.log` de diagnóstico que adicionamos vão aparecer no console — se ainda travar, eles dirão exatamente onde parou (sem usuário, sem flowId, erro na query, etc).
 
-#### 2. Novo worker no VPS Engine (`verify-worker.ts`)
-- Busca jobs com `status = 'running'` a cada 15s
-- Processa números `pending` em lotes de 5 (mesmo padrão atual da edge function)
-- Atualiza contadores em tempo real no `verify_jobs`
-- Ao finalizar, marca como `completed` e insere notificação correta
-- Suporta **múltiplos jobs simultâneos** (cada um com sua instância)
+3. **Se ainda travar após login**: remover o guard de service-worker que adicionamos em `src/main.tsx` (deixar só o registro padrão / nenhum), pois em alguns casos o `unregister()` em loop pode interferir no primeiro carregamento. Também verificar se `useAuth` está retornando `user` corretamente no `AutoReply.tsx` antes de iniciar a query.
 
-#### 3. Atualizar o Frontend
-- **Tela de listagem**: mostra todos os lotes (ativos, concluídos, cancelados) com progresso em tempo real
-- **Botão "Nova Verificação"**: abre formulário para criar um novo lote (selecionar instância, colar/importar números, dar nome)
-- **Tela de detalhe**: mostra resultados, exportação CSV/XLSX, copiar válidos
-- **Ações**: pausar, cancelar, retomar lotes
-- Pode rodar **vários lotes ao mesmo tempo** com instâncias diferentes
+4. **Limpar logs de diagnóstico**: depois que confirmarmos que o editor abre, remover os `console.log` adicionados em `src/pages/dashboard/AutoReply.tsx`.
 
-#### 4. Benefícios
-- ✅ Fecha a página? Continua rodando no servidor
-- ✅ Múltiplas verificações simultâneas
-- ✅ Histórico completo de todas as verificações
-- ✅ Notificação correta ("Verificação concluída" em vez de "Campanha")
-- ✅ Progresso em tempo real via Realtime do Supabase
+## Detalhes técnicos
+
+- A causa raiz dos erros anteriores foi o `vite-plugin-pwa` cacheando chunks antigos dentro do iframe do preview Lovable — já removido.
+- A sessão Supabase é guardada em `localStorage`, mas o redirect pra `/auth` sugere que o `AuthProvider` não encontrou sessão válida no boot. Logar de novo regenera o token.
+- Não há mudanças de código necessárias antes do login — primeiro tentamos o caminho mais simples.
+
+## O que eu preciso de você
+
+Só fazer login no preview e me dizer o que acontece:
+- Se abrir normal → seguimos pro passo 4 (limpar logs).
+- Se travar de novo no editor → me manda o que aparecer no console que eu corrijo direto.
