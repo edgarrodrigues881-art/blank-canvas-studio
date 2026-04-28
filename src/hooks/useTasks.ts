@@ -483,7 +483,7 @@ export function useTasks() {
   };
 
   return {
-    projects, columns, tasks, templates, automations, loading, fetchAll,
+    projects, columns, tasks, templates, automations, history, loading, fetchAll,
     createProject, updateProject, deleteProject,
     createColumn, updateColumn, deleteColumn,
     createTask, updateTask, deleteTask, toggleTaskDone, moveTaskToColumn,
