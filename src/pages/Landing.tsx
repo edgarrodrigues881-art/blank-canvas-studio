@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings,
   ArrowRight, CheckCircle2, MessageSquare, Users, Layers,
@@ -124,6 +124,19 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 // ─── 1. Hero (tailark-style: centralizado + mockup grande embaixo) ───
 const Hero = () => {
   const navigate = useNavigate();
+  const mockupRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: mockupRef,
+    offset: ["start end", "center center"],
+  });
+  // Suaviza com spring
+  const smooth = useSpring(scrollYProgress, { stiffness: 80, damping: 22, mass: 0.5 });
+  // Começa "deitada" (25deg) e endireita (0deg)
+  const rotateX = useTransform(smooth, [0, 1], [25, 0]);
+  // Leve scale conforme aproxima
+  const scale = useTransform(smooth, [0, 1], [0.92, 1]);
+  // Sombra mais intensa quando endireita
+  const shadowOpacity = useTransform(smooth, [0, 1], [0.15, 0.45]);
   return (
     <section id="top" className="relative pt-32 md:pt-40 pb-16 md:pb-24 px-5 md:px-6 overflow-hidden">
       {/* Background glow */}
@@ -201,33 +214,49 @@ const Hero = () => {
           </motion.p>
         </motion.div>
 
-        {/* Mockup grande do dashboard */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: easeOut, delay: 0.3 }}
+        {/* Mockup grande do dashboard com tilt-on-scroll */}
+        <div
+          ref={mockupRef}
           className="relative mt-14 md:mt-20 max-w-[1100px] mx-auto"
+          style={{ perspective: "2000px" }}
         >
-          {/* Glow */}
-          <div className="absolute -inset-x-20 -top-10 -bottom-10 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.25)_0%,transparent_60%)] blur-3xl pointer-events-none" />
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: easeOut, delay: 0.3 }}
+            style={{
+              rotateX,
+              scale,
+              transformOrigin: "50% 100%",
+              transformStyle: "preserve-3d",
+              willChange: "transform",
+            }}
+            className="relative"
+          >
+            {/* Glow dinâmico */}
+            <motion.div
+              style={{ opacity: shadowOpacity }}
+              className="absolute -inset-x-20 -top-10 -bottom-10 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.4)_0%,transparent_60%)] blur-3xl pointer-events-none"
+            />
 
-          {/* Frame */}
-          <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)]">
-            <div className="rounded-2xl overflow-hidden bg-[hsl(222,22%,5%)] ring-1 ring-inset ring-white/[0.04]">
-              <img
-                src={heroInstancesPanel}
-                alt="Painel DG Contingência Pro — Aquecimento Automático"
-                className="block w-full h-auto"
-                loading="eager"
-              />
+            {/* Frame */}
+            <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)]">
+              <div className="rounded-2xl overflow-hidden bg-[hsl(222,22%,5%)] ring-1 ring-inset ring-white/[0.04]">
+                <img
+                  src={heroInstancesPanel}
+                  alt="Painel DG Contingência Pro — Aquecimento Automático"
+                  className="block w-full h-auto"
+                  loading="eager"
+                />
+              </div>
+              {/* Top reflection */}
+              <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent pointer-events-none" />
             </div>
-            {/* Top reflection */}
-            <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent pointer-events-none" />
-          </div>
+          </motion.div>
 
           {/* Bottom fade */}
           <div className="absolute inset-x-0 -bottom-1 h-32 bg-gradient-to-t from-[hsl(222,22%,5%)] to-transparent pointer-events-none" />
-        </motion.div>
+        </div>
       </div>
     </section>
   );
