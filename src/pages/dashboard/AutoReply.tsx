@@ -228,6 +228,7 @@ function FlowCanvas() {
   }, [nodes, edges, flowName, isActive, deviceId]);
 
   useEffect(() => {
+    console.log("[AutoReply] load effect", { isNew, flowId, hasUser: !!user });
     if (isNew || !flowId || !user) {
       setLoaded(true);
       setUndoStack([]);
@@ -237,14 +238,16 @@ function FlowCanvas() {
     }
 
     (async () => {
+      console.log("[AutoReply] querying flow", flowId);
       const { data, error } = await supabase
         .from("autoreply_flows")
         .select("*")
         .eq("id", flowId)
         .single();
 
+      console.log("[AutoReply] query result", { hasData: !!data, error });
       if (error || !data) {
-        toast.error("Fluxo não encontrado");
+        toast.error("Fluxo não encontrado: " + (error?.message || "sem dados"));
         navigate("/dashboard/conversations");
         return;
       }
