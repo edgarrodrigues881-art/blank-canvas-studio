@@ -482,6 +482,21 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* PRODUTIVIDADE */}
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Produtividade
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Tarefas", url: "/dashboard/tasks", icon: ListTodo })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
             {/* APRENDIZADO */}
             <SidebarGroup className="py-0 mt-3">
               {!collapsed && (
