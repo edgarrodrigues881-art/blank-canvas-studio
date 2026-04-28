@@ -95,6 +95,7 @@ const CrmLearning = lazyWithPreload(() => import("@/pages/dashboard/CrmLearning"
 const CrmIntegrations = lazyWithPreload(() => import("@/pages/dashboard/CrmIntegrations"));
 const Affiliates = lazyWithPreload(() => import("@/pages/dashboard/Affiliates"));
 const Tasks = lazyWithPreload(() => import("@/pages/dashboard/Tasks"));
+const Notes = lazyWithPreload(() => import("@/pages/dashboard/Notes"));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
