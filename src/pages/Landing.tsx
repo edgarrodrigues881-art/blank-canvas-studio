@@ -439,35 +439,76 @@ const HOWTO_STEPS = [
   { n: "5", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real, reduza riscos de bloqueio e veja seus chips aquecendo.", img: howtoStep5 },
 ];
 
-const UseCase = () => {
-  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [active, setActive] = useState(0);
+const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: number }) => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const observers: IntersectionObserver[] = [];
-    stepRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const obs = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) setActive(i);
-        },
-        { rootMargin: "-40% 0px -40% 0px", threshold: 0 }
-      );
-      obs.observe(el);
-      observers.push(obs);
-    });
-    return () => observers.forEach((o) => o.disconnect());
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
-  const scrollToStep = (i: number) => {
-    stepRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  return (
+    <div ref={ref} className="w-full">
+      {/* CARD */}
+      <div
+        className={`mx-auto w-full md:w-[80%] rounded-2xl p-6 border border-emerald-400/20 bg-white/[0.04] backdrop-blur-sm shadow-[0_10px_40px_-15px_rgba(0,0,0,0.6)] transition-all duration-500 hover:border-emerald-400/50 hover:scale-[1.01] hover:shadow-[0_20px_60px_-20px_rgba(16,185,129,0.25)] ${
+          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+        style={{ transitionDelay: visible ? "0ms" : undefined }}
+      >
+        <div className="flex items-start gap-4">
+          <span className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 text-emerald-950 flex items-center justify-center text-lg font-bold shadow-[0_0_24px_-4px_rgba(16,185,129,0.6)]">
+            {step.n}
+          </span>
+          <div className="min-w-0 pt-0.5">
+            <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight mb-1.5">
+              {step.title}
+            </h3>
+            <p className="text-sm md:text-[15px] text-white/60 leading-relaxed">
+              {step.desc}
+            </p>
+          </div>
+        </div>
+      </div>
 
+      {/* IMAGEM — gap de 1.5rem do card e 3rem do próximo */}
+      <div
+        className={`mt-6 mb-12 mx-auto w-full md:w-[95%] lg:w-[90%] max-w-[900px] transition-all duration-700 ${
+          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+        }`}
+        style={{ transitionDelay: visible ? "150ms" : undefined }}
+      >
+        <div className="rounded-lg overflow-hidden ring-1 ring-white/[0.06] shadow-[0_30px_80px_-25px_rgba(0,0,0,0.7)] bg-[#0a0e1a]">
+          <img
+            src={step.img}
+            alt={`${step.title} — passo ${step.n}`}
+            loading={index === 0 ? "eager" : "lazy"}
+            className="w-full h-auto block object-contain"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UseCase = () => {
   return (
     <section id="uso" className="relative py-20 md:py-28">
-      <div className="mx-auto w-full max-w-[1200px] px-5 md:px-8">
+      <div className="mx-auto w-full max-w-[1200px] px-4 md:px-8">
         {/* Header */}
-        <div className="text-center mb-10 md:mb-14">
+        <div className="text-center mb-12 md:mb-16">
           <Eyebrow>Como funciona</Eyebrow>
           <SectionTitle className="mb-4 text-[1.75rem] md:text-[2.5rem]">
             Como funciona na prática.
@@ -477,96 +518,11 @@ const UseCase = () => {
           </p>
         </div>
 
-        {/* Sticky progress bar */}
-        <div className="sticky top-4 z-20 mb-12 md:mb-16">
-          <div className="mx-auto max-w-2xl rounded-full bg-[#0a0e1a]/90 backdrop-blur-md ring-1 ring-white/[0.06] px-4 py-3 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
-            <div className="flex items-center justify-between mb-2 text-[12px]">
-              <span className="font-medium text-emerald-400">
-                Passo {active + 1} de {HOWTO_STEPS.length}
-              </span>
-              <span className="text-white/50 truncate ml-3">
-                {HOWTO_STEPS[active].title}
-              </span>
-            </div>
-            <div className="flex gap-1">
-              {HOWTO_STEPS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => scrollToStep(i)}
-                  aria-label={`Ir para passo ${i + 1}`}
-                  className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-                    i <= active ? "bg-emerald-400" : "bg-white/10 hover:bg-white/20"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Steps */}
-        <div className="flex flex-col gap-16 md:gap-24">
-          {HOWTO_STEPS.map((step, i) => {
-            const isLast = i === HOWTO_STEPS.length - 1;
-            return (
-              <div
-                key={step.n}
-                ref={(el) => (stepRefs.current[i] = el)}
-                className="scroll-mt-32"
-              >
-                {/* Step header */}
-                <div className="flex items-start gap-4 mb-6 md:mb-8">
-                  <span className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 text-emerald-950 flex items-center justify-center text-lg md:text-xl font-bold shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)]">
-                    {step.n}
-                  </span>
-                  <div className="pt-1 md:pt-2 min-w-0">
-                    <h3 className="text-xl md:text-2xl font-semibold text-white tracking-tight mb-2">
-                      {step.title}
-                    </h3>
-                    <p className="text-sm md:text-base text-white/60 leading-relaxed max-w-2xl">
-                      {step.desc}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Image — full width, contain, scroll interno se ultrapassar 70vh */}
-                <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8)]">
-                  <div
-                    className="relative rounded-2xl overflow-y-auto overflow-x-hidden bg-gradient-to-br from-[#0a0e1a] to-[#0d1220] ring-1 ring-inset ring-white/[0.04] custom-scrollbar"
-                    style={{ maxHeight: "70vh" }}
-                  >
-                    <img
-                      src={step.img}
-                      alt={`${step.title} — passo ${step.n}`}
-                      loading="lazy"
-                      className="w-full h-auto object-contain block animate-fade-in"
-                    />
-                  </div>
-                  <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
-                </div>
-
-                {/* Próximo passo */}
-                {!isLast && (
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => scrollToStep(i + 1)}
-                      className="group inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
-                    >
-                      Próximo passo: {HOWTO_STEPS[i + 1].title}
-                      <svg
-                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        {/* Sequência card → imagem */}
+        <div className="flex flex-col">
+          {HOWTO_STEPS.map((step, i) => (
+            <StepBlock key={step.n} step={step} index={i} />
+          ))}
         </div>
       </div>
     </section>
