@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { formatInternationalPhone, detectCountryFromDigits } from "@/lib/countryDialCodes";
 
 const STAGE_COLORS = [
   { key: "azul",      label: "Azul",      hex: "#3b82f6" },
@@ -81,7 +82,31 @@ function currencyShort(v: number) {
 
 function formatPhone(phone: string) {
   if (!phone) return "";
-  return phone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 $2 $3-$4");
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  // Detecta DDI (1=EUA, 55=BR, 351=PT, etc.). Se conhecido, formata internacionalmente.
+  if (detectCountryFromDigits(digits)) {
+    return formatInternationalPhone(digits);
+  }
+  // Heurística: número com 12-13 dígitos provavelmente é BR (legado salvo sem DDI explícito)
+  if (digits.length === 12 || digits.length === 13) {
+    return formatInternationalPhone(digits.startsWith("55") ? digits : `55${digits}`);
+  }
+  // Caso desconhecido, mostra com "+" para deixar claro que é internacional
+  return `+${digits}`;
+}
+
+function getCountryFlag(phone: string): string {
+  const digits = (phone || "").replace(/\D/g, "");
+  const country = detectCountryFromDigits(digits);
+  if (!country) return "";
+  // Converte ISO code (US, BR, PT...) em emoji bandeira
+  const iso = country.iso?.toUpperCase();
+  if (!iso || iso.length !== 2) return "";
+  return iso
+    .split("")
+    .map((c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
+    .join("");
 }
 
 function timeShort(date: string | null) {
