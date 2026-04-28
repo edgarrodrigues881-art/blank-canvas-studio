@@ -472,23 +472,21 @@ const BrowserMockup = ({ src, alt, eager, imgY, imgScale }: {
 const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: number }) => {
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // Scroll-driven: animação acompanha o scroll do usuário (entra e sai)
+  // Scroll-driven: animação de ENTRADA apenas. Nunca volta a opacity 0
+  // (evita "imagem some" quando o usuário rola rápido ou o lazy ainda não carregou).
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ["start 95%", "end 5%"],
+    offset: ["start 95%", "end 60%"],
   });
 
-  // Card: fade-in + translateY(-20→0), foco central, fade-out + translateY(20)
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.18, 0.82, 1], [0, 1, 1, 0]);
-  const cardY = useTransform(scrollYProgress, [0, 0.22, 0.78, 1], [-20, 0, 0, 20]);
-  // Foco no centro: scale 1.02 + cards fora caem para opacity 0.5 + scale 0.98
-  const focusScale = useTransform(scrollYProgress, [0.2, 0.45, 0.55, 0.8], [0.98, 1.02, 1.02, 0.98]);
-  const focusOpacity = useTransform(scrollYProgress, [0.2, 0.4, 0.6, 0.8], [0.5, 1, 1, 0.5]);
-  // Borda: opacity 20% → 40% no centro
-  const borderOpacity = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0.2, 0.45, 0.2]);
+  // Card: fade-in suave, sem fade-out
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.25], [0.15, 1]);
+  const cardY = useTransform(scrollYProgress, [0, 0.3], [24, 0]);
+  // Borda em gradiente: leve pulso no foco
+  const borderOpacity = useTransform(scrollYProgress, [0, 0.4, 1], [0.25, 0.5, 0.35]);
 
-  // Imagem: parallax leve (mais lenta) + zoom sutil
-  const imgEntryY = useTransform(scrollYProgress, [0, 0.25, 1], [30, 0, -10]);
+  // Imagem: parallax leve + zoom sutil
+  const imgEntryY = useTransform(scrollYProgress, [0, 0.3, 1], [24, 0, -8]);
   const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.02, 1.03]);
 
   const smoothCardY = useSpring(cardY, { stiffness: 110, damping: 22, mass: 0.5 });
@@ -497,13 +495,12 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
   return (
     <motion.div
       ref={ref}
-      style={{ opacity: cardOpacity }}
+      style={{ opacity: cardOpacity, y: smoothCardY }}
       className="w-full py-12 md:py-16 lg:py-24"
     >
-      <motion.div style={{ opacity: focusOpacity, scale: focusScale, y: smoothCardY }}>
+      <div>
         {/* CARD com badge flutuante e borda em gradiente */}
         <div className="relative mx-auto w-full md:w-[90%] max-w-[820px] pt-6 px-4 md:px-0">
-          {/* Borda em gradiente (wrapper) */}
           <motion.div
             style={{ opacity: borderOpacity }}
             className="absolute inset-x-4 md:inset-x-0 top-6 bottom-0 rounded-[12px] p-px bg-gradient-to-br from-emerald-500/40 via-white/5 to-orange-500/40 pointer-events-none"
@@ -513,7 +510,6 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
             className="relative rounded-[12px] p-8 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-[10px]"
             style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.1)" }}
           >
-            {/* Badge flutuante */}
             <div
               className="absolute -top-6 -left-2 md:-left-6 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg"
               style={{ boxShadow: "0 0 20px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3)" }}
@@ -531,17 +527,17 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
           </div>
         </div>
 
-        {/* IMAGEM — gap 1.5rem do card */}
+        {/* IMAGEM — eager nos 2 primeiros, restante com fetchpriority alto */}
         <div className="mt-6 mx-auto w-full max-w-[900px] px-4 md:px-0">
           <BrowserMockup
             src={step.img}
             alt={`${step.title} — passo ${step.n}`}
-            eager={index === 0}
+            eager={index < 2}
             imgY={smoothImgY}
             imgScale={imgScale}
           />
         </div>
-      </motion.div>
+      </div>
     </motion.div>
   );
 };
