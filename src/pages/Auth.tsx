@@ -266,7 +266,6 @@ const Auth = () => {
                   </div>
                 </div>
               </div>
-              </div>
               <h1 className="text-[22px] font-semibold text-white tracking-tight">
                 <span style={{ color: "#10B981" }}>DG</span> Contingência <span style={{ color: "#FBBF24" }}>Pro</span>
               </h1>
