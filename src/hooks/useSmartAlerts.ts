@@ -7,7 +7,7 @@ export interface SmartAlert {
   contact_id: string | null;
   contact_name: string | null;
   contact_phone: string;
-  alert_type: "human_request" | "closing_opportunity";
+  alert_type: "human_request" | "closing_opportunity" | "dispatch_event" | "task_reminder" | "appointment_reminder" | "followup_event";
   severity: "low" | "medium" | "high" | "critical";
   title: string;
   description: string;
