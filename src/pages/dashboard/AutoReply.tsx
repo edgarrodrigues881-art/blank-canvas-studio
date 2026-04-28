@@ -30,7 +30,7 @@ import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId, nextBranchId } from "@/components/autoreply/types";
 import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug, Wand2, MessageCircleReply, Shuffle } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -89,14 +89,17 @@ interface FlowSnapshot {
 function FlowCanvas() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const isNew = id === "new";
   const [flowId, setFlowId] = useState<string | null>(isNew ? null : id || null);
+  const initialName = (location.state as any)?.name as string | undefined;
+  const initialGroupId = (location.state as any)?.group_id as string | null | undefined;
 
   const [nodes, setNodes] = useState<Node<FlowNodeData>[]>(defaultNodes);
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [flowName, setFlowName] = useState("Minha Automação");
+  const [flowName, setFlowName] = useState(initialName || "Minha Automação");
   const [isActive, setIsActive] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [dropMenu, setDropMenu] = useState<DropMenu | null>(null);
@@ -310,7 +313,7 @@ function FlowCanvas() {
 
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         name: flowName.trim(),
         is_active: isActive,
         device_id: deviceId,
@@ -318,6 +321,9 @@ function FlowCanvas() {
         edges: edges as any,
         user_id: user.id,
       };
+      if (!flowId && initialGroupId) {
+        payload.group_id = initialGroupId;
+      }
 
       if (flowId) {
         const { error } = await supabase
