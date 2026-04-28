@@ -546,7 +546,7 @@ export default function AutoReplyList() {
           <p className="text-xs text-muted-foreground/50 max-w-xs mb-6">
             Crie sua primeira automação e use seus modelos existentes como mensagens do fluxo.
           </p>
-          <Button onClick={() => navigate("/dashboard/auto-reply/new")} className="h-9 text-xs gap-2">
+          <Button onClick={() => { setNewAutomationName(""); setNewAutomationGroup("none"); setCreateDialogOpen(true); }} className="h-9 text-xs gap-2">
             <Plus className="w-4 h-4" /> Criar primeira automação
           </Button>
         </div>
