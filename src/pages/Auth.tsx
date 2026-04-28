@@ -239,9 +239,9 @@ const Auth = () => {
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
           className="w-full rounded-2xl overflow-hidden relative"
           style={{
-            background: "#0F172A",
-            border: "1px solid rgba(16,185,129,0.20)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.05)",
+            background: "#000000",
+            border: "1px solid rgba(255,255,255,0.04)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 80px -20px rgba(16,185,129,0.15)",
           }}
         >
           <div className="px-8 pt-10 pb-9 sm:px-10">
@@ -253,14 +253,19 @@ const Auth = () => {
               className="flex flex-col items-center mb-8"
             >
               <div className="relative mb-5">
+                {/* Gold frame around logo */}
                 <div
-                  className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden"
+                  className="rounded-2xl p-[3px]"
                   style={{
-                    border: "1px solid rgba(16,185,129,0.30)",
-                    boxShadow: "0 0 30px rgba(16,185,129,0.30), 0 0 60px rgba(16,185,129,0.15)",
+                    background: "linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #FBBF24 100%)",
+                    boxShadow: "0 0 24px rgba(251,191,36,0.35), 0 0 60px rgba(16,185,129,0.18)",
                   }}
                 >
-                  <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
+                  <div className="rounded-[14px] p-[10px] bg-black">
+                    <div className="relative w-[80px] h-[80px] rounded-xl overflow-hidden">
+                      <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
+                    </div>
+                  </div>
                 </div>
               </div>
               <h1 className="text-[22px] font-semibold text-white tracking-tight">
