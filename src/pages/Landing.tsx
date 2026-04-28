@@ -663,73 +663,104 @@ const allPlans = [
 const Plans = () => {
   const navigate = useNavigate();
 
-  const renderCard = (p: typeof allPlans[0]) => (
-    <motion.div key={p.name} variants={fadeUp}
-      className={`relative rounded-xl border transition-all duration-200 ease-out flex flex-col h-full p-5 hover:-translate-y-1 ${
-        p.popular
-          ? "border-white/[0.22] bg-white/[0.05] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_8px_40px_-12px_rgba(255,255,255,0.08)] hover:border-white/[0.3] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_12px_50px_-12px_rgba(255,255,255,0.12)]"
-          : "border-white/[0.06] bg-white/[0.015] hover:border-white/[0.14] hover:bg-white/[0.035]"
-      }`}
-    >
-      {p.popular && (
-        <span className="absolute -top-2.5 left-5 text-[9px] font-semibold uppercase tracking-wider bg-white text-black px-2 py-0.5 rounded-full">
-          Mais escolhido
-        </span>
-      )}
-      <h3 className="text-[14px] font-semibold text-white mb-1">{p.name}</h3>
-      <p className="text-[11px] text-white/35 mb-4">{p.tagline}</p>
-
-      <div className="flex items-baseline gap-0.5 mb-5">
-        {p.price ? (
-          <>
-            <span className="text-[11px] font-medium text-white/35 mr-0.5">R$</span>
-            <span className="text-[1.75rem] font-semibold tracking-[-0.02em] leading-none text-white">{p.price.split(",")[0]}</span>
-            <span className="text-[13px] font-medium text-white/45">,{p.price.split(",")[1]}</span>
-            <span className="text-[10px] text-white/30 ml-1">/mês</span>
-          </>
-        ) : (
-          <span className="text-[1.5rem] font-semibold tracking-tight text-white">Sob consulta</span>
-        )}
-      </div>
-
-      <ul className="space-y-2 mb-5 flex-1">
-        {p.benefits.map((item) => (
-          <li key={item} className="flex items-start gap-2 text-[12px] text-white/60 leading-[1.45]">
-            <CheckCircle2 className="w-3 h-3 text-white/35 flex-shrink-0 mt-[3px]" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Button onClick={() => {
-        if (p.name === "Custom") {
-          window.open(`https://wa.me/5562994192500?text=${encodeURIComponent("Olá, tenho interesse no plano Custom.")}`, "_blank");
-        } else {
-          navigate("/auth?mode=signup");
-        }
-      }}
-        className={`w-full text-[12px] font-medium h-9 mt-auto rounded-md shadow-none ${
-          p.popular
-            ? "bg-white hover:bg-white text-black"
-            : "bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/[0.06]"
+  const renderCard = (p: typeof allPlans[0]) => {
+    const isPopular = p.popular;
+    return (
+      <motion.div
+        key={p.name}
+        variants={fadeUp}
+        className={`relative rounded-2xl flex flex-col h-full p-7 transition-all duration-300 ease-out hover:-translate-y-1 ${
+          isPopular
+            ? "bg-gradient-to-b from-emerald-500/[0.08] via-slate-900 to-slate-900 border border-emerald-400/40 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_30px_80px_-20px_rgba(16,185,129,0.35)] hover:border-emerald-400/60 hover:shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_40px_100px_-20px_rgba(16,185,129,0.45)] lg:scale-[1.03]"
+            : "bg-slate-900 border border-white/10 hover:border-emerald-400/30 hover:shadow-[0_20px_50px_-20px_rgba(16,185,129,0.2)]"
         }`}
       >
-        {p.cta}
-      </Button>
-    </motion.div>
-  );
+        {/* Badge "Mais escolhido" flutuando no topo centro */}
+        {isPopular && (
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950 shadow-[0_8px_24px_-6px_rgba(16,185,129,0.6)] whitespace-nowrap">
+            ★ Mais escolhido
+          </span>
+        )}
+
+        {/* Nome do plano */}
+        <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/50 mb-4">
+          {p.name}
+        </h3>
+
+        {/* Preço grande */}
+        <div className="flex items-baseline gap-1 mb-4">
+          <span className="text-[13px] font-medium text-white/45">R$</span>
+          <span className="text-[2.75rem] md:text-[3rem] font-bold tracking-[-0.03em] leading-none text-white">
+            {p.price.split(",")[0]}
+          </span>
+          <span className="text-[16px] font-semibold text-white/55">,{p.price.split(",")[1]}</span>
+          <span className="text-[12px] text-white/35 ml-1">/mês</span>
+        </div>
+
+        {/* DESTAQUE PRINCIPAL — quantidade de instâncias */}
+        <div
+          className={`inline-flex items-center gap-2 self-start px-3.5 py-2 rounded-lg mb-5 ${
+            isPopular
+              ? "bg-emerald-400/15 border border-emerald-400/30"
+              : "bg-white/[0.04] border border-white/10"
+          }`}
+        >
+          <Smartphone className={`w-4 h-4 ${isPopular ? "text-emerald-300" : "text-emerald-400"}`} />
+          <span className="text-[15px] font-bold text-white tracking-tight">
+            {p.instances} {p.instances === 1 ? "Instância" : "Instâncias"} de WhatsApp
+          </span>
+        </div>
+
+        {/* Divisória */}
+        <div className="border-t border-white/[0.06] mb-5" />
+
+        {/* Descrição curta */}
+        <p className="text-[13px] text-white/55 leading-[1.55] mb-5 line-clamp-3">
+          {p.tagline}
+        </p>
+
+        {/* Benefícios essenciais */}
+        <ul className="space-y-2.5 mb-7 flex-1">
+          {p.benefits.map((item) => (
+            <li key={item} className="flex items-start gap-2 text-[12.5px] text-white/65 leading-[1.45]">
+              <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 mt-[3px] ${isPopular ? "text-emerald-400" : "text-white/40"}`} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+
+        {/* CTA */}
+        <Button
+          onClick={() => navigate("/auth?mode=signup")}
+          className={`w-full h-11 text-[13px] font-semibold rounded-lg shadow-none mt-auto transition-all ${
+            isPopular
+              ? "bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-emerald-950 shadow-[0_8px_24px_-6px_rgba(16,185,129,0.5)]"
+              : "bg-transparent hover:bg-white/[0.06] text-white border border-white/15 hover:border-emerald-400/40"
+          }`}
+        >
+          {p.cta}
+        </Button>
+      </motion.div>
+    );
+  };
 
   return (
     <Section id="planos">
-      <div className="max-w-3xl mb-8 md:mb-14">
+      <div className="max-w-3xl mb-12 md:mb-16">
         <Eyebrow>Planos</Eyebrow>
         <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
         <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
       </div>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={stagger} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.05 }}
+        variants={stagger}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6"
+      >
         {allPlans.map(renderCard)}
       </motion.div>
-      <p className="text-center text-[12px] text-white/40 md:text-white/35 mt-8 md:mt-10">
+      <p className="text-center text-[12px] text-white/40 md:text-white/35 mt-10 md:mt-12">
         Sem contrato. Cancele quando quiser.
       </p>
     </Section>
