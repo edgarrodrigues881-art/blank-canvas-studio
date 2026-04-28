@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { motion, useScroll, useTransform, useSpring } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, useMotionValue } from "framer-motion";
 import {
   Zap, Shield, BarChart3, Smartphone, Settings,
   ArrowRight, CheckCircle2, MessageSquare, Users, Layers,
@@ -138,23 +138,24 @@ const Hero = () => {
   // Sombra mais intensa quando endireita
   const shadowOpacity = useTransform(smooth, [0, 1], [0.15, 0.45]);
 
-  // Hover tilt (3D follow cursor)
-  const [hoverTilt, setHoverTilt] = useState({ x: 0, y: 0 });
-  const [spotPos, setSpotPos] = useState({ x: 50, y: 50 });
-  const [isHovering, setIsHovering] = useState(false);
+  // Hover tilt 3D suave (motion values + spring)
+  const tiltX = useMotionValue(0);
+  const tiltY = useMotionValue(0);
+  const springTiltX = useSpring(tiltX, { stiffness: 150, damping: 20, mass: 0.4 });
+  const springTiltY = useSpring(tiltY, { stiffness: 150, damping: 20, mass: 0.4 });
 
   const handleMockupMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const rect = el.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    const TILT = 6; // graus máximos
-    setHoverTilt({ x: -(py - 0.5) * (TILT * 2), y: (px - 0.5) * (TILT * 2) });
-    setSpotPos({ x: px * 100, y: py * 100 });
+    const TILT = 4; // graus máximos — bem sutil
+    tiltX.set(-(py - 0.5) * (TILT * 2));
+    tiltY.set((px - 0.5) * (TILT * 2));
   };
   const handleMockupLeave = () => {
-    setHoverTilt({ x: 0, y: 0 });
-    setIsHovering(false);
+    tiltX.set(0);
+    tiltY.set(0);
   };
   return (
     <section id="top" className="relative pt-32 md:pt-40 pb-16 md:pb-24 px-5 md:px-6 overflow-hidden">
@@ -233,12 +234,19 @@ const Hero = () => {
           </motion.p>
         </motion.div>
 
-        {/* Mockup grande do dashboard com tilt-on-scroll */}
+        {/* Mockup grande do dashboard */}
         <div
           ref={mockupRef}
           className="relative mt-14 md:mt-20 max-w-[1100px] mx-auto"
-          style={{ perspective: "2000px" }}
+          style={{ perspective: "2200px" }}
         >
+          {/* Glow ATRÁS do mockup (não na frente) */}
+          <motion.div
+            style={{ opacity: shadowOpacity }}
+            className="absolute -inset-x-32 -top-20 -bottom-32 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_50%,rgba(16,185,129,0.22)_0%,transparent_70%)] blur-3xl pointer-events-none"
+            aria-hidden
+          />
+
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -252,46 +260,31 @@ const Hero = () => {
             }}
             className="relative"
           >
-            {/* Glow dinâmico */}
+            {/* Frame com tilt-on-hover suave */}
             <motion.div
-              style={{ opacity: shadowOpacity }}
-              className="absolute -inset-x-20 -top-10 -bottom-10 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.4)_0%,transparent_60%)] blur-3xl pointer-events-none"
-            />
-
-            {/* Frame com tilt-on-hover */}
-            <div
               onPointerMove={handleMockupMove}
-              onPointerEnter={() => setIsHovering(true)}
               onPointerLeave={handleMockupLeave}
-              className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)] transition-transform duration-300 ease-out"
               style={{
-                transform: `perspective(1400px) rotateX(${hoverTilt.x}deg) rotateY(${hoverTilt.y}deg) scale(${isHovering ? 1.015 : 1})`,
+                rotateX: springTiltX,
+                rotateY: springTiltY,
                 transformStyle: "preserve-3d",
+                transformPerspective: 1600,
               }}
+              className="relative rounded-3xl p-px bg-gradient-to-b from-white/[0.12] to-white/[0.04] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]"
             >
-              <div className="rounded-2xl overflow-hidden bg-[hsl(222,22%,5%)] ring-1 ring-inset ring-white/[0.04]">
+              <div className="rounded-3xl overflow-hidden bg-[hsl(222,22%,6%)] ring-1 ring-inset ring-white/[0.05]">
                 <img
                   src={heroInstancesPanel}
                   alt="Painel DG Contingência Pro — Aquecimento Automático"
                   className="block w-full h-auto"
                   loading="eager"
+                  draggable={false}
                 />
               </div>
-              {/* Top reflection */}
-              <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent pointer-events-none" />
-              {/* Spotlight que segue o cursor */}
-              <div
-                className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300"
-                style={{
-                  opacity: isHovering ? 1 : 0,
-                  background: `radial-gradient(circle at ${spotPos.x}% ${spotPos.y}%, rgba(16,185,129,0.18), transparent 45%)`,
-                }}
-              />
-            </div>
+              {/* Reflexo sutil no topo */}
+              <div className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+            </motion.div>
           </motion.div>
-
-          {/* Bottom fade */}
-          <div className="absolute inset-x-0 -bottom-1 h-32 bg-gradient-to-t from-[hsl(222,22%,5%)] to-transparent pointer-events-none" />
         </div>
       </div>
     </section>
