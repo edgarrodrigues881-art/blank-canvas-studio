@@ -240,8 +240,8 @@ const Auth = () => {
           className="w-full rounded-2xl overflow-hidden relative"
           style={{
             background: "#000000",
-            border: "1px solid rgba(255,255,255,0.04)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 80px -20px rgba(16,185,129,0.15)",
+            border: "1px solid rgba(16,185,129,0.15)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 80px -20px rgba(16,185,129,0.18)",
           }}
         >
           <div className="px-8 pt-10 pb-9 sm:px-10">
@@ -253,20 +253,19 @@ const Auth = () => {
               className="flex flex-col items-center mb-8"
             >
               <div className="relative mb-5">
-                {/* Gold frame around logo */}
+                {/* Gold frame around logo — thin 1px */}
                 <div
-                  className="rounded-2xl p-[3px]"
+                  className="rounded-2xl p-[8px]"
                   style={{
-                    background: "linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #FBBF24 100%)",
-                    boxShadow: "0 0 24px rgba(251,191,36,0.35), 0 0 60px rgba(16,185,129,0.18)",
+                    border: "1px solid #FBBF24",
+                    boxShadow: "0 0 20px rgba(251,191,36,0.30), 0 0 50px rgba(16,185,129,0.15)",
                   }}
                 >
-                  <div className="rounded-[14px] p-[10px] bg-black">
-                    <div className="relative w-[80px] h-[80px] rounded-xl overflow-hidden">
-                      <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
-                    </div>
+                  <div className="relative w-[80px] h-[80px] rounded-xl overflow-hidden">
+                    <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
                   </div>
                 </div>
+              </div>
               </div>
               <h1 className="text-[22px] font-semibold text-white tracking-tight">
                 <span style={{ color: "#10B981" }}>DG</span> Contingência <span style={{ color: "#FBBF24" }}>Pro</span>
