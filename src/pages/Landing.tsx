@@ -350,13 +350,20 @@ const UseCase = () => (
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, ease: easeOut }} className="lg:col-span-7 relative">
-        <img
-          src={heroInstancesPanel}
-          alt="Painel de instâncias"
-          className="relative w-full h-auto block rounded-xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]"
-          loading="lazy"
-          style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.25)" }}
-        />
+        {/* Gradient border wrapper */}
+        <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.02)]">
+          <div className="rounded-2xl overflow-hidden bg-[#0a0e1a] ring-1 ring-inset ring-white/[0.04]">
+            <img
+              src={heroInstancesPanel}
+              alt="Painel de instâncias"
+              className="block w-full h-auto"
+              loading="lazy"
+              style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.25)" }}
+            />
+          </div>
+          {/* Reflexo sutil no topo */}
+          <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
+        </div>
       </motion.div>
     </div>
   </Section>
