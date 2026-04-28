@@ -455,15 +455,15 @@ const BrowserMockup = ({ src, alt, eager, imgY, imgScale }: {
       <span className="w-3 h-3 rounded-full" style={{ background: "#ffbd2e" }} />
       <span className="w-3 h-3 rounded-full" style={{ background: "#28c940" }} />
     </div>
-    {/* Image with leve parallax + zoom sutil */}
-    <div className="relative w-full aspect-[16/9] overflow-hidden bg-[#0a0f17]">
+    {/* Imagem em tamanho original, sem corte */}
+    <div className="relative w-full overflow-hidden bg-[#0a0f17]">
       <motion.img
         src={src}
         alt={alt}
         loading={eager ? "eager" : "lazy"}
         decoding="async"
         style={{ y: imgY, scale: imgScale }}
-        className="absolute inset-0 w-[115%] h-full object-cover object-left-top will-change-transform"
+        className="block w-full h-auto will-change-transform"
       />
     </div>
   </div>
