@@ -313,7 +313,7 @@ function FlowCanvas() {
 
     setSaving(true);
     try {
-      const payload = {
+      const payload: any = {
         name: flowName.trim(),
         is_active: isActive,
         device_id: deviceId,
@@ -321,6 +321,9 @@ function FlowCanvas() {
         edges: edges as any,
         user_id: user.id,
       };
+      if (!flowId && initialGroupId) {
+        payload.group_id = initialGroupId;
+      }
 
       if (flowId) {
         const { error } = await supabase
