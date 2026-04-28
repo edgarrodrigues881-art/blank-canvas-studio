@@ -3594,6 +3594,13 @@ export type Database = {
             referencedRelation: "proxies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "devices_proxy_id_fkey"
+            columns: ["proxy_id"]
+            isOneToOne: false
+            referencedRelation: "proxies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       extracted_invite_links: {
@@ -7886,6 +7893,13 @@ export type Database = {
             referencedRelation: "proxies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "devices_proxy_id_fkey"
+            columns: ["proxy_id"]
+            isOneToOne: false
+            referencedRelation: "proxies_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       notification_effective_device: {
@@ -7897,6 +7911,48 @@ export type Database = {
           whatsapp_target_jid: string | null
           whatsapp_target_label: string | null
           whatsapp_target_phone: string | null
+        }
+        Relationships: []
+      }
+      proxies_safe: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          display_id: number | null
+          host: string | null
+          id: string | null
+          port: string | null
+          status: string | null
+          type: string | null
+          updated_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          display_id?: number | null
+          host?: string | null
+          id?: string | null
+          port?: string | null
+          status?: string | null
+          type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          display_id?: number | null
+          host?: string | null
+          id?: string | null
+          port?: string | null
+          status?: string | null
+          type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -8096,6 +8152,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_proxy_password: { Args: { _proxy_id: string }; Returns: string }
       get_sidebar_stats: { Args: { p_user_id: string }; Returns: Json }
       has_role: {
         Args: {
