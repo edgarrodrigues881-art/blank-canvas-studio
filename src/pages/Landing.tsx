@@ -258,8 +258,17 @@ const Hero = () => {
               className="absolute -inset-x-20 -top-10 -bottom-10 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.4)_0%,transparent_60%)] blur-3xl pointer-events-none"
             />
 
-            {/* Frame */}
-            <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)]">
+            {/* Frame com tilt-on-hover */}
+            <div
+              onPointerMove={handleMockupMove}
+              onPointerEnter={() => setIsHovering(true)}
+              onPointerLeave={handleMockupLeave}
+              className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_120px_-30px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(16,185,129,0.3)] transition-transform duration-300 ease-out"
+              style={{
+                transform: `perspective(1400px) rotateX(${hoverTilt.x}deg) rotateY(${hoverTilt.y}deg) scale(${isHovering ? 1.015 : 1})`,
+                transformStyle: "preserve-3d",
+              }}
+            >
               <div className="rounded-2xl overflow-hidden bg-[hsl(222,22%,5%)] ring-1 ring-inset ring-white/[0.04]">
                 <img
                   src={heroInstancesPanel}
@@ -270,6 +279,14 @@ const Hero = () => {
               </div>
               {/* Top reflection */}
               <div className="absolute inset-x-12 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/50 to-transparent pointer-events-none" />
+              {/* Spotlight que segue o cursor */}
+              <div
+                className="pointer-events-none absolute inset-0 rounded-2xl transition-opacity duration-300"
+                style={{
+                  opacity: isHovering ? 1 : 0,
+                  background: `radial-gradient(circle at ${spotPos.x}% ${spotPos.y}%, rgba(16,185,129,0.18), transparent 45%)`,
+                }}
+              />
             </div>
           </motion.div>
 
