@@ -23,6 +23,19 @@ function normalizePhone(phone: string): string {
   return p;
 }
 
+async function notify(payload: Record<string, unknown>) {
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/notify-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (_) { /* best-effort */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -83,18 +96,44 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         }).eq("id", msg.id);
         sent++;
+        // Fire-and-forget notification
+        notify({
+          user_id: msg.user_id,
+          alert_type: "dispatch_event",
+          severity: "low",
+          title: "Disparo agendado enviado",
+          description: `Mensagem entregue para ${msg.contact_phone}${(device as any)?.name ? ` via ${(device as any).name}` : ""}.`,
+          source_table: "scheduled_messages",
+          source_id: msg.id,
+          contact_phone: msg.contact_phone,
+          context_message: (msg.message_content || "").substring(0, 200),
+        });
       } else {
         const attempts = (msg.attempts || 0) + 1;
         const max = msg.max_attempts || 3;
         const nextRetry = new Date(Date.now() + Math.min(60 * attempts, 300) * 1000).toISOString();
+        const finalFail = attempts >= max;
         await sb.from("scheduled_messages").update({
-          status: attempts >= max ? "failed" : "retry",
+          status: finalFail ? "failed" : "retry",
           attempts,
-          next_retry_at: attempts >= max ? null : nextRetry,
+          next_retry_at: finalFail ? null : nextRetry,
           error_message: `HTTP ${resp.status}: ${body.substring(0, 200)}`,
           updated_at: new Date().toISOString(),
         }).eq("id", msg.id);
         failed++;
+        if (finalFail) {
+          notify({
+            user_id: msg.user_id,
+            alert_type: "dispatch_event",
+            severity: "high",
+            title: "Disparo agendado falhou",
+            description: `Não foi possível entregar para ${msg.contact_phone} após ${attempts} tentativas.`,
+            source_table: "scheduled_messages",
+            source_id: msg.id,
+            contact_phone: msg.contact_phone,
+            context_message: `HTTP ${resp.status}`,
+          });
+        }
       }
     } catch (e: any) {
       await sb.from("scheduled_messages").update({
