@@ -99,7 +99,7 @@ function FlowCanvas() {
   const [nodes, setNodes] = useState<Node<FlowNodeData>[]>(defaultNodes);
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [flowName, setFlowName] = useState("Minha Automação");
+  const [flowName, setFlowName] = useState(initialName || "Minha Automação");
   const [isActive, setIsActive] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [dropMenu, setDropMenu] = useState<DropMenu | null>(null);
