@@ -89,9 +89,12 @@ interface FlowSnapshot {
 function FlowCanvas() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const isNew = id === "new";
   const [flowId, setFlowId] = useState<string | null>(isNew ? null : id || null);
+  const initialName = (location.state as any)?.name as string | undefined;
+  const initialGroupId = (location.state as any)?.group_id as string | null | undefined;
 
   const [nodes, setNodes] = useState<Node<FlowNodeData>[]>(defaultNodes);
   const [edges, setEdges] = useState<Edge[]>(defaultEdges);
