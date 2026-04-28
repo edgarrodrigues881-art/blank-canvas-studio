@@ -441,6 +441,8 @@ const HOWTO_STEPS = [
 
 const UseCase = () => {
   const sectionRef = useRef<HTMLDivElement | null>(null);
+  // offset: progresso vai de 0 (seção encosta no topo) → 1 (final da seção encosta no fim da viewport)
+  // Isso faz o progresso completar 100% enquanto o sticky ainda está visível.
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start start", "end end"],
@@ -449,15 +451,24 @@ const UseCase = () => {
 
   useEffect(() => {
     const unsub = scrollYProgress.on("change", (v) => {
-      // Mapeia 0..1 para o índice do passo atual
-      const idx = Math.min(HOWTO_STEPS.length - 1, Math.max(0, Math.floor(v * HOWTO_STEPS.length)));
+      // Distribui igualmente: cada passo ocupa 1/N do progresso.
+      // Usamos o intervalo [0, 0.95] pra o último passo aparecer antes do sticky soltar.
+      const eff = Math.min(0.999, v / 0.95);
+      const idx = Math.min(HOWTO_STEPS.length - 1, Math.floor(eff * HOWTO_STEPS.length));
       setActive((prev) => (prev === idx ? prev : idx));
     });
     return () => unsub();
   }, [scrollYProgress]);
 
+  // Cada passo precisa de ~110vh de scroll pra trocar de forma confortável.
+  // Sticky ocupa 100vh, então a altura total é (N * 110vh) garantindo que cada passo "segure" antes de avançar.
   return (
-    <section id="uso" ref={sectionRef} className="relative" style={{ height: `${HOWTO_STEPS.length * 100}vh` }}>
+    <section
+      id="uso"
+      ref={sectionRef}
+      className="relative"
+      style={{ height: `${HOWTO_STEPS.length * 110}vh` }}
+    >
       {/* Sticky viewport */}
       <div className="sticky top-0 h-screen flex items-center overflow-hidden">
         <div className="mx-auto w-full max-w-[1320px] px-5 md:px-8">
