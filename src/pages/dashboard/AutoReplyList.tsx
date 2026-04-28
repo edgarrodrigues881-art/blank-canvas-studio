@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, BotMessageSquare, Pencil, Copy, Trash2, MoreHorizontal,
   Zap, Clock, Search, Filter, GitBranch, MousePointerClick,
-  Loader2, Smartphone, FolderPlus, Folder, Check, ChevronsUpDown, CheckCircle2
+  Loader2, Smartphone, FolderPlus, Folder, Check, ChevronsUpDown, CheckCircle2,
+  ChevronDown, ChevronRight, FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
