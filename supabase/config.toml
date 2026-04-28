@@ -8,3 +8,8 @@ verify_jwt = false
 
 [functions.status-schedule-tick]
 verify_jwt = false
+[functions.notify-reminders-cron]
+verify_jwt = false
+
+[functions.notify-event]
+verify_jwt = false
