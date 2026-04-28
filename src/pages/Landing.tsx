@@ -439,24 +439,31 @@ const HOWTO_STEPS = [
   { n: "5", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real, reduza riscos de bloqueio e veja seus chips aquecendo.", img: howtoStep5 },
 ];
 
-// Browser-style mockup wrapper with mac dots + glassmorphism + deep shadow
-const BrowserMockup = ({ src, alt, eager }: { src: string; alt: string; eager?: boolean }) => (
-  <div className="relative rounded-[14px] overflow-hidden border border-white/[0.08] bg-white/[0.03] backdrop-blur-md shadow-[0_40px_120px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
-    {/* Top bar */}
-    <div className="flex items-center gap-1.5 px-4 py-2.5 bg-[#0d1117]/95 border-b border-white/[0.06]">
-      <span className="w-3 h-3 rounded-full bg-[#ff5f56]" />
-      <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
-      <span className="w-3 h-3 rounded-full bg-[#27c93f]" />
-      <div className="ml-3 flex-1 max-w-[260px] h-5 rounded-md bg-white/[0.04] border border-white/[0.04]" />
+// Browser-style mockup wrapper — Mac dots, deep shadow, crop right sidebar
+const BrowserMockup = ({ src, alt, eager, imgY, imgScale }: {
+  src: string; alt: string; eager?: boolean;
+  imgY: ReturnType<typeof useTransform<number, number>>;
+  imgScale: ReturnType<typeof useTransform<number, number>>;
+}) => (
+  <div
+    className="relative overflow-hidden bg-[#1a1a1a] rounded-t-[12px] rounded-b-[8px]"
+    style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)" }}
+  >
+    {/* Top bar — 32px Mac style */}
+    <div className="flex items-center gap-2 px-4 h-8 bg-[#1a1a1a] border-b border-white/[0.06]">
+      <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
+      <span className="w-3 h-3 rounded-full" style={{ background: "#ffbd2e" }} />
+      <span className="w-3 h-3 rounded-full" style={{ background: "#28c940" }} />
     </div>
-    {/* Image — crop right sidebar via object-position left */}
+    {/* Image with leve parallax + zoom sutil */}
     <div className="relative w-full aspect-[16/9] overflow-hidden bg-[#0a0f17]">
-      <img
+      <motion.img
         src={src}
         alt={alt}
         loading={eager ? "eager" : "lazy"}
         decoding="async"
-        className="absolute inset-0 w-[115%] h-full object-cover object-left-top"
+        style={{ y: imgY, scale: imgScale }}
+        className="absolute inset-0 w-[115%] h-full object-cover object-left-top will-change-transform"
       />
     </div>
   </div>
@@ -465,51 +472,74 @@ const BrowserMockup = ({ src, alt, eager }: { src: string; alt: string; eager?: 
 const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: number }) => {
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // Scroll-linked: animação acompanha o scroll do usuário (entra ao subir, sai ao descer)
+  // Scroll-driven: animação acompanha o scroll do usuário (entra e sai)
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ["start 90%", "end 10%"],
+    offset: ["start 95%", "end 5%"],
   });
 
-  // Curva: fade-in 0→0.25, foco 0.25→0.75, fade-out 0.75→1
-  const opacity = useTransform(scrollYProgress, [0, 0.18, 0.82, 1], [0, 1, 1, 0]);
-  const y = useTransform(scrollYProgress, [0, 0.25, 0.75, 1], [40, 0, 0, -20]);
-  const scale = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0.96, 1, 1, 0.98]);
-  // Foco: cards fora do centro ficam levemente opacos
+  // Card: fade-in + translateY(-20→0), foco central, fade-out + translateY(20)
+  const cardOpacity = useTransform(scrollYProgress, [0, 0.18, 0.82, 1], [0, 1, 1, 0]);
+  const cardY = useTransform(scrollYProgress, [0, 0.22, 0.78, 1], [-20, 0, 0, 20]);
+  // Foco no centro: scale 1.02 + cards fora caem para opacity 0.5 + scale 0.98
+  const focusScale = useTransform(scrollYProgress, [0.2, 0.45, 0.55, 0.8], [0.98, 1.02, 1.02, 0.98]);
   const focusOpacity = useTransform(scrollYProgress, [0.2, 0.4, 0.6, 0.8], [0.5, 1, 1, 0.5]);
+  // Borda: opacity 20% → 40% no centro
+  const borderOpacity = useTransform(scrollYProgress, [0.2, 0.5, 0.8], [0.2, 0.45, 0.2]);
 
-  const smoothY = useSpring(y, { stiffness: 120, damping: 24, mass: 0.6 });
+  // Imagem: parallax leve (mais lenta) + zoom sutil
+  const imgEntryY = useTransform(scrollYProgress, [0, 0.25, 1], [30, 0, -10]);
+  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.02, 1.03]);
+
+  const smoothCardY = useSpring(cardY, { stiffness: 110, damping: 22, mass: 0.5 });
+  const smoothImgY = useSpring(imgEntryY, { stiffness: 80, damping: 24, mass: 0.7 });
 
   return (
     <motion.div
       ref={ref}
-      style={{ opacity }}
-      className="w-full py-10 md:py-16"
+      style={{ opacity: cardOpacity }}
+      className="w-full py-12 md:py-16 lg:py-24"
     >
-      <motion.div style={{ opacity: focusOpacity, y: smoothY, scale }}>
-        {/* CARD */}
-        <div className="mx-auto w-full md:w-[78%] max-w-[820px] rounded-2xl p-6 md:p-7 border border-white/[0.06] bg-white/[0.025] backdrop-blur-xl shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]">
-          <div className="flex items-start gap-5">
-            <div className="relative flex-shrink-0">
-              <span className="absolute inset-0 rounded-full bg-emerald-400/20 blur-xl" aria-hidden />
-              <span className="relative w-12 h-12 rounded-full bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-600 text-emerald-950 flex items-center justify-center text-lg font-bold shadow-[0_8px_24px_-6px_rgba(16,185,129,0.6),inset_0_1px_0_rgba(255,255,255,0.4)]">
-                {step.n}
-              </span>
+      <motion.div style={{ opacity: focusOpacity, scale: focusScale, y: smoothCardY }}>
+        {/* CARD com badge flutuante e borda em gradiente */}
+        <div className="relative mx-auto w-full md:w-[90%] max-w-[820px] pt-6 px-4 md:px-0">
+          {/* Borda em gradiente (wrapper) */}
+          <motion.div
+            style={{ opacity: borderOpacity }}
+            className="absolute inset-x-4 md:inset-x-0 top-6 bottom-0 rounded-[12px] p-px bg-gradient-to-br from-emerald-500/40 via-white/5 to-orange-500/40 pointer-events-none"
+            aria-hidden
+          />
+          <div
+            className="relative rounded-[12px] p-8 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-[10px]"
+            style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.1)" }}
+          >
+            {/* Badge flutuante */}
+            <div
+              className="absolute -top-6 -left-2 md:-left-6 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg"
+              style={{ boxShadow: "0 0 20px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3)" }}
+            >
+              {step.n}
             </div>
-            <div className="min-w-0 pt-1">
-              <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight mb-1.5">
+            <div className="pt-2">
+              <h3 className="text-[18px] md:text-[20px] font-bold text-white tracking-[-0.01em] mb-2">
                 {step.title}
               </h3>
-              <p className="text-sm md:text-[15px] text-white/55 leading-relaxed">
+              <p className="text-[14px] md:text-[15px] text-gray-300 leading-[1.6]">
                 {step.desc}
               </p>
             </div>
           </div>
         </div>
 
-        {/* IMAGEM — Browser mockup */}
-        <div className="mt-8 md:mt-10 mx-auto w-full max-w-[1000px]">
-          <BrowserMockup src={step.img} alt={`${step.title} — passo ${step.n}`} eager={index === 0} />
+        {/* IMAGEM — gap 1.5rem do card */}
+        <div className="mt-6 mx-auto w-full max-w-[900px] px-4 md:px-0">
+          <BrowserMockup
+            src={step.img}
+            alt={`${step.title} — passo ${step.n}`}
+            eager={index === 0}
+            imgY={smoothImgY}
+            imgScale={imgScale}
+          />
         </div>
       </motion.div>
     </motion.div>
