@@ -3052,6 +3052,141 @@ export type Database = {
           },
         ]
       }
+      crm_followup_sequences: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          steps: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          steps?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          steps?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crm_followups: {
+        Row: {
+          ai_prompt: string | null
+          attempt_count: number
+          cancel_on_reply: boolean
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          contact_id: string | null
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          device_id: string | null
+          error_message: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          message: string | null
+          mode: string
+          notes: string | null
+          parent_followup_id: string | null
+          scheduled_at: string
+          sent_at: string | null
+          sequence_id: string | null
+          sequence_step: number | null
+          status: string
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_prompt?: string | null
+          attempt_count?: number
+          cancel_on_reply?: boolean
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string | null
+          mode?: string
+          notes?: string | null
+          parent_followup_id?: string | null
+          scheduled_at: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          sequence_step?: number | null
+          status?: string
+          trigger_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_prompt?: string | null
+          attempt_count?: number
+          cancel_on_reply?: boolean
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          contact_id?: string | null
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          device_id?: string | null
+          error_message?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          message?: string | null
+          mode?: string
+          notes?: string | null
+          parent_followup_id?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          sequence_id?: string | null
+          sequence_step?: number | null
+          status?: string
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_followups_parent_followup_id_fkey"
+            columns: ["parent_followup_id"]
+            isOneToOne: false
+            referencedRelation: "crm_followups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_followups_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "crm_followup_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_templates: {
         Row: {
           buttons: Json
