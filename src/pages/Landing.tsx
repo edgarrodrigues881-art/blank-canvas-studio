@@ -350,14 +350,12 @@ const UseCase = () => (
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, ease: easeOut }} className="lg:col-span-7 relative">
-        {/* Glow vibrante emerald + indigo */}
-        <div className="absolute -inset-12 bg-[radial-gradient(ellipse_at_30%_40%,rgba(16,185,129,0.18)_0%,transparent_60%),radial-gradient(ellipse_at_70%_60%,rgba(99,102,241,0.14)_0%,transparent_65%)] blur-3xl pointer-events-none" />
         <img
           src={heroInstancesPanel}
           alt="Painel de instâncias"
-          className="relative w-full h-auto block rounded-xl shadow-[0_30px_80px_-20px_rgba(16,185,129,0.25),0_20px_60px_-30px_rgba(0,0,0,0.8)]"
+          className="relative w-full h-auto block rounded-xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]"
           loading="lazy"
-          style={{ filter: "brightness(1.08) contrast(1.1) saturate(1.35)" }}
+          style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.25)" }}
         />
       </motion.div>
     </div>
