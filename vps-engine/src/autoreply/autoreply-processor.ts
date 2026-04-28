@@ -424,12 +424,20 @@ async function processQueueItem(db: SupabaseClient, item: any): Promise<void> {
 
   // ── Find active flows before anti-loop checks ──
   const { data: flows } = await db.from("autoreply_flows")
-    .select("id, nodes, edges, device_id")
+    .select("id, nodes, edges, device_id, device_ids, apply_to_all_devices")
     .eq("user_id", userId).eq("is_active", true);
 
   if (!flows?.length) return;
 
-  const matchingFlows = flows.filter(f => !f.device_id || f.device_id === deviceId);
+  // Multi-instância: aceita o fluxo se aplica a todos OS dispositivos OU
+  // se device_ids inclui o atual OU se device_id legado bate.
+  const matchingFlows = flows.filter((f: any) => {
+    if (f.apply_to_all_devices) return true;
+    const ids = Array.isArray(f.device_ids) ? f.device_ids : [];
+    if (ids.length > 0) return ids.includes(deviceId);
+    if (f.device_id) return f.device_id === deviceId;
+    return true; // sem nada selecionado = qualquer instância (compat)
+  });
   if (!matchingFlows.length) return;
 
   const hasExplicitKeywordTrigger = matchingFlows.some(flow => {
