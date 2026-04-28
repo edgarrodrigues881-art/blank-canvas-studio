@@ -440,143 +440,133 @@ const HOWTO_STEPS = [
 ];
 
 const UseCase = () => {
-  const sectionRef = useRef<HTMLElement | null>(null);
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      const rect = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-      // Distância percorrida dentro da seção (a parte "scrollável" é altura - vh, pois o sticky ocupa 1vh)
-      const scrolled = -rect.top;
-      const maxScroll = el.offsetHeight - vh;
-      if (maxScroll <= 0) return;
-      const progress = Math.min(1, Math.max(0, scrolled / maxScroll));
-      // distribui igualmente; usa 0.95 como cap pra o último passo aparecer antes do sticky soltar
-      const eff = Math.min(0.999, progress / 0.95);
-      const idx = Math.min(HOWTO_STEPS.length - 1, Math.floor(eff * HOWTO_STEPS.length));
-      setActive((prev) => (prev === idx ? prev : idx));
-    };
-
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(update);
-    };
-
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
+    const observers: IntersectionObserver[] = [];
+    stepRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) setActive(i);
+        },
+        { rootMargin: "-40% 0px -40% 0px", threshold: 0 }
+      );
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach((o) => o.disconnect());
   }, []);
 
-  // Cada passo precisa de ~110vh de scroll pra trocar de forma confortável.
+  const scrollToStep = (i: number) => {
+    stepRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <section
-      id="uso"
-      ref={sectionRef}
-      className="relative"
-      style={{ height: `${HOWTO_STEPS.length * 100}vh` }}
-    >
-      {/* Sticky viewport */}
-      <div className="sticky top-0 h-screen flex items-center overflow-hidden">
-        <div className="mx-auto w-full max-w-[1320px] px-5 md:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12 items-center">
-            {/* LEFT — texto + lista de passos */}
-            <div className="lg:col-span-5">
-              <Eyebrow>Como funciona</Eyebrow>
-              <SectionTitle className="mb-6 md:mb-10 text-[1.625rem] md:text-[2.25rem] lg:text-[2.5rem]">
-                Como funciona na prática.
-              </SectionTitle>
+    <section id="uso" className="relative py-20 md:py-28">
+      <div className="mx-auto w-full max-w-[1200px] px-5 md:px-8">
+        {/* Header */}
+        <div className="text-center mb-10 md:mb-14">
+          <Eyebrow>Como funciona</Eyebrow>
+          <SectionTitle className="mb-4 text-[1.75rem] md:text-[2.5rem]">
+            Como funciona na prática.
+          </SectionTitle>
+          <p className="text-white/55 text-sm md:text-base max-w-2xl mx-auto">
+            Em 5 passos simples você conecta, aquece e escala seus chips com segurança.
+          </p>
+        </div>
 
-              <ol className="space-y-3 md:space-y-4">
-                {HOWTO_STEPS.map((step, i) => {
-                  const isActive = i === active;
-                  return (
-                    <li
-                      key={step.n}
-                      className={`flex gap-4 rounded-xl p-3 md:p-4 transition-all duration-500 ${
-                        isActive
-                          ? "bg-white/[0.04] ring-1 ring-emerald-400/20"
-                          : "bg-transparent ring-1 ring-transparent opacity-50"
-                      }`}
-                    >
-                      <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-medium transition-all duration-500 ${
-                          isActive
-                            ? "bg-emerald-400 text-emerald-950 shadow-[0_0_20px_-2px_rgba(16,185,129,0.7)]"
-                            : "border border-white/[0.1] bg-white/[0.03] text-white/65"
-                        }`}
-                      >
-                        {step.n}
-                      </span>
-                      <div className="pt-0.5 min-w-0">
-                        <h3
-                          className={`text-[14px] font-semibold mb-1 tracking-tight transition-colors duration-500 ${
-                            isActive ? "text-white" : "text-white/70"
-                          }`}
-                        >
-                          {step.title}
-                        </h3>
-                        <p
-                          className={`text-[13px] leading-[1.55] transition-colors duration-500 ${
-                            isActive ? "text-white/70" : "text-white/40"
-                          }`}
-                        >
-                          {step.desc}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-
-              {/* Indicador de progresso */}
-              <div className="mt-8 flex gap-1.5">
-                {HOWTO_STEPS.map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-0.5 flex-1 rounded-full transition-all duration-500 ${
-                      i <= active ? "bg-emerald-400" : "bg-white/10"
-                    }`}
-                  />
-                ))}
-              </div>
+        {/* Sticky progress bar */}
+        <div className="sticky top-4 z-20 mb-12 md:mb-16">
+          <div className="mx-auto max-w-2xl rounded-full bg-[#0a0e1a]/90 backdrop-blur-md ring-1 ring-white/[0.06] px-4 py-3 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center justify-between mb-2 text-[12px]">
+              <span className="font-medium text-emerald-400">
+                Passo {active + 1} de {HOWTO_STEPS.length}
+              </span>
+              <span className="text-white/50 truncate ml-3">
+                {HOWTO_STEPS[active].title}
+              </span>
             </div>
-
-            {/* RIGHT — stack de imagens com crossfade */}
-            <div className="lg:col-span-7 relative">
-              <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.02)]">
-                <div className="relative rounded-2xl overflow-hidden bg-[#0a0e1a] ring-1 ring-inset ring-white/[0.04] aspect-[16/10]">
-                  {HOWTO_STEPS.map((step, i) => (
-                    <motion.img
-                      key={step.n}
-                      src={step.img}
-                      alt={step.title}
-                      className="absolute inset-0 w-full h-full object-cover object-top"
-                      loading="lazy"
-                      initial={false}
-                      animate={{
-                        opacity: i === active ? 1 : 0,
-                        scale: i === active ? 1 : 1.02,
-                      }}
-                      transition={{ duration: 0.7, ease: easeOut }}
-                      style={{ filter: "brightness(1.05) contrast(1.08) saturate(1.2)" }}
-                    />
-                  ))}
-                </div>
-                <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
-              </div>
+            <div className="flex gap-1">
+              {HOWTO_STEPS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToStep(i)}
+                  aria-label={`Ir para passo ${i + 1}`}
+                  className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+                    i <= active ? "bg-emerald-400" : "bg-white/10 hover:bg-white/20"
+                  }`}
+                />
+              ))}
             </div>
           </div>
+        </div>
+
+        {/* Steps */}
+        <div className="flex flex-col gap-16 md:gap-24">
+          {HOWTO_STEPS.map((step, i) => {
+            const isLast = i === HOWTO_STEPS.length - 1;
+            return (
+              <div
+                key={step.n}
+                ref={(el) => (stepRefs.current[i] = el)}
+                className="scroll-mt-32"
+              >
+                {/* Step header */}
+                <div className="flex items-start gap-4 mb-6 md:mb-8">
+                  <span className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 text-emerald-950 flex items-center justify-center text-lg md:text-xl font-bold shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)]">
+                    {step.n}
+                  </span>
+                  <div className="pt-1 md:pt-2 min-w-0">
+                    <h3 className="text-xl md:text-2xl font-semibold text-white tracking-tight mb-2">
+                      {step.title}
+                    </h3>
+                    <p className="text-sm md:text-base text-white/60 leading-relaxed max-w-2xl">
+                      {step.desc}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Image — full width, contain, scroll interno se ultrapassar 70vh */}
+                <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.08] to-emerald-500/20 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.8)]">
+                  <div
+                    className="relative rounded-2xl overflow-y-auto overflow-x-hidden bg-gradient-to-br from-[#0a0e1a] to-[#0d1220] ring-1 ring-inset ring-white/[0.04] custom-scrollbar"
+                    style={{ maxHeight: "70vh" }}
+                  >
+                    <img
+                      src={step.img}
+                      alt={`${step.title} — passo ${step.n}`}
+                      loading="lazy"
+                      className="w-full h-auto object-contain block animate-fade-in"
+                    />
+                  </div>
+                  <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent pointer-events-none" />
+                </div>
+
+                {/* Próximo passo */}
+                {!isLast && (
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => scrollToStep(i + 1)}
+                      className="group inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      Próximo passo: {HOWTO_STEPS[i + 1].title}
+                      <svg
+                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
