@@ -946,37 +946,79 @@ export type Database = {
         }
         Relationships: []
       }
-      autoreply_flows: {
+      autoreply_flow_groups: {
         Row: {
+          color: string | null
           created_at: string
-          device_id: string | null
-          edges: Json
           id: string
-          is_active: boolean
           name: string
-          nodes: Json
+          sort_order: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          color?: string | null
           created_at?: string
-          device_id?: string | null
-          edges?: Json
           id?: string
-          is_active?: boolean
           name: string
-          nodes?: Json
+          sort_order?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      autoreply_flows: {
+        Row: {
+          apply_to_all_devices: boolean
+          created_at: string
+          device_id: string | null
+          device_ids: string[]
+          edges: Json
+          group_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          nodes: Json
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          apply_to_all_devices?: boolean
           created_at?: string
           device_id?: string | null
+          device_ids?: string[]
           edges?: Json
+          group_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          nodes?: Json
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          apply_to_all_devices?: boolean
+          created_at?: string
+          device_id?: string | null
+          device_ids?: string[]
+          edges?: Json
+          group_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
           nodes?: Json
+          sort_order?: number
           updated_at?: string
           user_id?: string
         }
@@ -993,6 +1035,13 @@ export type Database = {
             columns: ["device_id"]
             isOneToOne: false
             referencedRelation: "devices_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autoreply_flows_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "autoreply_flow_groups"
             referencedColumns: ["id"]
           },
         ]
