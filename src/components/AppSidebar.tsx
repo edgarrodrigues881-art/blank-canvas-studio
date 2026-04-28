@@ -350,7 +350,7 @@ export function AppSidebar() {
   };
 
   // Auto-switch workspace based on current route
-  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply"];
+  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     // Only auto-switch TO crm when entering a CRM route. Do NOT auto-switch back
@@ -475,6 +475,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Disparos", url: "/dashboard/crm-dispatches", icon: Send })}
                   {renderNavItem({ title: "Campanhas", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
                   {renderNavItem({ title: "Follow-up", url: "/dashboard/crm-followups", icon: BellRing })}
+                  {renderNavItem({ title: "Agenda", url: "/dashboard/crm-agenda", icon: CalendarClock })}
                   {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
                 </SidebarMenu>
               </SidebarGroupContent>

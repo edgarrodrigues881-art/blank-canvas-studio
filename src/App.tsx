@@ -84,6 +84,7 @@ const CRMDashboard = lazyWithPreload(() => import("@/pages/dashboard/CRMDashboar
 const Leads = lazyWithPreload(() => import("@/pages/dashboard/Leads"));
 const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
 const CRMAgendamentos = lazyWithPreload(() => import("@/pages/dashboard/CRMAgendamentos"));
+const CRMAgenda = lazyWithPreload(() => import("@/pages/dashboard/CRMAgenda"));
 const CRMFollowups = lazyWithPreload(() => import("@/pages/dashboard/CRMFollowups"));
 const CRMReports = lazyWithPreload(() => import("@/pages/dashboard/CRMReports"));
 const Tutorials = lazyWithPreload(() => import("@/pages/dashboard/Tutorials"));
@@ -298,6 +299,7 @@ const App = () => (
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-agendamentos" element={<ProtectedRoute><DashboardLayout><CRMAgendamentos /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-agenda" element={<ProtectedRoute><DashboardLayout><CRMAgenda /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-followups" element={<ProtectedRoute><DashboardLayout><CRMFollowups /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-reports" element={<ProtectedRoute><DashboardLayout><CRMReports /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-dispatches" element={<ProtectedRoute><DashboardLayout><CrmDispatches /></DashboardLayout></ProtectedRoute>} />
