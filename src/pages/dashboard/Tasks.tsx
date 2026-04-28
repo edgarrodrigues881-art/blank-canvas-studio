@@ -972,21 +972,22 @@ function TemplatesDialog({ open, onClose, t }: any) {
 
 // =============== AUTOMATIONS DIALOG ===============
 function AutomationsDialog({ open, onClose, t, activeProject }: any) {
+  const [tab, setTab] = useState<"automations" | "history">("automations");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState<any>({ name: "", trigger_type: "due_overdue", action_type: "set_priority", action_config: { priority: "urgente" } });
+  const [form, setForm] = useState<any>({ name: "", trigger_type: "task_completed", trigger_config: {}, action_type: "move_to_column", action_config: {} });
 
   const save = async () => {
     if (!form.name?.trim()) return;
     await t.createAutomation({ ...form, project_id: activeProject?.id || null });
     setCreating(false);
-    setForm({ name: "", trigger_type: "due_overdue", action_type: "set_priority", action_config: { priority: "urgente" } });
+    setForm({ name: "", trigger_type: "task_completed", trigger_config: {}, action_type: "move_to_column", action_config: {} });
   };
 
   const TRIGGER_LABELS: Record<string, string> = {
-    due_overdue: "Quando o prazo vencer",
     task_completed: "Quando a tarefa for concluída",
-    label_added: "Quando uma etiqueta for adicionada",
     column_changed: "Quando mudar de coluna",
+    label_added: "Quando uma etiqueta for adicionada",
+    due_overdue: "Quando o prazo vencer",
   };
   const ACTION_LABELS: Record<string, string> = {
     move_to_column: "Mover para coluna",
@@ -996,99 +997,185 @@ function AutomationsDialog({ open, onClose, t, activeProject }: any) {
     notify: "Enviar notificação",
   };
 
+  const EVENT_ICONS: Record<string, { icon: any; color: string }> = {
+    task_created: { icon: Plus, color: "text-emerald-500 bg-emerald-500/15" },
+    task_deleted: { icon: Trash2, color: "text-rose-500 bg-rose-500/15" },
+    status_changed: { icon: CheckCircle2, color: "text-blue-500 bg-blue-500/15" },
+    column_changed: { icon: LayoutGrid, color: "text-violet-500 bg-violet-500/15" },
+    priority_changed: { icon: Flag, color: "text-amber-500 bg-amber-500/15" },
+    label_added: { icon: Tag, color: "text-cyan-500 bg-cyan-500/15" },
+    automation_run: { icon: Zap, color: "text-amber-500 bg-amber-500/15" },
+  };
+
+  const projectColumns = activeProject ? t.columns.filter((c: any) => c.project_id === activeProject.id) : [];
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-amber-500" /> Automações</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-amber-500" /> Automações & Histórico</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 py-2">
-          {!creating && (
-            <>
-              <Button onClick={() => setCreating(true)} className="w-full bg-gradient-to-br from-amber-500 to-orange-600"><Plus className="h-4 w-4 mr-1" /> Nova automação</Button>
-              <div className="space-y-2">
-                {t.automations.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    Nenhuma automação criada
-                  </div>
-                )}
-                {t.automations.map((a: any) => (
-                  <Card key={a.id} className="p-3 flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-amber-500/15 flex items-center justify-center"><Zap className="h-4 w-4 text-amber-500" /></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{a.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{TRIGGER_LABELS[a.trigger_type]} → {ACTION_LABELS[a.action_type]}</p>
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList className="grid w-full grid-cols-2 h-9">
+            <TabsTrigger value="automations" className="text-xs"><Zap className="h-3 w-3 mr-1" /> Automações</TabsTrigger>
+            <TabsTrigger value="history" className="text-xs"><Clock className="h-3 w-3 mr-1" /> Histórico</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {tab === "automations" && (
+          <div className="space-y-3 py-2">
+            {!creating && (
+              <>
+                <Button onClick={() => setCreating(true)} className="w-full bg-gradient-to-br from-amber-500 to-orange-600"><Plus className="h-4 w-4 mr-1" /> Nova automação</Button>
+                <div className="space-y-2">
+                  {t.automations.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      Nenhuma automação criada
                     </div>
-                    <Switch checked={a.enabled} onCheckedChange={(v) => t.updateAutomation(a.id, { enabled: v })} />
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (confirm("Excluir automação?")) t.deleteAutomation(a.id); }}><Trash2 className="h-3 w-3 text-rose-500" /></Button>
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
-          {creating && (
-            <Card className="p-4 space-y-3 border-amber-500/30 bg-amber-500/5">
-              <div>
-                <Label className="text-xs">Nome</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Marcar urgente quando vencer" autoFocus />
-              </div>
-              <div>
-                <Label className="text-xs">Quando (gatilho)</Label>
-                <Select value={form.trigger_type} onValueChange={(v) => setForm({ ...form, trigger_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TRIGGER_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Então (ação)</Label>
-                <Select value={form.action_type} onValueChange={(v) => setForm({ ...form, action_type: v, action_config: {} })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ACTION_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              {form.action_type === "set_priority" && (
+                  )}
+                  {t.automations.map((a: any) => (
+                    <Card key={a.id} className="p-3 flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-amber-500/15 flex items-center justify-center"><Zap className="h-4 w-4 text-amber-500" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{a.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{TRIGGER_LABELS[a.trigger_type]} → {ACTION_LABELS[a.action_type]}</p>
+                        {a.runs_count > 0 && <p className="text-[10px] text-emerald-500 mt-0.5">⚡ Executada {a.runs_count}x</p>}
+                      </div>
+                      <Switch checked={a.enabled} onCheckedChange={(v) => t.updateAutomation(a.id, { enabled: v })} />
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (confirm("Excluir automação?")) t.deleteAutomation(a.id); }}><Trash2 className="h-3 w-3 text-rose-500" /></Button>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+            {creating && (
+              <Card className="p-4 space-y-3 border-amber-500/30 bg-amber-500/5">
                 <div>
-                  <Label className="text-xs">Prioridade alvo</Label>
-                  <Select value={form.action_config?.priority || "urgente"} onValueChange={(v) => setForm({ ...form, action_config: { priority: v } })}>
+                  <Label className="text-xs">Nome</Label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Quando concluir, mover para Arquivo" autoFocus />
+                </div>
+                <div>
+                  <Label className="text-xs">Quando (gatilho)</Label>
+                  <Select value={form.trigger_type} onValueChange={(v) => setForm({ ...form, trigger_type: v, trigger_config: {} })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="baixa">Baixa</SelectItem>
-                      <SelectItem value="media">Média</SelectItem>
-                      <SelectItem value="alta">Alta</SelectItem>
-                      <SelectItem value="urgente">Urgente</SelectItem>
+                      {Object.entries(TRIGGER_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              {form.action_type === "move_to_column" && activeProject && (
+                {form.trigger_type === "column_changed" && activeProject && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Coluna origem (opcional)</Label>
+                      <Select value={form.trigger_config?.from_column_id || "any"} onValueChange={(v) => setForm({ ...form, trigger_config: { ...form.trigger_config, from_column_id: v === "any" ? null : v } })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any">Qualquer</SelectItem>
+                          {projectColumns.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Coluna destino (opcional)</Label>
+                      <Select value={form.trigger_config?.to_column_id || "any"} onValueChange={(v) => setForm({ ...form, trigger_config: { ...form.trigger_config, to_column_id: v === "any" ? null : v } })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any">Qualquer</SelectItem>
+                          {projectColumns.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+                {form.trigger_type === "label_added" && (
+                  <div>
+                    <Label className="text-xs">Etiqueta gatilho (opcional)</Label>
+                    <Input value={form.trigger_config?.label || ""} onChange={(e) => setForm({ ...form, trigger_config: { label: e.target.value } })} placeholder="Deixe vazio para qualquer etiqueta" />
+                  </div>
+                )}
                 <div>
-                  <Label className="text-xs">Coluna destino</Label>
-                  <Select value={form.action_config?.column_id || ""} onValueChange={(v) => setForm({ ...form, action_config: { column_id: v } })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <Label className="text-xs">Então (ação)</Label>
+                  <Select value={form.action_type} onValueChange={(v) => setForm({ ...form, action_type: v, action_config: {} })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {t.columns.filter((c: any) => c.project_id === activeProject.id).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {Object.entries(ACTION_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              {form.action_type === "add_label" && (
-                <div>
-                  <Label className="text-xs">Etiqueta a adicionar</Label>
-                  <Input value={form.action_config?.label || ""} onChange={(e) => setForm({ ...form, action_config: { label: e.target.value } })} placeholder="urgente" />
+                {form.action_type === "set_priority" && (
+                  <div>
+                    <Label className="text-xs">Prioridade alvo</Label>
+                    <Select value={form.action_config?.priority || "urgente"} onValueChange={(v) => setForm({ ...form, action_config: { priority: v } })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="baixa">Baixa</SelectItem>
+                        <SelectItem value="media">Média</SelectItem>
+                        <SelectItem value="alta">Alta</SelectItem>
+                        <SelectItem value="urgente">Urgente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {form.action_type === "move_to_column" && activeProject && (
+                  <div>
+                    <Label className="text-xs">Coluna destino</Label>
+                    <Select value={form.action_config?.column_id || ""} onValueChange={(v) => setForm({ ...form, action_config: { column_id: v } })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {projectColumns.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {form.action_type === "add_label" && (
+                  <div>
+                    <Label className="text-xs">Etiqueta a adicionar</Label>
+                    <Input value={form.action_config?.label || ""} onChange={(e) => setForm({ ...form, action_config: { label: e.target.value } })} placeholder="urgente" />
+                  </div>
+                )}
+                {form.action_type === "notify" && (
+                  <div>
+                    <Label className="text-xs">Mensagem da notificação</Label>
+                    <Input value={form.action_config?.message || ""} onChange={(e) => setForm({ ...form, action_config: { message: e.target.value } })} placeholder="Tarefa importante atualizada" />
+                  </div>
+                )}
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
+                  <Button onClick={save} className="bg-gradient-to-br from-amber-500 to-orange-600">Salvar</Button>
                 </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setCreating(false)}>Cancelar</Button>
-                <Button onClick={save} className="bg-gradient-to-br from-amber-500 to-orange-600">Salvar</Button>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {tab === "history" && (
+          <div className="space-y-2 py-2 max-h-[60vh] overflow-y-auto">
+            {(!t.history || t.history.length === 0) && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                Nenhuma atividade ainda
               </div>
-            </Card>
-          )}
-        </div>
+            )}
+            {t.history?.map((h: any) => {
+              const meta = EVENT_ICONS[h.event_type] || { icon: Circle, color: "text-muted-foreground bg-muted" };
+              const Icon = meta.icon;
+              return (
+                <div key={h.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition">
+                  <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center shrink-0", meta.color)}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {h.task_title && <p className="text-xs font-semibold truncate">{h.task_title}</p>}
+                    <p className="text-[11px] text-muted-foreground">{h.description}</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">{format(parseISO(h.created_at), "dd MMM, HH:mm", { locale: ptBR })}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
