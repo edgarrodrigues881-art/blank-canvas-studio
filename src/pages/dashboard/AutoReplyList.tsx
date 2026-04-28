@@ -557,27 +557,65 @@ export default function AutoReplyList() {
           <p className="text-xs text-muted-foreground/30 mt-1">Tente ajustar a busca ou o filtro</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Renderiza cada grupo + sem grupo no fim */}
           {(groups || []).map((g) => {
             const list = grouped.get(g.id) || [];
+            const collapsed = !!collapsedGroups[g.id];
+            const activeInGroup = list.filter((f: any) => f.is_active).length;
             return (
-              <div key={g.id} className="space-y-3">
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <div className="flex items-center gap-2">
-                    <Folder className="w-4 h-4 text-emerald-500/70" />
-                    <h3 className="text-sm font-semibold text-foreground">{g.name}</h3>
-                    <span className="text-[11px] text-muted-foreground/40">{list.length}</span>
-                  </div>
+              <div
+                key={g.id}
+                className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden"
+              >
+                <div className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-muted/20 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.id)}
+                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 flex items-center justify-center shrink-0">
+                      {collapsed ? (
+                        <Folder className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <FolderOpen className="w-3.5 h-3.5 text-emerald-500" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground truncate">{g.name}</h3>
+                      <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-muted/40 border-border/30 text-muted-foreground">
+                        {list.length}
+                      </Badge>
+                      {activeInGroup > 0 && (
+                        <Badge variant="outline" className="h-5 px-2 text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                          {activeInGroup} ativa{activeInGroup !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </div>
+                    {collapsed ? (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground/40 ml-auto shrink-0" />
+                    )}
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/40 hover:text-foreground">
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground/40 hover:text-foreground shrink-0">
                         <MoreHorizontal className="w-3.5 h-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
                       <DropdownMenuItem onClick={() => setRenamingGroup({ id: g.id, name: g.name })}>
                         <Pencil className="w-3.5 h-3.5 mr-2" /> Renomear
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setNewAutomationName("");
+                          setNewAutomationGroup(g.id);
+                          setCreateDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-2" /> Nova automação aqui
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -589,30 +627,66 @@ export default function AutoReplyList() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                {list.length === 0 ? (
-                  <div className="text-[11px] text-muted-foreground/40 px-1 py-2 italic">
-                    Nenhum fluxo neste grupo. Use o menu de cada fluxo para mover.
+                {!collapsed && (
+                  <div className="px-3 pb-3 pt-1 border-t border-border/30 bg-background/20">
+                    {list.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground/40 px-2 py-4 italic text-center">
+                        Nenhuma automação neste grupo. Use o menu de cada automação para mover, ou crie uma nova aqui.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 pt-2">{list.map(renderFlowCard)}</div>
+                    )}
                   </div>
-                ) : (
-                  <div className="space-y-3">{list.map(renderFlowCard)}</div>
                 )}
               </div>
             );
           })}
 
           {/* Sem grupo */}
-          {(grouped.get(null) || []).length > 0 && (
-            <div className="space-y-3">
-              {(groups?.length || 0) > 0 && (
-                <div className="flex items-center gap-2 px-1">
-                  <Folder className="w-4 h-4 text-muted-foreground/40" />
-                  <h3 className="text-sm font-semibold text-muted-foreground/70">Sem grupo</h3>
-                  <span className="text-[11px] text-muted-foreground/40">{(grouped.get(null) || []).length}</span>
-                </div>
-              )}
-              <div className="space-y-3">{(grouped.get(null) || []).map(renderFlowCard)}</div>
-            </div>
-          )}
+          {(grouped.get(null) || []).length > 0 && (() => {
+            const list = grouped.get(null) || [];
+            const collapsed = !!collapsedGroups["__none__"];
+            const showHeader = (groups?.length || 0) > 0;
+            const activeInGroup = list.filter((f: any) => f.is_active).length;
+            return (
+              <div className="rounded-2xl border border-border/30 bg-card/30 backdrop-blur-sm overflow-hidden">
+                {showHeader && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup("__none__")}
+                    className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-muted/20 transition-colors text-left"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-muted/30 ring-1 ring-border/30 flex items-center justify-center shrink-0">
+                      {collapsed ? (
+                        <Folder className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      ) : (
+                        <FolderOpen className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      )}
+                    </div>
+                    <h3 className="text-sm font-semibold text-muted-foreground/80 truncate">Sem grupo</h3>
+                    <Badge variant="secondary" className="h-5 px-2 text-[10px] bg-muted/40 border-border/30 text-muted-foreground">
+                      {list.length}
+                    </Badge>
+                    {activeInGroup > 0 && (
+                      <Badge variant="outline" className="h-5 px-2 text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                        {activeInGroup} ativa{activeInGroup !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    {collapsed ? (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 ml-auto" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground/40 ml-auto" />
+                    )}
+                  </button>
+                )}
+                {(!showHeader || !collapsed) && (
+                  <div className={showHeader ? "px-3 pb-3 pt-1 border-t border-border/30 bg-background/20" : "p-0"}>
+                    <div className={`space-y-2 ${showHeader ? "pt-2" : ""}`}>{list.map(renderFlowCard)}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
