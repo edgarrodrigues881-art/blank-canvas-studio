@@ -117,7 +117,7 @@ export function useTasks() {
   const fetchAll = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [p, c, t, tp, a, h] = await Promise.all([
+    let [p, c, t, tp, a, h] = await Promise.all([
       supabase.from("task_projects" as any).select("*").eq("user_id", user.id).order("position"),
       supabase.from("task_columns" as any).select("*").eq("user_id", user.id).order("position"),
       supabase.from("tasks" as any).select("*").eq("user_id", user.id).order("position"),
@@ -125,8 +125,30 @@ export function useTasks() {
       supabase.from("task_automations" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("task_history" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(200),
     ]);
-    setProjects((p.data as any) || []);
-    setColumns((c.data as any) || []);
+
+    let projectsList = (p.data as any[]) || [];
+    let columnsList = (c.data as any[]) || [];
+
+    // Seed automático no primeiro acesso: cria projeto "Geral" + colunas padrão
+    // para o usuário não ver tela vazia e poder começar a usar imediatamente.
+    if (projectsList.length === 0) {
+      const { data: newProj } = await supabase
+        .from("task_projects" as any)
+        .insert({ user_id: user.id, name: "Geral", color: "#8b5cf6", position: 0 } as any)
+        .select().maybeSingle();
+      if (newProj) {
+        const { data: newCols } = await supabase.from("task_columns" as any).insert([
+          { user_id: user.id, project_id: (newProj as any).id, name: "A Fazer", color: "#64748b", position: 0, is_done_column: false },
+          { user_id: user.id, project_id: (newProj as any).id, name: "Em Andamento", color: "#3b82f6", position: 1, is_done_column: false },
+          { user_id: user.id, project_id: (newProj as any).id, name: "Concluído", color: "#10b981", position: 2, is_done_column: true },
+        ]).select();
+        projectsList = [newProj as any];
+        columnsList = (newCols as any[]) || [];
+      }
+    }
+
+    setProjects(projectsList);
+    setColumns(columnsList);
     setTasks((t.data as any) || []);
     setTemplates((tp.data as any) || []);
     setAutomations((a.data as any) || []);
