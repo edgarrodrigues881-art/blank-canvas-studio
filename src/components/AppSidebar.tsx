@@ -474,6 +474,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Prospecção", url: "/dashboard/prospeccao", icon: Building2 })}
                   {renderNavItem({ title: "Disparos", url: "/dashboard/crm-dispatches", icon: Send })}
                   {renderNavItem({ title: "Campanhas", url: "/dashboard/crm-campaign-list", icon: Megaphone })}
+                  {renderNavItem({ title: "Follow-up", url: "/dashboard/crm-followups", icon: BellRing })}
                   {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
                 </SidebarMenu>
               </SidebarGroupContent>

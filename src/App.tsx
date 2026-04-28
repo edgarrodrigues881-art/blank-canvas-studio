@@ -298,6 +298,7 @@ const App = () => (
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-agendamentos" element={<ProtectedRoute><DashboardLayout><CRMAgendamentos /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/crm-followups" element={<ProtectedRoute><DashboardLayout><CRMFollowups /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-reports" element={<ProtectedRoute><DashboardLayout><CRMReports /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-dispatches" element={<ProtectedRoute><DashboardLayout><CrmDispatches /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-campaign-list" element={<ProtectedRoute><DashboardLayout><CrmCampaignList /></DashboardLayout></ProtectedRoute>} />
