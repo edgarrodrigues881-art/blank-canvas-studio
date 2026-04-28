@@ -439,67 +439,80 @@ const HOWTO_STEPS = [
   { n: "5", title: "Escale com segurança", desc: "Acompanhe tudo em tempo real, reduza riscos de bloqueio e veja seus chips aquecendo.", img: howtoStep5 },
 ];
 
+// Browser-style mockup wrapper with mac dots + glassmorphism + deep shadow
+const BrowserMockup = ({ src, alt, eager }: { src: string; alt: string; eager?: boolean }) => (
+  <div className="relative rounded-[14px] overflow-hidden border border-white/[0.08] bg-white/[0.03] backdrop-blur-md shadow-[0_40px_120px_-30px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+    {/* Top bar */}
+    <div className="flex items-center gap-1.5 px-4 py-2.5 bg-[#0d1117]/95 border-b border-white/[0.06]">
+      <span className="w-3 h-3 rounded-full bg-[#ff5f56]" />
+      <span className="w-3 h-3 rounded-full bg-[#ffbd2e]" />
+      <span className="w-3 h-3 rounded-full bg-[#27c93f]" />
+      <div className="ml-3 flex-1 max-w-[260px] h-5 rounded-md bg-white/[0.04] border border-white/[0.04]" />
+    </div>
+    {/* Image — crop right sidebar via object-position left */}
+    <div className="relative w-full aspect-[16/9] overflow-hidden bg-[#0a0f17]">
+      <img
+        src={src}
+        alt={alt}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        className="absolute inset-0 w-[115%] h-full object-cover object-left-top"
+      />
+    </div>
+  </div>
+);
+
 const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: number }) => {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.15 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+  // Scroll-linked: animação acompanha o scroll do usuário (entra ao subir, sai ao descer)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start 90%", "end 10%"],
+  });
+
+  // Curva: fade-in 0→0.25, foco 0.25→0.75, fade-out 0.75→1
+  const opacity = useTransform(scrollYProgress, [0, 0.18, 0.82, 1], [0, 1, 1, 0]);
+  const y = useTransform(scrollYProgress, [0, 0.25, 0.75, 1], [40, 0, 0, -20]);
+  const scale = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0.96, 1, 1, 0.98]);
+  // Foco: cards fora do centro ficam levemente opacos
+  const focusOpacity = useTransform(scrollYProgress, [0.2, 0.4, 0.6, 0.8], [0.5, 1, 1, 0.5]);
+
+  const smoothY = useSpring(y, { stiffness: 120, damping: 24, mass: 0.6 });
 
   return (
-    <div ref={ref} className="w-full">
-      {/* CARD */}
-      <div
-        className={`mx-auto w-full md:w-[80%] rounded-2xl p-6 border border-emerald-400/20 bg-white/[0.04] backdrop-blur-sm shadow-[0_10px_40px_-15px_rgba(0,0,0,0.6)] transition-all duration-500 hover:border-emerald-400/50 hover:scale-[1.01] hover:shadow-[0_20px_60px_-20px_rgba(16,185,129,0.25)] ${
-          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-        }`}
-        style={{ transitionDelay: visible ? "0ms" : undefined }}
-      >
-        <div className="flex items-start gap-4">
-          <span className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-500 text-emerald-950 flex items-center justify-center text-lg font-bold shadow-[0_0_24px_-4px_rgba(16,185,129,0.6)]">
-            {step.n}
-          </span>
-          <div className="min-w-0 pt-0.5">
-            <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight mb-1.5">
-              {step.title}
-            </h3>
-            <p className="text-sm md:text-[15px] text-white/60 leading-relaxed">
-              {step.desc}
-            </p>
+    <motion.div
+      ref={ref}
+      style={{ opacity }}
+      className="w-full py-10 md:py-16"
+    >
+      <motion.div style={{ opacity: focusOpacity, y: smoothY, scale }}>
+        {/* CARD */}
+        <div className="mx-auto w-full md:w-[78%] max-w-[820px] rounded-2xl p-6 md:p-7 border border-white/[0.06] bg-white/[0.025] backdrop-blur-xl shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]">
+          <div className="flex items-start gap-5">
+            <div className="relative flex-shrink-0">
+              <span className="absolute inset-0 rounded-full bg-emerald-400/20 blur-xl" aria-hidden />
+              <span className="relative w-12 h-12 rounded-full bg-gradient-to-br from-emerald-300 via-emerald-400 to-emerald-600 text-emerald-950 flex items-center justify-center text-lg font-bold shadow-[0_8px_24px_-6px_rgba(16,185,129,0.6),inset_0_1px_0_rgba(255,255,255,0.4)]">
+                {step.n}
+              </span>
+            </div>
+            <div className="min-w-0 pt-1">
+              <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight mb-1.5">
+                {step.title}
+              </h3>
+              <p className="text-sm md:text-[15px] text-white/55 leading-relaxed">
+                {step.desc}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* IMAGEM — gap de 1.5rem do card e 3rem do próximo */}
-      <div
-        className={`mt-6 mb-12 mx-auto w-full md:w-[95%] lg:w-[90%] max-w-[900px] transition-all duration-700 ${
-          visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-        }`}
-        style={{ transitionDelay: visible ? "150ms" : undefined }}
-      >
-        <div className="rounded-xl overflow-hidden shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)]">
-          <img
-            src={step.img}
-            alt={`${step.title} — passo ${step.n}`}
-            loading={index === 0 ? "eager" : "lazy"}
-            className="w-full h-auto block"
-          />
+        {/* IMAGEM — Browser mockup */}
+        <div className="mt-8 md:mt-10 mx-auto w-full max-w-[1000px]">
+          <BrowserMockup src={step.img} alt={`${step.title} — passo ${step.n}`} eager={index === 0} />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
