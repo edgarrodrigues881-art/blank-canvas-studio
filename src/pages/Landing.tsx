@@ -680,8 +680,8 @@ const Plans = () => {
         }
         className={`relative rounded-2xl flex flex-col h-full p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 ${
           isPopular
-            ? "bg-gradient-to-b from-yellow-500/[0.07] via-slate-900 to-slate-900 border border-yellow-500/50 lg:scale-[1.04]"
-            : "bg-slate-900 border border-white/10 hover:border-[var(--brand-green)]/40"
+            ? "bg-gradient-to-b from-yellow-500/[0.07] via-zinc-950 to-zinc-950 border border-yellow-500/50 lg:scale-[1.04]"
+            : "bg-zinc-950 border border-white/10 hover:border-[#25D366]/50 hover:shadow-[0_0_30px_-8px_rgba(37,211,102,0.35)]"
         }`}
         // CSS var para usar a cor exata da marca em hover
         // @ts-ignore
