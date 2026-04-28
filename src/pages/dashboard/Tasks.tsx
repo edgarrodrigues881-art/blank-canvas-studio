@@ -251,20 +251,60 @@ function ProjectPicker({ projects, active, onChange, onNew, onEdit }: any) {
   );
 }
 
-function EmptyState({ onCreate, onTemplates }: any) {
+function EmptyState({ mode = "project", projectName, onCreateProject, onCreateTask, onTemplates }: any) {
+  const isTask = mode === "task";
   return (
     <div className="h-full flex items-center justify-center p-8">
-      <div className="text-center max-w-md">
+      <div className="text-center max-w-lg">
         <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/30">
-          <Layers className="h-8 w-8 text-white" />
+          {isTask ? <CheckCircle2 className="h-8 w-8 text-white" /> : <Layers className="h-8 w-8 text-white" />}
         </div>
-        <h2 className="text-xl font-bold mb-2">Comece criando seu primeiro projeto</h2>
-        <p className="text-sm text-muted-foreground mb-6">Organize tarefas em quadros Kanban, vincule a leads e automatize o que precisar.</p>
-        <div className="flex gap-2 justify-center">
-          <Button onClick={onCreate} className="bg-gradient-to-br from-violet-500 to-fuchsia-600">
-            <Plus className="h-4 w-4 mr-1" /> Novo projeto
-          </Button>
-          <Button variant="outline" onClick={onTemplates}><Layers className="h-4 w-4 mr-1" /> Usar modelo</Button>
+        <h2 className="text-xl font-bold mb-2">
+          {isTask ? "Tudo pronto! Crie sua primeira tarefa" : "Comece criando seu primeiro projeto"}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-5">
+          {isTask
+            ? <>O projeto <span className="font-semibold text-foreground">{projectName}</span> já está configurado com colunas <span className="font-medium">A Fazer · Em Andamento · Concluído</span>. Adicione uma tarefa, escolha a etapa e defina uma data — ela aparecerá no calendário e nas tarefas diárias automaticamente.</>
+            : "Organize tarefas em quadros Kanban, vincule a leads e automatize o que precisar."}
+        </p>
+
+        {isTask && (
+          <div className="grid grid-cols-3 gap-2 mb-5 text-[11px]">
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+              <CalendarIcon className="h-3.5 w-3.5 mx-auto mb-1 text-violet-500" />
+              <p className="font-semibold">Com data</p>
+              <p className="text-muted-foreground">Aparece na agenda</p>
+            </div>
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+              <LayoutGrid className="h-3.5 w-3.5 mx-auto mb-1 text-blue-500" />
+              <p className="font-semibold">Por etapa</p>
+              <p className="text-muted-foreground">Mova entre colunas</p>
+            </div>
+            <div className="rounded-lg border border-border/40 bg-muted/30 p-2.5">
+              <Sparkles className="h-3.5 w-3.5 mx-auto mb-1 text-amber-500" />
+              <p className="font-semibold">Diária</p>
+              <p className="text-muted-foreground">Repete todo dia</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-center flex-wrap">
+          {isTask ? (
+            <>
+              <Button onClick={onCreateTask} className="bg-gradient-to-br from-violet-500 to-fuchsia-600 hover:from-violet-600 hover:to-fuchsia-700 shadow-md shadow-violet-500/20">
+                <Plus className="h-4 w-4 mr-1" /> Nova tarefa
+              </Button>
+              <Button variant="outline" onClick={onTemplates}><Layers className="h-4 w-4 mr-1" /> Usar modelo</Button>
+              <Button variant="ghost" onClick={onCreateProject}><FolderOpen className="h-4 w-4 mr-1" /> Outro projeto</Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={onCreateProject} className="bg-gradient-to-br from-violet-500 to-fuchsia-600">
+                <Plus className="h-4 w-4 mr-1" /> Novo projeto
+              </Button>
+              <Button variant="outline" onClick={onTemplates}><Layers className="h-4 w-4 mr-1" /> Usar modelo</Button>
+            </>
+          )}
         </div>
       </div>
     </div>
