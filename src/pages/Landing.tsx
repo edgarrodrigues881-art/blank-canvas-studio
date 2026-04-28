@@ -751,6 +751,7 @@ const Landing = () => {
         <Stats />
         <Product />
         <Features />
+        <TiltHighlight />
         <UseCase />
         <Plans />
         <CommunitySection />
