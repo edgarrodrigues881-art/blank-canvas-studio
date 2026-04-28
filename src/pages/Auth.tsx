@@ -237,40 +237,36 @@ const Auth = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full rounded-3xl overflow-hidden backdrop-blur-2xl relative"
+          className="w-full rounded-2xl overflow-hidden relative"
           style={{
-            background: "linear-gradient(180deg, rgba(26,26,30,0.72) 0%, rgba(14,14,18,0.86) 100%)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 1px 0 0 rgba(255,255,255,0.08) inset, 0 -1px 0 0 rgba(255,255,255,0.02) inset, 0 60px 140px -30px rgba(0,0,0,0.9), 0 0 100px -40px rgba(52,211,153,0.14)",
+            background: "#0F172A",
+            border: "1px solid rgba(16,185,129,0.20)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.05)",
           }}
         >
-          {/* Top highlight — brighter for visible edge */}
-          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-          {/* Soft side highlights */}
-          <div className="pointer-events-none absolute inset-y-10 left-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
-          <div className="pointer-events-none absolute inset-y-10 right-0 w-px bg-gradient-to-b from-transparent via-white/[0.08] to-transparent" />
-
-          <div className="px-9 pt-10 pb-10">
+          <div className="px-8 pt-10 pb-9 sm:px-10">
             {/* Logo */}
             <motion.div
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex flex-col items-center mb-9"
+              className="flex flex-col items-center mb-8"
             >
               <div className="relative mb-5">
-                {/* Focused logo glow — tight, behind logo only */}
-                <div className="absolute inset-0 -m-6 rounded-full pointer-events-none"
-                  style={{ background: "radial-gradient(circle, rgba(52,211,153,0.38) 0%, rgba(52,211,153,0.08) 40%, transparent 70%)", filter: "blur(24px)" }} />
-                <div className="relative w-[92px] h-[92px] rounded-2xl overflow-hidden ring-1 ring-white/[0.12]"
-                  style={{ boxShadow: "0 12px 48px -10px rgba(52,211,153,0.45), inset 0 1px 0 0 rgba(255,255,255,0.12)" }}>
+                <div
+                  className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden"
+                  style={{
+                    border: "1px solid rgba(16,185,129,0.30)",
+                    boxShadow: "0 0 30px rgba(16,185,129,0.30), 0 0 60px rgba(16,185,129,0.15)",
+                  }}
+                >
                   <img src={logo} alt="DG Contingência Pro" className="w-full h-full object-cover" />
                 </div>
               </div>
-              <h1 className="text-[21px] font-semibold text-white tracking-tight">
-                <span style={{ color: "#34d399" }}>DG</span> Contingência <span style={{ color: "#34d399" }}>Pro</span>
+              <h1 className="text-[22px] font-semibold text-white tracking-tight">
+                <span style={{ color: "#10B981" }}>DG</span> Contingência <span style={{ color: "#FBBF24" }}>Pro</span>
               </h1>
-              <p className="text-[13px] text-white/55 mt-1.5 font-normal tracking-tight">
+              <p className="text-[13px] text-gray-400 mt-1.5 font-normal tracking-tight">
                 {isLogin ? "Entre na sua conta" : "Crie sua conta"}
               </p>
             </motion.div>
