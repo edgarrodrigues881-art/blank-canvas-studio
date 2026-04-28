@@ -30,7 +30,7 @@ import { FlowHeader } from "@/components/autoreply/FlowHeader";
 import type { FlowNodeData } from "@/components/autoreply/types";
 import { nextNodeId, nextBtnId, nextBranchId } from "@/components/autoreply/types";
 import { MessageSquare, Square, Timer, GitBranch, Bot, Unplug, Wand2, MessageCircleReply, Shuffle } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
