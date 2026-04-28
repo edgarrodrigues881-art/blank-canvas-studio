@@ -7,9 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-
-// Lazy load DashboardLayout to avoid eagerly pulling in heavy deps (notifications, sidebar, icons)
-const DashboardLayout = lazy(() => import("@/components/DashboardLayout"));
+import DashboardLayout from "@/components/DashboardLayout";
 import ThemeTransition from "@/components/ThemeTransition";
 
 // Lazy pages with preload support
