@@ -663,67 +663,82 @@ const allPlans = [
 const Plans = () => {
   const navigate = useNavigate();
 
+  // Paleta da marca
+  const WA_GREEN = "#25D366";
+  const WA_GREEN_DARK = "#07C160";
+
   const renderCard = (p: typeof allPlans[0]) => {
     const isPopular = p.popular;
     return (
       <motion.div
         key={p.name}
         variants={fadeUp}
-        className={`relative rounded-2xl flex flex-col h-full p-7 transition-all duration-300 ease-out hover:-translate-y-1 ${
+        style={
           isPopular
-            ? "bg-gradient-to-b from-emerald-500/[0.08] via-slate-900 to-slate-900 border border-emerald-400/40 shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_30px_80px_-20px_rgba(16,185,129,0.35)] hover:border-emerald-400/60 hover:shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_40px_100px_-20px_rgba(16,185,129,0.45)] lg:scale-[1.03]"
-            : "bg-slate-900 border border-white/10 hover:border-emerald-400/30 hover:shadow-[0_20px_50px_-20px_rgba(16,185,129,0.2)]"
+            ? { boxShadow: "0 0 0 1px rgba(234,179,8,0.35), 0 20px 60px -20px rgba(234,179,8,0.35)" }
+            : undefined
+        }
+        className={`relative rounded-2xl flex flex-col h-full p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 ${
+          isPopular
+            ? "bg-gradient-to-b from-yellow-500/[0.07] via-slate-900 to-slate-900 border border-yellow-500/50 lg:scale-[1.04]"
+            : "bg-slate-900 border border-white/10 hover:border-[var(--brand-green)]/40"
         }`}
+        // CSS var para usar a cor exata da marca em hover
+        // @ts-ignore
+        ref={(el) => el && el.style.setProperty("--brand-green", WA_GREEN)}
       >
-        {/* Badge "Mais escolhido" flutuando no topo centro */}
+        {/* Badge "Mais escolhido" — dourado */}
         {isPopular && (
-          <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950 shadow-[0_8px_24px_-6px_rgba(16,185,129,0.6)] whitespace-nowrap">
+          <span
+            className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900 shadow-[0_8px_20px_-6px_rgba(234,179,8,0.6)] whitespace-nowrap"
+            style={{ background: "linear-gradient(135deg, #FCD34D 0%, #EAB308 100%)" }}
+          >
             ★ Mais escolhido
           </span>
         )}
 
         {/* Nome do plano */}
-        <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/50 mb-4">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 mb-3">
           {p.name}
         </h3>
 
-        {/* Preço grande */}
-        <div className="flex items-baseline gap-1 mb-4">
-          <span className="text-[13px] font-medium text-white/45">R$</span>
-          <span className="text-[2.75rem] md:text-[3rem] font-bold tracking-[-0.03em] leading-none text-white">
+        {/* Preço grande — destaque máximo */}
+        <div className="flex items-baseline gap-1 mb-3">
+          <span className="text-[12px] font-medium text-white/40">R$</span>
+          <span className="text-[2.25rem] font-bold tracking-[-0.03em] leading-none text-white">
             {p.price.split(",")[0]}
           </span>
-          <span className="text-[16px] font-semibold text-white/55">,{p.price.split(",")[1]}</span>
-          <span className="text-[12px] text-white/35 ml-1">/mês</span>
+          <span className="text-[14px] font-semibold text-white/55">,{p.price.split(",")[1]}</span>
+          <span className="text-[11px] text-white/35 ml-0.5">/mês</span>
         </div>
 
         {/* DESTAQUE PRINCIPAL — quantidade de instâncias */}
         <div
-          className={`inline-flex items-center gap-2 self-start px-3.5 py-2 rounded-lg mb-5 ${
-            isPopular
-              ? "bg-emerald-400/15 border border-emerald-400/30"
-              : "bg-white/[0.04] border border-white/10"
-          }`}
+          className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg mb-4 border"
+          style={{
+            background: isPopular ? "rgba(234,179,8,0.10)" : "rgba(37,211,102,0.08)",
+            borderColor: isPopular ? "rgba(234,179,8,0.35)" : "rgba(37,211,102,0.25)",
+          }}
         >
-          <Smartphone className={`w-4 h-4 ${isPopular ? "text-emerald-300" : "text-emerald-400"}`} />
-          <span className="text-[15px] font-bold text-white tracking-tight">
+          <Smartphone className="w-3.5 h-3.5" style={{ color: isPopular ? "#FCD34D" : WA_GREEN }} />
+          <span className="text-[13px] font-bold text-white tracking-tight">
             {p.instances} {p.instances === 1 ? "Instância" : "Instâncias"} de WhatsApp
           </span>
         </div>
 
         {/* Divisória */}
-        <div className="border-t border-white/[0.06] mb-5" />
+        <div className="border-t border-white/[0.06] mb-4" />
 
-        {/* Descrição curta */}
-        <p className="text-[13px] text-white/55 leading-[1.55] mb-5 line-clamp-3">
+        {/* Descrição curta — fonte menor, cor fraca */}
+        <p className="text-[12px] text-gray-400 leading-[1.55] mb-4 line-clamp-3">
           {p.tagline}
         </p>
 
-        {/* Benefícios essenciais */}
-        <ul className="space-y-2.5 mb-7 flex-1">
+        {/* Benefícios */}
+        <ul className="space-y-2 mb-5 flex-1">
           {p.benefits.map((item) => (
-            <li key={item} className="flex items-start gap-2 text-[12.5px] text-white/65 leading-[1.45]">
-              <CheckCircle2 className={`w-3.5 h-3.5 flex-shrink-0 mt-[3px] ${isPopular ? "text-emerald-400" : "text-white/40"}`} />
+            <li key={item} className="flex items-start gap-2 text-[12px] text-white/65 leading-[1.45]">
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
               <span>{item}</span>
             </li>
           ))}
@@ -732,10 +747,19 @@ const Plans = () => {
         {/* CTA */}
         <Button
           onClick={() => navigate("/auth?mode=signup")}
-          className={`w-full h-11 text-[13px] font-semibold rounded-lg shadow-none mt-auto transition-all ${
+          style={
             isPopular
-              ? "bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-emerald-950 shadow-[0_8px_24px_-6px_rgba(16,185,129,0.5)]"
-              : "bg-transparent hover:bg-white/[0.06] text-white border border-white/15 hover:border-emerald-400/40"
+              ? {
+                  background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                  color: "#ffffff",
+                  boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+                }
+              : undefined
+          }
+          className={`w-full h-10 text-[12.5px] font-semibold rounded-lg shadow-none mt-auto transition-all ${
+            isPopular
+              ? "hover:brightness-110 border-0"
+              : "bg-transparent text-white border border-white/15 hover:border-[#25D366] hover:text-[#25D366] hover:bg-transparent"
           }`}
         >
           {p.cta}
@@ -746,7 +770,7 @@ const Plans = () => {
 
   return (
     <Section id="planos">
-      <div className="max-w-3xl mb-12 md:mb-16">
+      <div className="max-w-3xl mb-10 md:mb-14">
         <Eyebrow>Planos</Eyebrow>
         <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
         <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
@@ -756,11 +780,11 @@ const Plans = () => {
         whileInView="visible"
         viewport={{ once: true, amount: 0.05 }}
         variants={stagger}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6"
+        className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
       >
         {allPlans.map(renderCard)}
       </motion.div>
-      <p className="text-center text-[12px] text-white/40 md:text-white/35 mt-10 md:mt-12">
+      <p className="text-center text-[12px] text-white/40 mt-10 md:mt-12">
         Sem contrato. Cancele quando quiser.
       </p>
     </Section>
