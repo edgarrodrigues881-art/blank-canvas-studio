@@ -124,6 +124,19 @@ const SectionSub = ({ children, className = "" }: { children: React.ReactNode; c
 // ─── 1. Hero (tailark-style: centralizado + mockup grande embaixo) ───
 const Hero = () => {
   const navigate = useNavigate();
+  const mockupRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: mockupRef,
+    offset: ["start end", "center center"],
+  });
+  // Suaviza com spring
+  const smooth = useSpring(scrollYProgress, { stiffness: 80, damping: 22, mass: 0.5 });
+  // Começa "deitada" (25deg) e endireita (0deg)
+  const rotateX = useTransform(smooth, [0, 1], [25, 0]);
+  // Leve scale conforme aproxima
+  const scale = useTransform(smooth, [0, 1], [0.92, 1]);
+  // Sombra mais intensa quando endireita
+  const shadowOpacity = useTransform(smooth, [0, 1], [0.15, 0.45]);
   return (
     <section id="top" className="relative pt-32 md:pt-40 pb-16 md:pb-24 px-5 md:px-6 overflow-hidden">
       {/* Background glow */}
