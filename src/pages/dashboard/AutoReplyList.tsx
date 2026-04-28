@@ -240,6 +240,45 @@ export default function AutoReplyList() {
     onError: () => toast.error("Erro ao criar grupo"),
   });
 
+  // Cria a automação imediatamente no banco e abre o editor com o ID real.
+  // Assim, mesmo que o usuário não salve nada dentro do editor, a automação
+  // já fica persistida e visível na lista.
+  const createAutomationMutation = useMutation({
+    mutationFn: async (vars: { name: string; group_id: string | null }) => {
+      const defaultStartNode = {
+        id: "start-1",
+        type: "startNode",
+        position: { x: 100, y: 200 },
+        data: { label: "Início", trigger: "keyword", keyword: "" },
+      };
+      const { data, error } = await supabase
+        .from("autoreply_flows")
+        .insert({
+          user_id: user!.id,
+          name: vars.name,
+          group_id: vars.group_id,
+          is_active: false,
+          nodes: [defaultStartNode] as any,
+          edges: [] as any,
+          device_ids: [],
+          apply_to_all_devices: false,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id as string;
+    },
+    onSuccess: (newId) => {
+      queryClient.invalidateQueries({ queryKey: ["autoreply_flows", user?.id] });
+      setCreateDialogOpen(false);
+      setNewAutomationName("");
+      setNewAutomationGroup("none");
+      toast.success("Automação criada");
+      navigate(`/dashboard/auto-reply/${newId}`);
+    },
+    onError: () => toast.error("Erro ao criar automação"),
+  });
+
   const renameGroupMutation = useMutation({
     mutationFn: async (vars: { id: string; name: string }) => {
       const { error } = await supabase.from("autoreply_flow_groups")
