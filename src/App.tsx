@@ -202,10 +202,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  // Auth pages remain public-only (signed-in users skip them)
+  // Auth pages must stay usable while Supabase restores/clears stale sessions.
+  // If we block on `loading`, a stuck auth request can leave /auth as a blank loader.
   const { user, loading } = useAuth();
-  if (loading) return <Loading />;
-  if (user) return <Navigate to="/app" replace />;
+  if (!loading && user) return <Navigate to="/app" replace />;
   return <>{children}</>;
 }
 
