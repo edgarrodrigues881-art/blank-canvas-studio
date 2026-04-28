@@ -89,6 +89,21 @@ export interface TaskAutomation {
   runs_count: number;
 }
 
+export interface TaskHistoryEntry {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  project_id: string | null;
+  automation_id: string | null;
+  event_type: string;
+  description: string;
+  task_title: string | null;
+  from_value: any;
+  to_value: any;
+  metadata: any;
+  created_at: string;
+}
+
 export function useTasks() {
   const { user } = useAuth();
   const [projects, setProjects] = useState<TaskProject[]>([]);
@@ -96,24 +111,35 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [automations, setAutomations] = useState<TaskAutomation[]>([]);
+  const [history, setHistory] = useState<TaskHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [p, c, t, tp, a] = await Promise.all([
+    const [p, c, t, tp, a, h] = await Promise.all([
       supabase.from("task_projects" as any).select("*").eq("user_id", user.id).order("position"),
       supabase.from("task_columns" as any).select("*").eq("user_id", user.id).order("position"),
       supabase.from("tasks" as any).select("*").eq("user_id", user.id).order("position"),
       supabase.from("task_templates" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("task_automations" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("task_history" as any).select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(200),
     ]);
     setProjects((p.data as any) || []);
     setColumns((c.data as any) || []);
     setTasks((t.data as any) || []);
     setTemplates((tp.data as any) || []);
     setAutomations((a.data as any) || []);
+    setHistory((h.data as any) || []);
     setLoading(false);
+  }, [user]);
+
+  const logHistory = useCallback(async (entry: Partial<TaskHistoryEntry> & { event_type: string; description: string }) => {
+    if (!user) return;
+    await supabase.from("task_history" as any).insert({
+      user_id: user.id,
+      ...entry,
+    } as any);
   }, [user]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
