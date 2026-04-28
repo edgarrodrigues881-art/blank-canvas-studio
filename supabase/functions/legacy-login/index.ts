@@ -219,6 +219,16 @@ async function restoreLegacyData(adminClient: any, legacyUserId: string, newUser
   ]);
 }
 
+async function getAuthUserByIdSafe(adminClient: any, userId: string) {
+  try {
+    const { data, error } = await adminClient.auth.admin.getUserById(userId);
+    if (error) return null;
+    return data?.user || null;
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -270,8 +280,13 @@ Deno.serve(async (req) => {
       return json({ error: "legacy_profile_not_found" }, 404);
     }
 
+    const existingAuthUser = await getAuthUserByIdSafe(adminClient, legacyProfile.id);
+    if (existingAuthUser?.email) {
+      return json({ email: existingAuthUser.email, restored: false, linked: true });
+    }
+
     const normalizedPhone = digitsOnly(legacyProfile.phone) || normalizedIdentifier;
-    const loginEmail = emailIdentifier ? rawIdentifier : `legacy.${normalizedPhone}.${legacyProfile.id.slice(0, 8)}@dg-login.local`;
+    const loginEmail = emailIdentifier ? rawIdentifier : `legacy.${normalizedPhone}@dg-login.local`;
 
     const { data: createdUserData, error: createError } = await adminClient.auth.admin.createUser({
       email: loginEmail,
