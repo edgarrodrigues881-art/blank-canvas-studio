@@ -19,6 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { formatInternationalPhone, detectCountryFromDigits } from "@/lib/countryDialCodes";
 
 const STAGE_COLORS = [
   { key: "azul",      label: "Azul",      hex: "#3b82f6" },
@@ -81,7 +82,31 @@ function currencyShort(v: number) {
 
 function formatPhone(phone: string) {
   if (!phone) return "";
-  return phone.replace(/^(\d{2})(\d{2})(\d{4,5})(\d{4})$/, "+$1 $2 $3-$4");
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  // Detecta DDI (1=EUA, 55=BR, 351=PT, etc.). Se conhecido, formata internacionalmente.
+  if (detectCountryFromDigits(digits)) {
+    return formatInternationalPhone(digits);
+  }
+  // Heurística: número com 12-13 dígitos provavelmente é BR (legado salvo sem DDI explícito)
+  if (digits.length === 12 || digits.length === 13) {
+    return formatInternationalPhone(digits.startsWith("55") ? digits : `55${digits}`);
+  }
+  // Caso desconhecido, mostra com "+" para deixar claro que é internacional
+  return `+${digits}`;
+}
+
+function getCountryFlag(phone: string): string {
+  const digits = (phone || "").replace(/\D/g, "");
+  const country = detectCountryFromDigits(digits);
+  if (!country) return "";
+  // Converte ISO code (US, BR, PT...) em emoji bandeira
+  const iso = country.iso2?.toUpperCase();
+  if (!iso || iso.length !== 2) return "";
+  return iso
+    .split("")
+    .map((c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
+    .join("");
 }
 
 function timeShort(date: string | null) {
@@ -872,16 +897,24 @@ export default function Pipeline() {
                               {/* Name */}
                               <div className="flex items-start justify-between gap-2 pr-5">
                                 <p className={cn(
-                                  "text-[13px] font-bold leading-snug",
+                                  "text-[13px] font-bold leading-snug flex items-center gap-1",
                                   lost ? "text-muted-foreground/60" : "text-foreground"
                                 )}>
-                                  {displayName}
+                                  {isPhoneDisplay && getCountryFlag(lead.phone) && (
+                                    <span className="text-[14px] leading-none" title={detectCountryFromDigits(lead.phone.replace(/\D/g, ""))?.name || ""}>
+                                      {getCountryFlag(lead.phone)}
+                                    </span>
+                                  )}
+                                  <span className="truncate">{displayName}</span>
                                 </p>
                               </div>
 
                               {/* Phone (only if name shown) */}
                               {lead.phone && hasName && (
-                                <p className="text-[10px] text-muted-foreground/55 mt-0.5 tabular-nums">
+                                <p className="text-[10px] text-muted-foreground/55 mt-0.5 tabular-nums flex items-center gap-1">
+                                  {getCountryFlag(lead.phone) && (
+                                    <span className="text-[11px] leading-none">{getCountryFlag(lead.phone)}</span>
+                                  )}
                                   {formatPhone(lead.phone)}
                                 </p>
                               )}
