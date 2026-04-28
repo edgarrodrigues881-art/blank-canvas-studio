@@ -96,19 +96,6 @@ function formatPhone(phone: string) {
   return `+${digits}`;
 }
 
-function getCountryFlag(phone: string): string {
-  const digits = (phone || "").replace(/\D/g, "");
-  const country = detectCountryFromDigits(digits);
-  if (!country) return "";
-  // Converte ISO code (US, BR, PT...) em emoji bandeira
-  const iso = country.iso2?.toUpperCase();
-  if (!iso || iso.length !== 2) return "";
-  return iso
-    .split("")
-    .map((c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
-    .join("");
-}
-
 function timeShort(date: string | null) {
   if (!date) return null;
   try {
@@ -896,28 +883,20 @@ export default function Pipeline() {
                             <div className="min-w-0 flex-1">
                               {/* Name */}
                               <div className="flex items-start justify-between gap-2 pr-5">
-                                <p className={cn(
-                                  "text-[13px] font-bold leading-snug flex items-center gap-1",
-                                  lost ? "text-muted-foreground/60" : "text-foreground"
-                                )}>
-                                  {isPhoneDisplay && getCountryFlag(lead.phone) && (
-                                    <span className="text-[14px] leading-none" title={detectCountryFromDigits(lead.phone.replace(/\D/g, ""))?.name || ""}>
-                                      {getCountryFlag(lead.phone)}
-                                    </span>
-                                  )}
-                                  <span className="truncate">{displayName}</span>
-                                </p>
-                              </div>
+                                 <p className={cn(
+                                   "text-[13px] font-bold leading-snug flex items-center gap-1",
+                                   lost ? "text-muted-foreground/60" : "text-foreground"
+                                 )}>
+                                   <span className="truncate">{displayName}</span>
+                                 </p>
+                               </div>
 
-                              {/* Phone (only if name shown) */}
-                              {lead.phone && hasName && (
-                                <p className="text-[10px] text-muted-foreground/55 mt-0.5 tabular-nums flex items-center gap-1">
-                                  {getCountryFlag(lead.phone) && (
-                                    <span className="text-[11px] leading-none">{getCountryFlag(lead.phone)}</span>
-                                  )}
-                                  {formatPhone(lead.phone)}
-                                </p>
-                              )}
+                               {/* Phone (only if name shown) */}
+                               {lead.phone && hasName && (
+                                 <p className="text-[10px] text-muted-foreground/55 mt-0.5 tabular-nums">
+                                   {formatPhone(lead.phone)}
+                                 </p>
+                               )}
 
                               {/* Meta row — sem valor R$ */}
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
