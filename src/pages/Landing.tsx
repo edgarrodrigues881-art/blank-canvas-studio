@@ -758,8 +758,8 @@ const Plans = () => {
           }
           className={`w-full h-10 text-[12.5px] font-semibold rounded-lg shadow-none mt-auto transition-all ${
             isPopular
-              ? "hover:brightness-110 border-0"
-              : "bg-transparent text-white border border-white/15 hover:border-[#25D366] hover:text-[#25D366] hover:bg-transparent"
+              ? "hover:brightness-110 hover:shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] border-0"
+              : "bg-transparent text-white border border-[#25D366]/40 hover:border-[#25D366] hover:bg-[#25D366]/10 hover:shadow-[0_8px_24px_-8px_rgba(37,211,102,0.5)]"
           }`}
         >
           {p.cta}
