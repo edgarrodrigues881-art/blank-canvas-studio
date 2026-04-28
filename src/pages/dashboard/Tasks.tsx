@@ -258,7 +258,16 @@ function EmptyState({ onCreate, onTemplates }: any) {
 }
 
 // =============== LIST VIEW ===============
-function ListView({ tasks, projects, onEdit, onToggle, onDelete }: any) {
+function ListView({
+  tasks, projects, leadOptions,
+  search, onSearch,
+  filterStatus, onFilterStatus,
+  filterPriority, onFilterPriority,
+  filterProjectId, onFilterProjectId,
+  filterLeadId, onFilterLeadId,
+  hasActiveFilters, onClearFilters, totalCount,
+  onEdit, onToggle, onDelete,
+}: any) {
   const grouped = useMemo(() => {
     const map = new Map<string, Task[]>();
     (tasks as Task[]).forEach((t) => {
@@ -269,47 +278,138 @@ function ListView({ tasks, projects, onEdit, onToggle, onDelete }: any) {
     return Array.from(map.entries());
   }, [tasks]);
 
+  const visibleCount = (tasks as Task[]).length;
+
   return (
-    <ScrollArea className="h-full">
-      <div className="p-4 space-y-6 max-w-4xl mx-auto">
-        {grouped.map(([projId, items]) => {
-          const proj = projects.find((p: TaskProject) => p.id === projId);
-          return (
-            <div key={projId}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: proj?.color || "#64748b" }} />
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{proj?.name || "Sem projeto"}</span>
-                <Badge variant="secondary" className="h-4 text-[9px]">{items.length}</Badge>
-              </div>
-              <div className="space-y-1.5">
-                {items.map((t: Task) => (
-                  <Card key={t.id} className="p-2.5 hover:shadow-md transition-all flex items-center gap-2.5 cursor-pointer group" onClick={() => onEdit(t)}>
-                    <button onClick={(e) => { e.stopPropagation(); onToggle(t); }} className="shrink-0">
-                      {t.status === "done" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted-foreground hover:text-emerald-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("text-sm font-medium truncate", t.status === "done" && "line-through opacity-60")}>{t.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                        {t.due_at && <span className={cn("flex items-center gap-0.5", isPast(parseISO(t.due_at)) && t.status !== "done" && "text-rose-500 font-semibold")}><Clock className="h-2.5 w-2.5" />{format(parseISO(t.due_at), "d MMM HH:mm", { locale: ptBR })}</span>}
-                        {t.lead_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" />{t.lead_name}</span>}
-                        {t.labels?.map((l) => <span key={l} className="px-1 rounded bg-primary/10 text-primary">{l}</span>)}
-                      </div>
-                    </div>
-                    {t.priority !== "media" && <Flag className="h-3 w-3" style={{ color: t.priority === "urgente" ? "#f43f5e" : t.priority === "alta" ? "#f59e0b" : "#64748b" }} />}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); if (confirm("Excluir tarefa?")) onDelete(t.id); }}>
-                      <Trash2 className="h-3 w-3 text-rose-500" />
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        {grouped.length === 0 && <div className="text-center py-12 text-muted-foreground text-sm">Nenhuma tarefa encontrada</div>}
+    <div className="h-full flex flex-col">
+      {/* Toolbar de filtros dedicados da Lista */}
+      <div className="px-4 py-3 border-b border-border/40 bg-muted/10 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar em título, descrição, lead ou tag..."
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {search && (
+              <button onClick={() => onSearch("")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <Select value={filterStatus} onValueChange={onFilterStatus}>
+            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Status: todos</SelectItem>
+              <SelectItem value="todo">A fazer</SelectItem>
+              <SelectItem value="doing">Em andamento</SelectItem>
+              <SelectItem value="done">Concluídas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterPriority} onValueChange={onFilterPriority}>
+            <SelectTrigger className="h-8 w-[140px] text-xs"><Flag className="h-3 w-3 mr-1" /><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Prioridade: todas</SelectItem>
+              <SelectItem value="urgente">Urgente</SelectItem>
+              <SelectItem value="alta">Alta</SelectItem>
+              <SelectItem value="media">Média</SelectItem>
+              <SelectItem value="baixa">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterProjectId} onValueChange={onFilterProjectId}>
+            <SelectTrigger className="h-8 w-[160px] text-xs"><FolderOpen className="h-3 w-3 mr-1" /><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Projeto: todos</SelectItem>
+              {projects.map((p: TaskProject) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
+                    {p.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterLeadId} onValueChange={onFilterLeadId}>
+            <SelectTrigger className="h-8 w-[180px] text-xs"><User className="h-3 w-3 mr-1" /><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Lead/Cliente: todos</SelectItem>
+              {leadOptions.length === 0 && <SelectItem value="__none" disabled>Nenhum lead vinculado</SelectItem>}
+              {leadOptions.map((l: { id: string; name: string }) => (
+                <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={onClearFilters} className="h-8 text-xs text-muted-foreground hover:text-foreground">
+              <X className="h-3 w-3 mr-1" /> Limpar
+            </Button>
+          )}
+
+          <div className="ml-auto text-[10px] text-muted-foreground font-medium">
+            {visibleCount} de {totalCount} {totalCount === 1 ? "tarefa" : "tarefas"}
+          </div>
+        </div>
       </div>
-    </ScrollArea>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-6 max-w-4xl mx-auto">
+          {grouped.map(([projId, items]) => {
+            const proj = projects.find((p: TaskProject) => p.id === projId);
+            return (
+              <div key={projId}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: proj?.color || "#64748b" }} />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{proj?.name || "Sem projeto"}</span>
+                  <Badge variant="secondary" className="h-4 text-[9px]">{items.length}</Badge>
+                </div>
+                <div className="space-y-1.5">
+                  {items.map((t: Task) => (
+                    <Card key={t.id} className="p-2.5 hover:shadow-md transition-all flex items-center gap-2.5 cursor-pointer group" onClick={() => onEdit(t)}>
+                      <button onClick={(e) => { e.stopPropagation(); onToggle(t); }} className="shrink-0">
+                        {t.status === "done" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Circle className="h-4 w-4 text-muted-foreground hover:text-emerald-500" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium truncate", t.status === "done" && "line-through opacity-60")}>{t.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                          {t.due_at && <span className={cn("flex items-center gap-0.5", isPast(parseISO(t.due_at)) && t.status !== "done" && "text-rose-500 font-semibold")}><Clock className="h-2.5 w-2.5" />{format(parseISO(t.due_at), "d MMM HH:mm", { locale: ptBR })}</span>}
+                          {t.lead_name && <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" />{t.lead_name}</span>}
+                          {t.labels?.map((l) => <span key={l} className="px-1 rounded bg-primary/10 text-primary">{l}</span>)}
+                        </div>
+                      </div>
+                      {t.priority !== "media" && <Flag className="h-3 w-3" style={{ color: t.priority === "urgente" ? "#f43f5e" : t.priority === "alta" ? "#f59e0b" : "#64748b" }} />}
+                      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); if (confirm("Excluir tarefa?")) onDelete(t.id); }}>
+                        <Trash2 className="h-3 w-3 text-rose-500" />
+                      </Button>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {grouped.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              {hasActiveFilters ? (
+                <>
+                  Nenhuma tarefa corresponde aos filtros.
+                  <Button variant="link" onClick={onClearFilters} className="h-auto p-0 ml-1 text-xs">Limpar filtros</Button>
+                </>
+              ) : "Nenhuma tarefa encontrada"}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
+
 
 // =============== CALENDAR VIEW ===============
 function CalendarView({ tasks, onEdit, onCreate }: any) {
