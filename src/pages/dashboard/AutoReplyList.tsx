@@ -690,6 +690,91 @@ export default function AutoReplyList() {
         </div>
       )}
 
+      {/* Dialog criar nova automação */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Criar nova automação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs">Nome da automação</Label>
+              <Input
+                autoFocus
+                value={newAutomationName}
+                onChange={(e) => setNewAutomationName(e.target.value)}
+                placeholder="Ex: Boas-vindas, Atendimento inicial..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newAutomationName.trim()) {
+                    setCreateDialogOpen(false);
+                    navigate("/dashboard/auto-reply/new", {
+                      state: {
+                        name: newAutomationName.trim(),
+                        group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
+                      },
+                    });
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Grupo</Label>
+              <Select value={newAutomationGroup} onValueChange={setNewAutomationGroup}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Selecione um grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="flex items-center gap-2">
+                      <Folder className="w-3.5 h-3.5 opacity-40" /> Sem grupo
+                    </span>
+                  </SelectItem>
+                  {groups?.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <span className="flex items-center gap-2">
+                        <Folder className="w-3.5 h-3.5 text-emerald-500/70" /> {g.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground/60">
+                A automação será organizada dentro do grupo selecionado. Você pode movê-la depois.
+              </p>
+              {(!groups || groups.length === 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateDialogOpen(false);
+                    setGroupDialogOpen(true);
+                  }}
+                  className="text-[11px] text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <FolderPlus className="w-3 h-3" /> Criar um grupo agora
+                </button>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={!newAutomationName.trim()}
+              onClick={() => {
+                setCreateDialogOpen(false);
+                navigate("/dashboard/auto-reply/new", {
+                  state: {
+                    name: newAutomationName.trim(),
+                    group_id: newAutomationGroup === "none" ? null : newAutomationGroup,
+                  },
+                });
+              }}
+            >
+              <Plus className="w-3.5 h-3.5 mr-2" /> Criar e abrir editor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog de novo grupo */}
       <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
         <DialogContent className="max-w-sm">
