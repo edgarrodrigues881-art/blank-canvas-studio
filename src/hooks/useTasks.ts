@@ -305,9 +305,41 @@ export function useTasks() {
   // TASK
   const createTask = async (input: Partial<Task> & { title: string }) => {
     if (!user) return null;
+    let payload: any = { user_id: user.id, ...input };
+
+    // Garante que toda tarefa tenha um projeto: usa o atual ou cria "Geral" automaticamente
+    if (!payload.project_id) {
+      let proj = projects[0];
+      if (!proj) {
+        const { data: created } = await supabase
+          .from("task_projects" as any)
+          .insert({ user_id: user.id, name: "Geral", color: "#8b5cf6", position: 0 } as any)
+          .select().maybeSingle();
+        if (created) {
+          proj = created as any;
+          await supabase.from("task_columns" as any).insert([
+            { user_id: user.id, project_id: (created as any).id, name: "A Fazer", color: "#64748b", position: 0, is_done_column: false },
+            { user_id: user.id, project_id: (created as any).id, name: "Em Andamento", color: "#3b82f6", position: 1, is_done_column: false },
+            { user_id: user.id, project_id: (created as any).id, name: "Concluído", color: "#10b981", position: 2, is_done_column: true },
+          ]);
+        }
+      }
+      if (proj) payload.project_id = proj.id;
+    }
+
+    // Garante coluna se houver projeto definido
+    if (payload.project_id && !payload.column_id) {
+      const { data: cols } = await supabase
+        .from("task_columns" as any)
+        .select("id, position")
+        .eq("project_id", payload.project_id)
+        .order("position");
+      if (cols && cols.length > 0) payload.column_id = (cols[0] as any).id;
+    }
+
     const { data, error } = await supabase
       .from("tasks" as any)
-      .insert({ user_id: user.id, ...input } as any)
+      .insert(payload)
       .select().maybeSingle();
     if (error || !data) { toast.error("Erro ao criar tarefa: " + (error?.message || "sem retorno")); return null; }
     await logHistory({
