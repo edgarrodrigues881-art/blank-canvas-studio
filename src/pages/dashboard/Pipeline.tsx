@@ -101,7 +101,7 @@ function getCountryFlag(phone: string): string {
   const country = detectCountryFromDigits(digits);
   if (!country) return "";
   // Converte ISO code (US, BR, PT...) em emoji bandeira
-  const iso = country.iso?.toUpperCase();
+  const iso = country.iso2?.toUpperCase();
   if (!iso || iso.length !== 2) return "";
   return iso
     .split("")
