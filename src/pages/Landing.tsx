@@ -349,16 +349,25 @@ const UseCase = () => (
         </motion.ol>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.4, ease: easeOut }} className="lg:col-span-7 relative">
-        <div className="absolute -inset-8 bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.06)_0%,transparent_70%)] blur-3xl pointer-events-none" />
-        <div className="relative rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-30px_rgba(0,0,0,0.7)]">
-          <div className="bg-white/[0.015] px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-            <span className="w-2.5 h-2.5 rounded-full bg-white/[0.1]" />
-            <span className="ml-3 text-[10px] text-white/25 font-medium tracking-wide">Painel de instâncias</span>
+      <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, ease: easeOut }} className="lg:col-span-7 relative">
+        {/* Glow vibrante emerald + indigo */}
+        <div className="absolute -inset-12 bg-[radial-gradient(ellipse_at_30%_40%,rgba(16,185,129,0.18)_0%,transparent_60%),radial-gradient(ellipse_at_70%_60%,rgba(99,102,241,0.14)_0%,transparent_65%)] blur-3xl pointer-events-none" />
+        <div className="relative rounded-xl border border-emerald-500/15 overflow-hidden bg-[hsl(222,22%,7%)] shadow-[0_30px_80px_-20px_rgba(16,185,129,0.25),0_20px_60px_-30px_rgba(0,0,0,0.8)] ring-1 ring-white/[0.03]">
+          <div className="bg-gradient-to-r from-white/[0.04] to-white/[0.015] px-4 py-2.5 border-b border-white/[0.06] flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-400/70" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400/70" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/70" />
+            <span className="ml-3 text-[10px] text-white/45 font-medium tracking-wide">Painel de instâncias</span>
           </div>
-          <img src={heroInstancesPanel} alt="Painel" className="w-full h-auto block opacity-80" loading="lazy" style={{ filter: "brightness(0.85) contrast(0.92) saturate(0.9)" }} />
+          <img
+            src={heroInstancesPanel}
+            alt="Painel"
+            className="w-full h-auto block"
+            loading="lazy"
+            style={{ filter: "brightness(1.08) contrast(1.1) saturate(1.35)" }}
+          />
+          {/* Reflexo sutil no topo */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
         </div>
       </motion.div>
     </div>
