@@ -680,8 +680,8 @@ const Plans = () => {
         }
         className={`relative rounded-2xl flex flex-col h-full p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 ${
           isPopular
-            ? "bg-gradient-to-b from-yellow-500/[0.07] via-slate-900 to-slate-900 border border-yellow-500/50 lg:scale-[1.04]"
-            : "bg-slate-900 border border-white/10 hover:border-[var(--brand-green)]/40"
+            ? "bg-gradient-to-b from-yellow-500/[0.07] via-zinc-950 to-zinc-950 border border-yellow-500/50 lg:scale-[1.04]"
+            : "bg-zinc-950 border border-white/10 hover:border-[#25D366]/50 hover:shadow-[0_0_30px_-8px_rgba(37,211,102,0.35)]"
         }`}
         // CSS var para usar a cor exata da marca em hover
         // @ts-ignore
@@ -758,8 +758,8 @@ const Plans = () => {
           }
           className={`w-full h-10 text-[12.5px] font-semibold rounded-lg shadow-none mt-auto transition-all ${
             isPopular
-              ? "hover:brightness-110 border-0"
-              : "bg-transparent text-white border border-white/15 hover:border-[#25D366] hover:text-[#25D366] hover:bg-transparent"
+              ? "hover:brightness-110 hover:shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] border-0"
+              : "bg-transparent text-white border border-[#25D366]/40 hover:border-[#25D366] hover:bg-[#25D366]/10 hover:shadow-[0_8px_24px_-8px_rgba(37,211,102,0.5)]"
           }`}
         >
           {p.cta}
@@ -769,25 +769,27 @@ const Plans = () => {
   };
 
   return (
-    <Section id="planos">
-      <div className="max-w-3xl mb-10 md:mb-14">
-        <Eyebrow>Planos</Eyebrow>
-        <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
-        <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
+    <section id="planos" className="relative bg-black py-14 md:py-32 px-5 md:px-6">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="max-w-3xl mb-10 md:mb-14">
+          <Eyebrow>Planos</Eyebrow>
+          <SectionTitle className="mb-4 md:mb-6">Escolha o plano que acompanha sua escala.</SectionTitle>
+          <SectionSub>Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.</SectionSub>
+        </div>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.05 }}
+          variants={stagger}
+          className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+        >
+          {allPlans.map(renderCard)}
+        </motion.div>
+        <p className="text-center text-[12px] text-white/40 mt-10 md:mt-12">
+          Sem contrato. Cancele quando quiser.
+        </p>
       </div>
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.05 }}
-        variants={stagger}
-        className="mx-auto max-w-6xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-      >
-        {allPlans.map(renderCard)}
-      </motion.div>
-      <p className="text-center text-[12px] text-white/40 mt-10 md:mt-12">
-        Sem contrato. Cancele quando quiser.
-      </p>
-    </Section>
+    </section>
   );
 };
 
