@@ -484,7 +484,7 @@ const UseCase = () => {
       id="uso"
       ref={sectionRef}
       className="relative"
-      style={{ height: `${HOWTO_STEPS.length * 110}vh` }}
+      style={{ height: `${HOWTO_STEPS.length * 100}vh` }}
     >
       {/* Sticky viewport */}
       <div className="sticky top-0 h-screen flex items-center overflow-hidden">
@@ -915,7 +915,7 @@ const Landing = () => {
   useEffect(() => { prefetchRoutes(); }, []);
 
   return (
-    <div className="min-h-screen bg-[hsl(222,22%,5%)] relative" style={{ overflowX: "hidden" }}>
+    <div className="min-h-screen bg-[hsl(222,22%,5%)] relative overflow-x-clip">
       <Background />
       <div className="relative z-10">
         <Navbar />
