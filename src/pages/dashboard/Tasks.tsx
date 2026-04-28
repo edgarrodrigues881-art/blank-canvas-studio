@@ -148,7 +148,21 @@ export default function Tasks() {
       <div className="flex-1 overflow-hidden">
         {t.loading && <div className="p-8 text-center text-muted-foreground text-sm">Carregando...</div>}
         {!t.loading && t.projects.length === 0 && (
-          <EmptyState onCreate={() => setProjectDialog({ open: true })} onTemplates={() => setTemplatesDialog(true)} />
+          <EmptyState
+            mode="project"
+            onCreateProject={() => setProjectDialog({ open: true })}
+            onCreateTask={() => setTaskDialog({ open: true, defaultProject: activeProject?.id })}
+            onTemplates={() => setTemplatesDialog(true)}
+          />
+        )}
+        {!t.loading && activeProject && t.tasks.length === 0 && (
+          <EmptyState
+            mode="task"
+            projectName={activeProject.name}
+            onCreateProject={() => setProjectDialog({ open: true })}
+            onCreateTask={() => setTaskDialog({ open: true, defaultProject: activeProject.id })}
+            onTemplates={() => setTemplatesDialog(true)}
+          />
         )}
         {!t.loading && activeProject && view === "kanban" && (
           <KanbanView
