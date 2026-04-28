@@ -13,6 +13,8 @@ import heroCrmMobile from "@/assets/hero-crm-mobile.png";
 import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.png";
 import HeroDataViz from "@/components/landing/HeroDataViz";
 import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
+import { TiltCard } from "@/components/ui/tilt-card";
+import { Flame } from "lucide-react";
 
 // ─── Prefetch ───
 const prefetchRoutes = () => {
