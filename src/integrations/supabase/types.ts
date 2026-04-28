@@ -4447,6 +4447,152 @@ export type Database = {
         }
         Relationships: []
       }
+      note_blocks: {
+        Row: {
+          checklist: Json
+          color: string | null
+          column_id: string | null
+          content: string | null
+          created_at: string
+          goals: Json
+          id: string
+          image_url: string | null
+          link_url: string | null
+          notebook_id: string
+          position: number
+          price: number | null
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checklist?: Json
+          color?: string | null
+          column_id?: string | null
+          content?: string | null
+          created_at?: string
+          goals?: Json
+          id?: string
+          image_url?: string | null
+          link_url?: string | null
+          notebook_id: string
+          position?: number
+          price?: number | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checklist?: Json
+          color?: string | null
+          column_id?: string | null
+          content?: string | null
+          created_at?: string
+          goals?: Json
+          id?: string
+          image_url?: string | null
+          link_url?: string | null
+          notebook_id?: string
+          position?: number
+          price?: number | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_blocks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "note_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_blocks_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "note_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_books: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      note_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          label: string
+          notebook_id: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_columns_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "note_books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
