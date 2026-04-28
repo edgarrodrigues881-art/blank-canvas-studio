@@ -218,7 +218,6 @@ const Auth = () => {
         className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
         style={{ background: "radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 60%)", filter: "blur(60px)" }}
       />
-    </div>
 
       {/* Back button */}
       <motion.button
