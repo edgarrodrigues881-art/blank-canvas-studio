@@ -5643,6 +5643,73 @@ export type Database = {
           },
         ]
       }
+      task_history: {
+        Row: {
+          automation_id: string | null
+          created_at: string
+          description: string
+          event_type: string
+          from_value: Json | null
+          id: string
+          metadata: Json
+          project_id: string | null
+          task_id: string | null
+          task_title: string | null
+          to_value: Json | null
+          user_id: string
+        }
+        Insert: {
+          automation_id?: string | null
+          created_at?: string
+          description: string
+          event_type: string
+          from_value?: Json | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          task_id?: string | null
+          task_title?: string | null
+          to_value?: Json | null
+          user_id: string
+        }
+        Update: {
+          automation_id?: string | null
+          created_at?: string
+          description?: string
+          event_type?: string
+          from_value?: Json | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          task_id?: string | null
+          task_title?: string | null
+          to_value?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_history_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "task_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_history_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_projects: {
         Row: {
           archived: boolean
