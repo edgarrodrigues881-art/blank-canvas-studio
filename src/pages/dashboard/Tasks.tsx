@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -598,7 +598,7 @@ function TaskDialog({ state, onClose, t }: any) {
   const editing = state.task && state.task.id;
   const [form, setForm] = useState<any>({});
 
-  useMemo(() => {
+  useEffect(() => {
     if (state.open) {
       if (editing) {
         const x = state.task;
@@ -802,7 +802,7 @@ function TaskDialog({ state, onClose, t }: any) {
 function ProjectDialog({ state, onClose, t }: any) {
   const editing = state.project;
   const [form, setForm] = useState<any>({});
-  useMemo(() => {
+  useEffect(() => {
     if (state.open) {
       if (editing) setForm({ name: editing.name, description: editing.description || "", color: editing.color, lead_name: editing.lead_name || "" });
       else setForm({ name: "", description: "", color: PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)], lead_name: "" });

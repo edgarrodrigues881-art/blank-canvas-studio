@@ -259,18 +259,20 @@ export function useTasks() {
     const { data, error } = await supabase
       .from("task_projects" as any)
       .insert({ user_id: user.id, position: projects.length, ...input } as any)
-      .select().single();
-    if (error) { toast.error("Erro ao criar projeto"); return null; }
+      .select().maybeSingle();
+    if (error || !data) { toast.error("Erro ao criar projeto: " + (error?.message || "sem retorno")); return null; }
     // Default columns
     const defaults = [
       { name: "A Fazer", color: "#64748b", position: 0, is_done_column: false },
       { name: "Em Andamento", color: "#3b82f6", position: 1, is_done_column: false },
       { name: "Concluído", color: "#10b981", position: 2, is_done_column: true },
     ];
-    await supabase.from("task_columns" as any).insert(
+    const { error: colErr } = await supabase.from("task_columns" as any).insert(
       defaults.map((d) => ({ ...d, user_id: user.id, project_id: (data as any).id }))
     );
+    if (colErr) toast.error("Projeto criado, mas falhou ao criar colunas: " + colErr.message);
     toast.success("Projeto criado");
+    await fetchAll();
     return data;
   };
 
@@ -303,11 +305,43 @@ export function useTasks() {
   // TASK
   const createTask = async (input: Partial<Task> & { title: string }) => {
     if (!user) return null;
+    let payload: any = { user_id: user.id, ...input };
+
+    // Garante que toda tarefa tenha um projeto: usa o atual ou cria "Geral" automaticamente
+    if (!payload.project_id) {
+      let proj = projects[0];
+      if (!proj) {
+        const { data: created } = await supabase
+          .from("task_projects" as any)
+          .insert({ user_id: user.id, name: "Geral", color: "#8b5cf6", position: 0 } as any)
+          .select().maybeSingle();
+        if (created) {
+          proj = created as any;
+          await supabase.from("task_columns" as any).insert([
+            { user_id: user.id, project_id: (created as any).id, name: "A Fazer", color: "#64748b", position: 0, is_done_column: false },
+            { user_id: user.id, project_id: (created as any).id, name: "Em Andamento", color: "#3b82f6", position: 1, is_done_column: false },
+            { user_id: user.id, project_id: (created as any).id, name: "Concluído", color: "#10b981", position: 2, is_done_column: true },
+          ]);
+        }
+      }
+      if (proj) payload.project_id = proj.id;
+    }
+
+    // Garante coluna se houver projeto definido
+    if (payload.project_id && !payload.column_id) {
+      const { data: cols } = await supabase
+        .from("task_columns" as any)
+        .select("id, position")
+        .eq("project_id", payload.project_id)
+        .order("position");
+      if (cols && cols.length > 0) payload.column_id = (cols[0] as any).id;
+    }
+
     const { data, error } = await supabase
       .from("tasks" as any)
-      .insert({ user_id: user.id, ...input } as any)
-      .select().single();
-    if (error) { toast.error("Erro ao criar tarefa: " + error.message); return null; }
+      .insert(payload)
+      .select().maybeSingle();
+    if (error || !data) { toast.error("Erro ao criar tarefa: " + (error?.message || "sem retorno")); return null; }
     await logHistory({
       task_id: (data as any).id,
       project_id: (data as any).project_id,
@@ -315,14 +349,16 @@ export function useTasks() {
       description: `Tarefa criada: "${(data as any).title}"`,
       task_title: (data as any).title,
     });
+    toast.success("Tarefa criada");
+    await fetchAll();
     return data;
   };
 
   const updateTask = async (id: string, patch: Partial<Task>) => {
     const previous = tasks.find((x) => x.id === id) || null;
     const { data, error } = await supabase
-      .from("tasks" as any).update(patch as any).eq("id", id).select().single();
-    if (error) { toast.error("Erro ao atualizar tarefa"); return; }
+      .from("tasks" as any).update(patch as any).eq("id", id).select().maybeSingle();
+    if (error || !data) { toast.error("Erro ao atualizar tarefa: " + (error?.message || "sem retorno")); return; }
     const updated = data as unknown as Task;
 
     // Log status change
