@@ -309,6 +309,7 @@ const App = () => (
                 <Route path="/dashboard/crm-learning" element={<ProtectedRoute><DashboardLayout><CrmLearning /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm-integrations" element={<ProtectedRoute><DashboardLayout><CrmIntegrations /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/affiliates" element={<ProtectedRoute><DashboardLayout><Affiliates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
