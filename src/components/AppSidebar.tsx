@@ -47,6 +47,7 @@ import {
   Zap,
   Plug,
   BellRing,
+  ListTodo,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -350,7 +351,7 @@ export function AppSidebar() {
   };
 
   // Auto-switch workspace based on current route
-  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply"];
+  const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply", "/dashboard/tasks"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     // Only auto-switch TO crm when entering a CRM route. Do NOT auto-switch back
@@ -477,6 +478,21 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Follow-up", url: "/dashboard/crm-followups", icon: BellRing })}
                   {renderNavItem({ title: "Agenda", url: "/dashboard/crm-agenda", icon: CalendarClock })}
                   {renderNavItem({ title: "Modelos", url: "/dashboard/crm-templates", icon: FileText })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* PRODUTIVIDADE */}
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Produtividade
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Tarefas", url: "/dashboard/tasks", icon: ListTodo })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
