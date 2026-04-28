@@ -321,6 +321,46 @@ const Features = () => (
   </Section>
 );
 
+// ─── 4.5. Tilt Card highlight (Aquecimento automático) ───
+const TiltHighlight = () => (
+  <Section className="!py-10 md:!py-20">
+    <div className="flex justify-center">
+      <TiltCard
+        tiltLimit={12}
+        scale={1.03}
+        perspective={1400}
+        effect="evade"
+        spotlight
+        className="w-full max-w-[520px] cursor-default"
+      >
+        <div className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-white/[0.06] to-emerald-500/20 shadow-[0_30px_80px_-30px_rgba(16,185,129,0.35)]">
+          <div className="rounded-2xl bg-[hsl(222,22%,7%)] border border-white/[0.05] p-7 md:p-9">
+            <div className="flex items-center justify-between mb-10 md:mb-14">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-medium text-white/55 tracking-wide">Automático</span>
+              </div>
+              <span className="text-[11px] font-medium text-emerald-300/80 tracking-wide">3D hover</span>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center">
+                <Flame className="w-5 h-5 text-emerald-400" />
+              </div>
+              <h3 className="text-[24px] md:text-[28px] font-semibold text-white tracking-tight">
+                Aquecimento automático
+              </h3>
+            </div>
+            <p className="text-[14px] md:text-[15px] text-white/55 leading-[1.6]">
+              Nossa ferramenta faz tudo por você de forma automática, sem dor de cabeça.
+              Seus chips amadurecem sozinhos no ritmo certo.
+            </p>
+          </div>
+        </div>
+      </TiltCard>
+    </div>
+  </Section>
+);
+
 // ─── 5. Use case (left text + right mockup) ───
 const UseCase = () => (
   <Section id="uso">
