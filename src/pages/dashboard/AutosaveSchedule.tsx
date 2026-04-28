@@ -160,19 +160,29 @@ export default function AutosaveSchedule() {
     if (!Number.isFinite(mx) || mx < ini) return toast.error("Limite máximo deve ser ≥ limite inicial");
     const payloadProgression = { initial_limit_per_instance: ini, daily_increment: inc, max_limit_per_instance: mx };
 
+    // Normaliza valores numéricos: vazio → 1 (apenas no momento de salvar)
+    const num = (v: number | "", fallback: number) => (typeof v === "number" && !isNaN(v) ? v : fallback);
+    const minD = Math.max(5, num(minDelay, 15));
+    const maxD = Math.max(minD, num(maxDelay, 60));
+    const peMin = Math.max(1, num(pauseEveryMin, 10));
+    const peMax = Math.max(peMin, num(pauseEveryMax, 20));
+    const pdMin = Math.max(1, num(pauseDurationMin, 30));
+    const pdMax = Math.max(pdMin, num(pauseDurationMax, 120));
+    const mpi = Math.max(1, num(msgsPerInstance, 1));
+
     try {
       await createMut.mutateAsync({
         name: name.trim() || "Agendamento Auto Save",
         device_ids: selectedDevices,
         weekdays: selectedWeekdays,
         time_of_day: timeOfDay,
-        min_delay_seconds: minDelay,
-        max_delay_seconds: maxDelay,
-        pause_every_min: pauseEveryMin,
-        pause_every_max: pauseEveryMax,
-        pause_duration_min: pauseDurationMin,
-        pause_duration_max: pauseDurationMax,
-        messages_per_instance: msgsPerInstance,
+        min_delay_seconds: minD,
+        max_delay_seconds: maxD,
+        pause_every_min: peMin,
+        pause_every_max: peMax,
+        pause_duration_min: pdMin,
+        pause_duration_max: pdMax,
+        messages_per_instance: mpi,
         ...payloadProgression,
       });
       toast.success("Agendamento recorrente criado");
