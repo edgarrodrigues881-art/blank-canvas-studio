@@ -12,31 +12,51 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useSmartAlerts, type SmartAlert } from "@/hooks/useSmartAlerts";
-import { Bell, BellRing, Check, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon, Trophy, UserCheck, Eye, CheckCircle2, Users, Loader2, RefreshCw } from "lucide-react";
+import {
+  Bell, BellRing, X, Phone, Clock, Sparkles, MessageSquare, Settings as SettingsIcon,
+  Trophy, UserCheck, Eye, CheckCircle2, Users, Loader2, RefreshCw,
+  CalendarClock, ListTodo, Send, Repeat, Radio, Link2,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 const ALERT_META: Record<string, { icon: any; label: string; color: string }> = {
-  human_request: { icon: UserCheck, label: "Pediu humano", color: "text-blue-400 bg-blue-500/10 border-blue-500/30" },
-  closing_opportunity: { icon: Trophy, label: "Oportunidade de fechamento", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" },
+  human_request:         { icon: UserCheck,     label: "Pediu humano",          color: "text-blue-400 bg-blue-500/10 border-blue-500/30" },
+  closing_opportunity:   { icon: Trophy,        label: "Oportunidade",          color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" },
+  dispatch_event:        { icon: Send,          label: "Disparo agendado",      color: "text-violet-400 bg-violet-500/10 border-violet-500/30" },
+  task_reminder:         { icon: ListTodo,      label: "Tarefa",                color: "text-amber-400 bg-amber-500/10 border-amber-500/30" },
+  appointment_reminder:  { icon: CalendarClock, label: "Compromisso",           color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30" },
+  followup_event:        { icon: Repeat,        label: "Follow-up",             color: "text-pink-400 bg-pink-500/10 border-pink-500/30" },
 };
+
+const CATEGORY_FILTERS = [
+  { k: "all",                  l: "Todos",         types: [] as string[] },
+  { k: "ia",                   l: "IA",            types: ["human_request", "closing_opportunity"] },
+  { k: "dispatch_event",       l: "Disparos",      types: ["dispatch_event"] },
+  { k: "task_reminder",        l: "Tarefas",       types: ["task_reminder"] },
+  { k: "appointment_reminder", l: "Agenda",        types: ["appointment_reminder"] },
+  { k: "followup_event",       l: "Follow-up",     types: ["followup_event"] },
+];
 
 export default function AISmartAlerts() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { alerts, unreadCount, loading, markRead, markResolved, dismiss, markAllRead } = useSmartAlerts();
-  const [filter, setFilter] = useState<"all" | "unread" | "resolved">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "unread" | "resolved">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [tab, setTab] = useState<"alerts" | "settings">("alerts");
 
   // Settings
   const [config, setConfig] = useState<any>(null);
-  const [devices, setDevices] = useState<any[]>([]);
-  const [targetMode, setTargetMode] = useState<"phone" | "group">("phone");
+  const [reportDevice, setReportDevice] = useState<{ id: string; name: string; number: string | null; status: string } | null>(null);
   const [groups, setGroups] = useState<{ id: string; name: string; participants?: number }[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
+      // 1. Carrega config
       const { data } = await supabase
         .from("ai_alerts_config" as any)
         .select("*")
@@ -46,39 +66,52 @@ export default function AISmartAlerts() {
         enabled: true,
         alert_human_request: true,
         alert_closing_opportunity: true,
+        alert_scheduled_dispatch: true,
+        alert_task_reminder: true,
+        alert_appointment_reminder: true,
+        alert_followup_event: true,
         notify_whatsapp: false,
-        whatsapp_device_id: null,
-        whatsapp_target_phone: "",
         whatsapp_target_jid: null,
         whatsapp_target_label: null,
+        appointment_lead_minutes: 15,
+        task_lead_minutes: 30,
+        share_with_report_wa: true,
       };
       setConfig(cfg);
-      setTargetMode(cfg.whatsapp_target_jid ? "group" : "phone");
 
+      // 2. Pega o device do Relatório WA (instância compartilhada)
       const { data: devs } = await supabase
         .from("devices")
-        .select("id, name, number, status")
+        .select("id, name, number, status, login_type")
         .eq("user_id", user.id)
-        .order("name");
-      setDevices((devs as any[]) || []);
+        .eq("login_type", "report_wa")
+        .maybeSingle();
+      if (devs) setReportDevice(devs as any);
     })();
   }, [user]);
 
+  const isReportConnected = reportDevice?.status === "Ready";
+
   const loadGroups = async () => {
-    if (!user) return;
+    if (!user || !reportDevice?.id) return;
     setLoadingGroups(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whapi-chats?action=list_all_groups`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whapi-chats?action=list_chats&device_id=${reportDevice.id}&count=200`,
         { headers: { Authorization: `Bearer ${session?.access_token}` } }
       );
       const data = await res.json();
       const list = (data?.chats || [])
-        .filter((c: any) => c.id)
+        .filter((c: any) => (c.id || c.jid)?.includes("@g.us"))
+        .map((c: any) => ({
+          id: c.id || c.jid,
+          name: c.name || c.subject || c.title || c.id || "Grupo sem nome",
+          participants: c.participants?.length || c.participantsCount || c.size || undefined,
+        }))
         .sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
       setGroups(list);
-      if (list.length === 0) toast.info("Nenhum grupo encontrado nas suas instâncias conectadas.");
+      if (list.length === 0) toast.info("Nenhum grupo encontrado nessa instância.");
     } catch (e: any) {
       toast.error("Erro ao carregar grupos: " + (e.message || ""));
     } finally {
@@ -87,38 +120,53 @@ export default function AISmartAlerts() {
   };
 
   useEffect(() => {
-    if (targetMode === "group" && config?.notify_whatsapp && groups.length === 0 && !loadingGroups) {
+    if (tab === "settings" && config?.notify_whatsapp && reportDevice?.status === "Ready" && groups.length === 0 && !loadingGroups) {
       loadGroups();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetMode, config?.notify_whatsapp]);
+  }, [tab, config?.notify_whatsapp, reportDevice?.status]);
 
   const saveConfig = async () => {
     if (!user || !config) return;
     if (config.notify_whatsapp) {
-      if (!config.whatsapp_device_id) { toast.error("Escolha uma instância para enviar"); return; }
-      if (targetMode === "phone" && !config.whatsapp_target_phone) { toast.error("Informe o número de destino"); return; }
-      if (targetMode === "group" && !config.whatsapp_target_jid) { toast.error("Selecione um grupo de destino"); return; }
+      if (!reportDevice?.id) {
+        toast.error("Conecte a instância de Relatório/Notificação primeiro.");
+        return;
+      }
+      if (!config.whatsapp_target_jid) {
+        toast.error("Selecione um grupo de destino.");
+        return;
+      }
     }
     const payload = {
       user_id: user.id,
       enabled: config.enabled,
       alert_human_request: config.alert_human_request,
       alert_closing_opportunity: config.alert_closing_opportunity,
+      alert_scheduled_dispatch: config.alert_scheduled_dispatch,
+      alert_task_reminder: config.alert_task_reminder,
+      alert_appointment_reminder: config.alert_appointment_reminder,
+      alert_followup_event: config.alert_followup_event,
       notify_whatsapp: config.notify_whatsapp,
-      whatsapp_device_id: config.whatsapp_device_id,
-      whatsapp_target_phone: targetMode === "phone" ? config.whatsapp_target_phone : null,
-      whatsapp_target_jid: targetMode === "group" ? config.whatsapp_target_jid : null,
-      whatsapp_target_label: targetMode === "group" ? config.whatsapp_target_label : null,
+      whatsapp_device_id: reportDevice?.id || null,
+      whatsapp_target_phone: null,
+      whatsapp_target_jid: config.whatsapp_target_jid || null,
+      whatsapp_target_label: config.whatsapp_target_label || null,
+      appointment_lead_minutes: Number(config.appointment_lead_minutes) || 15,
+      task_lead_minutes: Number(config.task_lead_minutes) || 30,
+      share_with_report_wa: true,
     };
     const { error } = await supabase.from("ai_alerts_config" as any).upsert(payload, { onConflict: "user_id" });
     if (error) toast.error("Erro ao salvar"); else toast.success("Configurações salvas");
   };
 
+  const activeCategory = CATEGORY_FILTERS.find((c) => c.k === categoryFilter) || CATEGORY_FILTERS[0];
+
   const filteredAlerts = alerts.filter((a) => {
-    if (filter === "all") return a.status !== "dismissed";
-    if (filter === "unread") return a.status === "unread";
-    if (filter === "resolved") return a.status === "resolved";
+    if (statusFilter === "unread" && a.status !== "unread") return false;
+    if (statusFilter === "resolved" && a.status !== "resolved") return false;
+    if (statusFilter === "all" && a.status === "dismissed") return false;
+    if (activeCategory.types.length > 0 && !activeCategory.types.includes(a.alert_type)) return false;
     return true;
   });
 
@@ -131,13 +179,13 @@ export default function AISmartAlerts() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold flex items-center gap-2">
-              Alertas Inteligentes
+              Notificações
               {unreadCount > 0 && (
                 <Badge className="bg-red-500 hover:bg-red-500 text-white">{unreadCount}</Badge>
               )}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              A IA te avisa quando um lead pede atendimento humano ou quando há momento ideal de fechar.
+              Avisos de disparos agendados, tarefas, agenda, follow-up e alertas da IA — tudo em um só lugar.
             </p>
           </div>
         </div>
@@ -156,7 +204,7 @@ export default function AISmartAlerts() {
             tab === "alerts" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Bell className="w-3.5 h-3.5" /> Alertas
+          <Bell className="w-3.5 h-3.5" /> Notificações
         </button>
         <button
           onClick={() => setTab("settings")}
@@ -170,6 +218,30 @@ export default function AISmartAlerts() {
 
       {tab === "alerts" && (
         <>
+          {/* Categoria */}
+          <div className="flex gap-2 flex-wrap">
+            {CATEGORY_FILTERS.map((f) => {
+              const count = f.types.length === 0
+                ? alerts.filter((a) => a.status !== "dismissed").length
+                : alerts.filter((a) => a.status !== "dismissed" && f.types.includes(a.alert_type)).length;
+              return (
+                <button
+                  key={f.k}
+                  onClick={() => setCategoryFilter(f.k)}
+                  className={`px-3 py-1.5 text-xs rounded-full border transition flex items-center gap-1.5 ${
+                    categoryFilter === f.k
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {f.l}
+                  <span className="opacity-70 tabular-nums">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Status */}
           <div className="flex gap-2 flex-wrap">
             {[
               { k: "all", l: "Todos" },
@@ -178,11 +250,11 @@ export default function AISmartAlerts() {
             ].map((f) => (
               <button
                 key={f.k}
-                onClick={() => setFilter(f.k as any)}
-                className={`px-3 py-1.5 text-xs rounded-full border transition ${
-                  filter === f.k
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/30 border-border/40 text-muted-foreground hover:border-primary/40"
+                onClick={() => setStatusFilter(f.k as any)}
+                className={`px-3 py-1 text-[11px] rounded border transition ${
+                  statusFilter === f.k
+                    ? "bg-foreground/10 border-foreground/30 text-foreground"
+                    : "bg-transparent border-border/30 text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {f.l}
@@ -195,7 +267,7 @@ export default function AISmartAlerts() {
           ) : filteredAlerts.length === 0 ? (
             <div className="text-center py-16 text-sm text-muted-foreground">
               <Sparkles className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              Nenhum alerta no momento. A IA criará alertas automaticamente conforme analisar suas conversas.
+              Nenhuma notificação no momento. As notificações aparecerão automaticamente conforme os eventos acontecem.
             </div>
           ) : (
             <div className="space-y-3">
@@ -210,153 +282,172 @@ export default function AISmartAlerts() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-medium">Ativar alertas inteligentes</h3>
-                <p className="text-xs text-muted-foreground">Quando desligado, a IA não criará novos alertas.</p>
+                <h3 className="font-medium">Ativar notificações</h3>
+                <p className="text-xs text-muted-foreground">Quando desligado, nenhuma notificação será gerada.</p>
               </div>
               <Switch checked={config.enabled} onCheckedChange={(v) => setConfig({ ...config, enabled: v })} />
             </div>
           </Card>
 
           <Card className="p-5 space-y-4">
-            <h3 className="font-medium">Tipos de alerta</h3>
+            <h3 className="font-medium">Tipos de notificação</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/40">
-                <div className="flex items-center gap-3">
-                  <UserCheck className="w-4 h-4 text-blue-400" />
-                  <div>
-                    <p className="text-sm font-medium">Lead pediu atendimento humano</p>
-                    <p className="text-xs text-muted-foreground">Quando o lead solicitar explicitamente falar com você</p>
+              <ToggleRow
+                icon={<Send className="w-4 h-4 text-violet-400" />}
+                title="Disparos agendados"
+                desc="Avisa quando um disparo programado é executado ou falha."
+                checked={config.alert_scheduled_dispatch}
+                onChange={(v) => setConfig({ ...config, alert_scheduled_dispatch: v })}
+              />
+              <ToggleRow
+                icon={<ListTodo className="w-4 h-4 text-amber-400" />}
+                title="Tarefas próximas / atrasadas"
+                desc="Lembrete antes do prazo e quando uma tarefa atrasa."
+                checked={config.alert_task_reminder}
+                onChange={(v) => setConfig({ ...config, alert_task_reminder: v })}
+                trailing={(
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number" min={5} max={1440}
+                      value={config.task_lead_minutes ?? 30}
+                      onChange={(e) => setConfig({ ...config, task_lead_minutes: e.target.value })}
+                      className="h-7 w-16 text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">min antes</span>
                   </div>
-                </div>
-                <Switch checked={config.alert_human_request} onCheckedChange={(v) => setConfig({ ...config, alert_human_request: v })} />
-              </div>
-              <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/40">
-                <div className="flex items-center gap-3">
-                  <Trophy className="w-4 h-4 text-emerald-400" />
-                  <div>
-                    <p className="text-sm font-medium">Oportunidade de fechamento</p>
-                    <p className="text-xs text-muted-foreground">Quando a IA identificar momento ideal para você fechar a venda</p>
+                )}
+              />
+              <ToggleRow
+                icon={<CalendarClock className="w-4 h-4 text-cyan-400" />}
+                title="Compromissos da agenda"
+                desc="Lembrete antes de cada compromisso do CRM."
+                checked={config.alert_appointment_reminder}
+                onChange={(v) => setConfig({ ...config, alert_appointment_reminder: v })}
+                trailing={(
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number" min={5} max={1440}
+                      value={config.appointment_lead_minutes ?? 15}
+                      onChange={(e) => setConfig({ ...config, appointment_lead_minutes: e.target.value })}
+                      className="h-7 w-16 text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">min antes</span>
                   </div>
-                </div>
-                <Switch checked={config.alert_closing_opportunity} onCheckedChange={(v) => setConfig({ ...config, alert_closing_opportunity: v })} />
-              </div>
+                )}
+              />
+              <ToggleRow
+                icon={<Repeat className="w-4 h-4 text-pink-400" />}
+                title="Follow-up CRM"
+                desc="Avisa quando um follow-up é disparado ou falha."
+                checked={config.alert_followup_event}
+                onChange={(v) => setConfig({ ...config, alert_followup_event: v })}
+              />
+              <div className="border-t border-border/40 my-2" />
+              <ToggleRow
+                icon={<UserCheck className="w-4 h-4 text-blue-400" />}
+                title="IA: lead pediu atendimento humano"
+                desc="A IA detecta quando o lead solicita falar com humano."
+                checked={config.alert_human_request}
+                onChange={(v) => setConfig({ ...config, alert_human_request: v })}
+              />
+              <ToggleRow
+                icon={<Trophy className="w-4 h-4 text-emerald-400" />}
+                title="IA: oportunidade de fechamento"
+                desc="A IA identifica o melhor momento de fechar a venda."
+                checked={config.alert_closing_opportunity}
+                onChange={(v) => setConfig({ ...config, alert_closing_opportunity: v })}
+              />
             </div>
           </Card>
 
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="font-medium">Notificar no WhatsApp</h3>
-                <p className="text-xs text-muted-foreground">A IA enviará uma mensagem para um número ou grupo sempre que precisar de atendimento humano.</p>
+                <h3 className="font-medium flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" /> Notificar em um grupo de WhatsApp
+                </h3>
+                <p className="text-xs text-muted-foreground">Envia cada notificação para um grupo. Compartilha a mesma instância do Relatório via WhatsApp.</p>
               </div>
               <Switch checked={config.notify_whatsapp} onCheckedChange={(v) => setConfig({ ...config, notify_whatsapp: v })} />
             </div>
 
             {config.notify_whatsapp && (
               <div className="space-y-4 pt-2 border-t border-border/40">
+                {/* Instância compartilhada */}
+                <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium">
+                    <Link2 className="w-3.5 h-3.5 text-primary" />
+                    Instância compartilhada com Relatório WhatsApp
+                  </div>
+                  {reportDevice ? (
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Radio className={`w-4 h-4 ${isReportConnected ? "text-emerald-500" : "text-muted-foreground"}`} />
+                        <div>
+                          <p className="text-sm font-medium">{reportDevice.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono">{reportDevice.number || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={`text-[10px] gap-1 ${isReportConnected ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5" : "border-destructive/30 text-destructive bg-destructive/5"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isReportConnected ? "bg-emerald-500 animate-pulse" : "bg-destructive"}`} />
+                          {isReportConnected ? "Conectado" : "Offline"}
+                        </Badge>
+                        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => navigate("/dashboard/report-connection")}>
+                          Gerenciar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">Nenhuma instância de relatório provisionada ainda.</p>
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => navigate("/dashboard/report-connection")}>
+                        Conectar agora
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Grupo destino */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Instância que enviará o alerta</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Grupo de destino</Label>
+                    <Button
+                      type="button" variant="ghost" size="sm"
+                      onClick={loadGroups} disabled={loadingGroups || !isReportConnected}
+                      className="h-6 gap-1 text-[11px]"
+                    >
+                      {loadingGroups ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Atualizar
+                    </Button>
+                  </div>
                   <Select
-                    value={config.whatsapp_device_id || ""}
-                    onValueChange={(v) => setConfig({ ...config, whatsapp_device_id: v })}
+                    value={config.whatsapp_target_jid || ""}
+                    onValueChange={(v) => {
+                      const g = groups.find((x) => x.id === v);
+                      setConfig({ ...config, whatsapp_target_jid: v, whatsapp_target_label: g?.name || v });
+                    }}
+                    disabled={!isReportConnected}
                   >
-                    <SelectTrigger><SelectValue placeholder="Selecione uma instância" /></SelectTrigger>
-                    <SelectContent>
-                      {devices.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name} {d.status === "ready" ? "✓" : "⚠"}</SelectItem>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!isReportConnected ? "Conecte a instância primeiro" : loadingGroups ? "Carregando grupos..." : groups.length === 0 ? "Nenhum grupo (clique em Atualizar)" : "Selecione um grupo"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3 h-3 opacity-60" />
+                            <span>{g.name || g.id}</span>
+                            {g.participants ? <span className="text-[10px] opacity-60">({g.participants})</span> : null}
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {config.whatsapp_target_label && (
+                    <p className="text-[11px] text-emerald-400">Selecionado: {config.whatsapp_target_label}</p>
+                  )}
                 </div>
-
-                {/* Destination type tabs */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Para onde enviar</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTargetMode("phone")}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
-                        targetMode === "phone"
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border/40 text-muted-foreground hover:border-primary/40"
-                      }`}
-                    >
-                      <Phone className="w-3.5 h-3.5" /> Número individual
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTargetMode("group")}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition ${
-                        targetMode === "group"
-                          ? "border-primary bg-primary/10 text-foreground"
-                          : "border-border/40 text-muted-foreground hover:border-primary/40"
-                      }`}
-                    >
-                      <Users className="w-3.5 h-3.5" /> Grupo do WhatsApp
-                    </button>
-                  </div>
-                </div>
-
-                {targetMode === "phone" ? (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Número de destino (com DDD)</Label>
-                    <Input
-                      value={config.whatsapp_target_phone || ""}
-                      onChange={(e) => setConfig({ ...config, whatsapp_target_phone: e.target.value.replace(/\D/g, "") })}
-                      placeholder="ex: 11999999999"
-                      maxLength={13}
-                    />
-                    <p className="text-[11px] text-muted-foreground/70">
-                      Sem o +55. Apenas DDD + número.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Grupo de destino</Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={loadGroups}
-                        disabled={loadingGroups}
-                        className="h-6 gap-1 text-[11px]"
-                      >
-                        {loadingGroups ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Atualizar
-                      </Button>
-                    </div>
-                    <Select
-                      value={config.whatsapp_target_jid || ""}
-                      onValueChange={(v) => {
-                        const g = groups.find((x) => x.id === v);
-                        setConfig({ ...config, whatsapp_target_jid: v, whatsapp_target_label: g?.name || v });
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={loadingGroups ? "Carregando grupos..." : groups.length === 0 ? "Nenhum grupo (clique em Atualizar)" : "Selecione um grupo"} />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {groups.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>
-                            <div className="flex items-center gap-2">
-                              <Users className="w-3 h-3 opacity-60" />
-                              <span>{g.name || g.id}</span>
-                              {g.participants ? <span className="text-[10px] opacity-60">({g.participants})</span> : null}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {config.whatsapp_target_label && (
-                      <p className="text-[11px] text-emerald-400">Selecionado: {config.whatsapp_target_label}</p>
-                    )}
-                    <p className="text-[11px] text-muted-foreground/70">
-                      A IA enviará no grupo: nome do cliente, número e o motivo do alerta.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </Card>
@@ -364,6 +455,28 @@ export default function AISmartAlerts() {
           <Button onClick={saveConfig} className="w-full sm:w-auto">Salvar configurações</Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ToggleRow({ icon, title, desc, checked, onChange, trailing }: {
+  icon: React.ReactNode; title: string; desc: string;
+  checked: boolean; onChange: (v: boolean) => void;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/40">
+      <div className="flex items-center gap-3 min-w-0">
+        {icon}
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-xs text-muted-foreground truncate">{desc}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        {trailing}
+        <Switch checked={!!checked} onCheckedChange={onChange} />
+      </div>
     </div>
   );
 }
@@ -407,14 +520,14 @@ function AlertCard({ alert, onRead, onResolve, onDismiss }: {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Phone className="w-3 h-3" />
               {alert.contact_name || alert.contact_phone}
-              {alert.contact_name && <span className="opacity-60">· {alert.contact_phone}</span>}
+              {alert.contact_name && alert.contact_phone && <span className="opacity-60">· {alert.contact_phone}</span>}
             </div>
           ) : null}
           {alert.context_message && (
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Última mensagem</summary>
-              <div className="mt-1.5 p-2 bg-muted/30 rounded border border-border/30 italic text-muted-foreground">
-                "{alert.context_message}"
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Detalhes</summary>
+              <div className="mt-1.5 p-2 bg-muted/30 rounded border border-border/30 italic text-muted-foreground whitespace-pre-wrap">
+                {alert.context_message}
               </div>
             </details>
           )}
