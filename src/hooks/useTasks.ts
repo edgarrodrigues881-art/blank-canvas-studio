@@ -308,17 +308,93 @@ export function useTasks() {
       .insert({ user_id: user.id, ...input } as any)
       .select().single();
     if (error) { toast.error("Erro ao criar tarefa: " + error.message); return null; }
+    await logHistory({
+      task_id: (data as any).id,
+      project_id: (data as any).project_id,
+      event_type: "task_created",
+      description: `Tarefa criada: "${(data as any).title}"`,
+      task_title: (data as any).title,
+    });
     return data;
   };
 
   const updateTask = async (id: string, patch: Partial<Task>) => {
-    const { error } = await supabase.from("tasks" as any).update(patch as any).eq("id", id);
-    if (error) toast.error("Erro ao atualizar tarefa");
+    const previous = tasks.find((x) => x.id === id) || null;
+    const { data, error } = await supabase
+      .from("tasks" as any).update(patch as any).eq("id", id).select().single();
+    if (error) { toast.error("Erro ao atualizar tarefa"); return; }
+    const updated = data as unknown as Task;
+
+    // Log status change
+    if (previous && patch.status && previous.status !== patch.status) {
+      await logHistory({
+        task_id: id,
+        project_id: updated.project_id,
+        event_type: "status_changed",
+        description: `Status: "${previous.status}" → "${patch.status}"`,
+        task_title: updated.title,
+        from_value: { status: previous.status },
+        to_value: { status: patch.status },
+      });
+      if (patch.status === "done") {
+        await runAutomations("task_completed", updated, { previousTask: previous });
+      }
+    }
+    // Log column change
+    if (previous && patch.column_id !== undefined && previous.column_id !== patch.column_id) {
+      const fromCol = columns.find((c) => c.id === previous.column_id);
+      const toCol = columns.find((c) => c.id === patch.column_id);
+      await logHistory({
+        task_id: id,
+        project_id: updated.project_id,
+        event_type: "column_changed",
+        description: `Movida de "${fromCol?.name || "—"}" para "${toCol?.name || "—"}"`,
+        task_title: updated.title,
+        from_value: { column_id: previous.column_id },
+        to_value: { column_id: patch.column_id },
+      });
+      await runAutomations("column_changed", updated, { previousTask: previous });
+    }
+    // Log priority change
+    if (previous && patch.priority && previous.priority !== patch.priority) {
+      await logHistory({
+        task_id: id,
+        project_id: updated.project_id,
+        event_type: "priority_changed",
+        description: `Prioridade: "${previous.priority}" → "${patch.priority}"`,
+        task_title: updated.title,
+      });
+    }
+    // Log label additions
+    if (previous && patch.labels) {
+      const added = (patch.labels || []).filter((l) => !(previous.labels || []).includes(l));
+      if (added.length > 0) {
+        await logHistory({
+          task_id: id,
+          project_id: updated.project_id,
+          event_type: "label_added",
+          description: `Etiqueta(s) adicionada(s): ${added.join(", ")}`,
+          task_title: updated.title,
+          to_value: { labels: added },
+        });
+        await runAutomations("label_added", updated, { previousTask: previous, addedLabels: added });
+      }
+    }
   };
 
   const deleteTask = async (id: string) => {
+    const previous = tasks.find((x) => x.id === id) || null;
     const { error } = await supabase.from("tasks" as any).delete().eq("id", id);
     if (error) { toast.error("Erro ao excluir tarefa"); return false; }
+    if (previous) {
+      await logHistory({
+        task_id: null,
+        project_id: previous.project_id,
+        event_type: "task_deleted",
+        description: `Tarefa excluída: "${previous.title}"`,
+        task_title: previous.title,
+      });
+    }
     return true;
   };
 
@@ -333,12 +409,12 @@ export function useTasks() {
   const moveTaskToColumn = async (taskId: string, columnId: string, newPosition: number) => {
     const col = columns.find((c) => c.id === columnId);
     const newStatus: TaskStatus = col?.is_done_column ? "done" : "todo";
-    await supabase.from("tasks" as any).update({
+    await updateTask(taskId, {
       column_id: columnId,
       position: newPosition,
       status: newStatus,
       completed_at: col?.is_done_column ? new Date().toISOString() : null,
-    } as any).eq("id", taskId);
+    });
   };
 
   // TEMPLATE
