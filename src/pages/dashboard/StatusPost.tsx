@@ -405,8 +405,9 @@ function ScheduleDialog({
   const [file, setFile] = useState<File | null>(null);
   const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [times, setTimes] = useState<string[]>(["09:00"]);
-  const [newTime, setNewTime] = useState("12:00");
+  const [time, setTime] = useState<string>("12:00");
+  const [scheduleMode, setScheduleMode] = useState<"recurring" | "oneshot">("recurring");
+  const [runDate, setRunDate] = useState<string>(""); // YYYY-MM-DD
   const [deviceMode, setDeviceMode] = useState<"all_online" | "fixed">("all_online");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -422,13 +423,18 @@ function ScheduleDialog({
       setExistingMediaUrl(editing.media_url);
       setFile(null);
       setWeekdays(editing.weekdays || []);
-      setTimes(editing.times || []);
+      setTime(editing.times?.[0] || "12:00");
+      setScheduleMode(editing.schedule_mode || "recurring");
+      setRunDate(editing.run_date || "");
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
     } else {
       setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
-      setWeekdays([1, 2, 3, 4, 5]); setTimes(["09:00"]);
+      setWeekdays([1, 2, 3, 4, 5]);
+      setTime("12:00");
+      setScheduleMode("recurring");
+      setRunDate("");
       setDeviceMode("all_online"); setSelectedDevices([]);
     }
   }, [editing, open]);
@@ -437,21 +443,14 @@ function ScheduleDialog({
     setWeekdays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
   };
 
-  const addTime = () => {
-    if (!/^\d{2}:\d{2}$/.test(newTime)) return toast.error("Horário inválido");
-    if (times.includes(newTime)) return;
-    setTimes([...times, newTime].sort());
-  };
-
-  const removeTime = (t: string) => setTimes(times.filter((x) => x !== t));
-
   const handleSave = async () => {
     if (!user) return;
     if (!name.trim()) return toast.error("Dê um nome ao agendamento");
     if (type === "text" && !text.trim()) return toast.error("Digite o texto");
     if (type !== "text" && !file && !existingMediaUrl) return toast.error("Selecione um arquivo");
-    if (weekdays.length === 0) return toast.error("Escolha ao menos um dia");
-    if (times.length === 0) return toast.error("Adicione ao menos um horário");
+    if (!/^\d{2}:\d{2}$/.test(time)) return toast.error("Horário inválido");
+    if (scheduleMode === "recurring" && weekdays.length === 0) return toast.error("Escolha ao menos um dia da semana");
+    if (scheduleMode === "oneshot" && !runDate) return toast.error("Escolha a data do disparo");
     if (deviceMode === "fixed" && selectedDevices.length === 0) return toast.error("Selecione as instâncias");
 
     setSaving(true);
@@ -468,8 +467,12 @@ function ScheduleDialog({
         caption: (type === "image" || type === "video") ? caption.trim() : null,
         background_color: type === "text" ? bgColor : null,
         font: type === "text" ? font : null,
-        weekdays,
-        times,
+        // 1 horário só por agendamento
+        times: [time],
+        // Modo: recorrente (dias da semana) OU única (data específica)
+        schedule_mode: scheduleMode,
+        weekdays: scheduleMode === "recurring" ? weekdays : [],
+        run_date: scheduleMode === "oneshot" ? runDate : null,
         device_mode: deviceMode,
         device_ids: deviceMode === "fixed" ? selectedDevices : [],
       };
