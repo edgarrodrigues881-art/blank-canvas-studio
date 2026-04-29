@@ -906,6 +906,14 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
   const mentionFields = buildMentionFields(mentionParticipants);
   const attempts: SendAttempt[] = [];
 
+  // CRITICAL: WhatsApp only NOTIFIES/HIGHLIGHTS mentioned users when the message body contains
+  // the literal token "@<number>" for each mentioned JID AND the payload includes the JID list.
+  // Without the @<number> tokens the recipients see a normal message and receive no notification.
+  const mentionTokens = mentionFields.numbers.map((num) => `@${num}`).join(" ");
+  const textWithMentions = mentionTokens
+    ? `${cleanText}\n\n${mentionTokens}`
+    : cleanText;
+
   const pushAttempt = (label: string, body: Record<string, unknown>) => {
     attempts.push({
       endpoint: `${baseUrl}/send/text`,
@@ -914,60 +922,48 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
     });
   };
 
-  pushAttempt("mentions_all", {
-    number: groupJid,
-    text: cleanText,
-    mentions: "all",
-  });
-
-  if (mentionFields.mentionUsers) {
-    pushAttempt("mentions_explicit_numbers", {
+  // PRIMARY: UAZAPI's documented "choose" — text contains @<number> tokens + mentioned[] with JIDs.
+  // This is the ONLY combination that triggers the native WhatsApp mention notification.
+  if (mentionFields.jids.length > 0) {
+    pushAttempt("mentioned_with_tokens", {
       number: groupJid,
-      text: cleanText,
+      text: textWithMentions,
+      mentioned: mentionFields.jids,
+    });
+
+    pushAttempt("mentioned_jid_with_tokens", {
+      number: groupJid,
+      text: textWithMentions,
+      mentionedJid: mentionFields.jids,
+      mentionedJidList: mentionFields.jids,
+    });
+
+    pushAttempt("mentioned_with_tokens_context", {
+      number: groupJid,
+      text: textWithMentions,
+      mentioned: mentionFields.jids,
+      contextInfo: {
+        mentionedJid: mentionFields.jids,
+        mentionedJidList: mentionFields.jids,
+      },
+    });
+  }
+
+  // Secondary: numeric "mentions" csv with tokens in the body (some UAZAPI builds expect this).
+  if (mentionFields.mentionUsers) {
+    pushAttempt("mentions_csv_with_tokens", {
+      number: groupJid,
+      text: textWithMentions,
       mentions: mentionFields.mentionUsers,
     });
   }
 
-  if (mentionFields.mentionUsers) {
-    pushAttempt("mention_users_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionUsers: mentionFields.mentionUsers,
-    });
-  }
-
-  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
-    pushAttempt("mentions_all_with_context", {
-      number: groupJid,
-      text: cleanText,
-      mentions: "all",
-      contextInfo: {
-        mentionedJid: mentionFields.jids,
-        mentionedJidList: mentionFields.jids,
-      },
-    });
-  }
-
-  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
-    pushAttempt("mention_users_context_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionUsers: mentionFields.mentionUsers,
-      contextInfo: {
-        mentionedJid: mentionFields.jids,
-        mentionedJidList: mentionFields.jids,
-      },
-    });
-  }
-
-  if (mentionFields.jids.length > 0) {
-    pushAttempt("mentioned_jid_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionedJid: mentionFields.jids,
-      mentionedJidList: mentionFields.jids,
-    });
-  }
+  // Last-resort fallbacks (no token rendering — but at least try the legacy "all" flag).
+  pushAttempt("mentions_all_flag", {
+    number: groupJid,
+    text: textWithMentions || cleanText,
+    mentions: "all",
+  });
 
   if (attempts.length === 0) {
     pushAttempt("plain_text_fallback", {
