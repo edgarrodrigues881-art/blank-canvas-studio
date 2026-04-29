@@ -547,243 +547,339 @@ function ScheduleDialog({
           <DialogTitle>{editing ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
-            <div>
-              <Label>Nome do agendamento</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" />
-            </div>
-            <div>
-              <Label>Pasta</Label>
-              <select
-                value={folderId || ""}
-                onChange={(e) => setFolderId(e.target.value || null)}
-                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Sem pasta</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {/* Stepper */}
+        <div className="flex items-center gap-1 sm:gap-2 px-1 py-2 mb-2 overflow-x-auto">
+          {STEPS.map((s, i) => {
+            const Icon = s.icon;
+            const active = step === s.n;
+            const done = step > s.n;
+            const clickable = done || s.n === step;
+            return (
+              <div key={s.n} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  disabled={!clickable && s.n > step}
+                  onClick={() => {
+                    if (s.n < step) setStep(s.n as 1 | 2 | 3 | 4);
+                    else if (s.n > step) {
+                      // try to advance step-by-step validating
+                      for (let cur = step; cur < s.n; cur++) {
+                        const err = validateStep(cur);
+                        if (err) return toast.error(err);
+                      }
+                      setStep(s.n as 1 | 2 | 3 | 4);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition ${
+                    active
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : done
+                        ? "bg-primary/15 text-primary border-primary/30 hover:bg-primary/20"
+                        : "bg-muted/40 text-muted-foreground border-border"
+                  }`}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    active ? "bg-primary-foreground/20" : done ? "bg-primary/20" : "bg-muted"
+                  }`}>
+                    {done ? <CheckCircle2 className="w-3 h-3" /> : s.n}
+                  </span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                  <Icon className="w-3.5 h-3.5 sm:hidden" />
+                </button>
+                {i < STEPS.length - 1 && <div className={`w-3 sm:w-6 h-px ${done ? "bg-primary/40" : "bg-border"}`} />}
+              </div>
+            );
+          })}
+        </div>
 
-          <div>
-            <Label>Conteúdo</Label>
-            <Tabs value={type} onValueChange={(v) => setType(v as any)} className="mt-2">
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="text"><Type className="w-4 h-4 mr-1.5" />Texto</TabsTrigger>
-                <TabsTrigger value="image"><ImageIcon className="w-4 h-4 mr-1.5" />Imagem</TabsTrigger>
-                <TabsTrigger value="video"><Video className="w-4 h-4 mr-1.5" />Vídeo</TabsTrigger>
-                <TabsTrigger value="audio"><Mic className="w-4 h-4 mr-1.5" />Áudio</TabsTrigger>
-              </TabsList>
+        <div className="space-y-5 py-2 min-h-[400px]">
+          {/* STEP 1 — Identificação */}
+          {step === 1 && (
+            <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Como você quer chamar este agendamento?</h3>
+                <p className="text-xs text-muted-foreground">Dê um nome fácil de reconhecer e (opcionalmente) coloque numa pasta.</p>
+              </div>
+              <div>
+                <Label>Nome do agendamento</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" autoFocus />
+              </div>
+              <div>
+                <Label>Pasta (opcional)</Label>
+                <select
+                  value={folderId || ""}
+                  onChange={(e) => setFolderId(e.target.value || null)}
+                  className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Sem pasta</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1.5">As pastas servem só para organizar visualmente seus agendamentos.</p>
+              </div>
+            </div>
+          )}
 
-              <TabsContent value="text" className="space-y-3 mt-3">
-                <WhatsAppTextEditor
-                  value={text}
-                  onChange={setText}
-                  rows={4}
-                  maxLength={700}
-                  placeholder="Texto do status — *negrito*, _itálico_, ~riscado~, ```mono```"
-                />
-                <div>
-                  <Label className="text-xs">Cor de fundo</Label>
-                  <div className="flex gap-2 flex-wrap mt-1.5">
-                    {STATUS_COLORS.map((c) => (
-                      <button key={c} type="button" onClick={() => setBgColor(c)}
-                        className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
-                        style={{ backgroundColor: c }} />
-                    ))}
+          {/* STEP 2 — Conteúdo */}
+          {step === 2 && (
+            <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">O que vai ser publicado?</h3>
+                <p className="text-xs text-muted-foreground">Escolha o tipo e prepare o conteúdo do status.</p>
+              </div>
+              <Tabs value={type} onValueChange={(v) => setType(v as any)}>
+                <TabsList className="grid grid-cols-4 w-full">
+                  <TabsTrigger value="text"><Type className="w-4 h-4 mr-1.5" />Texto</TabsTrigger>
+                  <TabsTrigger value="image"><ImageIcon className="w-4 h-4 mr-1.5" />Imagem</TabsTrigger>
+                  <TabsTrigger value="video"><Video className="w-4 h-4 mr-1.5" />Vídeo</TabsTrigger>
+                  <TabsTrigger value="audio"><Mic className="w-4 h-4 mr-1.5" />Áudio</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="text" className="space-y-3 mt-3">
+                  <WhatsAppTextEditor
+                    value={text}
+                    onChange={setText}
+                    rows={4}
+                    maxLength={700}
+                    placeholder="Texto do status — *negrito*, _itálico_, ~riscado~, ```mono```"
+                  />
+                  <div>
+                    <Label className="text-xs">Cor de fundo</Label>
+                    <div className="flex gap-2 flex-wrap mt-1.5">
+                      {STATUS_COLORS.map((c) => (
+                        <button key={c} type="button" onClick={() => setBgColor(c)}
+                          className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
+                          style={{ backgroundColor: c }} />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                  <div>
+                    <Label className="text-xs">Fonte</Label>
+                    <div className="flex gap-2 flex-wrap mt-1.5">
+                      {STATUS_FONTS.map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setFont(f.id)}
+                          className={`px-2.5 py-1 rounded-md border text-xs ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
+                          style={{ fontFamily: f.cssFamily }}
+                          title={f.label}
+                        >
+                          Aa
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-lg p-4 min-h-[100px] flex items-center justify-center text-center text-white text-base font-semibold whitespace-pre-wrap break-words"
+                    style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
+                    dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
+                  />
+                </TabsContent>
+
+                <TabsContent value="image" className="space-y-3 mt-3">
+                  {file && file.type.startsWith("image/") ? (
+                    <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                      <img src={URL.createObjectURL(file)} alt="" className="max-h-[280px] w-auto object-contain" />
+                    </div>
+                  ) : existingMediaUrl && (
+                    <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                      <img src={existingMediaUrl} alt="" className="max-h-[280px] w-auto object-contain" />
+                    </div>
+                  )}
+                  <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                  <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
+                </TabsContent>
+
+                <TabsContent value="video" className="space-y-3 mt-3">
+                  {file && file.type.startsWith("video/") ? (
+                    <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                      <video src={URL.createObjectURL(file)} controls className="max-h-[280px] w-auto" />
+                    </div>
+                  ) : existingMediaUrl && (
+                    <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                      <video src={existingMediaUrl} controls className="max-h-[280px] w-auto" />
+                    </div>
+                  )}
+                  <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                  <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
+                </TabsContent>
+
+                <TabsContent value="audio" className="space-y-3 mt-3">
+                  {file && file.type.startsWith("audio/") ? (
+                    <audio src={URL.createObjectURL(file)} controls className="w-full" />
+                  ) : existingMediaUrl && (
+                    <audio src={existingMediaUrl} controls className="w-full" />
+                  )}
+                  <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* STEP 3 — Quando publicar */}
+          {step === 3 && (
+            <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Quando publicar?</h3>
+                <p className="text-xs text-muted-foreground">Defina se é recorrente ou único, os dias e o horário (BRT).</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setScheduleMode("recurring")}
+                  className={`text-left p-3 border rounded-md transition ${scheduleMode === "recurring" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                  <p className="text-sm font-medium flex items-center gap-2"><Calendar className="w-4 h-4" />Recorrente</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Repete nos dias da semana escolhidos</p>
+                </button>
+                <button type="button" onClick={() => setScheduleMode("oneshot")}
+                  className={`text-left p-3 border rounded-md transition ${scheduleMode === "oneshot" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                  <p className="text-sm font-medium flex items-center gap-2"><Clock className="w-4 h-4" />Data única</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Dispara 1 vez no dia escolhido</p>
+                </button>
+              </div>
+
+              {scheduleMode === "recurring" && (
                 <div>
-                  <Label className="text-xs">Fonte</Label>
-                  <div className="flex gap-2 flex-wrap mt-1.5">
-                    {STATUS_FONTS.map((f) => (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => setFont(f.id)}
-                        className={`px-2.5 py-1 rounded-md border text-xs ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
-                        style={{ fontFamily: f.cssFamily }}
-                        title={f.label}
-                      >
-                        Aa
+                  <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Dias da semana</Label>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {WEEKDAY_LABELS.map((label, i) => (
+                      <button key={i} type="button" onClick={() => toggleWeekday(i)}
+                        className={`px-3 py-1.5 rounded-md text-sm border transition ${weekdays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
+                        {label}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div
-                  className="rounded-lg p-4 min-h-[100px] flex items-center justify-center text-center text-white text-base font-semibold whitespace-pre-wrap break-words"
-                  style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
-                  dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
-                />
-              </TabsContent>
-
-              <TabsContent value="image" className="space-y-3 mt-3">
-                {file && file.type.startsWith("image/") ? (
-                  <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
-                    <img src={URL.createObjectURL(file)} alt="" className="max-h-[280px] w-auto object-contain" />
-                  </div>
-                ) : existingMediaUrl && (
-                  <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
-                    <img src={existingMediaUrl} alt="" className="max-h-[280px] w-auto object-contain" />
-                  </div>
-                )}
-                <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
-              </TabsContent>
-
-              <TabsContent value="video" className="space-y-3 mt-3">
-                {file && file.type.startsWith("video/") ? (
-                  <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
-                    <video src={URL.createObjectURL(file)} controls className="max-h-[280px] w-auto" />
-                  </div>
-                ) : existingMediaUrl && (
-                  <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
-                    <video src={existingMediaUrl} controls className="max-h-[280px] w-auto" />
-                  </div>
-                )}
-                <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
-              </TabsContent>
-
-              <TabsContent value="audio" className="space-y-3 mt-3">
-                {file && file.type.startsWith("audio/") ? (
-                  <audio src={URL.createObjectURL(file)} controls className="w-full" />
-                ) : existingMediaUrl && (
-                  <audio src={existingMediaUrl} controls className="w-full" />
-                )}
-                <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Modo do agendamento */}
-          <div>
-            <Label>Quando publicar</Label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setScheduleMode("recurring")}
-                className={`text-left p-3 border rounded-md transition ${scheduleMode === "recurring" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                <p className="text-sm font-medium flex items-center gap-2"><Calendar className="w-4 h-4" />Recorrente</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Repete nos dias da semana escolhidos</p>
-              </button>
-              <button type="button" onClick={() => setScheduleMode("oneshot")}
-                className={`text-left p-3 border rounded-md transition ${scheduleMode === "oneshot" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                <p className="text-sm font-medium flex items-center gap-2"><Clock className="w-4 h-4" />Data única</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Dispara 1 vez no dia escolhido</p>
-              </button>
-            </div>
-          </div>
-
-          {/* Recorrente: dias da semana */}
-          {scheduleMode === "recurring" && (
-            <div>
-              <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Dias da semana</Label>
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {WEEKDAY_LABELS.map((label, i) => (
-                  <button key={i} type="button" onClick={() => toggleWeekday(i)}
-                    className={`px-3 py-1.5 rounded-md text-sm border transition ${weekdays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Oneshot: data específica */}
-          {scheduleMode === "oneshot" && (
-            <div>
-              <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Data do disparo</Label>
-              <Input
-                type="date"
-                value={runDate}
-                onChange={(e) => setRunDate(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-                className="mt-2 w-48"
-              />
-              {runDate && (
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  Será publicado no dia {runDate.split("-").reverse().join("/")} às {time} (BRT) e desativado depois.
-                </p>
               )}
+
+              {scheduleMode === "oneshot" && (
+                <div>
+                  <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Data do disparo</Label>
+                  <Input
+                    type="date"
+                    value={runDate}
+                    onChange={(e) => setRunDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
+                    className="mt-2 w-48"
+                  />
+                  {runDate && (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Será publicado no dia {runDate.split("-").reverse().join("/")} às {time} (BRT) e desativado depois.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horário (BRT)</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Cada agendamento publica em <strong>1 horário</strong>. Para outros horários, crie outros agendamentos.
+                </p>
+                <div className="flex gap-2 flex-wrap mt-3">
+                  {["08:00", "10:00", "12:00", "15:00", "17:00", "19:00", "21:00"].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setTime(preset)}
+                      className={`px-3 py-1.5 text-sm rounded-md border transition ${
+                        time === preset
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border hover:bg-accent"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Outro horário:</span>
+                  <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9" />
+                </div>
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/30">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Vai publicar às <span className="text-primary">{time}</span></span>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Horário único */}
-          <div>
-            <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horário (BRT)</Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Cada agendamento publica em <strong>1 horário</strong>. Para outros horários, crie outros agendamentos.
-            </p>
-
-            {/* Atalhos rápidos */}
-            <div className="flex gap-2 flex-wrap mt-3">
-              {["08:00", "10:00", "12:00", "15:00", "17:00", "19:00", "21:00"].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setTime(preset)}
-                  className={`px-3 py-1.5 text-sm rounded-md border transition ${
-                    time === preset
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:bg-accent"
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-
-            {/* Horário exato */}
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Outro horário:</span>
-              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9" />
-            </div>
-
-            <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/30">
-              <Clock className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Vai publicar às <span className="text-primary">{time}</span></span>
-            </div>
-          </div>
-
-
-          <div>
-            <Label>Instâncias</Label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setDeviceMode("all_online")}
-                className={`text-left p-3 border rounded-md transition ${deviceMode === "all_online" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                <p className="text-sm font-medium">Todas as conectadas</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Usa instâncias online no momento da execução</p>
-              </button>
-              <button type="button" onClick={() => setDeviceMode("fixed")}
-                className={`text-left p-3 border rounded-md transition ${deviceMode === "fixed" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                <p className="text-sm font-medium">Instâncias específicas</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Apenas as selecionadas abaixo</p>
-              </button>
-            </div>
-
-            {deviceMode === "fixed" && (
-              <div className="mt-3 max-h-48 overflow-auto border rounded-md p-2 space-y-1">
-                {devices.map((d) => (
-                  <label key={d.id} className="flex items-center gap-2 p-1.5 hover:bg-accent rounded cursor-pointer">
-                    <Checkbox checked={selectedDevices.includes(d.id)}
-                      onCheckedChange={(c) => setSelectedDevices((prev) => c ? [...prev, d.id] : prev.filter((x) => x !== d.id))} />
-                    <span className="text-sm flex-1">{d.name}</span>
-                    <span className="text-xs text-muted-foreground">{d.number || "—"}</span>
-                  </label>
-                ))}
+          {/* STEP 4 — Instâncias */}
+          {step === 4 && (
+            <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
+              <div>
+                <h3 className="text-sm font-semibold mb-1">De onde vai publicar?</h3>
+                <p className="text-xs text-muted-foreground">Escolha quais instâncias do WhatsApp vão postar este status.</p>
               </div>
-            )}
-          </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setDeviceMode("all_online")}
+                  className={`text-left p-3 border rounded-md transition ${deviceMode === "all_online" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                  <p className="text-sm font-medium">Todas as conectadas</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Usa instâncias online no momento da execução</p>
+                </button>
+                <button type="button" onClick={() => setDeviceMode("fixed")}
+                  className={`text-left p-3 border rounded-md transition ${deviceMode === "fixed" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                  <p className="text-sm font-medium">Instâncias específicas</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Apenas as selecionadas abaixo</p>
+                </button>
+              </div>
+
+              {deviceMode === "fixed" && (
+                <div className="max-h-64 overflow-auto border rounded-md p-2 space-y-1">
+                  {devices.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">Nenhuma instância disponível.</p>
+                  ) : devices.map((d) => (
+                    <label key={d.id} className="flex items-center gap-2 p-1.5 hover:bg-accent rounded cursor-pointer">
+                      <Checkbox checked={selectedDevices.includes(d.id)}
+                        onCheckedChange={(c) => setSelectedDevices((prev) => c ? [...prev, d.id] : prev.filter((x) => x !== d.id))} />
+                      <span className="text-sm flex-1">{d.name}</span>
+                      <span className="text-xs text-muted-foreground">{d.number || "—"}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {/* Resumo final */}
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1.5 text-xs">
+                <p className="font-semibold text-sm mb-1.5">Resumo</p>
+                <p><span className="text-muted-foreground">Nome:</span> <strong>{name || "—"}</strong></p>
+                <p><span className="text-muted-foreground">Pasta:</span> {folders.find((f) => f.id === folderId)?.name || "Sem pasta"}</p>
+                <p><span className="text-muted-foreground">Tipo:</span> <span className="capitalize">{type}</span></p>
+                <p>
+                  <span className="text-muted-foreground">Quando:</span>{" "}
+                  {scheduleMode === "recurring"
+                    ? `${weekdays.map((w) => WEEKDAY_LABELS[w]).join(", ")} às ${time}`
+                    : `${runDate ? runDate.split("-").reverse().join("/") : "—"} às ${time}`}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Instâncias:</span>{" "}
+                  {deviceMode === "all_online" ? "Todas conectadas" : `${selectedDevices.length} fixas`}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {editing ? "Salvar" : "Criar"}
-          </Button>
+        <DialogFooter className="flex sm:justify-between gap-2">
+          <div>
+            {step > 1 && (
+              <Button variant="outline" onClick={goBack} disabled={saving}>
+                <ChevronLeft className="w-4 h-4 mr-1" />Voltar
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+            {step < 4 ? (
+              <Button onClick={goNext}>
+                Próximo<ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {editing ? "Salvar" : "Criar agendamento"}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
