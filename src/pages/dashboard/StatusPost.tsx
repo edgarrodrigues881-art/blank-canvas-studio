@@ -1006,18 +1006,30 @@ function FolderDialog({
 
 // ===== SCHEDULE ROW (used inside and outside folders) =====
 function ScheduleRow({
-  s, onToggle, onPreview, onEdit, onDelete,
+  s, onToggle, onPreview, onEdit, onDelete, locked,
 }: {
   s: Schedule;
   onToggle: () => void;
   onPreview: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  locked?: boolean;
 }) {
   return (
     <Card className={s.enabled ? "" : "opacity-60"}>
       <CardContent className="p-4 flex items-center gap-4">
-        <Switch checked={s.enabled} onCheckedChange={onToggle} />
+        <Switch
+          checked={s.enabled}
+          disabled={locked}
+          onCheckedChange={() => {
+            if (locked) {
+              toast.info("Despause a pasta primeiro para alterar este agendamento");
+              return;
+            }
+            onToggle();
+          }}
+          title={locked ? "Pasta pausada — despause a pasta primeiro" : undefined}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium">{s.name}</p>
