@@ -481,6 +481,7 @@ function ScheduleDialog({
         run_date: scheduleMode === "oneshot" ? runDate : null,
         device_mode: deviceMode,
         device_ids: deviceMode === "fixed" ? selectedDevices : [],
+        folder_id: folderId,
       };
 
       if (editing) {
