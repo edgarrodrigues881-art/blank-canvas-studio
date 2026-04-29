@@ -1534,9 +1534,10 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "Adicione pelo menos um botão válido." }, 400);
       }
 
-      // Image + text + buttons in a single message via /send/menu (imageButton field)
-      const buttonImageUrl = trimmedMediaUrl && detectMediaTypeFromUrl(trimmedMediaUrl) === "image" ? trimmedMediaUrl : undefined;
-      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons, buttonImageUrl);
+      // IMPORTANT: Do NOT embed image via imageButton in /send/menu — modern WhatsApp clients render
+      // that native template as "Você recebeu uma mensagem, mas sua versão do WhatsApp não é compatível".
+      // Always send image as a separate step (caption + image), then send the text+buttons message.
+      const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
       if (mentionAll) {
         const blindFields = buildBlindMentionFields();
