@@ -100,6 +100,8 @@ export function useCreateAutosaveSchedule() {
       time_of_day: string;
       min_delay_seconds: number;
       max_delay_seconds: number;
+      between_contacts_min_seconds: number;
+      between_contacts_max_seconds: number;
       pause_every_min: number;
       pause_every_max: number;
       pause_duration_min: number;
