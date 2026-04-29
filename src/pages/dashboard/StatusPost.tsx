@@ -788,10 +788,14 @@ function SchedulePreviewDialog({ schedule, onClose }: { schedule: Schedule | nul
                 <img src={slide.mediaUrl} alt="" loading="lazy" className="w-full h-auto max-h-[420px] object-contain" />
               </div>
             ) : slide.type === "video" && slide.mediaUrl ? (
-              <div className="aspect-video bg-muted/40 flex flex-col items-center justify-center text-muted-foreground gap-2">
-                <Video className="w-12 h-12 opacity-60" />
-                <p className="text-xs">Vídeo (preview desativado)</p>
-                <p className="text-[10px] opacity-60 truncate max-w-[80%]">{slide.mediaUrl.split("/").pop()}</p>
+              <div className="w-full bg-muted/40 flex items-center justify-center">
+                <video
+                  src={`${slide.mediaUrl}#t=0.1`}
+                  preload="metadata"
+                  muted
+                  playsInline
+                  className="w-full h-auto max-h-[420px] object-contain"
+                />
               </div>
             ) : slide.type === "audio" && slide.mediaUrl ? (
               <div className="py-10 bg-muted/40 flex flex-col items-center justify-center text-muted-foreground gap-2">
