@@ -72,36 +72,50 @@ function normalizePhoneJid(jid: string): string | null {
   return number ? numberToJid(number) : null;
 }
 
-function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
+function collectLidPhoneMappings(value: any, map: LidPhoneMap, targetLids?: Set<string>) {
   if (!value) return;
   if (Array.isArray(value)) {
-    value.forEach((item) => collectLidPhoneMappings(item, map));
+    value.forEach((item) => collectLidPhoneMappings(item, map, targetLids));
     return;
   }
   if (typeof value !== "object") return;
 
   const lids = new Set<string>();
   const phones = new Set<string>();
-  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "user", "participant"]);
+  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "phone_number", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "contactjid", "user", "participant"]);
+  const lidKeys = new Set(["wa_chatlid", "chatlid", "lid", "lidjid", "remotelid", "participantlid"]);
 
   for (const [key, raw] of Object.entries(value)) {
     if (typeof raw !== "string") continue;
     const k = key.toLowerCase();
+    const compactKey = k.replace(/[^a-z0-9]/g, "");
     const digits = onlyDigits(raw);
-    if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
+
+    if (raw.includes(LID_SUFFIX) || lidKeys.has(k) || compactKey.includes("chatlid") || compactKey.includes("lidjid") || compactKey.includes("remotelid")) {
+      if (digits.length >= 8) lids.add(digits);
+    }
+
+    // Em muitos retornos da UAZAPI, o LID vem em `wa_fastid` sem o sufixo @lid.
+    // Só tratamos como LID quando ele bate com a lista atual ou quando tem tamanho típico de LID.
+    if ((k === "wa_fastid" || compactKey === "wafastid") && digits.length >= 8 && (targetLids?.has(digits) || digits.length >= 14)) {
+      lids.add(digits);
+    }
+
     const compactKey = k.replace(/[^a-z0-9]/g, "");
     if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || compactKey.includes("phone") || compactKey.includes("number") || compactKey.includes("chatid") || compactKey.includes("waid"))) {
-      if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
+      const phoneDigits = isPhoneJid(raw) ? jidToNumber(raw) : digits;
+      if (phoneDigits && phoneDigits.length >= 8 && phoneDigits.length <= 15) phones.add(phoneDigits);
     }
   }
 
   for (const lid of lids) {
+    if (targetLids && targetLids.size > 0 && !targetLids.has(lid)) continue;
     for (const phone of phones) {
       if (lid && phone && lid !== phone) map.set(lid, phone);
     }
   }
 
-  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map));
+  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map, targetLids));
 }
 
 async function fetchUazapiJson(baseUrl: string, token: string, path: string, init?: RequestInit): Promise<any | null> {
