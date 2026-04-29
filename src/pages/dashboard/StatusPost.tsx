@@ -784,7 +784,7 @@ function SchedulePreviewDialog({ schedule, onClose }: { schedule: Schedule | nul
                 </p>
               </div>
             ) : slide.type === "image" && slide.mediaUrl ? (
-              <div className="aspect-square bg-black flex items-center justify-center">
+              <div className="w-full bg-muted/40 flex items-center justify-center">
                 <img src={slide.mediaUrl} alt="" loading="lazy" className="max-w-full max-h-full object-contain" />
               </div>
             ) : slide.type === "video" && slide.mediaUrl ? (
