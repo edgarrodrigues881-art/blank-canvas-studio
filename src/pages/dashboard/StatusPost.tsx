@@ -791,12 +791,15 @@ function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | 
   };
 
   return (
-    <Dialog open={!!schedule} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={!!items} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Eye className="w-4 h-4" />
-            <span className="truncate">{schedule.name}</span>
+            <span className="truncate">{title || slide.name}</span>
+            {isMulti && (
+              <span className="text-xs font-normal text-muted-foreground ml-auto">{slide.name}</span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
