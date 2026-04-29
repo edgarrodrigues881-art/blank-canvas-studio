@@ -716,9 +716,6 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
     </div>
   );
 }
-    </div>
-  );
-}
 
 // ===== HISTORY TAB =====
 function HistoryTab() {
