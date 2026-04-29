@@ -906,6 +906,14 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
   const mentionFields = buildMentionFields(mentionParticipants);
   const attempts: SendAttempt[] = [];
 
+  // CRITICAL: WhatsApp only NOTIFIES/HIGHLIGHTS mentioned users when the message body contains
+  // the literal token "@<number>" for each mentioned JID AND the payload includes the JID list.
+  // Without the @<number> tokens the recipients see a normal message and receive no notification.
+  const mentionTokens = mentionFields.numbers.map((num) => `@${num}`).join(" ");
+  const textWithMentions = mentionTokens
+    ? `${cleanText}\n\n${mentionTokens}`
+    : cleanText;
+
   const pushAttempt = (label: string, body: Record<string, unknown>) => {
     attempts.push({
       endpoint: `${baseUrl}/send/text`,
@@ -914,60 +922,48 @@ function buildMentionTextAttempts(baseUrl: string, groupJid: string, text: strin
     });
   };
 
-  pushAttempt("mentions_all", {
-    number: groupJid,
-    text: cleanText,
-    mentions: "all",
-  });
-
-  if (mentionFields.mentionUsers) {
-    pushAttempt("mentions_explicit_numbers", {
+  // PRIMARY: UAZAPI's documented "choose" — text contains @<number> tokens + mentioned[] with JIDs.
+  // This is the ONLY combination that triggers the native WhatsApp mention notification.
+  if (mentionFields.jids.length > 0) {
+    pushAttempt("mentioned_with_tokens", {
       number: groupJid,
-      text: cleanText,
+      text: textWithMentions,
+      mentioned: mentionFields.jids,
+    });
+
+    pushAttempt("mentioned_jid_with_tokens", {
+      number: groupJid,
+      text: textWithMentions,
+      mentionedJid: mentionFields.jids,
+      mentionedJidList: mentionFields.jids,
+    });
+
+    pushAttempt("mentioned_with_tokens_context", {
+      number: groupJid,
+      text: textWithMentions,
+      mentioned: mentionFields.jids,
+      contextInfo: {
+        mentionedJid: mentionFields.jids,
+        mentionedJidList: mentionFields.jids,
+      },
+    });
+  }
+
+  // Secondary: numeric "mentions" csv with tokens in the body (some UAZAPI builds expect this).
+  if (mentionFields.mentionUsers) {
+    pushAttempt("mentions_csv_with_tokens", {
+      number: groupJid,
+      text: textWithMentions,
       mentions: mentionFields.mentionUsers,
     });
   }
 
-  if (mentionFields.mentionUsers) {
-    pushAttempt("mention_users_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionUsers: mentionFields.mentionUsers,
-    });
-  }
-
-  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
-    pushAttempt("mentions_all_with_context", {
-      number: groupJid,
-      text: cleanText,
-      mentions: "all",
-      contextInfo: {
-        mentionedJid: mentionFields.jids,
-        mentionedJidList: mentionFields.jids,
-      },
-    });
-  }
-
-  if (mentionFields.mentionUsers && mentionFields.jids.length > 0) {
-    pushAttempt("mention_users_context_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionUsers: mentionFields.mentionUsers,
-      contextInfo: {
-        mentionedJid: mentionFields.jids,
-        mentionedJidList: mentionFields.jids,
-      },
-    });
-  }
-
-  if (mentionFields.jids.length > 0) {
-    pushAttempt("mentioned_jid_hidden", {
-      number: groupJid,
-      text: cleanText,
-      mentionedJid: mentionFields.jids,
-      mentionedJidList: mentionFields.jids,
-    });
-  }
+  // Last-resort fallbacks (no token rendering — but at least try the legacy "all" flag).
+  pushAttempt("mentions_all_flag", {
+    number: groupJid,
+    text: textWithMentions || cleanText,
+    mentions: "all",
+  });
 
   if (attempts.length === 0) {
     pushAttempt("plain_text_fallback", {
@@ -1317,40 +1313,58 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
   const mentionFields = buildMentionFields(mentionPhones);
   console.log(`[group-carousel] Injecting ${mentionFields.count} mentions into ${attempts.length} attempt(s)`);
 
+  // CRITICAL: WhatsApp only fires mention notifications when the visible text contains
+  // "@<number>" tokens for each mentioned JID. Append them to the original text/caption.
+  const mentionTokens = mentionFields.numbers.map((num) => `@${num}`).join(" ");
+  const withTokens = (value: string) => {
+    const base = String(value || "").trim();
+    if (!mentionTokens) return base;
+    return base ? `${base}\n\n${mentionTokens}` : mentionTokens;
+  };
+
   const enrichedAttempts: SendAttempt[] = [];
 
   for (const a of attempts) {
     const endpointPath = new URL(a.endpoint).pathname;
     const target = extractAttemptTarget(a.body);
-    const text = extractAttemptText(a.body);
-    const messageFields = { text, body: text, message: text, ...mentionFields.payload };
+    const text = withTokens(extractAttemptText(a.body));
+    const captionRaw = typeof (a.body as any)?.caption === "string" ? (a.body as any).caption : undefined;
+    const captionField = captionRaw !== undefined ? { caption: withTokens(captionRaw) } : {};
+    const messageFields = { text, body: text, message: text, ...captionField, ...mentionFields.payload };
 
     if (endpointPath === "/send/carousel" || endpointPath === "/send/menu") {
-      enrichedAttempts.push({
-        ...a,
-        label: `${a.label || ""}_mention_all`.replace(/^_/, ""),
-        body: { ...a.body, mentions: "all" },
-      });
-
-      if (mentionFields.mentionUsers) {
-        enrichedAttempts.push({
-          ...a,
-          label: `${a.label || ""}_mention_users`.replace(/^_/, ""),
-          body: { ...a.body, mentionUsers: mentionFields.mentionUsers },
-        });
-      }
+      // Inject mention tokens into text/caption fields so WhatsApp actually highlights/notifies
+      const enrichedBody: Record<string, unknown> = { ...a.body };
+      if (typeof (enrichedBody as any).text === "string") (enrichedBody as any).text = withTokens((enrichedBody as any).text);
+      if (typeof (enrichedBody as any).caption === "string") (enrichedBody as any).caption = withTokens((enrichedBody as any).caption);
+      if (typeof (enrichedBody as any).body === "string") (enrichedBody as any).body = withTokens((enrichedBody as any).body);
 
       if (mentionFields.jids.length > 0) {
         enrichedAttempts.push({
           ...a,
-          label: `${a.label || ""}_mentioned_jid`.replace(/^_/, ""),
+          label: `${a.label || ""}_mentioned_jid_tokens`.replace(/^_/, ""),
           body: {
-            ...a.body,
+            ...enrichedBody,
+            mentioned: mentionFields.jids,
             mentionedJid: mentionFields.jids,
             mentionedJidList: mentionFields.jids,
           },
         });
       }
+
+      if (mentionFields.mentionUsers) {
+        enrichedAttempts.push({
+          ...a,
+          label: `${a.label || ""}_mention_users`.replace(/^_/, ""),
+          body: { ...enrichedBody, mentionUsers: mentionFields.mentionUsers, mentions: mentionFields.mentionUsers },
+        });
+      }
+
+      enrichedAttempts.push({
+        ...a,
+        label: `${a.label || ""}_mention_all`.replace(/^_/, ""),
+        body: { ...enrichedBody, mentions: "all" },
+      });
 
       continue;
     }
