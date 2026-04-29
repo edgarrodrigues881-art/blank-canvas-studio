@@ -1262,8 +1262,8 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
         {folders.map((f) => {
           const items = grouped.map.get(f.id) || [];
           const isCollapsed = collapsed[f.id];
-          const folderActive = items.some((s) => s.enabled);
-          const folderLocked = items.length > 0 && !folderActive;
+          const folderLocked = pausedFolders.has(f.id);
+          const folderActive = !folderLocked;
           return (
             <Card key={f.id} className="overflow-hidden">
               <div
