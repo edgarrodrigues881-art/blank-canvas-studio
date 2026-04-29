@@ -59,12 +59,6 @@ function numberToJid(num: string): string | null {
   return `${digits}${PRIVATE_JID_SUFFIX}`;
 }
 
-function lidToJid(value: string): string | null {
-  const digits = onlyDigits(value);
-  if (!digits) return null;
-  return `${digits}${LID_SUFFIX}`;
-}
-
 type LidPhoneMap = Map<string, string>;
 
 function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
