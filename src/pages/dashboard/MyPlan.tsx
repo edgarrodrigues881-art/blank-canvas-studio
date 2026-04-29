@@ -248,27 +248,47 @@ const MyPlan = () => {
         {/* ════════════ COMPARISON TABLE ════════════ */}
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-xl font-bold flex items-center justify-center gap-2.5 text-foreground">
-              <BarChart3 className="w-5 h-5 text-amber-400" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5 border" style={{ borderColor: "rgba(37,211,102,0.30)", background: "rgba(37,211,102,0.08)", color: WA_GREEN }}>
+              <BarChart3 className="w-3.5 h-3.5" />
               Comparação rápida
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Veja o que cada plano oferece
             </h2>
-            <p className="text-sm mt-2 text-muted-foreground">
-              Veja o que cada plano oferece lado a lado.
+            <p className="text-sm mt-3 text-muted-foreground">
+              Tudo lado a lado para você decidir com clareza.
             </p>
           </div>
-          <div className="overflow-x-auto rounded-2xl border border-border/60 bg-card [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <table className="w-full text-sm min-w-[640px]">
+
+          <div
+            className="overflow-x-auto rounded-2xl border bg-card [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ borderColor: "rgba(255,255,255,0.08)", boxShadow: "0 20px 60px -30px rgba(0,0,0,0.5)" }}
+          >
+            <table className="w-full text-sm min-w-[720px]">
               <thead>
-                <tr className="bg-muted/30">
-                  <th className="text-left px-4 py-3.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider w-[160px] text-muted-foreground">Recurso</th>
+                <tr style={{ background: "linear-gradient(180deg, rgba(37,211,102,0.06) 0%, transparent 100%)" }}>
+                  <th className="text-left px-5 py-4 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] w-[180px] text-muted-foreground">
+                    Recurso
+                  </th>
                   {plans.map(p => (
                     <th
                       key={p.name}
-                      className={`text-center px-2 py-3.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${
-                        p.popular ? "text-amber-400 bg-amber-500/[0.04]" : "text-muted-foreground"
+                      className={`relative text-center px-2 py-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] ${
+                        p.popular ? "text-slate-900" : "text-foreground/60"
                       }`}
+                      style={
+                        p.popular
+                          ? { background: "linear-gradient(180deg, #FCD34D 0%, #EAB308 100%)" }
+                          : undefined
+                      }
                     >
-                      {p.name}
+                      {p.popular && (
+                        <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] tracking-[0.16em]">★</span>
+                      )}
+                      <div className="mt-1">{p.name}</div>
+                      <div className={`text-[9px] font-semibold mt-0.5 ${p.popular ? "text-slate-900/70" : "text-foreground/35"}`}>
+                        {p.instances} {p.instances === 1 ? "inst." : "insts."}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -277,11 +297,10 @@ const MyPlan = () => {
                 {comparisonRows.map((row, ri) => (
                   <tr
                     key={ri}
-                    className={`border-t border-border/40 transition-colors duration-100 hover:bg-muted/20 ${
-                      ri % 2 === 1 ? "bg-muted/10" : ""
-                    }`}
+                    className="border-t transition-colors duration-100 hover:bg-muted/20"
+                    style={{ borderColor: "rgba(255,255,255,0.05)" }}
                   >
-                    <td className="px-4 py-3 text-[12px] font-medium text-muted-foreground">
+                    <td className="px-5 py-3.5 text-[12px] font-medium text-foreground/80">
                       {row.label}
                     </td>
                     {row.values.map((val, vi) => {
@@ -289,16 +308,28 @@ const MyPlan = () => {
                       return (
                         <td
                           key={vi}
-                          className={`text-center px-2 py-3 align-middle ${isPro ? "bg-amber-500/[0.04]" : ""}`}
+                          className="text-center px-2 py-3.5 align-middle"
+                          style={isPro ? { background: "rgba(234,179,8,0.06)" } : undefined}
                         >
                           {typeof val === "boolean" ? (
                             val ? (
-                              <Check className={`w-4 h-4 mx-auto ${isPro ? "text-amber-400/70" : "text-emerald-500/60"}`} strokeWidth={2.5} />
+                              <CheckCircle2
+                                className="w-4 h-4 mx-auto"
+                                style={{ color: isPro ? "#EAB308" : WA_GREEN }}
+                                strokeWidth={2.5}
+                              />
                             ) : (
-                              <span className="text-xs text-muted-foreground/40">—</span>
+                              <span className="text-xs text-muted-foreground/30">—</span>
                             )
                           ) : (
-                            <span className={`text-[11px] font-semibold ${isPro ? "text-amber-400/90" : "text-foreground/60"}`}>
+                            <span
+                              className="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10.5px] font-bold"
+                              style={
+                                isPro
+                                  ? { background: "rgba(234,179,8,0.18)", color: "#FCD34D" }
+                                  : { background: "rgba(37,211,102,0.12)", color: WA_GREEN }
+                              }
+                            >
                               {val}
                             </span>
                           )}
