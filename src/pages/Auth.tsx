@@ -201,10 +201,16 @@ const Auth = () => {
   const inputClass = "w-full h-12 px-4 rounded-lg text-sm text-white placeholder:text-gray-500 outline-none transition-all duration-200 bg-black/40 border border-emerald-500/10 hover:border-emerald-500/20 hover:bg-black/60 focus:border-emerald-500/50 focus:bg-black/60 focus:shadow-[0_0_0_3px_rgba(16,185,129,0.15)]";
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden bg-black">
+    <div
+      className="min-h-screen flex items-center justify-center px-5 py-10 relative overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse at top, #1a2e25 0%, #0f1a16 40%, #0a0f0d 100%)",
+      }}
+    >
       {/* Subtle green grid pattern */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        className="pointer-events-none absolute inset-0 opacity-[0.10]"
         style={{
           backgroundImage:
             "linear-gradient(rgba(16,185,129,1) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,1) 1px, transparent 1px)",
@@ -215,8 +221,8 @@ const Auth = () => {
       />
       {/* Soft green ambient glow behind card */}
       <div
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 60%)", filter: "blur(60px)" }}
+        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full"
+        style={{ background: "radial-gradient(circle, rgba(16,185,129,0.22) 0%, transparent 60%)", filter: "blur(70px)" }}
       />
 
       {/* Back button */}
@@ -237,11 +243,12 @@ const Auth = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full rounded-2xl overflow-hidden relative"
+          className="w-full rounded-2xl overflow-hidden relative backdrop-blur-xl"
           style={{
-            background: "#000000",
-            border: "1px solid rgba(16,185,129,0.15)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 80px -20px rgba(16,185,129,0.18)",
+            background: "linear-gradient(180deg, rgba(20,30,26,0.92) 0%, rgba(10,16,13,0.95) 100%)",
+            border: "1px solid rgba(16,185,129,0.28)",
+            boxShadow:
+              "0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 100px -10px rgba(16,185,129,0.30)",
           }}
         >
           <div className="px-8 pt-10 pb-9 sm:px-10">
