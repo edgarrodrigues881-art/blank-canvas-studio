@@ -1602,14 +1602,8 @@ Deno.serve(async (req) => {
           return json({ ok: false, error: inspectedMedia.error }, 400);
         }
 
-        // For images: imageButton is already embedded inside the /send/menu payload,
-        // so a single request delivers image + text + buttons together.
-        if (mediaType === "image" && buttonImageUrl) {
-          await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
-          return json({ ok: true, mode: "buttons_image", isRestricted, groupName });
-        }
-
-        // For audio/video/document, send in 2 separate steps (no imageButton support)
+        // Always send media as a separate step (image, video, document, audio).
+        // Embedding image via imageButton causes "incompatible WhatsApp version" rendering on recipients.
         const mediaAttempts = buildMessageAttempts(baseUrl, groupJid, inspectedMedia.normalizedUrl, mediaType, undefined, inspectedMedia.fileName);
 
         await wrapSend(async () => {
