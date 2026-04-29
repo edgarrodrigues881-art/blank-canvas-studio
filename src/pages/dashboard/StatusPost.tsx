@@ -32,6 +32,8 @@ type Schedule = {
   font: number | null;
   weekdays: number[];
   times: string[];
+  schedule_mode: "recurring" | "oneshot";
+  run_date: string | null;
   device_mode: "all_online" | "fixed";
   device_ids: string[];
   last_run_at: string | null;
@@ -403,8 +405,9 @@ function ScheduleDialog({
   const [file, setFile] = useState<File | null>(null);
   const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [times, setTimes] = useState<string[]>(["09:00"]);
-  const [newTime, setNewTime] = useState("12:00");
+  const [time, setTime] = useState<string>("12:00");
+  const [scheduleMode, setScheduleMode] = useState<"recurring" | "oneshot">("recurring");
+  const [runDate, setRunDate] = useState<string>(""); // YYYY-MM-DD
   const [deviceMode, setDeviceMode] = useState<"all_online" | "fixed">("all_online");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -420,13 +423,18 @@ function ScheduleDialog({
       setExistingMediaUrl(editing.media_url);
       setFile(null);
       setWeekdays(editing.weekdays || []);
-      setTimes(editing.times || []);
+      setTime(editing.times?.[0] || "12:00");
+      setScheduleMode(editing.schedule_mode || "recurring");
+      setRunDate(editing.run_date || "");
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
     } else {
       setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
-      setWeekdays([1, 2, 3, 4, 5]); setTimes(["09:00"]);
+      setWeekdays([1, 2, 3, 4, 5]);
+      setTime("12:00");
+      setScheduleMode("recurring");
+      setRunDate("");
       setDeviceMode("all_online"); setSelectedDevices([]);
     }
   }, [editing, open]);
@@ -435,21 +443,14 @@ function ScheduleDialog({
     setWeekdays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort());
   };
 
-  const addTime = () => {
-    if (!/^\d{2}:\d{2}$/.test(newTime)) return toast.error("Horário inválido");
-    if (times.includes(newTime)) return;
-    setTimes([...times, newTime].sort());
-  };
-
-  const removeTime = (t: string) => setTimes(times.filter((x) => x !== t));
-
   const handleSave = async () => {
     if (!user) return;
     if (!name.trim()) return toast.error("Dê um nome ao agendamento");
     if (type === "text" && !text.trim()) return toast.error("Digite o texto");
     if (type !== "text" && !file && !existingMediaUrl) return toast.error("Selecione um arquivo");
-    if (weekdays.length === 0) return toast.error("Escolha ao menos um dia");
-    if (times.length === 0) return toast.error("Adicione ao menos um horário");
+    if (!/^\d{2}:\d{2}$/.test(time)) return toast.error("Horário inválido");
+    if (scheduleMode === "recurring" && weekdays.length === 0) return toast.error("Escolha ao menos um dia da semana");
+    if (scheduleMode === "oneshot" && !runDate) return toast.error("Escolha a data do disparo");
     if (deviceMode === "fixed" && selectedDevices.length === 0) return toast.error("Selecione as instâncias");
 
     setSaving(true);
@@ -466,8 +467,12 @@ function ScheduleDialog({
         caption: (type === "image" || type === "video") ? caption.trim() : null,
         background_color: type === "text" ? bgColor : null,
         font: type === "text" ? font : null,
-        weekdays,
-        times,
+        // 1 horário só por agendamento
+        times: [time],
+        // Modo: recorrente (dias da semana) OU única (data específica)
+        schedule_mode: scheduleMode,
+        weekdays: scheduleMode === "recurring" ? weekdays : [],
+        run_date: scheduleMode === "oneshot" ? runDate : null,
         device_mode: deviceMode,
         device_ids: deviceMode === "fixed" ? selectedDevices : [],
       };
@@ -594,95 +599,94 @@ function ScheduleDialog({
             </Tabs>
           </div>
 
+          {/* Modo do agendamento */}
           <div>
-            <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Dias da semana</Label>
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {WEEKDAY_LABELS.map((label, i) => (
-                <button key={i} type="button" onClick={() => toggleWeekday(i)}
-                  className={`px-3 py-1.5 rounded-md text-sm border transition ${weekdays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
-                  {label}
-                </button>
-              ))}
+            <Label>Quando publicar</Label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setScheduleMode("recurring")}
+                className={`text-left p-3 border rounded-md transition ${scheduleMode === "recurring" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                <p className="text-sm font-medium flex items-center gap-2"><Calendar className="w-4 h-4" />Recorrente</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Repete nos dias da semana escolhidos</p>
+              </button>
+              <button type="button" onClick={() => setScheduleMode("oneshot")}
+                className={`text-left p-3 border rounded-md transition ${scheduleMode === "oneshot" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
+                <p className="text-sm font-medium flex items-center gap-2"><Clock className="w-4 h-4" />Data única</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Dispara 1 vez no dia escolhido</p>
+              </button>
             </div>
           </div>
 
-          <div>
-            <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horários (BRT)</Label>
-            <p className="text-xs text-muted-foreground mt-1">Toque nos horários abaixo para escolher quando publicar. Os selecionados ficam em verde.</p>
-
-            {/* Quick presets */}
-            <div className="flex gap-2 flex-wrap mt-3">
-              {[
-                { label: "🌅 Manhã (8h, 10h)", values: ["08:00", "10:00"] },
-                { label: "☀️ Almoço (12h)", values: ["12:00"] },
-                { label: "🌇 Tarde (15h, 17h)", values: ["15:00", "17:00"] },
-                { label: "🌙 Noite (19h, 21h)", values: ["19:00", "21:00"] },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => setTimes((prev) => Array.from(new Set([...prev, ...preset.values])).sort())}
-                  className="px-2.5 py-1 text-xs rounded-md border border-border hover:bg-accent transition"
-                >
-                  + {preset.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Hour grid (00–23) */}
-            <div className="mt-3 grid grid-cols-8 gap-1.5">
-              {Array.from({ length: 24 }).map((_, h) => {
-                const hh = String(h).padStart(2, "0") + ":00";
-                const isOn = times.includes(hh);
-                return (
-                  <button
-                    key={hh}
-                    type="button"
-                    onClick={() => setTimes((prev) => isOn ? prev.filter((x) => x !== hh) : [...prev, hh].sort())}
-                    className={`py-2 rounded-md text-sm font-medium border transition ${
-                      isOn
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-background border-border hover:bg-accent"
-                    }`}
-                  >
-                    {hh}
+          {/* Recorrente: dias da semana */}
+          {scheduleMode === "recurring" && (
+            <div>
+              <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Dias da semana</Label>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {WEEKDAY_LABELS.map((label, i) => (
+                  <button key={i} type="button" onClick={() => toggleWeekday(i)}
+                    className={`px-3 py-1.5 rounded-md text-sm border transition ${weekdays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
+                    {label}
                   </button>
-                );
-              })}
-            </div>
-
-            {/* Custom precise time */}
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Horário exato:</span>
-              <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-32 h-9" />
-              <Button type="button" variant="outline" size="sm" onClick={addTime}>
-                <Plus className="w-3.5 h-3.5 mr-1" />Adicionar
-              </Button>
-            </div>
-
-            {/* Selected times summary */}
-            <div className="mt-3 p-3 rounded-md bg-muted/40 border border-border">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {times.length === 0 ? "Nenhum horário selecionado" : `${times.length} ${times.length === 1 ? "horário selecionado" : "horários selecionados"}`}
-                </span>
-                {times.length > 0 && (
-                  <button type="button" onClick={() => setTimes([])} className="text-xs text-destructive hover:underline">
-                    Limpar tudo
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                {times.map((t) => (
-                  <Badge key={t} variant="secondary" className="gap-1.5 pl-2.5 pr-1.5 py-1 bg-primary/15 text-foreground border border-primary/30">
-                    <Clock className="w-3 h-3" />
-                    {t}
-                    <button onClick={() => removeTime(t)} className="hover:text-destructive ml-0.5"><X className="w-3 h-3" /></button>
-                  </Badge>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Oneshot: data específica */}
+          {scheduleMode === "oneshot" && (
+            <div>
+              <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Data do disparo</Label>
+              <Input
+                type="date"
+                value={runDate}
+                onChange={(e) => setRunDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                className="mt-2 w-48"
+              />
+              {runDate && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Será publicado no dia {runDate.split("-").reverse().join("/")} às {time} (BRT) e desativado depois.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Horário único */}
+          <div>
+            <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horário (BRT)</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Cada agendamento publica em <strong>1 horário</strong>. Para outros horários, crie outros agendamentos.
+            </p>
+
+            {/* Atalhos rápidos */}
+            <div className="flex gap-2 flex-wrap mt-3">
+              {["08:00", "10:00", "12:00", "15:00", "17:00", "19:00", "21:00"].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setTime(preset)}
+                  className={`px-3 py-1.5 text-sm rounded-md border transition ${
+                    time === preset
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:bg-accent"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Horário exato */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Outro horário:</span>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9" />
+            </div>
+
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/30">
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">Vai publicar às <span className="text-primary">{time}</span></span>
+            </div>
           </div>
+
 
           <div>
             <Label>Instâncias</Label>
@@ -802,9 +806,16 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 <p className="text-xs text-muted-foreground mt-1 truncate">
                   {s.text_content || s.caption || "—"}
                 </p>
-                <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
-                  <span><Calendar className="w-3 h-3 inline mr-1" />{s.weekdays.map((w) => WEEKDAY_LABELS[w]).join(", ")}</span>
-                  <span><Clock className="w-3 h-3 inline mr-1" />{s.times.join(", ")}</span>
+                <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                  {(s.schedule_mode || "recurring") === "oneshot" && s.run_date ? (
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      Única: {s.run_date.split("-").reverse().join("/")}
+                    </span>
+                  ) : (
+                    <span><Calendar className="w-3 h-3 inline mr-1" />{(s.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}</span>
+                  )}
+                  <span><Clock className="w-3 h-3 inline mr-1" />{(s.times || []).join(", ")}</span>
                   <span>Execuções: {s.run_count}</span>
                 </div>
               </div>

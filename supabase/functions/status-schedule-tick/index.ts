@@ -53,7 +53,12 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
 
     const dueList = (schedules || []).filter((s: any) => {
-      if (!s.weekdays?.includes(weekday)) return false;
+      const mode = s.schedule_mode || "recurring";
+      if (mode === "recurring") {
+        if (!s.weekdays?.includes(weekday)) return false;
+      } else if (mode === "oneshot") {
+        if (s.run_date !== date) return false;
+      }
       if (!s.times?.includes(hhmm)) return false;
       const runKey = `${date}_${hhmm}`;
       if (s.last_run_key === runKey) return false; // already executed this minute
@@ -118,13 +123,18 @@ Deno.serve(async (req) => {
           sched.id,
         );
 
+        const updatePayload: any = { run_count: (sched.run_count || 0) + 1 };
+        // Se for disparo único, desativa após executar
+        if ((sched.schedule_mode || "recurring") === "oneshot") {
+          updatePayload.enabled = false;
+        }
         await admin
           .from("status_schedules")
-          .update({ run_count: (sched.run_count || 0) + 1 })
+          .update(updatePayload)
           .eq("id", sched.id);
 
         executed++;
-        console.log(`[status-schedule-tick] ${sched.id} → ok=${r.success_count} err=${r.error_count}`);
+        console.log(`[status-schedule-tick] ${sched.id} → ok=${r.success_count} err=${r.error_count}${updatePayload.enabled === false ? ' (desativado: oneshot)' : ''}`);
       } catch (e: any) {
         console.error(`[status-schedule-tick] schedule ${sched.id} failed:`, e?.message);
       }
