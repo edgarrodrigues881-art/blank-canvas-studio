@@ -453,7 +453,8 @@ Deno.serve(async (req: Request) => {
         }
         // Resolve os outros normalmente
         if (type === "jid") {
-          return { original: input, type, jid: input, number: jidToNumber(input), valid: true };
+          const jid = normalizePhoneJid(input) || input;
+          return { original: input, type, jid, number: jidToNumber(jid), valid: true };
         }
         if (type === "number" && isDisguisedLidNumber(input)) {
           return {
