@@ -1249,7 +1249,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 </button>
                 <div className="flex items-center gap-1">
                   <Switch
-                    checked={allOn}
+                    checked={folderActive}
                     disabled={items.length === 0}
                     onCheckedChange={() => toggleFolder(f, items)}
                   />
