@@ -421,15 +421,37 @@ export default function WhatsAppVerifierCampaigns() {
 
   const jobStatusBadge = (status: string) => {
     switch (status) {
-      case "pending": return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30"><Clock className="w-3 h-3 mr-1" /> Aguardando</Badge>;
-      case "running": return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processando</Badge>;
-      case "paused": return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30"><Pause className="w-3 h-3 mr-1" /> Pausada</Badge>;
-      case "completed": return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30"><CheckCircle2 className="w-3 h-3 mr-1" /> Concluída</Badge>;
-      case "failed": return <Badge className="bg-red-500/20 text-red-400 border-red-500/30"><XCircle className="w-3 h-3 mr-1" /> Falhou</Badge>;
-      case "canceled": return <Badge className="bg-muted text-muted-foreground border-border"><StopCircle className="w-3 h-3 mr-1" /> Cancelada</Badge>;
+      case "pending": return <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 font-medium"><Clock className="w-3 h-3 mr-1" /> Aguardando</Badge>;
+      case "running": return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-medium"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Processando</Badge>;
+      case "paused": return <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 font-medium"><Pause className="w-3 h-3 mr-1" /> Pausada</Badge>;
+      case "completed": return <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-medium"><CheckCircle2 className="w-3 h-3 mr-1" /> Concluída</Badge>;
+      case "failed": return <Badge className="bg-red-500/15 text-red-400 border-red-500/30 font-medium"><XCircle className="w-3 h-3 mr-1" /> Falhou</Badge>;
+      case "canceled": return <Badge className="bg-muted/60 text-muted-foreground border-border font-medium"><StopCircle className="w-3 h-3 mr-1" /> Cancelada</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
     }
   };
+
+  // Detecta tipo de campanha pelo nome
+  const detectJobType = (name: string): { label: string; className: string } => {
+    const n = (name || "").toLowerCase();
+    if (n.includes("prospec")) return { label: "Prospecção", className: "bg-violet-500/15 text-violet-400 border-violet-500/30" };
+    if (n.includes("grupo")) return { label: "Grupo", className: "bg-sky-500/15 text-sky-400 border-sky-500/30" };
+    if (n.includes("convers")) return { label: "Conversão", className: "bg-fuchsia-500/15 text-fuchsia-400 border-fuchsia-500/30" };
+    return { label: "Manual", className: "bg-slate-500/15 text-slate-300 border-slate-500/30" };
+  };
+
+  const jobTypeBadge = (name: string) => {
+    const t = detectJobType(name);
+    return <Badge variant="outline" className={`${t.className} font-medium text-[11px]`}>{t.label}</Badge>;
+  };
+
+  // Agrupa por status para organização visual
+  const STATUS_GROUP_ORDER: Array<{ key: string; label: string; matches: string[] }> = [
+    { key: "active", label: "Em andamento", matches: ["running", "pending"] },
+    { key: "paused", label: "Pausadas", matches: ["paused"] },
+    { key: "completed", label: "Concluídas", matches: ["completed"] },
+    { key: "canceled", label: "Canceladas / Falhou", matches: ["canceled", "failed"] },
+  ];
 
   // ── Sort results: success first, pending middle, no_whatsapp/error last ──
   const STATUS_ORDER: Record<string, number> = { success: 0, pending: 1, no_whatsapp: 2, error: 3 };
