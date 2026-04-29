@@ -432,6 +432,7 @@ function ScheduleDialog({
       setRunDate(editing.run_date || "");
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
+      setFolderId(editing.folder_id || null);
     } else {
       setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
@@ -440,6 +441,7 @@ function ScheduleDialog({
       setScheduleMode("recurring");
       setRunDate("");
       setDeviceMode("all_online"); setSelectedDevices([]);
+      setFolderId(defaultFolderId || null);
     }
   }, [editing, open]);
 
