@@ -285,7 +285,14 @@ Deno.serve(async (req: Request) => {
       token = String(device.uazapi_token);
     }
 
-    const needsUazapi = inputs.some((i) => detectType(i) === "lid");
+    // LID disfarçado de número: precisa de UAZAPI também
+    const looksLikeLidNumber = (i: string) => {
+      const t = detectType(i);
+      if (t === "lid") return true;
+      if (t === "number" && onlyDigits(i).length >= 14) return true;
+      return false;
+    };
+    const needsUazapi = inputs.some(looksLikeLidNumber);
     if (needsUazapi && (!baseUrl || !token)) {
       const results: ResolvedContact[] = inputs.map((input) => {
         const type = detectType(input);
