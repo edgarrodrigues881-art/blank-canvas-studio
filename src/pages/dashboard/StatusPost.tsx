@@ -112,9 +112,10 @@ function PostNowTab({ devices }: { devices: Device[] }) {
       selectedDeviceIds: selected,
       delaySeconds,
       fileNames: files.map((f) => f.name),
+      font,
     };
     saveDraft(meta, files).catch(() => {});
-  }, [type, text, bgColor, caption, selected, delaySeconds, files, draftLoaded]);
+  }, [type, text, bgColor, caption, selected, delaySeconds, files, font, draftLoaded]);
 
   const acceptForType = type === "image" ? "image/*" : type === "video" ? "video/*" : type === "audio" ? "audio/*" : "";
 
