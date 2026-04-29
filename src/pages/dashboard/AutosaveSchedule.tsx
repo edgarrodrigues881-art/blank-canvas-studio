@@ -678,13 +678,6 @@ export default function AutosaveSchedule() {
             const tooLong = len > 80;
             const valid = len >= 2 && len <= 80;
             const duplicate = !editingId && schedules.some((s) => s.name?.trim().toLowerCase() === trimmed.toLowerCase());
-            const suggestions = [
-              "Aquecimento diário – chips novos",
-              "Manhã – seg a sex",
-              "Chips maduros – tarde",
-              "Final de semana – leve",
-              "Aquecimento intensivo",
-            ];
             const counterColor = tooLong ? "text-destructive" : len > 70 ? "text-amber-400" : "text-muted-foreground/60";
 
             return (
@@ -694,7 +687,7 @@ export default function AutosaveSchedule() {
                     <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
                       <CalendarIcon className="w-5 h-5 text-primary" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="font-semibold">Identifique este agendamento</h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         O nome só é usado <strong>internamente</strong> — para você localizar na lista, em logs e relatórios. Não aparece para os contatos.
@@ -719,8 +712,6 @@ export default function AutosaveSchedule() {
                         valid ? "border-emerald-500/40 focus-visible:ring-emerald-500/30" : ""
                       )}
                     />
-
-                    {/* Mensagem de status */}
                     <div className="mt-1.5 min-h-[18px] text-[11px]">
                       {len === 0 && (
                         <span className="text-muted-foreground/70">Digite ao menos 2 caracteres.</span>
@@ -737,40 +728,6 @@ export default function AutosaveSchedule() {
                       {valid && !duplicate && (
                         <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Bom nome, segue!</span>
                       )}
-                    </div>
-                  </div>
-
-                  {/* Sugestões */}
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5">Sugestões rápidas</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {suggestions.map((sug) => (
-                        <button
-                          key={sug}
-                          type="button"
-                          onClick={() => setName(sug)}
-                          className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-muted/20 text-muted-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors"
-                        >
-                          {sug}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Preview de como vai aparecer na lista */}
-                  <div className="rounded-md border border-dashed border-border/60 bg-background/40 p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-2">Como vai aparecer na lista</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <CalendarIcon className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{trimmed || <span className="text-muted-foreground/50 italic">Seu nome aparecerá aqui</span>}</p>
-                        <p className="text-[11px] text-muted-foreground/70">Agendado · será configurado nas próximas etapas</p>
-                      </div>
-                      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] gap-1">
-                        <Clock className="w-3 h-3" /> Agendado
-                      </Badge>
                     </div>
                   </div>
                 </div>
