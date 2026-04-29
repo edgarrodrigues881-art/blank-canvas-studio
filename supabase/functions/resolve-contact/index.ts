@@ -228,6 +228,7 @@ async function resolveContact(
   input: string,
   baseUrl: string,
   token: string,
+  lidPhoneMap?: LidPhoneMap,
 ): Promise<ResolvedContact> {
   const original = String(input || "").trim();
   try {
@@ -260,6 +261,11 @@ async function resolveContact(
       // Strings com 14+ dígitos quase sempre são LIDs colados sem o sufixo @lid.
       // Tentamos resolver via UAZAPI; se vier JID real, retornamos o número de telefone.
       if (isDisguisedLidNumber(original) && baseUrl && token) {
+        const mappedPhone = lidPhoneMap?.get(digits);
+        if (mappedPhone) {
+          const mappedJid = numberToJid(mappedPhone);
+          return { original, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+        }
         const { jid: resolvedJid } = await resolveLidViaUazapi(baseUrl, token, `${digits}${LID_SUFFIX}`);
         if (resolvedJid && resolvedJid.includes(PRIVATE_JID_SUFFIX)) {
           return {
@@ -289,6 +295,12 @@ async function resolveContact(
     }
 
     // type === "lid" → consulta Uazapi
+    const lidDigits = onlyDigits(original);
+    const mappedPhone = lidPhoneMap?.get(lidDigits);
+    if (mappedPhone) {
+      const mappedJid = numberToJid(mappedPhone);
+      return { original, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+    }
     const { jid, error } = await resolveLidViaUazapi(baseUrl, token, original);
     if (!jid) {
       return {
