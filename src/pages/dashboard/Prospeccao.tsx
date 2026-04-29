@@ -188,7 +188,21 @@ export default function Prospeccao() {
 
   const loadCredits = useCallback(async () => {
     try {
-      const { data } = await supabase.from("prospeccao_credits").select("balance, free_pulls_remaining").maybeSingle();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        setCreditBalance(0);
+        setFreePulls(0);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("prospeccao_credits")
+        .select("balance, free_pulls_remaining")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
       setCreditBalance(data?.balance ?? 0);
       setFreePulls((data as any)?.free_pulls_remaining ?? 0);
     } catch { setCreditBalance(0); setFreePulls(0); }
