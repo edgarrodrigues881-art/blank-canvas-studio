@@ -1,122 +1,108 @@
 import { useState } from "react";
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2 } from "lucide-react";
 import CreditPackCards from "@/components/credits/CreditPackCards";
 import { startCheckout } from "@/lib/stripe";
 import { toast } from "sonner";
 
-const buildCustomWhatsappUrl = () => {
-  const msg = `Olá, quero um plano customizado para alta escala`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
-
-const buildAddonWhatsappUrl = () => {
-  const msg = `Olá, tudo bem?\nTenho interesse em contratar o addon Relatórios via WhatsApp no valor de R$ 18,90/mês.\nPode me enviar os dados para ativação?`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
-
-
-const baseFeaturesNoWA = [
-  "Todas as funcionalidades inclusas",
-  "Mesmo nível de suporte",
-  "Monitoramento em tempo real",
-  "Infraestrutura completa",
-];
-
+// ─── Planos espelhados da Landing Page ───
 const plans = [
+  {
+    name: "Starter",
+    instances: 1,
+    price: "39,99",
+    tagline: "Tudo para começar a vender mais pelo WhatsApp com um número. CRM, disparo, automações, IA e prospecção em um só lugar.",
+    cta: "Começar agora",
+    popular: false,
+    benefits: [
+      "1 chip simultâneo",
+      "CRM, automações e IA inclusos",
+      "Aquecimento e disparo inclusos",
+    ],
+    whatsappIncluded: false,
+  },
   {
     name: "Essencial",
     instances: 5,
     price: "99,99",
-    subtitle: "Ideal para quem está começando com poucas instâncias.",
-    extraCopy: null,
-    cta: "Começar agora",
+    tagline: "Opere com consistência usando até 5 números. Distribua atendimentos, mantenha backup e escale seus disparos sem travar a operação.",
+    cta: "Testar o sistema",
     popular: false,
-    highlight: false,
-    reportsIncluded: false,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp",
-    whatsappIncluded: false,
-  },
-  {
-    name: "Start",
-    instances: 10,
-    price: "187,99",
-    subtitle: "Ideal para quem quer aumentar a capacidade.",
-    extraCopy: null,
-    cta: "Começar agora",
-    popular: false,
-    highlight: false,
-    reportsIncluded: false,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp",
+    benefits: [
+      "Até 5 chips simultâneos",
+      "CRM, automações e IA inclusos",
+      "Aquecimento e disparo inclusos",
+    ],
     whatsappIncluded: false,
   },
   {
     name: "Pro",
-    instances: 30,
-    price: "397,99",
-    subtitle: "Ideal para operações em crescimento.",
-    extraCopy: "Mais escolhido",
-    cta: "Escalar operação",
-    popular: true,
-    highlight: false,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
-    whatsappIncluded: true,
+    instances: 10,
+    price: "187,99",
+    tagline: "Operação profissional com 10 números trabalhando juntos. Mais alcance no disparo, mais leads no CRM e mais produtividade no time.",
+    cta: "Começar agora",
+    popular: false,
+    benefits: [
+      "Até 10 chips simultâneos",
+      "CRM completo + pipelines",
+      "Prospecção e IA inclusos",
+    ],
+    whatsappIncluded: false,
   },
   {
     name: "Scale",
+    instances: 30,
+    price: "397,99",
+    tagline: "Escale com 30 números, automações avançadas e relatórios direto no WhatsApp. Ideal para times que vendem em alto volume todos os dias.",
+    cta: "Começar agora",
+    popular: true,
+    benefits: [
+      "Até 30 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
+    whatsappIncluded: true,
+  },
+  {
+    name: "Business",
     instances: 50,
     price: "597,99",
-    subtitle: "Para quem precisa escalar com múltiplas instâncias.",
-    extraCopy: null,
-    cta: "Escalar operação",
+    tagline: "Estrutura robusta com 50 números para empresas que precisam de performance, organização e controle total da operação comercial.",
+    cta: "Começar agora",
     popular: false,
-    highlight: true,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
+    benefits: [
+      "Até 50 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
     whatsappIncluded: true,
   },
   {
-    name: "Elite",
+    name: "Enterprise",
     instances: 100,
     price: "1.097,99",
-    subtitle: "Alta capacidade para operações grandes.",
-    extraCopy: null,
-    cta: "Ir para o Elite",
+    tagline: "Máxima capacidade com 100 números simultâneos. Para grandes operações que exigem escala industrial, IA dedicada e prospecção em larga escala.",
+    cta: "Começar agora",
     popular: false,
-    highlight: false,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
-    whatsappIncluded: true,
-  },
-  {
-    name: "Custom",
-    instances: "200+",
-    price: "",
-    subtitle: "Solução personalizada para grande escala.",
-    extraCopy: null,
-    cta: "Falar com suporte",
-    popular: false,
-    highlight: false,
-    reportsIncluded: true,
-    isCustom: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
+    benefits: [
+      "Até 100 chips simultâneos",
+      "Suporte prioritário dedicado",
+      "Relatórios e alertas via WhatsApp",
+    ],
     whatsappIncluded: true,
   },
 ];
 
+const WA_GREEN = "#25D366";
+const WA_GREEN_DARK = "#07C160";
+
 const comparisonRows = [
-  { label: "Instâncias", values: ["5", "10", "30", "50", "100", "200+"] },
-  { label: "Todas as funcionalidades", values: [true, true, true, true, true, true] },
-  { label: "Mesmo nível de suporte", values: [true, true, true, true, true, true] },
+  { label: "Instâncias", values: ["1", "5", "10", "30", "50", "100"] },
+  { label: "CRM completo", values: [true, true, true, true, true, true] },
+  { label: "Automações e IA", values: [true, true, true, true, true, true] },
+  { label: "Aquecimento e disparo", values: [true, true, true, true, true, true] },
   { label: "Monitoramento em tempo real", values: [true, true, true, true, true, true] },
-  { label: "Infraestrutura completa", values: [true, true, true, true, true, true] },
-  { label: "Relatórios via WhatsApp", values: [false, false, "Incluso", "Incluso", "Incluso", "Incluso"] },
+  { label: "Suporte prioritário no WhatsApp", values: [false, false, false, true, true, true] },
+  { label: "Relatórios via WhatsApp", values: [false, false, false, "Incluso", "Incluso", "Incluso"] },
 ];
 
 const MyPlan = () => {
