@@ -901,13 +901,13 @@ function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | 
           <div className="border-t border-border pt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="w-3 h-3" />
-              {(schedule.schedule_mode || "recurring") === "oneshot" && schedule.run_date
-                ? schedule.run_date.split("-").reverse().join("/")
-                : (schedule.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}
+              {(slide.schedule_mode || "recurring") === "oneshot" && slide.run_date
+                ? slide.run_date.split("-").reverse().join("/")
+                : (slide.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3" />
-              {(schedule.times || []).join(", ") || "—"}
+              {(slide.times || []).join(", ") || "—"}
             </div>
           </div>
         </div>
