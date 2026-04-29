@@ -244,7 +244,7 @@ async function resolveLidViaUazapi(
       }
       const found = [...collectJids(payload), ...collectPhoneFieldJids(payload)]
         .find((candidate) => isPhoneJid(candidate) && onlyDigits(candidate) !== lidDigits);
-      if (found) return { jid: found, raw: payload };
+      if (found) return { jid: normalizePhoneJid(found) || found, raw: payload };
       diagnostics.push(`${attempt.path}: telefone não retornado`);
     }
 
@@ -276,7 +276,7 @@ async function resolveContact(
     }
 
     if (type === "jid") {
-      const jid = original;
+      const jid = normalizePhoneJid(original) || original;
       return { original, type, jid, number: jidToNumber(jid), valid: true };
     }
 
