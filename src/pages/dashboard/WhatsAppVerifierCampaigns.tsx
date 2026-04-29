@@ -597,12 +597,17 @@ export default function WhatsAppVerifierCampaigns() {
                                 : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                             }`}
                           >
-                            <span
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                isSelected ? "bg-emerald-500" : "bg-muted-foreground/30"
-                              }`}
-                            />
-                            <Smartphone className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-emerald-500" : ""}`} />
+                            <span className="relative flex items-center justify-center shrink-0">
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full bg-emerald-500 ${
+                                  isSelected ? "" : "opacity-50"
+                                }`}
+                              />
+                              {isSelected && (
+                                <span className="absolute w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-60" />
+                              )}
+                            </span>
+                            <Smartphone className="w-3.5 h-3.5 shrink-0 text-emerald-500/80" />
                             <span className="flex-1 truncate">{device.name}</span>
                             {device.number && (
                               <span className="text-xs text-muted-foreground/70 tabular-nums">{device.number}</span>
