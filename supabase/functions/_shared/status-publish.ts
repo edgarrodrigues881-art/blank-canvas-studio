@@ -132,7 +132,12 @@ export async function publishToDevices(
     const r = await postStatusOnDevice(baseUrl, token, payload);
     if (r.sent) {
       success++;
-      results.push({ device_id: dev.id, name: dev.name, success: true });
+      // Try to extract message id from UAZAPI response (varies by build)
+      const p = r.parsed || {};
+      const messageId =
+        p?.messageId || p?.id || p?.key?.id || p?.message?.id ||
+        p?.data?.messageId || p?.data?.id || p?.data?.key?.id || null;
+      results.push({ device_id: dev.id, name: dev.name, success: true, message_id: messageId });
     } else {
       errors++;
       results.push({ device_id: dev.id, name: dev.name, success: false, error: r.error });
