@@ -999,6 +999,56 @@ export default function AutosaveSchedule() {
                 )}
               </div>
 
+              {/* Estimativa de envio */}
+              {sendEstimate && (
+                <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Activity className="w-4.5 h-4.5 text-blue-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold">Estimativa de envio</h4>
+                      <p className="text-[11px] text-muted-foreground/90 mt-0.5">
+                        Baseada em {sendEstimate.chips} chip(s) × {sendEstimate.mpi} msg(s)/contato × {sendEstimate.daysPerWeek} dia(s)/semana.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="rounded-md border border-border/60 bg-card/40 p-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">1º dia</p>
+                      <p className="text-base font-bold text-foreground mt-0.5">{sendEstimate.day1Msgs.toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground/70">mensagens</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40 p-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">No teto</p>
+                      <p className="text-base font-bold text-foreground mt-0.5">{sendEstimate.dayMaxMsgs.toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground/70">msgs/dia</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40 p-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">Semana (no teto)</p>
+                      <p className="text-base font-bold text-emerald-400 mt-0.5">{sendEstimate.weeklyAtMax.toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground/70">msgs</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card/40 p-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-muted-foreground/70">Mês (no teto)</p>
+                      <p className="text-base font-bold text-emerald-400 mt-0.5">≈ {sendEstimate.monthlyAtMax.toLocaleString("pt-BR")}</p>
+                      <p className="text-[10px] text-muted-foreground/70">msgs</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2.5 text-[11px] text-muted-foreground/90 leading-relaxed">
+                    Até atingir o teto: <strong className="text-foreground">{sendEstimate.daysToMax} dia(s) executados</strong>
+                    {sendEstimate.calendarDaysToMax > 0 && <> (≈ {sendEstimate.calendarDaysToMax} dias de calendário)</>}, somando
+                    {" "}<strong className="text-emerald-400">{sendEstimate.totalMsgsUntilMax.toLocaleString("pt-BR")}</strong> mensagens enviadas no período de aquecimento.
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground/60 italic">
+                    Estimativa teórica — o número real depende de contatos disponíveis, falhas de envio e disponibilidade dos chips.
+                  </p>
+                </div>
+              )}
+
               {/* Resumo final */}
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1">
                 <div className="flex items-center gap-2 mb-1">
