@@ -512,32 +512,40 @@ export default function WhatsAppVerifierCampaigns() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap gap-1.5 max-h-[180px] overflow-y-auto py-1 pr-1">
+                  <div className="flex flex-col gap-1 max-h-[260px] overflow-y-auto rounded-lg border border-border/30 bg-background/30 p-1">
                     {onlineDevices.map((device: any) => {
                       const isSelected = selectedDevices.includes(device.id);
-                      const label = device.number
-                        ? device.number.replace(/\D/g, "").slice(-4)
-                        : device.name;
                       return (
                         <button
                           key={device.id}
                           type="button"
-                          title={`${device.name}${device.number ? ` · ${device.number}` : ""}`}
                           onClick={() => {
                             setSelectedDevices(prev =>
                               isSelected ? prev.filter(id => id !== device.id) : [...prev, device.id]
                             );
                             if (!selectedDevice) setSelectedDevice(device.id);
                           }}
-                          className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-xs font-medium transition-colors ${
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md border text-left text-sm transition-colors ${
                             isSelected
-                              ? "border-primary/60 bg-primary/15 text-foreground"
-                              : "border-border/40 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
+                              : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                          <span className="truncate max-w-[90px]">{device.name}</span>
-                          {device.number && <span className="opacity-60">·{label}</span>}
+                          <span className="relative flex items-center justify-center shrink-0">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${
+                                isSelected ? "bg-emerald-500" : "bg-muted-foreground/30"
+                              }`}
+                            />
+                            {isSelected && (
+                              <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-60" />
+                            )}
+                          </span>
+                          <Smartphone className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-emerald-500" : ""}`} />
+                          <span className="flex-1 truncate">{device.name}</span>
+                          {device.number && (
+                            <span className="text-xs text-muted-foreground/70 tabular-nums">{device.number}</span>
+                          )}
                         </button>
                       );
                     })}
