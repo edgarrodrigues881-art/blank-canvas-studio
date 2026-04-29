@@ -7,7 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Shield, Crown, Building2, Phone, Mail, Lock, Eye, EyeOff, Smartphone, Pencil, Check, X, Camera, DollarSign, CalendarClock, Sun, Moon, Monitor } from "lucide-react";
+import { User, Shield, Crown, Building2, Phone, Mail, Lock, Eye, EyeOff, Smartphone, Pencil, Check, X, Camera, CalendarClock, Sun, Moon, Monitor, Sparkles, ArrowRight, Palette } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 
 const Settings = () => {
