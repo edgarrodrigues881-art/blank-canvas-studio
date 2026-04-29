@@ -780,9 +780,9 @@ function ScheduleDialog({
             const isPreset = (days: number[]) =>
               weekdays.length === days.length && days.every((d) => weekdays.includes(d));
             const PERIODS = [
-              { label: "Manhã", emoji: "🌅", desc: "Pessoas acordando", times: ["07:00", "08:00", "09:00", "10:00"] },
-              { label: "Tarde", emoji: "☀️", desc: "Almoço e trabalho", times: ["12:00", "14:00", "15:00", "17:00"] },
-              { label: "Noite", emoji: "🌙", desc: "Mais visualizações", times: ["19:00", "20:00", "21:00", "22:00"] },
+              { label: "Manhã", Icon: Sunrise, desc: "Pessoas acordando", times: ["07:00", "08:00", "09:00", "10:00"], color: "from-amber-500/20 to-orange-500/10", iconColor: "text-amber-500", ring: "ring-amber-500/30" },
+              { label: "Tarde", Icon: Sun, desc: "Almoço e trabalho", times: ["12:00", "14:00", "15:00", "17:00"], color: "from-sky-500/20 to-cyan-500/10", iconColor: "text-sky-500", ring: "ring-sky-500/30" },
+              { label: "Noite", Icon: Moon, desc: "Mais visualizações", times: ["19:00", "20:00", "21:00", "22:00"], color: "from-indigo-500/20 to-violet-500/10", iconColor: "text-indigo-400", ring: "ring-indigo-500/30" },
             ];
             const friendlyDays = () => {
               if (weekdays.length === 0) return "nenhum dia";
