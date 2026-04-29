@@ -451,17 +451,21 @@ export default function Affiliates() {
                     const monthCell = (n: number) => {
                       const p = ps.find((x) => x.month_number === n);
                       if (!p) return <span className="text-xs text-muted-foreground">—</span>;
-                      const icon = p.status === "paid" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> :
+                      const inGuarantee = isInGuarantee(p);
+                      const released = isReleased(p);
+                      const icon = released ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> :
+                                   inGuarantee ? <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> :
                                    p.status === "cancelled" ? <XCircle className="w-3.5 h-3.5 text-destructive" /> :
-                                   <Clock className="w-3.5 h-3.5 text-amber-400" />;
+                                   <Clock className="w-3.5 h-3.5 text-muted-foreground" />;
+                      const label = released ? `Liberado ${formatDate(p.released_at)}` :
+                                    inGuarantee ? `Libera ${formatDate(p.released_at)}` :
+                                    p.status === "cancelled" ? "Cancelado" : "Aguardando pagamento";
                       return (
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5 text-xs font-medium">
                             {icon} {formatBRL(Number(p.commission_amount))}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {p.status === "paid" ? `Pago ${formatDate(p.paid_at)}` : p.status === "cancelled" ? "Cancelado" : "Aguardando"}
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">{label}</span>
                         </div>
                       );
                     };
