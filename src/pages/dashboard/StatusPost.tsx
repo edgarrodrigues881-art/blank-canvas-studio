@@ -618,11 +618,17 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
     load();
   };
 
-  const remove = async (s: Schedule) => {
-    if (!confirm(`Remover agendamento "${s.name}"?`)) return;
-    await supabase.from("status_schedules").delete().eq("id", s.id);
-    toast.success("Agendamento removido");
-    load();
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await supabase.from("status_schedules").delete().eq("id", toDelete.id);
+      toast.success("Agendamento removido");
+      setToDelete(null);
+      load();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
