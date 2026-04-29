@@ -157,6 +157,7 @@ export default function AutosaveSchedule() {
     setCreateOpen(true);
   };
 
+  const toggleWeekday = (day: number) => {
     setSelectedWeekdays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
