@@ -53,10 +53,12 @@ export default function AutosaveSchedule() {
   const { user } = useAuth();
   const { data: schedules = [], isLoading } = useAutosaveSchedules();
   const createMut = useCreateAutosaveSchedule();
+  const updateMut = useUpdateAutosaveSchedule();
   const deleteMut = useDeleteAutosaveSchedule();
   const triggerMut = useTriggerAutosaveSchedule();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [detailId, setDetailId] = useState<string | null>(null);
 
