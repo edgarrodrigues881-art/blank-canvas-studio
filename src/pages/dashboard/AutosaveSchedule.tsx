@@ -43,10 +43,10 @@ function weekdaysLabel(days: number[]): string {
 }
 
 const STEPS = [
-  { n: 1, title: "Identificação", desc: "Nome do agendamento", icon: CalendarIcon },
-  { n: 2, title: "Instâncias", desc: "Quais chips disparam", icon: Smartphone },
+  { n: 1, title: "Identificação", desc: "Nome", icon: CalendarIcon },
+  { n: 2, title: "Instâncias", desc: "Chips", icon: Smartphone },
   { n: 3, title: "Agenda", desc: "Dias e horário", icon: Clock },
-  { n: 4, title: "Envio + Crescimento", desc: "Ritmo e progressão", icon: Activity },
+  { n: 4, title: "Envio", desc: "Ritmo e crescimento", icon: Activity },
 ] as const;
 
 export default function AutosaveSchedule() {
@@ -645,7 +645,7 @@ export default function AutosaveSchedule() {
                     type="button"
                     onClick={() => { if (done) setStep(st.n as any); }}
                     className={cn(
-                      "flex-1 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-2 rounded-md border transition-colors min-w-0",
+                      "flex-1 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-md border transition-colors min-w-0",
                       active && "bg-primary/10 border-primary/40 text-foreground",
                       done && "bg-emerald-500/5 border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/10",
                       !active && !done && "bg-muted/20 border-border/40 text-muted-foreground"
@@ -1113,29 +1113,31 @@ export default function AutosaveSchedule() {
           )}
 
           {/* Footer / navigation */}
-          <div className="flex gap-2 pt-3 mt-2 border-t border-border/40">
+          <div className="flex gap-2 pt-3 mt-2 border-t border-border/40 w-full">
             {step > 1 ? (
-              <Button variant="outline" onClick={back} className="gap-2">
+              <Button variant="outline" onClick={back} className="gap-2 shrink-0">
                 <ArrowLeft className="w-4 h-4" /> Voltar
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setCreateOpen(false)} className="shrink-0">Cancelar</Button>
             )}
             <div className="flex-1" />
             {step < 4 ? (
-              <Button onClick={next} className="gap-2">
+              <Button onClick={next} className="gap-2 shrink-0">
                 Próximo <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
               <Button
                 onClick={handleCreate}
                 disabled={createMut.isPending || updateMut.isPending}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2 shrink-0"
               >
                 {editingId ? <Save className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
-                {editingId
-                  ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
-                  : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
+                <span className="truncate">
+                  {editingId
+                    ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
+                    : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
+                </span>
               </Button>
             )}
           </div>
