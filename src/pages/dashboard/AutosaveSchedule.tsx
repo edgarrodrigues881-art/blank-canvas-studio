@@ -172,6 +172,48 @@ export default function AutosaveSchedule() {
     return Array.from({ length: 7 }, (_, i) => Math.min(mx, ini + i * inc));
   }, [initialLimit, dailyIncrement, maxLimit]);
 
+  // Estimativa de envio (mensagens/dia, total até atingir o teto, semana, mês de execução)
+  const sendEstimate = useMemo(() => {
+    const ini = typeof initialLimit === "number" ? initialLimit : 0;
+    const inc = typeof dailyIncrement === "number" ? dailyIncrement : 0;
+    const mx = typeof maxLimit === "number" ? maxLimit : 0;
+    const mpi = typeof msgsPerInstance === "number" ? Math.max(1, msgsPerInstance) : 1;
+    const chips = Math.max(0, selectedDevices.length);
+    const daysPerWeek = Math.max(0, selectedWeekdays.length);
+
+    if (!ini || !mx || !chips) return null;
+
+    // Dias necessários para atingir o teto (envios/chip/dia = contatos do dia)
+    const daysToMax = inc > 0 ? Math.max(1, Math.ceil((mx - ini) / inc) + 1) : 1;
+
+    // Soma cumulativa de contatos por chip ao longo de daysToMax (cada dia executado)
+    let contactsPerChipUntilMax = 0;
+    for (let i = 0; i < daysToMax; i++) {
+      contactsPerChipUntilMax += Math.min(mx, ini + i * inc);
+    }
+
+    const day1Msgs = ini * mpi * chips;
+    const dayMaxMsgs = mx * mpi * chips;
+    const totalMsgsUntilMax = contactsPerChipUntilMax * mpi * chips;
+
+    // Semanas/meses de calendário até completar daysToMax dias EXECUTADOS
+    const weeksToMax = daysPerWeek > 0 ? daysToMax / daysPerWeek : 0;
+    const calendarDaysToMax = daysPerWeek > 0 ? Math.ceil(weeksToMax * 7) : 0;
+
+    // Após o teto: por semana de calendário e por mês (≈4.345 semanas)
+    const weeklyAtMax = mx * mpi * chips * daysPerWeek;
+    const monthlyAtMax = Math.round(weeklyAtMax * 4.345);
+
+    return {
+      chips, mpi, daysPerWeek,
+      day1Msgs, dayMaxMsgs,
+      daysToMax, calendarDaysToMax,
+      totalMsgsUntilMax,
+      weeklyAtMax, monthlyAtMax,
+    };
+  }, [initialLimit, dailyIncrement, maxLimit, msgsPerInstance, selectedDevices.length, selectedWeekdays.length]);
+
+
   const validateStep = (s: 1 | 2 | 3 | 4): string | null => {
     if (s === 1) {
       const trimmed = name.trim();
