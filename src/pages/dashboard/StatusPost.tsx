@@ -1287,6 +1287,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                     items.map((s) => (
                       <ScheduleRow
                         key={s.id} s={s}
+                        locked={folderLocked}
                         onToggle={() => toggle(s)}
                         onPreview={() => setPreviewing({ items: [s] })}
                         onEdit={() => { setEditing(s); setDialogOpen(true); }}
