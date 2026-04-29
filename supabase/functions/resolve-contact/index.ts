@@ -197,11 +197,17 @@ async function resolveLidViaUazapi(
     if (!value || typeof value !== "object") return out;
     for (const [key, raw] of Object.entries(value)) {
       const k = key.toLowerCase();
-      if (["phone", "number", "telefone", "wa_chatid", "jid", "remotejid", "phonejid"].includes(k) && typeof raw === "string") {
+      const compactKey = k.replace(/[^a-z0-9]/g, "");
+      const isPhoneField = ["phone", "number", "telefone", "wa_chatid", "jid", "remotejid", "phonejid"].includes(k)
+        || compactKey.includes("phone")
+        || compactKey.includes("number")
+        || compactKey.includes("chatid")
+        || compactKey.includes("jid");
+      if (isPhoneField && typeof raw === "string") {
         if (isPhoneJid(raw)) out.push(raw);
         else {
           const digits = onlyDigits(raw);
-          if (digits && digits !== lidDigits) {
+          if (digits.length >= 8 && digits.length <= 15 && digits !== lidDigits) {
             const jid = numberToJid(digits);
             if (jid) out.push(jid);
           }
