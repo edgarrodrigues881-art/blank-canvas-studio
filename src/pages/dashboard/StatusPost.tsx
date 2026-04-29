@@ -721,8 +721,10 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
 function HistoryTab() {
   const { user } = useAuth();
   const [history, setHistory] = useState<StatusPost[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     if (!user) return;
     supabase.from("status_posts")
       .select("id, type, text_content, caption, status, success_count, error_count, created_at")
@@ -730,25 +732,76 @@ function HistoryTab() {
       .order("created_at", { ascending: false })
       .limit(50)
       .then(({ data }) => setHistory((data || []) as StatusPost[]));
-  }, [user]);
+  };
 
-  if (history.length === 0) return <p className="text-sm text-muted-foreground p-4">Nenhuma publicação ainda.</p>;
+  useEffect(() => { load(); }, [user]);
+
+  const clearHistory = async () => {
+    if (!user) return;
+    setClearing(true);
+    try {
+      const { error } = await supabase.from("status_posts").delete().eq("user_id", user.id);
+      if (error) throw error;
+      setHistory([]);
+      setConfirmOpen(false);
+      toast.success("Histórico limpo");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao limpar");
+    } finally {
+      setClearing(false);
+    }
+  };
 
   return (
-    <div className="space-y-2">
-      {history.map((h) => (
-        <div key={h.id} className="flex items-center gap-3 p-3 border rounded-md">
-          <Badge variant="outline" className="capitalize">{h.type}</Badge>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm truncate">{h.text_content || h.caption || "—"}</p>
-            <p className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString("pt-BR")}</p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {history.length === 0 ? "Nenhuma publicação ainda." : `${history.length} publicação(ões) recente(s).`}
+        </p>
+        {history.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setConfirmOpen(true)} className="text-destructive hover:text-destructive">
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />Limpar histórico
+          </Button>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {history.map((h) => (
+          <div key={h.id} className="flex items-center gap-3 p-3 border rounded-md">
+            <Badge variant="outline" className="capitalize">{h.type}</Badge>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm truncate">{h.text_content || h.caption || "—"}</p>
+              <p className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />{h.success_count}</span>
+              <span className="flex items-center gap-1 text-destructive"><XCircle className="w-3.5 h-3.5" />{h.error_count}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />{h.success_count}</span>
-            <span className="flex items-center gap-1 text-destructive"><XCircle className="w-3.5 h-3.5" />{h.error_count}</span>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar todo o histórico?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as {history.length} publicação(ões) registradas serão removidas permanentemente. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); clearHistory(); }}
+              disabled={clearing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {clearing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Limpar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
