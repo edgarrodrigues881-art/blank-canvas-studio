@@ -74,6 +74,10 @@ export default function LidConverter() {
   };
 
   const isLikelyRawLid = (value: string) => /^\d{14,}$/.test(String(value || "").replace(/\D/g, ""));
+  const needsLidPhoneRetry = (value: string, row?: Row) => {
+    const v = String(value || "").toLowerCase();
+    return (isLikelyRawLid(v) || v.includes("@lid")) && (!row || row.number === "—");
+  };
 
   // Autosave do textarea (debounced para performance com listas grandes)
   useEffect(() => {
@@ -218,6 +222,43 @@ export default function LidConverter() {
         };
 
         await Promise.all(deviceIds.map((id) => processChunk(id, buckets[id])));
+
+        // Segunda passada agressiva: LID sem telefone real é testado nas outras instâncias
+        // antes de aceitar o fallback @lid. Isso aumenta a chance de achar o número, porque
+        // o pareamento LID→telefone pode existir no histórico de outra sessão.
+        if (deviceIds.length > 1) {
+          for (const devId of deviceIds) {
+            const pending = toResolve.filter((contact) => needsLidPhoneRetry(contact, resolvedMap.get(contact)));
+            if (pending.length === 0) break;
+
+            const retryChunks: string[][] = [];
+            for (let i = 0; i < pending.length; i += 25) retryChunks.push(pending.slice(i, i + 25));
+
+            for (const chunk of retryChunks) {
+              try {
+                const { data, error } = await supabase.functions.invoke("resolve-contact", {
+                  body: { inputs: chunk, device_id: devId },
+                });
+                if (error) throw error;
+                const results = Array.isArray(data?.results) ? data.results : [];
+                results.forEach((r: any) => {
+                  const orig = String(r?.original ?? "");
+                  if (!orig || !r?.number) return;
+                  resolvedMap.set(orig, {
+                    original: orig,
+                    type: (r?.type as EntryType) ?? "lid",
+                    number: String(r.number),
+                    jid: r?.jid ? String(r.jid) : "—",
+                    valid: true,
+                    error: r?.error,
+                  });
+                });
+              } catch (err) {
+                console.warn(`[lid-converter] retry device ${devId} falhou`, err);
+              }
+            }
+          }
+        }
       }
 
       // Mantém ordem original
