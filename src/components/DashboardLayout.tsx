@@ -45,6 +45,20 @@ const typeColors = {
   info: "text-[hsl(var(--info))]",
 };
 
+const typeIconBg = {
+  success: "bg-[hsl(var(--success))]/10 ring-1 ring-[hsl(var(--success))]/25",
+  warning: "bg-[hsl(var(--warning))]/10 ring-1 ring-[hsl(var(--warning))]/25",
+  error: "bg-destructive/10 ring-1 ring-destructive/25",
+  info: "bg-[hsl(var(--info))]/10 ring-1 ring-[hsl(var(--info))]/25",
+};
+
+const typeAccentBar = {
+  success: "bg-[hsl(var(--success))]",
+  warning: "bg-[hsl(var(--warning))]",
+  error: "bg-destructive",
+  info: "bg-[hsl(var(--info))]",
+};
+
 const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
