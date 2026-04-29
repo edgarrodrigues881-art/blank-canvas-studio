@@ -763,7 +763,11 @@ function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | 
   if (!items || items.length === 0) return null;
 
   // Sort by time so carousel reflects the campaign order
-  const sorted = [...items].sort((a, b) => (a.times?.[0] || "").localeCompare(b.times?.[0] || ""));
+  const sorted = [...items].sort((a, b) => {
+    const t = (a.times?.[0] || "").localeCompare(b.times?.[0] || "");
+    if (t !== 0) return t;
+    return (a.created_at || "").localeCompare(b.created_at || "");
+  });
 
   const slides = sorted.map((s) => ({
     id: s.id,
