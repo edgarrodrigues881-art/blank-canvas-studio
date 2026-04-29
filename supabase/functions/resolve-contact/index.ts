@@ -67,6 +67,11 @@ function numberToJid(num: string): string | null {
 
 type LidPhoneMap = Map<string, string>;
 
+function normalizePhoneJid(jid: string): string | null {
+  const number = jidToNumber(jid);
+  return number ? numberToJid(number) : null;
+}
+
 function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
   if (!value) return;
   if (Array.isArray(value)) {
@@ -84,7 +89,8 @@ function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
     const k = key.toLowerCase();
     const digits = onlyDigits(raw);
     if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
-    if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || k.includes("phone") || k.includes("number"))) {
+    const compactKey = k.replace(/[^a-z0-9]/g, "");
+    if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || compactKey.includes("phone") || compactKey.includes("number") || compactKey.includes("chatid") || compactKey.includes("waid"))) {
       if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
     }
   }
