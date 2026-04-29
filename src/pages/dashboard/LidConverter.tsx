@@ -53,6 +53,7 @@ export default function LidConverter() {
 
   // Progresso global do processamento paralelo
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [stageText, setStageText] = useState("Processando...");
 
   useEffect(() => {
     (async () => {
@@ -142,6 +143,7 @@ export default function LidConverter() {
 
     setLoading(true);
     setProgress({ done: 0, total: 0 });
+    setStageText("Fazendo conversão rápida...");
     try {
       // Skip já-validados (cache de campanhas anteriores)
       const { data: alreadyData } = await supabase
@@ -180,7 +182,7 @@ export default function LidConverter() {
           if (chunk.length === 0) return;
           try {
             const { data, error } = await supabase.functions.invoke("resolve-contact", {
-              body: { inputs: chunk, device_id: devId },
+              body: { inputs: chunk, device_id: devId, deep_scan: false },
             });
             if (error) throw error;
             const results = Array.isArray(data?.results) ? data.results : [];
@@ -227,6 +229,7 @@ export default function LidConverter() {
         // antes de aceitar o fallback @lid. Isso aumenta a chance de achar o número, porque
         // o pareamento LID→telefone pode existir no histórico de outra sessão.
         if (deviceIds.length > 1) {
+          setStageText("Buscando LIDs restantes nas outras instâncias...");
           for (const devId of deviceIds) {
             const pending = toResolve.filter((contact) => needsLidPhoneRetry(contact, resolvedMap.get(contact)));
             if (pending.length === 0) break;
@@ -237,7 +240,7 @@ export default function LidConverter() {
             for (const chunk of retryChunks) {
               try {
                 const { data, error } = await supabase.functions.invoke("resolve-contact", {
-                  body: { inputs: chunk, device_id: devId },
+                  body: { inputs: chunk, device_id: devId, deep_scan: false },
                 });
                 if (error) throw error;
                 const results = Array.isArray(data?.results) ? data.results : [];
