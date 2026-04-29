@@ -389,18 +389,46 @@ export default function WhatsAppVerifierCampaigns() {
     onError: (error: any) => toast.error(error?.message || "Erro ao excluir"),
   });
 
-  const handleFileImportPlain = useCallback(() => {
+  // Importação unificada: detecta automaticamente se é txt/csv simples (só números)
+  // ou planilha com variáveis (xlsx/csv com 2+ colunas relevantes).
+  const handleSmartImport = useCallback(() => {
     const input = document.createElement("input");
-    input.type = "file"; input.accept = ".txt,.csv";
+    input.type = "file";
+    input.accept = ".txt,.csv,.xlsx,.xls";
     input.onchange = async (event: any) => {
       const file = event.target?.files?.[0];
       if (!file) return;
-      const text = await file.text();
-      setRawInput((prev) => (prev ? `${prev}\n${text}` : text));
-      toast.success(`Arquivo "${file.name}" importado`);
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+
+      // Planilhas Excel sempre passam pelo fluxo de mapeamento
+      if (ext === "xlsx" || ext === "xls") {
+        await handleSpreadsheetImport(file);
+        return;
+      }
+
+      // Para .txt/.csv: tenta detectar se há mais de uma coluna útil
+      try {
+        const text = await file.text();
+        const firstLines = text.split(/\r?\n/).slice(0, 5).filter(l => l.trim());
+        const looksTabular = firstLines.length > 0 && firstLines.every(l => /[,;\t]/.test(l));
+        const colCount = looksTabular
+          ? Math.max(...firstLines.map(l => l.split(/[,;\t]/).length))
+          : 1;
+
+        if (looksTabular && colCount >= 2) {
+          // CSV com variáveis → fluxo de mapeamento
+          await handleSpreadsheetImport(file);
+        } else {
+          // Apenas números → import direto
+          setRawInput((prev) => (prev ? `${prev}\n${text}` : text));
+          toast.success(`"${file.name}" importado`);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao ler arquivo: " + (err?.message || ""));
+      }
     };
     input.click();
-  }, []);
+  }, [handleSpreadsheetImport]);
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -512,32 +540,40 @@ export default function WhatsAppVerifierCampaigns() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap gap-1.5 max-h-[180px] overflow-y-auto py-1 pr-1">
+                  <div className="flex flex-col gap-1 max-h-[260px] overflow-y-auto rounded-lg border border-border/30 bg-background/30 p-1">
                     {onlineDevices.map((device: any) => {
                       const isSelected = selectedDevices.includes(device.id);
-                      const label = device.number
-                        ? device.number.replace(/\D/g, "").slice(-4)
-                        : device.name;
                       return (
                         <button
                           key={device.id}
                           type="button"
-                          title={`${device.name}${device.number ? ` · ${device.number}` : ""}`}
                           onClick={() => {
                             setSelectedDevices(prev =>
                               isSelected ? prev.filter(id => id !== device.id) : [...prev, device.id]
                             );
                             if (!selectedDevice) setSelectedDevice(device.id);
                           }}
-                          className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-xs font-medium transition-colors ${
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md border text-left text-sm transition-colors ${
                             isSelected
-                              ? "border-primary/60 bg-primary/15 text-foreground"
-                              : "border-border/40 bg-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-foreground"
+                              : "border-transparent bg-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                           }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-primary" : "bg-muted-foreground/40"}`} />
-                          <span className="truncate max-w-[90px]">{device.name}</span>
-                          {device.number && <span className="opacity-60">·{label}</span>}
+                          <span className="relative flex items-center justify-center shrink-0">
+                            <span
+                              className={`w-2.5 h-2.5 rounded-full ${
+                                isSelected ? "bg-emerald-500" : "bg-muted-foreground/30"
+                              }`}
+                            />
+                            {isSelected && (
+                              <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-60" />
+                            )}
+                          </span>
+                          <Smartphone className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-emerald-500" : ""}`} />
+                          <span className="flex-1 truncate">{device.name}</span>
+                          {device.number && (
+                            <span className="text-xs text-muted-foreground/70 tabular-nums">{device.number}</span>
+                          )}
                         </button>
                       );
                     })}
@@ -573,10 +609,12 @@ export default function WhatsAppVerifierCampaigns() {
               {importMode === "plain" ? (
                 <>
                   <Textarea placeholder={"Cole os números aqui, um por linha:\n5511999999999\n5521988888888"} value={rawInput} onChange={(e) => setRawInput(e.target.value)} className="min-h-[180px] bg-background/50 font-mono text-sm" />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={handleFileImportPlain}><Upload className="w-4 h-4 mr-1.5" /> Importar TXT/CSV</Button>
-                    <Button variant="outline" size="sm" onClick={handleSpreadsheetClick} className="gap-1.5">
-                      <FileSpreadsheet className="w-4 h-4" /> Importar Planilha com Variáveis
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Aceita TXT, CSV ou Excel — variáveis são detectadas automaticamente.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleSmartImport} className="gap-1.5">
+                      <Upload className="w-4 h-4" /> Importar arquivo
                     </Button>
                   </div>
                 </>
