@@ -251,7 +251,7 @@ const Auth = () => {
               <div className="relative mb-5">
                 {/* Gold frame around logo — thin 1px */}
                 <div
-                  className="rounded-2xl p-[8px]"
+                  className="rounded-2xl p-[2px]"
                   style={{
                     border: "1px solid #FBBF24",
                     boxShadow: "0 0 20px rgba(251,191,36,0.30), 0 0 50px rgba(16,185,129,0.15)",
