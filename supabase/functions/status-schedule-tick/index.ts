@@ -53,7 +53,12 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
 
     const dueList = (schedules || []).filter((s: any) => {
-      if (!s.weekdays?.includes(weekday)) return false;
+      const mode = s.schedule_mode || "recurring";
+      if (mode === "recurring") {
+        if (!s.weekdays?.includes(weekday)) return false;
+      } else if (mode === "oneshot") {
+        if (s.run_date !== date) return false;
+      }
       if (!s.times?.includes(hhmm)) return false;
       const runKey = `${date}_${hhmm}`;
       if (s.last_run_key === runKey) return false; // already executed this minute
