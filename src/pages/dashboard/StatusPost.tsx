@@ -731,6 +731,159 @@ function ScheduleDialog({
 }
 
 // ===== SCHEDULES TAB =====
+// ===== PREVIEW DIALOG (carousel-ready) =====
+function SchedulePreviewDialog({ schedule, onClose }: { schedule: Schedule | null; onClose: () => void }) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => { setIdx(0); }, [schedule?.id]);
+
+  if (!schedule) return null;
+
+  // Build slides — currently 1 per schedule; structured as array for future multi-media support
+  const slides: { type: string; mediaUrl?: string | null; caption?: string | null; text?: string | null; bg?: string | null; font?: number | null }[] = [
+    {
+      type: schedule.type,
+      mediaUrl: schedule.media_url,
+      caption: schedule.caption,
+      text: schedule.text_content,
+      bg: schedule.background_color,
+      font: schedule.font,
+    },
+  ];
+
+  const total = slides.length;
+  const slide = slides[idx];
+  const isMulti = total > 1;
+
+  const mediaIcon = (t: string) => {
+    if (t === "image") return <ImageIcon className="w-3.5 h-3.5" />;
+    if (t === "video") return <Video className="w-3.5 h-3.5" />;
+    if (t === "audio") return <Mic className="w-3.5 h-3.5" />;
+    return <Type className="w-3.5 h-3.5" />;
+  };
+
+  return (
+    <Dialog open={!!schedule} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Eye className="w-4 h-4" />
+            <span className="truncate">{schedule.name}</span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {/* Slide */}
+          <div className="relative bg-muted/30 border border-border rounded-xl overflow-hidden">
+            {slide.type === "text" ? (
+              <div
+                className="aspect-square flex items-center justify-center p-6 text-center"
+                style={{ background: slide.bg || "#25D366", fontFamily: fontCss(slide.font) }}
+              >
+                <p className="text-white text-xl font-medium whitespace-pre-wrap break-words">
+                  {slide.text || "—"}
+                </p>
+              </div>
+            ) : slide.type === "image" && slide.mediaUrl ? (
+              <div className="aspect-square bg-black flex items-center justify-center">
+                <img src={slide.mediaUrl} alt="" loading="lazy" className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : slide.type === "video" && slide.mediaUrl ? (
+              <div className="aspect-square bg-black flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <Video className="w-12 h-12 opacity-60" />
+                <p className="text-xs">Vídeo (preview desativado)</p>
+                <p className="text-[10px] opacity-60 truncate max-w-[80%]">{slide.mediaUrl.split("/").pop()}</p>
+              </div>
+            ) : slide.type === "audio" && slide.mediaUrl ? (
+              <div className="aspect-square bg-muted flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <Mic className="w-12 h-12 opacity-60" />
+                <p className="text-xs">Áudio (preview desativado)</p>
+              </div>
+            ) : (
+              <div className="aspect-square flex items-center justify-center text-muted-foreground text-sm">
+                Sem mídia
+              </div>
+            )}
+
+            {/* Carousel arrows */}
+            {isMulti && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIdx((i) => (i - 1 + total) % total)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-background transition"
+                  aria-label="Anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIdx((i) => (i + 1) % total)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-background/80 backdrop-blur flex items-center justify-center hover:bg-background transition"
+                  aria-label="Próximo"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-background/80 backdrop-blur text-[10px] font-medium">
+                  {idx + 1} / {total}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Type + caption */}
+          <div className="space-y-2">
+            <Badge variant="outline" className="capitalize text-xs gap-1">
+              {mediaIcon(slide.type)}
+              {slide.type}
+            </Badge>
+            {slide.caption && (
+              <div className="text-sm bg-muted/40 rounded-lg p-3 border border-border/50 whitespace-pre-wrap break-words">
+                {slide.caption}
+              </div>
+            )}
+            {!slide.caption && slide.type !== "text" && (
+              <p className="text-xs text-muted-foreground italic">Sem legenda</p>
+            )}
+          </div>
+
+          {/* Dots */}
+          {isMulti && (
+            <div className="flex justify-center gap-1.5">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === idx ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Schedule meta */}
+          <div className="border-t border-border pt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3 h-3" />
+              {(schedule.schedule_mode || "recurring") === "oneshot" && schedule.run_date
+                ? schedule.run_date.split("-").reverse().join("/")
+                : (schedule.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3 h-3" />
+              {(schedule.times || []).join(", ") || "—"}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SchedulesTab({ devices }: { devices: Device[] }) {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
