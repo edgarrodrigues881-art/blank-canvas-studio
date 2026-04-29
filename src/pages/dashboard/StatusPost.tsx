@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 // radio-group not available; using custom toggle
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload } from "lucide-react";
 import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
@@ -595,6 +596,8 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
+  const [toDelete, setToDelete] = useState<Schedule | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     if (!user) return;
@@ -615,11 +618,17 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
     load();
   };
 
-  const remove = async (s: Schedule) => {
-    if (!confirm(`Remover agendamento "${s.name}"?`)) return;
-    await supabase.from("status_schedules").delete().eq("id", s.id);
-    toast.success("Agendamento removido");
-    load();
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await supabase.from("status_schedules").delete().eq("id", toDelete.id);
+      toast.success("Agendamento removido");
+      setToDelete(null);
+      load();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -666,7 +675,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setDialogOpen(true); }}>
                   <Pencil className="w-4 h-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(s)} className="text-destructive">
+                <Button size="icon" variant="ghost" onClick={() => setToDelete(s)} className="text-destructive">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
@@ -682,6 +691,28 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
         editing={editing}
         onSaved={load}
       />
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o agendamento <span className="font-medium text-foreground">"{toDelete?.name}"</span>? Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
