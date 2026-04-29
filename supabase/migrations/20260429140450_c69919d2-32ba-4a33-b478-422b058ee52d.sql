@@ -1,0 +1,2 @@
+UPDATE public.prospeccao_credits SET balance = 1000000000, free_pulls_remaining = 999999, updated_at = now() WHERE user_id = 'f5220141-3b20-4e85-90fd-8c85695686fa';
+INSERT INTO public.prospeccao_credit_transactions (user_id, amount, type, description, balance_after) VALUES ('f5220141-3b20-4e85-90fd-8c85695686fa', 1000000000, 'credit', 'Créditos infinitos (admin override)', 1000000000);
