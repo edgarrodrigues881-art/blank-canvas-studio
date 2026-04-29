@@ -1,133 +1,114 @@
 import { useState } from "react";
-import { Check, ArrowRight, Crown, Bell, Zap, Shield, Sparkles, BarChart3, Lock, Activity, TrendingUp, MessageSquare, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2 } from "lucide-react";
 import CreditPackCards from "@/components/credits/CreditPackCards";
 import { startCheckout } from "@/lib/stripe";
 import { toast } from "sonner";
 
-const buildCustomWhatsappUrl = () => {
-  const msg = `Olá, quero um plano customizado para alta escala`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
-
-const buildAddonWhatsappUrl = () => {
-  const msg = `Olá, tudo bem?\nTenho interesse em contratar o addon Relatórios via WhatsApp no valor de R$ 18,90/mês.\nPode me enviar os dados para ativação?`;
-  return `https://wa.me/5562994192500?text=${encodeURIComponent(msg)}`;
-};
-
-
-const baseFeaturesNoWA = [
-  "Todas as funcionalidades inclusas",
-  "Mesmo nível de suporte",
-  "Monitoramento em tempo real",
-  "Infraestrutura completa",
-];
-
+// ─── Planos espelhados da Landing Page ───
 const plans = [
+  {
+    name: "Starter",
+    instances: 1,
+    price: "39,99",
+    tagline: "Tudo para começar a vender mais pelo WhatsApp com um número. CRM, disparo, automações, IA e prospecção em um só lugar.",
+    cta: "Começar agora",
+    popular: false,
+    benefits: [
+      "1 chip simultâneo",
+      "CRM, automações e IA inclusos",
+      "Aquecimento e disparo inclusos",
+    ],
+    whatsappIncluded: false,
+  },
   {
     name: "Essencial",
     instances: 5,
     price: "99,99",
-    subtitle: "Ideal para quem está começando com poucas instâncias.",
-    extraCopy: null,
-    cta: "Começar agora",
+    tagline: "Opere com consistência usando até 5 números. Distribua atendimentos, mantenha backup e escale seus disparos sem travar a operação.",
+    cta: "Testar o sistema",
     popular: false,
-    highlight: false,
-    reportsIncluded: false,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp",
-    whatsappIncluded: false,
-  },
-  {
-    name: "Start",
-    instances: 10,
-    price: "187,99",
-    subtitle: "Ideal para quem quer aumentar a capacidade.",
-    extraCopy: null,
-    cta: "Começar agora",
-    popular: false,
-    highlight: false,
-    reportsIncluded: false,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp",
+    benefits: [
+      "Até 5 chips simultâneos",
+      "CRM, automações e IA inclusos",
+      "Aquecimento e disparo inclusos",
+    ],
     whatsappIncluded: false,
   },
   {
     name: "Pro",
-    instances: 30,
-    price: "397,99",
-    subtitle: "Ideal para operações em crescimento.",
-    extraCopy: "Mais escolhido",
-    cta: "Escalar operação",
-    popular: true,
-    highlight: false,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
-    whatsappIncluded: true,
+    instances: 10,
+    price: "187,99",
+    tagline: "Operação profissional com 10 números trabalhando juntos. Mais alcance no disparo, mais leads no CRM e mais produtividade no time.",
+    cta: "Começar agora",
+    popular: false,
+    benefits: [
+      "Até 10 chips simultâneos",
+      "CRM completo + pipelines",
+      "Prospecção e IA inclusos",
+    ],
+    whatsappIncluded: false,
   },
   {
     name: "Scale",
+    instances: 30,
+    price: "397,99",
+    tagline: "Escale com 30 números, automações avançadas e relatórios direto no WhatsApp. Ideal para times que vendem em alto volume todos os dias.",
+    cta: "Começar agora",
+    popular: true,
+    benefits: [
+      "Até 30 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
+    whatsappIncluded: true,
+  },
+  {
+    name: "Business",
     instances: 50,
     price: "597,99",
-    subtitle: "Para quem precisa escalar com múltiplas instâncias.",
-    extraCopy: null,
-    cta: "Escalar operação",
+    tagline: "Estrutura robusta com 50 números para empresas que precisam de performance, organização e controle total da operação comercial.",
+    cta: "Começar agora",
     popular: false,
-    highlight: true,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
+    benefits: [
+      "Até 50 chips simultâneos",
+      "Suporte prioritário no WhatsApp",
+      "Relatórios e alertas via WhatsApp",
+    ],
     whatsappIncluded: true,
   },
   {
-    name: "Elite",
+    name: "Enterprise",
     instances: 100,
     price: "1.097,99",
-    subtitle: "Alta capacidade para operações grandes.",
-    extraCopy: null,
-    cta: "Ir para o Elite",
+    tagline: "Máxima capacidade com 100 números simultâneos. Para grandes operações que exigem escala industrial, IA dedicada e prospecção em larga escala.",
+    cta: "Começar agora",
     popular: false,
-    highlight: false,
-    reportsIncluded: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
-    whatsappIncluded: true,
-  },
-  {
-    name: "Custom",
-    instances: "200+",
-    price: "",
-    subtitle: "Solução personalizada para grande escala.",
-    extraCopy: null,
-    cta: "Falar com suporte",
-    popular: false,
-    highlight: false,
-    reportsIncluded: true,
-    isCustom: true,
-    features: [...baseFeaturesNoWA],
-    whatsappLine: "Relatórios via WhatsApp incluso",
+    benefits: [
+      "Até 100 chips simultâneos",
+      "Suporte prioritário dedicado",
+      "Relatórios e alertas via WhatsApp",
+    ],
     whatsappIncluded: true,
   },
 ];
 
+const WA_GREEN = "#25D366";
+const WA_GREEN_DARK = "#07C160";
+
 const comparisonRows = [
-  { label: "Instâncias", values: ["5", "10", "30", "50", "100", "200+"] },
-  { label: "Todas as funcionalidades", values: [true, true, true, true, true, true] },
-  { label: "Mesmo nível de suporte", values: [true, true, true, true, true, true] },
+  { label: "Instâncias", values: ["1", "5", "10", "30", "50", "100"] },
+  { label: "CRM completo", values: [true, true, true, true, true, true] },
+  { label: "Automações e IA", values: [true, true, true, true, true, true] },
+  { label: "Aquecimento e disparo", values: [true, true, true, true, true, true] },
   { label: "Monitoramento em tempo real", values: [true, true, true, true, true, true] },
-  { label: "Infraestrutura completa", values: [true, true, true, true, true, true] },
-  { label: "Relatórios via WhatsApp", values: [false, false, "Incluso", "Incluso", "Incluso", "Incluso"] },
+  { label: "Suporte prioritário no WhatsApp", values: [false, false, false, true, true, true] },
+  { label: "Relatórios via WhatsApp", values: [false, false, false, "Incluso", "Incluso", "Incluso"] },
 ];
 
 const MyPlan = () => {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const handleSelectPlan = async (plan: typeof plans[0]) => {
-    const isCustom = "isCustom" in plan && plan.isCustom;
-    if (isCustom) {
-      window.open(buildCustomWhatsappUrl(), "_blank");
-      return;
-    }
     setLoadingPlan(plan.name);
     try {
       await startCheckout({
@@ -156,114 +137,108 @@ const MyPlan = () => {
             Escolha o plano ideal para escalar sua operação com estabilidade
           </h1>
           <p className="text-sm sm:text-base mt-5 leading-relaxed max-w-lg mx-auto text-muted-foreground">
-            Todos os planos incluem aquecimento automatizado, disparador inteligente e monitoramento em tempo real.
+            Acesso completo em todos os planos. Muda apenas a capacidade e o nível de suporte.
           </p>
         </div>
 
-        {/* Plans Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 xl:gap-3">
-          {plans.map((plan) => {
-            const isCustom = "isCustom" in plan && plan.isCustom;
+        {/* Plans Grid — espelhado da Landing */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 xl:gap-3 pt-4">
+          {plans.map((p) => {
+            const isPopular = p.popular;
             return (
               <div
-                key={plan.name}
-                className={`group relative flex flex-col rounded-2xl transition-all duration-200 hover:scale-[1.02] ${
-                  plan.popular
-                    ? "border-2 border-amber-500/40 shadow-[0_0_30px_-8px_rgba(245,158,11,0.2)] hover:border-amber-500/60 hover:shadow-[0_0_40px_-8px_rgba(245,158,11,0.35)]"
-                    : plan.highlight
-                    ? "border border-border hover:border-border/80"
-                    : "border border-border/60 hover:border-border"
+                key={p.name}
+                style={
+                  isPopular
+                    ? { boxShadow: "0 0 0 1px rgba(234,179,8,0.35), 0 20px 60px -20px rgba(234,179,8,0.35)" }
+                    : undefined
+                }
+                className={`relative rounded-2xl flex flex-col h-full p-5 transition-all duration-300 ease-out hover:-translate-y-1 ${
+                  isPopular
+                    ? "bg-gradient-to-b from-yellow-500/[0.07] via-card to-card border border-yellow-500/50 xl:scale-[1.04]"
+                    : "bg-card border border-border/60 hover:border-[#25D366]/50 hover:shadow-[0_0_30px_-8px_rgba(37,211,102,0.35)]"
                 }`}
               >
+                {isPopular && (
+                  <span
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900 shadow-[0_8px_20px_-6px_rgba(234,179,8,0.6)] whitespace-nowrap"
+                    style={{ background: "linear-gradient(135deg, #FCD34D 0%, #EAB308 100%)" }}
+                  >
+                    ★ Mais escolhido
+                  </span>
+                )}
+
+                {/* Nome */}
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45 mb-3">
+                  {p.name}
+                </h3>
+
+                {/* Preço */}
+                <div className="flex items-baseline gap-1 mb-3">
+                  <span className="text-[12px] font-medium text-foreground/40">R$</span>
+                  <span className="text-[2rem] font-bold tracking-[-0.03em] leading-none text-foreground">
+                    {p.price.split(",")[0]}
+                  </span>
+                  <span className="text-[14px] font-semibold text-foreground/55">,{p.price.split(",")[1]}</span>
+                  <span className="text-[11px] text-foreground/35 ml-0.5">/mês</span>
+                </div>
+
+                {/* Destaque instâncias */}
                 <div
-                  className={`relative flex flex-col h-full rounded-2xl p-5 xl:p-4 2xl:p-5 ${
-                    plan.popular ? "bg-card" : plan.highlight ? "bg-card" : "bg-card"
+                  className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg mb-4 border"
+                  style={{
+                    background: isPopular ? "rgba(234,179,8,0.10)" : "rgba(37,211,102,0.08)",
+                    borderColor: isPopular ? "rgba(234,179,8,0.35)" : "rgba(37,211,102,0.25)",
+                  }}
+                >
+                  <Smartphone className="w-3.5 h-3.5" style={{ color: isPopular ? "#FCD34D" : WA_GREEN }} />
+                  <span className="text-[12px] font-bold text-foreground tracking-tight">
+                    {p.instances} {p.instances === 1 ? "Instância" : "Instâncias"}
+                  </span>
+                </div>
+
+                <div className="border-t border-border/50 mb-4" />
+
+                <p className="text-[11px] text-muted-foreground leading-[1.55] mb-4 line-clamp-3">
+                  {p.tagline}
+                </p>
+
+                <ul className="space-y-2 mb-5 flex-1">
+                  {p.benefits.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-[11.5px] text-foreground/70 leading-[1.45]">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handleSelectPlan(p)}
+                  disabled={loadingPlan === p.name}
+                  style={
+                    isPopular
+                      ? {
+                          background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                          color: "#ffffff",
+                          boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+                        }
+                      : undefined
+                  }
+                  className={`w-full h-10 text-[12.5px] font-semibold rounded-lg mt-auto flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${
+                    isPopular
+                      ? "hover:brightness-110 hover:shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] border-0"
+                      : "bg-transparent text-foreground border border-[#25D366]/40 hover:border-[#25D366] hover:bg-[#25D366]/10"
                   }`}
                 >
-                  {plan.popular && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] xl:text-[8px] 2xl:text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full whitespace-nowrap shadow-[0_0_20px_-4px_rgba(245,158,11,0.5)]">
-                      ⭐ Mais Escolhido
-                    </span>
+                  {loadingPlan === p.name ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      {p.cta}
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                    </>
                   )}
-
-                  {/* ── HEADER: name + instances ── */}
-                  <div className="min-h-[40px]">
-                    <h3 className="text-base xl:text-sm 2xl:text-base font-semibold text-foreground mt-1">{plan.name}</h3>
-                    <p className="text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                      {typeof plan.instances === "number" ? `${plan.instances} instâncias` : `${plan.instances} instâncias`}
-                    </p>
-                  </div>
-
-                  {/* ── DESCRIPTION: fixed height ── */}
-                  <p className="text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground/60 leading-relaxed mt-2 min-h-[44px] xl:min-h-[52px]">
-                    {plan.subtitle}
-                  </p>
-
-                  {/* ── EXTRA COPY ── */}
-                  <div className="min-h-[18px] mt-1">
-                    {plan.extraCopy && (
-                      <p className={`text-[10px] xl:text-[9px] 2xl:text-[10px] font-medium leading-relaxed ${
-                        plan.popular ? "text-amber-400/70" : plan.highlight ? "text-teal-400/60" : "text-emerald-400/50"
-                      }`}>
-                        {plan.extraCopy}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* ── PRICE ── */}
-                  <div className="mt-3 mb-3 min-h-[40px] flex items-end">
-                    {isCustom ? (
-                      <span className="text-xl xl:text-lg 2xl:text-xl font-bold text-foreground">Sob consulta</span>
-                    ) : (
-                      <div className="flex items-baseline">
-                        <span className="text-2xl xl:text-xl 2xl:text-2xl font-bold text-foreground">R$ {plan.price}</span>
-                        <span className="text-muted-foreground/60 text-xs ml-1"> / mês</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="h-px bg-border/50 mb-4" />
-
-                  {/* ── FEATURES: flex-1 to push button down ── */}
-                  <div className="flex-1 space-y-2 xl:space-y-1.5 2xl:space-y-2 mb-5">
-                    {plan.features.map((f, fi) => (
-                      <div key={fi} className="flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                        <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
-                        <span className="leading-snug">{f}</span>
-                      </div>
-                    ))}
-                    <div className={`flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] ${plan.whatsappIncluded ? "text-muted-foreground" : "text-muted-foreground/40"}`}>
-                      {plan.whatsappIncluded ? (
-                        <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
-                      ) : (
-                        <span className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px flex items-center justify-center text-muted-foreground/30 font-bold text-xs">✕</span>
-                      )}
-                      <span className="leading-snug">{plan.whatsappLine}</span>
-                    </div>
-                  </div>
-
-                  {/* ── CTA BUTTON: always at bottom ── */}
-                  <button
-                    onClick={() => handleSelectPlan(plan)}
-                    disabled={loadingPlan === plan.name}
-                    className={`mt-auto w-full h-11 xl:h-10 2xl:h-11 rounded-lg font-semibold text-[13px] xl:text-[11px] 2xl:text-[13px] whitespace-nowrap flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${
-                      plan.popular
-                        ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold shadow-[0_0_20px_-4px_rgba(245,158,11,0.4)]"
-                        : plan.highlight
-                        ? "bg-secondary text-secondary-foreground border border-border hover:bg-secondary/80"
-                        : "bg-muted text-muted-foreground border border-border/60 hover:bg-muted/80"
-                    }`}
-                  >
-                    {loadingPlan === plan.name ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        {plan.cta}
-                        <ArrowRight className="w-4 h-4 shrink-0" />
-                      </>
-                    )}
-                  </button>
-                </div>
+                </button>
               </div>
             );
           })}
