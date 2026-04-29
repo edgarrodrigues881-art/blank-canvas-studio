@@ -414,6 +414,7 @@ function ScheduleDialog({
       setType(editing.type);
       setText(editing.text_content || "");
       setBgColor(editing.background_color || "#25D366");
+      setFont(editing.font || 1);
       setCaption(editing.caption || "");
       setExistingMediaUrl(editing.media_url);
       setFile(null);
