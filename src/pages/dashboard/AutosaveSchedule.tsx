@@ -135,7 +135,28 @@ export default function AutosaveSchedule() {
     setStep(1);
   };
 
-  const toggleWeekday = (day: number) => {
+  const openForEdit = (s: AutosaveScheduleType) => {
+    setEditingId(s.id);
+    setName(s.name || "");
+    setSelectedDevices(Array.isArray(s.device_ids) ? s.device_ids : []);
+    setSelectedWeekdays(Array.isArray(s.weekdays) ? s.weekdays : []);
+    setTimeOfDay(s.time_of_day || "13:00");
+    setMsgsPerInstance(s.messages_per_instance ?? 1);
+    setMinDelay(s.min_delay_seconds ?? 8);
+    setMaxDelay(s.max_delay_seconds ?? 20);
+    setBetweenContactsMin(s.between_contacts_min_seconds ?? 30);
+    setBetweenContactsMax(s.between_contacts_max_seconds ?? 90);
+    setPauseEveryMin(s.pause_every_min ?? 10);
+    setPauseEveryMax(s.pause_every_max ?? 20);
+    setPauseDurationMin(s.pause_duration_min ?? 60);
+    setPauseDurationMax(s.pause_duration_max ?? 180);
+    setInitialLimit(s.initial_limit_per_instance ?? 20);
+    setDailyIncrement(s.daily_increment ?? 5);
+    setMaxLimit(s.max_limit_per_instance ?? 100);
+    setStep(1);
+    setCreateOpen(true);
+  };
+
     setSelectedWeekdays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
