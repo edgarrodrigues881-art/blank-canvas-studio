@@ -101,7 +101,7 @@ const comparisonRows = [
   { label: "Automações e IA", values: [true, true, true, true, true, true] },
   { label: "Aquecimento e disparo", values: [true, true, true, true, true, true] },
   { label: "Monitoramento em tempo real", values: [true, true, true, true, true, true] },
-  { label: "Suporte prioritário no WhatsApp", values: [false, false, false, true, true, true] },
+  { label: "Suporte prioritário no WhatsApp", values: [true, true, true, true, true, true] },
   { label: "Relatórios via WhatsApp", values: [false, false, false, "Incluso", "Incluso", "Incluso"] },
 ];
 
