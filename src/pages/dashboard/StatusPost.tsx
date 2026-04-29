@@ -464,7 +464,7 @@ function ScheduleDialog({
         media_url: type !== "text" ? mediaUrl : null,
         caption: (type === "image" || type === "video") ? caption.trim() : null,
         background_color: type === "text" ? bgColor : null,
-        font: type === "text" ? 1 : null,
+        font: type === "text" ? font : null,
         weekdays,
         times,
         device_mode: deviceMode,
