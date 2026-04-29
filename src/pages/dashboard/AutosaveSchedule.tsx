@@ -43,10 +43,10 @@ function weekdaysLabel(days: number[]): string {
 }
 
 const STEPS = [
-  { n: 1, title: "Identificação", desc: "Nome do agendamento", icon: CalendarIcon },
-  { n: 2, title: "Instâncias", desc: "Quais chips disparam", icon: Smartphone },
+  { n: 1, title: "Identificação", desc: "Nome", icon: CalendarIcon },
+  { n: 2, title: "Instâncias", desc: "Chips", icon: Smartphone },
   { n: 3, title: "Agenda", desc: "Dias e horário", icon: Clock },
-  { n: 4, title: "Envio + Crescimento", desc: "Ritmo e progressão", icon: Activity },
+  { n: 4, title: "Envio", desc: "Ritmo e crescimento", icon: Activity },
 ] as const;
 
 export default function AutosaveSchedule() {
