@@ -25,6 +25,10 @@ function onlyDigits(value: string): string {
   return String(value || "").replace(/\D/g, "");
 }
 
+function isDisguisedLidNumber(value: string): boolean {
+  return onlyDigits(value).length >= 14;
+}
+
 function detectType(input: string): ResolvedType | null {
   const value = String(input || "").trim().toLowerCase();
   if (!value) return null;
@@ -158,7 +162,7 @@ async function resolveContact(
       // (BR: 12-13, EUA: 11, internacional típico: 8-15 segundo E.164).
       // Strings com 14+ dígitos quase sempre são LIDs colados sem o sufixo @lid.
       // Tentamos resolver via UAZAPI; se vier JID real, retornamos o número de telefone.
-      if (digits.length >= 14 && baseUrl && token) {
+      if (isDisguisedLidNumber(original) && baseUrl && token) {
         const { jid: resolvedJid } = await resolveLidViaUazapi(baseUrl, token, `${digits}${LID_SUFFIX}`);
         if (resolvedJid && resolvedJid.includes(PRIVATE_JID_SUFFIX)) {
           return {
@@ -289,7 +293,7 @@ Deno.serve(async (req: Request) => {
     const looksLikeLidNumber = (i: string) => {
       const t = detectType(i);
       if (t === "lid") return true;
-      if (t === "number" && onlyDigits(i).length >= 14) return true;
+      if (t === "number" && isDisguisedLidNumber(i)) return true;
       return false;
     };
     const needsUazapi = inputs.some(looksLikeLidNumber);
@@ -309,6 +313,16 @@ Deno.serve(async (req: Request) => {
         // Resolve os outros normalmente
         if (type === "jid") {
           return { original: input, type, jid: input, number: jidToNumber(input), valid: true };
+        }
+        if (type === "number" && isDisguisedLidNumber(input)) {
+          return {
+            original: input,
+            type: "lid",
+            jid: null,
+            number: null,
+            valid: false,
+            error: "Nenhuma instância conectada disponível para resolver LID",
+          };
         }
         if (type === "number") {
           const jid = numberToJid(input);

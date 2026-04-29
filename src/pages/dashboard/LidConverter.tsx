@@ -73,6 +73,8 @@ export default function LidConverter() {
     setDeviceIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
+  const isLikelyRawLid = (value: string) => /^\d{14,}$/.test(String(value || "").replace(/\D/g, ""));
+
   // Autosave do textarea (debounced para performance com listas grandes)
   useEffect(() => {
     const t = setTimeout(() => {
@@ -146,8 +148,10 @@ export default function LidConverter() {
 
       const cached = new Map<string, Row>();
       (alreadyData || []).forEach((r: any) => {
+        const original = String(r.original);
+        if (isLikelyRawLid(original)) return;
         cached.set(String(r.original), {
-          original: String(r.original),
+          original,
           type: (r.detected_type as EntryType) ?? "number",
           number: r.number ? String(r.number) : "—",
           jid: r.jid ? String(r.jid) : "—",
