@@ -101,6 +101,7 @@ const Notes = lazyWithPreload(() => import("@/pages/dashboard/Notes"));
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
 const BOCampaignList = lazyWithPreload(() => import("@/pages/backoffice/BOCampaignList"));
 const BOCampaignDetail = lazyWithPreload(() => import("@/pages/backoffice/BOCampaignDetail"));
+const BOAffiliates = lazyWithPreload(() => import("@/pages/backoffice/BOAffiliates"));
 
 // Route preload map — used by sidebar to preload chunks on hover
 export const routePreloadMap: Record<string, () => void> = {
@@ -320,6 +321,7 @@ const App = () => (
                 <Route path="/backoffice/campaigns/list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
                 <Route path="/backoffice/campaign/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
                 <Route path="/backoffice/campaigns/:id" element={<AdminRoute><BOCampaignDetail /></AdminRoute>} />
+                <Route path="/backoffice/affiliates" element={<AdminRoute><BOAffiliates /></AdminRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<NotFound />} />
