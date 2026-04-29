@@ -720,18 +720,20 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
 // ===== HISTORY TAB =====
 function HistoryTab() {
   const { user } = useAuth();
-  const [history, setHistory] = useState<StatusPost[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [deletingWa, setDeletingWa] = useState<string | null>(null);
+  const [confirmWaDelete, setConfirmWaDelete] = useState<any | null>(null);
 
   const load = () => {
     if (!user) return;
     supabase.from("status_posts")
-      .select("id, type, text_content, caption, status, success_count, error_count, created_at")
+      .select("id, type, text_content, caption, status, success_count, error_count, created_at, results")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50)
-      .then(({ data }) => setHistory((data || []) as StatusPost[]));
+      .then(({ data }) => setHistory(data || []));
   };
 
   useEffect(() => { load(); }, [user]);
@@ -750,6 +752,38 @@ function HistoryTab() {
     } finally {
       setClearing(false);
     }
+  };
+
+  const deleteFromWhatsapp = async (postId: string) => {
+    setDeletingWa(postId);
+    try {
+      const { data, error } = await supabase.functions.invoke("status-delete", {
+        body: { post_id: postId },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const { deleted = 0, failed = 0 } = (data as any) || {};
+      if (deleted > 0 && failed === 0) toast.success(`Status apagado em ${deleted} instância(s)`);
+      else if (deleted > 0) toast.warning(`Apagado em ${deleted}, falhou em ${failed}`);
+      else toast.error("Não foi possível apagar via API");
+      setConfirmWaDelete(null);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao apagar do WhatsApp");
+    } finally {
+      setDeletingWa(null);
+    }
+  };
+
+  const canDeleteFromWa = (h: any) => {
+    const results = Array.isArray(h?.results) ? h.results : [];
+    return results.some((r: any) => r?.success && r?.message_id && !r?.deleted);
+  };
+
+  const isAllDeleted = (h: any) => {
+    const results = Array.isArray(h?.results) ? h.results : [];
+    const successes = results.filter((r: any) => r?.success && r?.message_id);
+    return successes.length > 0 && successes.every((r: any) => r?.deleted);
   };
 
   return (
@@ -777,6 +811,21 @@ function HistoryTab() {
               <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />{h.success_count}</span>
               <span className="flex items-center gap-1 text-destructive"><XCircle className="w-3.5 h-3.5" />{h.error_count}</span>
             </div>
+            {isAllDeleted(h) ? (
+              <Badge variant="secondary" className="text-xs">Apagado do WhatsApp</Badge>
+            ) : canDeleteFromWa(h) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmWaDelete(h)}
+                disabled={deletingWa === h.id}
+                className="text-destructive hover:text-destructive"
+                title="Apagar status do WhatsApp via API"
+              >
+                {deletingWa === h.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span className="ml-1.5 hidden sm:inline">Apagar do WhatsApp</span>
+              </Button>
+            ) : null}
           </div>
         ))}
       </div>
@@ -798,6 +847,28 @@ function HistoryTab() {
             >
               {clearing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Limpar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmWaDelete} onOpenChange={(o) => !o && setConfirmWaDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar status do WhatsApp?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vamos pedir ao WhatsApp para remover este status para todos os contatos que o receberam. Pode levar alguns segundos para sumir nos celulares.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingWa}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (confirmWaDelete) deleteFromWhatsapp(confirmWaDelete.id); }}
+              disabled={!!deletingWa}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingWa && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Apagar do WhatsApp
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
