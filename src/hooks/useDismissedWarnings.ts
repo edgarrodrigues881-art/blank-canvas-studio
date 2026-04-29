@@ -20,6 +20,13 @@ export function useDismissedWarnings() {
   });
   const [loaded, setLoaded] = useState(false);
   const lastUserIdRef = useRef<string | null>(null);
+  const dismissedRef = useRef<Set<string>>(dismissed);
+
+  // Keep ref in sync with state for use inside callbacks (avoids stale closures
+  // and the StrictMode double-invoke side-effect issue).
+  useEffect(() => {
+    dismissedRef.current = dismissed;
+  }, [dismissed]);
 
   // Pull the canonical list from the profile on login
   useEffect(() => {
@@ -39,21 +46,22 @@ export function useDismissedWarnings() {
         .maybeSingle();
       if (cancelled) return;
       const remote: string[] = (data?.dismissed_warnings as string[] | null) ?? [];
-      setDismissed((prev) => {
-        const merged = new Set<string>([...prev, ...remote]);
-        try {
-          localStorage.setItem("dg_dismissed_warnings", JSON.stringify([...merged]));
-        } catch {}
-        // If localStorage had keys the DB didn't, sync them up
-        const missing = [...prev].filter((k) => !remote.includes(k));
-        if (missing.length > 0) {
-          void supabase
-            .from("profiles")
-            .update({ dismissed_warnings: [...merged] })
-            .eq("id", user.id);
-        }
-        return merged;
-      });
+      const local = dismissedRef.current;
+      const merged = new Set<string>([...local, ...remote]);
+      dismissedRef.current = merged;
+      setDismissed(merged);
+      try {
+        localStorage.setItem("dg_dismissed_warnings", JSON.stringify([...merged]));
+      } catch {}
+      // If localStorage had keys the DB didn't, sync them up
+      const missing = [...local].filter((k) => !remote.includes(k));
+      if (missing.length > 0) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ dismissed_warnings: [...merged] })
+          .eq("id", user.id);
+        if (error) console.warn("[dismissed_warnings] sync failed", error);
+      }
       setLoaded(true);
     })();
 
@@ -69,21 +77,26 @@ export function useDismissedWarnings() {
 
   const dismiss = useCallback(
     (key: string) => {
-      setDismissed((prev) => {
-        if (prev.has(key)) return prev;
-        const next = new Set(prev);
-        next.add(key);
-        try {
-          localStorage.setItem("dg_dismissed_warnings", JSON.stringify([...next]));
-        } catch {}
-        if (user?.id) {
-          void supabase
-            .from("profiles")
-            .update({ dismissed_warnings: [...next] })
-            .eq("id", user.id);
-        }
-        return next;
-      });
+      const current = dismissedRef.current;
+      if (current.has(key)) return;
+      const next = new Set(current);
+      next.add(key);
+      dismissedRef.current = next;
+      setDismissed(next);
+      try {
+        localStorage.setItem("dg_dismissed_warnings", JSON.stringify([...next]));
+      } catch {}
+      const uid = user?.id;
+      if (uid) {
+        // Fire-and-forget but log errors so we can debug persistence problems.
+        supabase
+          .from("profiles")
+          .update({ dismissed_warnings: [...next] })
+          .eq("id", uid)
+          .then(({ error }) => {
+            if (error) console.warn("[dismissed_warnings] persist failed", error);
+          });
+      }
     },
     [user?.id]
   );
