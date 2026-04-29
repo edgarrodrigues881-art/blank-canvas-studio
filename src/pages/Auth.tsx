@@ -243,11 +243,12 @@ const Auth = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-          className="w-full rounded-2xl overflow-hidden relative"
+          className="w-full rounded-2xl overflow-hidden relative backdrop-blur-xl"
           style={{
-            background: "#000000",
-            border: "1px solid rgba(16,185,129,0.15)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 80px -20px rgba(16,185,129,0.18)",
+            background: "linear-gradient(180deg, rgba(20,30,26,0.92) 0%, rgba(10,16,13,0.95) 100%)",
+            border: "1px solid rgba(16,185,129,0.28)",
+            boxShadow:
+              "0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 100px -10px rgba(16,185,129,0.30)",
           }}
         >
           <div className="px-8 pt-10 pb-9 sm:px-10">
