@@ -113,15 +113,24 @@ async function fetchUazapiJson(baseUrl: string, token: string, path: string, ini
 
 async function buildLidPhoneMap(baseUrl: string, token: string): Promise<LidPhoneMap> {
   const map: LidPhoneMap = new Map();
-  const requests = [
-    fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, sort: "-wa_lastMsgTimestamp" }) }),
-    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, contactScope: "all" }) }),
+  // Faz paginação ampla em /chat/find (até 5000 chats) + lista contatos + grupos com participantes.
+  // Quanto mais chats varrermos, maior a chance de encontrar o pareamento LID→telefone que o
+  // Whatsapp já entregou para a instância em algum momento.
+  const chatPages = await Promise.all(
+    [0, 1000, 2000, 3000, 4000].map((offset) =>
+      fetchUazapiJson(baseUrl, token, "/chat/find", {
+        method: "POST",
+        body: JSON.stringify({ operator: "AND", limit: 1000, offset, sort: "-wa_lastMsgTimestamp" }),
+      }),
+    ),
+  );
+  const otherPayloads = await Promise.all([
+    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 5000, offset: 0, contactScope: "all" }) }),
     fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
-  ];
-  const payloads = await Promise.all(requests);
-  payloads.forEach((payload) => collectLidPhoneMappings(payload, map));
+  ]);
+  [...chatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map));
   return map;
 }
 
@@ -192,9 +201,24 @@ async function resolveLidViaUazapi(
   };
 
   try {
+    // Estratégia em camadas — todos os endpoints documentados na UAZAPI v2 que podem
+    // entregar o telefone real por trás de um LID:
+    //
+    //  1. /chat/details   → endpoint canônico de "Obter Detalhes Completos". Aceita o LID
+    //                       no campo `number` e devolve o Chat completo com `wa_chatid`
+    //                       (JID s.whatsapp.net) e `phone` formatado.
+    //  2. /chat/check     → confirma se um número está no WhatsApp; quando o LID já está
+    //                       sincronizado costuma devolver o JID real associado.
+    //  3. /chat/find      → busca paginada por wa_fastid (LID costuma aparecer ali) e
+    //                       fallback amplo varrendo a base de chats.
+    //  4. /chat/info      → endpoint legado de instalações antigas; mantido por compat.
     const attempts = [
-      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_chatlid: normalizedLid, wa_chatid: normalizedLid, wa_fastid: lidDigits } },
+      { path: "/chat/details", body: { number: normalizedLid, preview: true } },
+      { path: "/chat/details", body: { number: lidDigits, preview: true } },
       { path: "/chat/check", body: { numbers: [normalizedLid] } },
+      { path: "/chat/check", body: { numbers: [lidDigits] } },
+      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: lidDigits, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: normalizedLid } },
       { path: "/chat/info", body: { chatId: normalizedLid } },
       { path: "/chat/info", body: { number: normalizedLid } },
     ];
