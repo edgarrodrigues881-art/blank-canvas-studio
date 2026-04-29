@@ -19,7 +19,14 @@ interface ResolvedContact {
 }
 
 const PRIVATE_JID_SUFFIX = "@s.whatsapp.net";
+const LEGACY_PHONE_JID_SUFFIX = "@c.us";
+const PHONE_JID_SUFFIXES = [PRIVATE_JID_SUFFIX, LEGACY_PHONE_JID_SUFFIX];
 const LID_SUFFIX = "@lid";
+
+function isPhoneJid(value: string): boolean {
+  const normalized = String(value || "").toLowerCase();
+  return PHONE_JID_SUFFIXES.some((suffix) => normalized.includes(suffix));
+}
 
 function onlyDigits(value: string): string {
   return String(value || "").replace(/\D/g, "");
@@ -33,7 +40,7 @@ function detectType(input: string): ResolvedType | null {
   const value = String(input || "").trim().toLowerCase();
   if (!value) return null;
   if (value.includes(LID_SUFFIX)) return "lid";
-  if (value.includes(PRIVATE_JID_SUFFIX)) return "jid";
+  if (isPhoneJid(value)) return "jid";
   // Aceita qualquer string que contenha pelo menos um dígito — será normalizada para apenas dígitos.
   if (/\d/.test(value)) return "number";
   return null;
@@ -45,9 +52,8 @@ function detectType(input: string): ResolvedType | null {
  */
 function jidToNumber(jid: string): string | null {
   if (!jid) return null;
-  const local = String(jid).split("@")[0] || "";
-  // Apenas remove caracteres não-dígito que porventura existam (ex.: ":" em device-jid)
-  // sem alterar o número em si (sem prefixos, sem 9º dígito, sem máscara).
+  const local = String(jid).split("@")[0]?.split(":")[0] || "";
+  // Preserva somente o usuário antes de @ e antes do sufixo de device (:xx), sem alterar prefixos.
   const cleaned = local.replace(/\D/g, "");
   return cleaned || null;
 }
@@ -60,6 +66,11 @@ function numberToJid(num: string): string | null {
 }
 
 type LidPhoneMap = Map<string, string>;
+
+function normalizePhoneJid(jid: string): string | null {
+  const number = jidToNumber(jid);
+  return number ? numberToJid(number) : null;
+}
 
 function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
   if (!value) return;
@@ -78,7 +89,8 @@ function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
     const k = key.toLowerCase();
     const digits = onlyDigits(raw);
     if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
-    if (!raw.includes(LID_SUFFIX) && (raw.includes(PRIVATE_JID_SUFFIX) || phoneKeys.has(k))) {
+    const compactKey = k.replace(/[^a-z0-9]/g, "");
+    if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || compactKey.includes("phone") || compactKey.includes("number") || compactKey.includes("chatid") || compactKey.includes("waid"))) {
       if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
     }
   }
@@ -169,7 +181,7 @@ async function resolveLidViaUazapi(
 
   const collectJids = (value: any, out: string[] = []): string[] => {
     if (typeof value === "string") {
-      if (value.includes(PRIVATE_JID_SUFFIX)) out.push(value);
+      if (isPhoneJid(value)) out.push(value);
       return out;
     }
     if (Array.isArray(value)) value.forEach((item) => collectJids(item, out));
@@ -185,11 +197,17 @@ async function resolveLidViaUazapi(
     if (!value || typeof value !== "object") return out;
     for (const [key, raw] of Object.entries(value)) {
       const k = key.toLowerCase();
-      if (["phone", "number", "telefone", "wa_chatid", "jid", "remotejid", "phonejid"].includes(k) && typeof raw === "string") {
-        if (raw.includes(PRIVATE_JID_SUFFIX)) out.push(raw);
+      const compactKey = k.replace(/[^a-z0-9]/g, "");
+      const isPhoneField = ["phone", "number", "telefone", "wa_chatid", "jid", "remotejid", "phonejid"].includes(k)
+        || compactKey.includes("phone")
+        || compactKey.includes("number")
+        || compactKey.includes("chatid")
+        || compactKey.includes("jid");
+      if (isPhoneField && typeof raw === "string") {
+        if (isPhoneJid(raw)) out.push(raw);
         else {
           const digits = onlyDigits(raw);
-          if (digits && digits !== lidDigits) {
+          if (digits.length >= 8 && digits.length <= 15 && digits !== lidDigits) {
             const jid = numberToJid(digits);
             if (jid) out.push(jid);
           }
@@ -231,8 +249,8 @@ async function resolveLidViaUazapi(
         continue;
       }
       const found = [...collectJids(payload), ...collectPhoneFieldJids(payload)]
-        .find((candidate) => candidate.includes(PRIVATE_JID_SUFFIX) && onlyDigits(candidate) !== lidDigits);
-      if (found) return { jid: found, raw: payload };
+        .find((candidate) => isPhoneJid(candidate) && onlyDigits(candidate) !== lidDigits);
+      if (found) return { jid: normalizePhoneJid(found) || found, raw: payload };
       diagnostics.push(`${attempt.path}: telefone não retornado`);
     }
 
@@ -264,7 +282,7 @@ async function resolveContact(
     }
 
     if (type === "jid") {
-      const jid = original;
+      const jid = normalizePhoneJid(original) || original;
       return { original, type, jid, number: jidToNumber(jid), valid: true };
     }
 
@@ -285,7 +303,7 @@ async function resolveContact(
           return { original, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
         }
         const { jid: resolvedJid } = await resolveLidViaUazapi(baseUrl, token, `${digits}${LID_SUFFIX}`);
-        if (resolvedJid && resolvedJid.includes(PRIVATE_JID_SUFFIX)) {
+        if (resolvedJid && isPhoneJid(resolvedJid)) {
           return {
             original,
             type: "lid",
@@ -441,7 +459,8 @@ Deno.serve(async (req: Request) => {
         }
         // Resolve os outros normalmente
         if (type === "jid") {
-          return { original: input, type, jid: input, number: jidToNumber(input), valid: true };
+          const jid = normalizePhoneJid(input) || input;
+          return { original: input, type, jid, number: jidToNumber(jid), valid: true };
         }
         if (type === "number" && isDisguisedLidNumber(input)) {
           return {
