@@ -1580,19 +1580,37 @@ Deno.serve(async (req) => {
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
       if (mentionAll) {
+        // Build the @<number> tokens that WhatsApp requires in the body to TRIGGER the
+        // mention notification on each member. Without these literal tokens, the recipients
+        // see a regular message and receive no ping — even when mentioned[] is populated.
+        const mentionFields = mentionPhones.length > 0 ? buildMentionFields(mentionPhones) : null;
+        const mentionTokens = mentionFields
+          ? mentionFields.numbers.map((n) => `@${n}`).join(" ")
+          : "";
+
+        const enrichBody = (body: Record<string, unknown>, extra: Record<string, unknown>) => {
+          const enriched: Record<string, unknown> = { ...body, ...extra };
+          if (mentionTokens) {
+            const baseText = String(body.text ?? body.message ?? normalizedTextContent).trim();
+            const withTokens = `${baseText}\n\n${mentionTokens}`;
+            if ("text" in enriched) enriched.text = withTokens;
+            if ("message" in enriched) enriched.message = withTokens;
+          }
+          return enriched;
+        };
+
         const blindFields = buildBlindMentionFields();
         const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
           ...attempt,
-          body: { ...attempt.body, ...blindFields, mentions: "all" },
+          body: enrichBody(attempt.body, { ...blindFields, mentions: "all" }),
           label: `${attempt.label}_mention_all`,
         }));
 
-        if (mentionPhones.length > 0) {
-          const mentionFields = buildMentionFields(mentionPhones);
+        if (mentionFields) {
           buttonAttempts.forEach((attempt) => {
-            mentionButtonAttempts.push({
+            mentionButtonAttempts.unshift({
               ...attempt,
-              body: { ...attempt.body, ...mentionFields.payload },
+              body: enrichBody(attempt.body, mentionFields.payload),
               label: `${attempt.label}_mention_jids`,
             });
           });
