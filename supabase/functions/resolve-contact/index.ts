@@ -445,6 +445,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token) : undefined;
+
     // Processa em paralelo (limitado)
     const concurrency = 5;
     const results: ResolvedContact[] = new Array(inputs.length);
@@ -453,7 +455,7 @@ Deno.serve(async (req: Request) => {
       while (true) {
         const idx = cursor++;
         if (idx >= inputs.length) break;
-        results[idx] = await resolveContact(inputs[idx], baseUrl, token);
+        results[idx] = await resolveContact(inputs[idx], baseUrl, token, lidPhoneMap);
       }
     }
     await Promise.all(Array.from({ length: Math.min(concurrency, inputs.length) }, worker));
