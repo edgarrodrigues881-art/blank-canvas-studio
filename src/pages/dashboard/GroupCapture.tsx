@@ -469,7 +469,7 @@ const GroupCapture = () => {
       <GroupJoinCampaignsWidget />
 
       {/* Tabs: System vs Custom */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="bg-muted/10 border border-border/15 rounded-xl p-1 h-auto">
           <TabsTrigger value="custom" className="text-xs rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5 px-4 py-2">
             <UserPlus className="w-3.5 h-3.5" />
