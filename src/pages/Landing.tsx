@@ -462,7 +462,8 @@ const BrowserMockup = ({ src, alt, eager, imgY, imgScale }: {
         alt={alt}
         loading={eager ? "eager" : "lazy"}
         decoding="async"
-        style={{ y: imgY, scale: imgScale }}
+        fetchPriority={eager ? "high" : "auto"}
+        style={{ scale: imgScale }}
         className="block w-full h-auto will-change-transform"
       />
     </div>
@@ -534,7 +535,7 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
           <BrowserMockup
             src={step.img}
             alt={`${step.title} — passo ${step.n}`}
-            eager={index < 2}
+            eager={true}
             imgY={smoothImgY}
             imgScale={imgScale}
           />
