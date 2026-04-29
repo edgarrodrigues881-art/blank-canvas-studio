@@ -1110,17 +1110,46 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   useEffect(() => { load(); }, [user]);
 
   const toggle = async (s: Schedule) => {
-    await supabase.from("status_schedules").update({ enabled: !s.enabled }).eq("id", s.id);
-    load();
+    const newVal = !s.enabled;
+    // Optimistic update — no flicker
+    setSchedules((prev) => prev.map((x) => x.id === s.id ? { ...x, enabled: newVal } : x));
+    // If user activates an item inside a paused folder, auto-unpause the folder
+    if (newVal && s.folder_id && pausedFolders.has(s.folder_id)) {
+      const next = new Set(pausedFolders);
+      next.delete(s.folder_id);
+      setPausedFolders(next);
+      persistPaused(next);
+    }
+    const { error } = await supabase.from("status_schedules").update({ enabled: newVal }).eq("id", s.id);
+    if (error) {
+      // revert on failure
+      setSchedules((prev) => prev.map((x) => x.id === s.id ? { ...x, enabled: !newVal } : x));
+      toast.error("Erro ao atualizar");
+    }
   };
 
   const toggleFolder = async (folder: Folder, items: Schedule[]) => {
-    // Folder is "paused" when no item is enabled. Toggling pause flips all.
-    const anyOn = items.some((s) => s.enabled);
-    const newVal = !anyOn; // if any on -> pause all; if all off -> activate all
-    await supabase.from("status_schedules").update({ enabled: newVal }).in("id", items.map((s) => s.id));
-    toast.success(newVal ? "Pasta ativada" : "Pasta pausada");
-    load();
+    const isPaused = pausedFolders.has(folder.id);
+    const next = new Set(pausedFolders);
+    if (isPaused) {
+      // Unpause: just unlock switches. Do NOT mass-activate items.
+      next.delete(folder.id);
+      setPausedFolders(next);
+      persistPaused(next);
+      toast.success("Pasta destravada — ative os agendamentos manualmente");
+    } else {
+      // Pause: turn all items off and lock the folder
+      next.add(folder.id);
+      setPausedFolders(next);
+      persistPaused(next);
+      const ids = items.filter((s) => s.enabled).map((s) => s.id);
+      // Optimistic
+      setSchedules((prev) => prev.map((x) => x.folder_id === folder.id ? { ...x, enabled: false } : x));
+      if (ids.length > 0) {
+        await supabase.from("status_schedules").update({ enabled: false }).in("id", ids);
+      }
+      toast.success("Pasta pausada");
+    }
   };
 
   const duplicateFolder = async (folder: Folder, items: Schedule[]) => {
