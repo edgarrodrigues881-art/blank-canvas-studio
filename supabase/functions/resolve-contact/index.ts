@@ -149,7 +149,38 @@ async function resolveContact(
     }
 
     if (type === "number") {
-      const jid = numberToJid(original);
+      const digits = onlyDigits(original);
+      if (!digits) {
+        return { original, type, jid: null, number: null, valid: false, error: "Número inválido" };
+      }
+
+      // 🔍 LID disfarçado de número: telefones reais têm no máximo ~13 dígitos
+      // (BR: 12-13, EUA: 11, internacional típico: 8-15 segundo E.164).
+      // Strings com 14+ dígitos quase sempre são LIDs colados sem o sufixo @lid.
+      // Tentamos resolver via UAZAPI; se vier JID real, retornamos o número de telefone.
+      if (digits.length >= 14 && baseUrl && token) {
+        const { jid: resolvedJid } = await resolveLidViaUazapi(baseUrl, token, `${digits}${LID_SUFFIX}`);
+        if (resolvedJid && resolvedJid.includes(PRIVATE_JID_SUFFIX)) {
+          return {
+            original,
+            type: "lid",
+            jid: resolvedJid,
+            number: jidToNumber(resolvedJid),
+            valid: true,
+          };
+        }
+        // Não foi possível resolver: marca como inválido (não é um telefone real)
+        return {
+          original,
+          type: "lid",
+          jid: null,
+          number: null,
+          valid: false,
+          error: "LID não pôde ser resolvido para um número de telefone",
+        };
+      }
+
+      const jid = numberToJid(digits);
       if (!jid) {
         return { original, type, jid: null, number: null, valid: false, error: "Número inválido" };
       }
