@@ -530,8 +530,40 @@ Deno.serve(async (req: Request) => {
         .map((input) => onlyDigits(input))
         .filter((digits) => digits.length >= 8),
     );
-    const deepScan = body?.deep_scan !== false && inputs.length <= 15;
+    const deepScan = body?.deep_scan === true || (body?.deep_scan !== false && inputs.length <= 15);
     const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids, deepScan) : undefined;
+
+    if (body?.map_only === true && needsUazapi) {
+      const results: ResolvedContact[] = inputs.map((input) => {
+        const type = detectType(input) || "number";
+        const digits = onlyDigits(input);
+        const mappedPhone = digits ? lidPhoneMap?.get(digits) : null;
+        if (mappedPhone) {
+          const mappedJid = numberToJid(mappedPhone);
+          return { original: input, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+        }
+        if (looksLikeLidNumber(input) && digits) {
+          return {
+            original: input,
+            type: "lid",
+            jid: `${digits}${LID_SUFFIX}`,
+            number: null,
+            valid: true,
+            error: "Telefone real não encontrado na varredura; usando @lid para disparo",
+          };
+        }
+        if (type === "jid") {
+          const jid = normalizePhoneJid(input) || input;
+          return { original: input, type, jid, number: jidToNumber(jid), valid: true };
+        }
+        const jid = numberToJid(digits);
+        return { original: input, type, jid, number: jid ? jidToNumber(jid) : null, valid: !!jid };
+      });
+      return new Response(JSON.stringify({ results }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Processa em paralelo (limitado)
     const concurrency = 5;
