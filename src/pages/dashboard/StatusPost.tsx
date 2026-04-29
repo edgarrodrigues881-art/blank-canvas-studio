@@ -596,6 +596,8 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
+  const [toDelete, setToDelete] = useState<Schedule | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     if (!user) return;
