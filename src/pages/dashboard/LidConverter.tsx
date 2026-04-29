@@ -170,6 +170,12 @@ export default function LidConverter() {
       setProgress({ done: 0, total: toResolve.length });
 
       if (toResolve.length > 0) {
+        const invokeResolveContact = (body: Record<string, unknown>, timeoutMs = 70_000) =>
+          Promise.race([
+            supabase.functions.invoke("resolve-contact", { body }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Tempo limite da instância atingido")), timeoutMs)),
+          ]);
+
         // Divide contatos em chunks por instância (round-robin)
         const buckets: Record<string, string[]> = {};
         deviceIds.forEach((id) => (buckets[id] = []));
@@ -181,9 +187,7 @@ export default function LidConverter() {
         const processChunk = async (devId: string, chunk: string[]): Promise<void> => {
           if (chunk.length === 0) return;
           try {
-            const { data, error } = await supabase.functions.invoke("resolve-contact", {
-              body: { inputs: chunk, device_id: devId, deep_scan: false },
-            });
+            const { data, error } = await invokeResolveContact({ inputs: chunk, device_id: devId, deep_scan: false });
             if (error) throw error;
             const results = Array.isArray(data?.results) ? data.results : [];
             results.forEach((r: any) => {
@@ -239,9 +243,7 @@ export default function LidConverter() {
 
             for (const chunk of retryChunks) {
               try {
-                const { data, error } = await supabase.functions.invoke("resolve-contact", {
-                  body: { inputs: chunk, device_id: devId, deep_scan: false },
-                });
+                const { data, error } = await invokeResolveContact({ inputs: chunk, device_id: devId, deep_scan: false });
                 if (error) throw error;
                 const results = Array.isArray(data?.results) ? data.results : [];
                 results.forEach((r: any) => {
@@ -269,9 +271,7 @@ export default function LidConverter() {
           setProgress({ done: 0, total: deviceIds.length });
           await Promise.all(deviceIds.map(async (devId) => {
             try {
-              const { data, error } = await supabase.functions.invoke("resolve-contact", {
-                body: { inputs: deepPending, device_id: devId, deep_scan: true, map_only: true },
-              });
+              const { data, error } = await invokeResolveContact({ inputs: deepPending, device_id: devId, deep_scan: true, map_only: true }, 90_000);
               if (error) throw error;
               const results = Array.isArray(data?.results) ? data.results : [];
               results.forEach((r: any) => {
