@@ -1006,18 +1006,30 @@ function FolderDialog({
 
 // ===== SCHEDULE ROW (used inside and outside folders) =====
 function ScheduleRow({
-  s, onToggle, onPreview, onEdit, onDelete,
+  s, onToggle, onPreview, onEdit, onDelete, locked,
 }: {
   s: Schedule;
   onToggle: () => void;
   onPreview: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  locked?: boolean;
 }) {
   return (
     <Card className={s.enabled ? "" : "opacity-60"}>
       <CardContent className="p-4 flex items-center gap-4">
-        <Switch checked={s.enabled} onCheckedChange={onToggle} />
+        <Switch
+          checked={s.enabled}
+          disabled={locked}
+          onCheckedChange={() => {
+            if (locked) {
+              toast.info("Despause a pasta primeiro para alterar este agendamento");
+              return;
+            }
+            onToggle();
+          }}
+          title={locked ? "Pasta pausada — despause a pasta primeiro" : undefined}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium">{s.name}</p>
@@ -1094,9 +1106,9 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   };
 
   const toggleFolder = async (folder: Folder, items: Schedule[]) => {
-    // If any are off, turn all on. Otherwise turn all off.
-    const allOn = items.every((s) => s.enabled);
-    const newVal = !allOn;
+    // Folder is "paused" when no item is enabled. Toggling pause flips all.
+    const anyOn = items.some((s) => s.enabled);
+    const newVal = !anyOn; // if any on -> pause all; if all off -> activate all
     await supabase.from("status_schedules").update({ enabled: newVal }).in("id", items.map((s) => s.id));
     toast.success(newVal ? "Pasta ativada" : "Pasta pausada");
     load();
@@ -1212,7 +1224,8 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
         {folders.map((f) => {
           const items = grouped.map.get(f.id) || [];
           const isCollapsed = collapsed[f.id];
-          const allOn = items.length > 0 && items.every((s) => s.enabled);
+          const folderActive = items.some((s) => s.enabled);
+          const folderLocked = items.length > 0 && !folderActive;
           return (
             <Card key={f.id} className="overflow-hidden">
               <div
@@ -1236,7 +1249,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 </button>
                 <div className="flex items-center gap-1">
                   <Switch
-                    checked={allOn}
+                    checked={folderActive}
                     disabled={items.length === 0}
                     onCheckedChange={() => toggleFolder(f, items)}
                   />
@@ -1274,6 +1287,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                     items.map((s) => (
                       <ScheduleRow
                         key={s.id} s={s}
+                        locked={folderLocked}
                         onToggle={() => toggle(s)}
                         onPreview={() => setPreviewing({ items: [s] })}
                         onEdit={() => { setEditing(s); setDialogOpen(true); }}
