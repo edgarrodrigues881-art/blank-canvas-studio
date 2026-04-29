@@ -97,6 +97,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
         setCaption(meta.caption || "");
         setSelected(meta.selectedDeviceIds || []);
         setDelaySeconds(meta.delaySeconds ?? 5);
+        if (typeof meta.font === "number") setFont(meta.font);
         if (storedFiles.length) setFiles(storedFiles);
       }
       setDraftLoaded(true);
