@@ -201,9 +201,24 @@ async function resolveLidViaUazapi(
   };
 
   try {
+    // Estratégia em camadas — todos os endpoints documentados na UAZAPI v2 que podem
+    // entregar o telefone real por trás de um LID:
+    //
+    //  1. /chat/details   → endpoint canônico de "Obter Detalhes Completos". Aceita o LID
+    //                       no campo `number` e devolve o Chat completo com `wa_chatid`
+    //                       (JID s.whatsapp.net) e `phone` formatado.
+    //  2. /chat/check     → confirma se um número está no WhatsApp; quando o LID já está
+    //                       sincronizado costuma devolver o JID real associado.
+    //  3. /chat/find      → busca paginada por wa_fastid (LID costuma aparecer ali) e
+    //                       fallback amplo varrendo a base de chats.
+    //  4. /chat/info      → endpoint legado de instalações antigas; mantido por compat.
     const attempts = [
-      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_chatlid: normalizedLid, wa_chatid: normalizedLid, wa_fastid: lidDigits } },
+      { path: "/chat/details", body: { number: normalizedLid, preview: true } },
+      { path: "/chat/details", body: { number: lidDigits, preview: true } },
       { path: "/chat/check", body: { numbers: [normalizedLid] } },
+      { path: "/chat/check", body: { numbers: [lidDigits] } },
+      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: lidDigits, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: normalizedLid } },
       { path: "/chat/info", body: { chatId: normalizedLid } },
       { path: "/chat/info", body: { number: normalizedLid } },
     ];
