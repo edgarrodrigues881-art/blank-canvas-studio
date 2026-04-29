@@ -262,6 +262,37 @@ export default function LidConverter() {
             }
           }
         }
+
+        const deepPending = toResolve.filter((contact) => needsLidPhoneRetry(contact, resolvedMap.get(contact)));
+        if (deepPending.length > 0) {
+          setStageText(`Varredura profunda em ${deviceIds.length} instância(s)...`);
+          setProgress({ done: 0, total: deviceIds.length });
+          await Promise.all(deviceIds.map(async (devId) => {
+            try {
+              const { data, error } = await supabase.functions.invoke("resolve-contact", {
+                body: { inputs: deepPending, device_id: devId, deep_scan: true, map_only: true },
+              });
+              if (error) throw error;
+              const results = Array.isArray(data?.results) ? data.results : [];
+              results.forEach((r: any) => {
+                const orig = String(r?.original ?? "");
+                if (!orig || !r?.number) return;
+                resolvedMap.set(orig, {
+                  original: orig,
+                  type: (r?.type as EntryType) ?? "lid",
+                  number: String(r.number),
+                  jid: r?.jid ? String(r.jid) : "—",
+                  valid: true,
+                  error: r?.error,
+                });
+              });
+            } catch (err) {
+              console.warn(`[lid-converter] deep scan device ${devId} falhou`, err);
+            } finally {
+              setProgress((p) => ({ ...p, done: p.done + 1 }));
+            }
+          }));
+        }
       }
 
       // Mantém ordem original
