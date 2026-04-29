@@ -185,25 +185,27 @@ export default function Affiliates() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <Card className="relative overflow-hidden border-emerald-500/20">
           <div className="pointer-events-none absolute -top-20 -right-20 w-48 h-48 rounded-full bg-emerald-500/10 blur-3xl" />
           <CardContent className="relative p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Total ganho</span>
-              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs text-muted-foreground">Saldo disponível</span>
+              <Wallet className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-emerald-400">{formatBRL(totalEarned)}</div>
+            <div className="text-xl sm:text-2xl font-bold text-emerald-400">{formatBRL(availableBalance)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Pronto para sacar</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Saldo disponível</span>
-              <Wallet className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Em garantia</span>
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-bold">{formatBRL(availableBalance)}</div>
+            <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalInGuarantee)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Libera em 7 dias</p>
           </CardContent>
         </Card>
 
@@ -214,6 +216,18 @@ export default function Affiliates() {
               <Clock className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalPending)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Mês ainda não pago</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">Total ganho</span>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalEarned)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Histórico acumulado</p>
           </CardContent>
         </Card>
 
@@ -224,8 +238,17 @@ export default function Affiliates() {
               <Users className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="text-xl sm:text-2xl font-bold">{activeReferralsCount}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Clientes ativos</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Aviso de garantia */}
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 flex items-start gap-3">
+        <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <span className="text-foreground font-medium">Período de garantia de 7 dias:</span> toda comissão fica em garantia por 7 dias após o cliente pagar. Depois disso, o valor entra no <span className="text-emerald-400 font-medium">Saldo disponível</span> e pode ser sacado via Pix.
+        </p>
       </div>
 
       {/* Cupom + Link */}
