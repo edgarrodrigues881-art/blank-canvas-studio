@@ -675,7 +675,7 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setDialogOpen(true); }}>
                   <Pencil className="w-4 h-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(s)} className="text-destructive">
+                <Button size="icon" variant="ghost" onClick={() => setToDelete(s)} className="text-destructive">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
