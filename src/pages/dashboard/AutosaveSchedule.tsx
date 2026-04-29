@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info, Pencil, Save } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info, Pencil, Save, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
