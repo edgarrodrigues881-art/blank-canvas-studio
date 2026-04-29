@@ -263,7 +263,8 @@ async function resolveLidViaUazapi(
       { path: "/chat/details", body: { number: lidDigits, preview: true } },
       { path: "/chat/check", body: { numbers: [normalizedLid] } },
       { path: "/chat/check", body: { numbers: [lidDigits] } },
-      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: lidDigits, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: lidDigits, wa_chatlid: normalizedLid, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: `~${lidDigits}`, wa_chatlid: `~${lidDigits}` } },
       { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: normalizedLid } },
       { path: "/chat/info", body: { chatId: normalizedLid } },
       { path: "/chat/info", body: { number: normalizedLid } },
@@ -512,7 +513,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token) : undefined;
+    const targetLids = new Set(
+      inputs
+        .filter(looksLikeLidNumber)
+        .map((input) => onlyDigits(input))
+        .filter((digits) => digits.length >= 8),
+    );
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids) : undefined;
 
     // Processa em paralelo (limitado)
     const concurrency = 5;
