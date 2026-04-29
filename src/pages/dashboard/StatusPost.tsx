@@ -70,6 +70,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
   const [type, setType] = useState<"text" | "image" | "video" | "audio">("text");
   const [text, setText] = useState("");
   const [bgColor, setBgColor] = useState("#25D366");
+  const [font, setFont] = useState<number>(1);
   const [caption, setCaption] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
