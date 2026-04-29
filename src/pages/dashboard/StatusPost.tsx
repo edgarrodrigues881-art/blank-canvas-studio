@@ -423,7 +423,7 @@ function ScheduleDialog({
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
     } else {
-      setName(""); setType("text"); setText(""); setBgColor("#25D366"); setCaption("");
+      setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
       setWeekdays([1, 2, 3, 4, 5]); setTimes(["09:00"]);
       setDeviceMode("all_online"); setSelectedDevices([]);
