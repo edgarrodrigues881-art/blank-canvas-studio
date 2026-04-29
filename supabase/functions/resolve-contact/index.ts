@@ -530,7 +530,8 @@ Deno.serve(async (req: Request) => {
         .map((input) => onlyDigits(input))
         .filter((digits) => digits.length >= 8),
     );
-    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids) : undefined;
+    const deepScan = body?.deep_scan !== false && inputs.length <= 15;
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids, deepScan) : undefined;
 
     // Processa em paralelo (limitado)
     const concurrency = 5;
