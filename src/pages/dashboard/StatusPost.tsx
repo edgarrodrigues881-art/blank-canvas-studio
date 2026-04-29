@@ -415,6 +415,8 @@ function ScheduleDialog({
   const [deviceMode, setDeviceMode] = useState<"all_online" | "fixed">("all_online");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
@@ -431,6 +433,8 @@ function ScheduleDialog({
   const validateStep = (s: number): string | null => {
     if (s >= 1) {
       if (!name.trim()) return "Dê um nome ao agendamento";
+      if (!folderId && !creatingFolder) return "Escolha uma pasta ou crie uma nova para organizar";
+      if (creatingFolder && !newFolderName.trim()) return "Dê um nome para a nova pasta";
     }
     if (s >= 2) {
       if (type === "text" && !text.trim()) return "Digite o texto do status";
@@ -471,6 +475,8 @@ function ScheduleDialog({
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
       setFolderId(editing.folder_id || null);
+      setCreatingFolder(false);
+      setNewFolderName("");
     } else {
       setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
@@ -480,6 +486,8 @@ function ScheduleDialog({
       setRunDate("");
       setDeviceMode("all_online"); setSelectedDevices([]);
       setFolderId(defaultFolderId || null);
+      setCreatingFolder(false);
+      setNewFolderName("");
     }
   }, [editing, open]);
 
@@ -490,6 +498,8 @@ function ScheduleDialog({
   const handleSave = async () => {
     if (!user) return;
     if (!name.trim()) return toast.error("Dê um nome ao agendamento");
+    if (!folderId && !creatingFolder) return toast.error("Escolha uma pasta ou crie uma nova");
+    if (creatingFolder && !newFolderName.trim()) return toast.error("Dê um nome para a nova pasta");
     if (type === "text" && !text.trim()) return toast.error("Digite o texto");
     if (type !== "text" && !file && !existingMediaUrl) return toast.error("Selecione um arquivo");
     if (!/^\d{2}:\d{2}$/.test(time)) return toast.error("Horário inválido");
@@ -501,6 +511,18 @@ function ScheduleDialog({
     try {
       let mediaUrl: string | null = existingMediaUrl;
       if (file) mediaUrl = await uploadMediaFile(user.id, file);
+
+      // Create folder on the fly if needed
+      let finalFolderId = folderId;
+      if (creatingFolder && newFolderName.trim()) {
+        const { data: newFolder, error: fErr } = await supabase
+          .from("status_schedule_folders")
+          .insert({ user_id: user.id, name: newFolderName.trim(), color: FOLDER_COLORS[0] })
+          .select()
+          .single();
+        if (fErr) throw fErr;
+        finalFolderId = newFolder.id;
+      }
 
       const payload: any = {
         user_id: user.id,
@@ -519,7 +541,7 @@ function ScheduleDialog({
         run_date: scheduleMode === "oneshot" ? runDate : null,
         device_mode: deviceMode,
         device_ids: deviceMode === "fixed" ? selectedDevices : [],
-        folder_id: folderId,
+        folder_id: finalFolderId,
       };
 
       if (editing) {
@@ -598,25 +620,58 @@ function ScheduleDialog({
             <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
               <div>
                 <h3 className="text-sm font-semibold mb-1">Como você quer chamar este agendamento?</h3>
-                <p className="text-xs text-muted-foreground">Dê um nome fácil de reconhecer e (opcionalmente) coloque numa pasta.</p>
+                <p className="text-xs text-muted-foreground">Dê um nome fácil de reconhecer e organize numa pasta.</p>
               </div>
               <div>
                 <Label>Nome do agendamento</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" autoFocus />
               </div>
               <div>
-                <Label>Pasta (opcional)</Label>
-                <select
-                  value={folderId || ""}
-                  onChange={(e) => setFolderId(e.target.value || null)}
-                  className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Sem pasta</option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1.5">As pastas servem só para organizar visualmente seus agendamentos.</p>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="mb-0">Pasta <span className="text-destructive">*</span></Label>
+                  {folders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingFolder((v) => !v);
+                        if (!creatingFolder) setFolderId(null);
+                        else setNewFolderName("");
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {creatingFolder ? "← Escolher pasta existente" : "+ Criar nova pasta"}
+                    </button>
+                  )}
+                </div>
+
+                {creatingFolder || folders.length === 0 ? (
+                  <div className="space-y-1.5">
+                    <Input
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Ex: Promoções da manhã"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {folders.length === 0
+                        ? "Você ainda não tem pastas. Crie uma agora para começar a organizar."
+                        : "A pasta será criada automaticamente ao salvar o agendamento."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={folderId || ""}
+                      onChange={(e) => setFolderId(e.target.value || null)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecione uma pasta...</option>
+                      {folders.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1.5">As pastas ajudam a organizar e controlar seus agendamentos em grupo.</p>
+                  </>
+                )}
               </div>
             </div>
           )}
