@@ -133,17 +133,39 @@ function PostNowTab({ devices }: { devices: Device[] }) {
 
             <TabsContent value="image" className="space-y-4 mt-4">
               <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("image/") && (
+                <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt="Pré-visualização"
+                    className="max-h-[360px] w-auto object-contain"
+                    onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                  />
+                </div>
+              )}
               <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
             </TabsContent>
 
             <TabsContent value="video" className="space-y-4 mt-4">
               <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("video/") && (
+                <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                  <video
+                    src={URL.createObjectURL(file)}
+                    controls
+                    className="max-h-[360px] w-auto"
+                  />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Máx. 30 segundos.</p>
               <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
             </TabsContent>
 
             <TabsContent value="audio" className="space-y-4 mt-4">
               <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("audio/") && (
+                <audio src={URL.createObjectURL(file)} controls className="w-full" />
+              )}
             </TabsContent>
           </Tabs>
 
