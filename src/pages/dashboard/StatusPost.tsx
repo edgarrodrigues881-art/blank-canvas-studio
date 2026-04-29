@@ -920,25 +920,164 @@ function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | 
   );
 }
 
+// ===== FOLDER DIALOG =====
+const FOLDER_COLORS = ["#25D366", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
+
+function FolderDialog({
+  open, onOpenChange, editing, onSaved,
+}: {
+  open: boolean; onOpenChange: (o: boolean) => void;
+  editing: Folder | null; onSaved: () => void;
+}) {
+  const { user } = useAuth();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(FOLDER_COLORS[0]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (editing) { setName(editing.name); setColor(editing.color); }
+    else { setName(""); setColor(FOLDER_COLORS[0]); }
+  }, [editing, open]);
+
+  const save = async () => {
+    if (!user || !name.trim()) return toast.error("Dê um nome à pasta");
+    setSaving(true);
+    try {
+      if (editing) {
+        const { error } = await supabase.from("status_schedule_folders")
+          .update({ name: name.trim(), color }).eq("id", editing.id);
+        if (error) throw error;
+        toast.success("Pasta atualizada");
+      } else {
+        const { error } = await supabase.from("status_schedule_folders")
+          .insert({ user_id: user.id, name: name.trim(), color });
+        if (error) throw error;
+        toast.success("Pasta criada");
+      }
+      onSaved();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao salvar");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{editing ? "Editar pasta" : "Nova pasta"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label>Nome</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Segunda — Promoções" />
+          </div>
+          <div>
+            <Label>Cor</Label>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {FOLDER_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all ${color === c ? "border-foreground scale-110" : "border-transparent"}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>
+            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {editing ? "Salvar" : "Criar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ===== SCHEDULE ROW (used inside and outside folders) =====
+function ScheduleRow({
+  s, onToggle, onPreview, onEdit, onDelete,
+}: {
+  s: Schedule;
+  onToggle: () => void;
+  onPreview: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card className={s.enabled ? "" : "opacity-60"}>
+      <CardContent className="p-4 flex items-center gap-4">
+        <Switch checked={s.enabled} onCheckedChange={onToggle} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium">{s.name}</p>
+            <Badge variant="outline" className="capitalize text-xs">{s.type}</Badge>
+            <Badge variant="secondary" className="text-xs">
+              {s.device_mode === "all_online" ? "Todas conectadas" : `${s.device_ids.length} fixas`}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {s.text_content || s.caption || "—"}
+          </p>
+          <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+            {(s.schedule_mode || "recurring") === "oneshot" && s.run_date ? (
+              <span className="text-amber-600 dark:text-amber-400 font-medium">
+                <Calendar className="w-3 h-3 inline mr-1" />
+                Única: {s.run_date.split("-").reverse().join("/")}
+              </span>
+            ) : (
+              <span><Calendar className="w-3 h-3 inline mr-1" />{(s.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}</span>
+            )}
+            <span><Clock className="w-3 h-3 inline mr-1" />{(s.times || []).join(", ")}</span>
+            <span>Execuções: {s.run_count}</span>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <Button size="icon" variant="ghost" onClick={onPreview} title="Visualizar">
+            <Eye className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onEdit} title="Editar">
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={onDelete} className="text-destructive" title="Excluir">
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SchedulesTab({ devices }: { devices: Device[] }) {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Schedule | null>(null);
+  const [defaultFolderId, setDefaultFolderId] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Schedule | null>(null);
-  const [previewing, setPreviewing] = useState<Schedule | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [previewing, setPreviewing] = useState<{ items: Schedule[]; title?: string } | null>(null);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [folderEditing, setFolderEditing] = useState<Folder | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("status_schedules")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setSchedules((data || []) as Schedule[]);
+    const [{ data: sch }, { data: fld }] = await Promise.all([
+      supabase.from("status_schedules").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("status_schedule_folders").select("*").eq("user_id", user.id).order("position", { ascending: true }).order("created_at", { ascending: true }),
+    ]);
+    setSchedules((sch || []) as Schedule[]);
+    setFolders((fld || []) as Folder[]);
     setLoading(false);
   };
 
@@ -949,6 +1088,53 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
     load();
   };
 
+  const toggleFolder = async (folder: Folder, items: Schedule[]) => {
+    // If any are off, turn all on. Otherwise turn all off.
+    const allOn = items.every((s) => s.enabled);
+    const newVal = !allOn;
+    await supabase.from("status_schedules").update({ enabled: newVal }).in("id", items.map((s) => s.id));
+    toast.success(newVal ? "Pasta ativada" : "Pasta pausada");
+    load();
+  };
+
+  const duplicateFolder = async (folder: Folder, items: Schedule[]) => {
+    if (!user) return;
+    if (items.length === 0) return toast.error("Pasta vazia — nada pra duplicar");
+    try {
+      const { data: newFolder, error: fErr } = await supabase
+        .from("status_schedule_folders")
+        .insert({ user_id: user.id, name: `${folder.name} (cópia)`, color: folder.color })
+        .select()
+        .single();
+      if (fErr) throw fErr;
+
+      const clones = items.map((s) => ({
+        user_id: user.id,
+        folder_id: newFolder.id,
+        name: s.name,
+        type: s.type,
+        text_content: s.text_content,
+        media_url: s.media_url,
+        caption: s.caption,
+        background_color: s.background_color,
+        font: s.font,
+        weekdays: s.weekdays,
+        times: s.times,
+        schedule_mode: s.schedule_mode,
+        run_date: s.run_date,
+        device_mode: s.device_mode,
+        device_ids: s.device_ids,
+        enabled: false,
+      }));
+      const { error: cErr } = await supabase.from("status_schedules").insert(clones);
+      if (cErr) throw cErr;
+      toast.success(`Pasta duplicada com ${clones.length} agendamento(s)`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao duplicar");
+    }
+  };
+
   const confirmDelete = async () => {
     if (!toDelete) return;
     setDeleting(true);
@@ -957,79 +1143,174 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
       toast.success("Agendamento removido");
       setToDelete(null);
       load();
-    } finally {
-      setDeleting(false);
-    }
+    } finally { setDeleting(false); }
   };
+
+  const confirmDeleteFolder = async () => {
+    if (!folderToDelete) return;
+    setDeleting(true);
+    try {
+      // delete schedules in folder + folder
+      await supabase.from("status_schedules").delete().eq("folder_id", folderToDelete.id);
+      await supabase.from("status_schedule_folders").delete().eq("id", folderToDelete.id);
+      toast.success("Pasta e agendamentos removidos");
+      setFolderToDelete(null);
+      load();
+    } finally { setDeleting(false); }
+  };
+
+  // Group by folder
+  const grouped = useMemo(() => {
+    const map = new Map<string, Schedule[]>();
+    for (const f of folders) map.set(f.id, []);
+    const orphans: Schedule[] = [];
+    for (const s of schedules) {
+      if (s.folder_id && map.has(s.folder_id)) map.get(s.folder_id)!.push(s);
+      else orphans.push(s);
+    }
+    // sort schedules in each folder by time asc
+    for (const arr of map.values()) {
+      arr.sort((a, b) => (a.times?.[0] || "").localeCompare(b.times?.[0] || ""));
+    }
+    return { map, orphans };
+  }, [schedules, folders]);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">
-          O sistema verifica os agendamentos a cada minuto e publica nos horários definidos (fuso de Brasília).
+      <div className="flex justify-between items-center gap-2 flex-wrap">
+        <p className="text-sm text-muted-foreground flex-1 min-w-[200px]">
+          Organize seus agendamentos em pastas (campanhas, dias da semana, etc.). O sistema verifica a cada minuto e publica nos horários definidos (BRT).
         </p>
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-1.5" />Novo Agendamento
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setFolderEditing(null); setFolderDialogOpen(true); }}>
+            <FolderPlus className="w-4 h-4 mr-1.5" />Nova Pasta
+          </Button>
+          <Button onClick={() => { setEditing(null); setDefaultFolderId(null); setDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-1.5" />Novo Agendamento
+          </Button>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      {!loading && schedules.length === 0 && (
+      {!loading && schedules.length === 0 && folders.length === 0 && (
         <Card><CardContent className="py-12 text-center text-muted-foreground">
-          Nenhum agendamento. Crie o primeiro para postar status automaticamente.
+          Nenhum agendamento ainda. Crie uma pasta pra organizar ou um agendamento avulso.
         </CardContent></Card>
       )}
 
-      <div className="grid gap-3">
-        {schedules.map((s) => (
-          <Card key={s.id} className={s.enabled ? "" : "opacity-60"}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <Switch checked={s.enabled} onCheckedChange={() => toggle(s)} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-medium">{s.name}</p>
-                  <Badge variant="outline" className="capitalize text-xs">{s.type}</Badge>
-                  <Badge variant="secondary" className="text-xs">
-                    {s.device_mode === "all_online" ? "Todas conectadas" : `${s.device_ids.length} fixas`}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 truncate">
-                  {s.text_content || s.caption || "—"}
-                </p>
-                <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
-                  {(s.schedule_mode || "recurring") === "oneshot" && s.run_date ? (
-                    <span className="text-amber-600 dark:text-amber-400 font-medium">
-                      <Calendar className="w-3 h-3 inline mr-1" />
-                      Única: {s.run_date.split("-").reverse().join("/")}
-                    </span>
-                  ) : (
-                    <span><Calendar className="w-3 h-3 inline mr-1" />{(s.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}</span>
+      {/* Folders */}
+      <div className="space-y-3">
+        {folders.map((f) => {
+          const items = grouped.map.get(f.id) || [];
+          const isCollapsed = collapsed[f.id];
+          const allOn = items.length > 0 && items.every((s) => s.enabled);
+          return (
+            <Card key={f.id} className="overflow-hidden">
+              <div
+                className="px-4 py-3 flex items-center gap-3 border-l-4"
+                style={{ borderLeftColor: f.color, background: `${f.color}10` }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setCollapsed((c) => ({ ...c, [f.id]: !c[f.id] }))}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isCollapsed ? "-rotate-90" : ""}`} />
+                  <FolderIcon className="w-4 h-4" style={{ color: f.color }} />
+                  <span className="font-semibold truncate">{f.name}</span>
+                  <Badge variant="secondary" className="text-xs ml-1">{items.length}</Badge>
+                  {items.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      {items.filter((s) => s.enabled).length} ativas
+                    </Badge>
                   )}
-                  <span><Clock className="w-3 h-3 inline mr-1" />{(s.times || []).join(", ")}</span>
-                  <span>Execuções: {s.run_count}</span>
+                </button>
+                <div className="flex items-center gap-1">
+                  <Switch
+                    checked={allOn}
+                    disabled={items.length === 0}
+                    onCheckedChange={() => toggleFolder(f, items)}
+                  />
+                  <Button size="icon" variant="ghost" title="Visualizar pasta (carrossel)"
+                    disabled={items.length === 0}
+                    onClick={() => setPreviewing({ items, title: f.name })}>
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Adicionar agendamento nesta pasta"
+                    onClick={() => { setEditing(null); setDefaultFolderId(f.id); setDialogOpen(true); }}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Duplicar pasta"
+                    onClick={() => duplicateFolder(f, items)}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Editar pasta"
+                    onClick={() => { setFolderEditing(f); setFolderDialogOpen(true); }}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" title="Excluir pasta"
+                    className="text-destructive"
+                    onClick={() => setFolderToDelete(f)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => setPreviewing(s)} title="Visualizar">
-                  <Eye className="w-4 h-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setDialogOpen(true); }} title="Editar">
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button size="icon" variant="ghost" onClick={() => setToDelete(s)} className="text-destructive" title="Excluir">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              {!isCollapsed && (
+                <div className="p-3 space-y-2 bg-muted/10">
+                  {items.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4 italic">
+                      Pasta vazia. Clique em + para adicionar um agendamento aqui.
+                    </p>
+                  ) : (
+                    items.map((s) => (
+                      <ScheduleRow
+                        key={s.id} s={s}
+                        onToggle={() => toggle(s)}
+                        onPreview={() => setPreviewing({ items: [s] })}
+                        onEdit={() => { setEditing(s); setDialogOpen(true); }}
+                        onDelete={() => setToDelete(s)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </Card>
+          );
+        })}
       </div>
+
+      {/* Orphans (avulsos) */}
+      {grouped.orphans.length > 0 && (
+        <div className="space-y-2">
+          {folders.length > 0 && (
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Sem pasta</p>
+          )}
+          {grouped.orphans.map((s) => (
+            <ScheduleRow
+              key={s.id} s={s}
+              onToggle={() => toggle(s)}
+              onPreview={() => setPreviewing({ items: [s] })}
+              onEdit={() => { setEditing(s); setDialogOpen(true); }}
+              onDelete={() => setToDelete(s)}
+            />
+          ))}
+        </div>
+      )}
 
       <ScheduleDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         devices={devices}
         editing={editing}
+        onSaved={load}
+        folders={folders}
+        defaultFolderId={defaultFolderId}
+      />
+
+      <FolderDialog
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        editing={folderEditing}
         onSaved={load}
       />
 
@@ -1055,7 +1336,33 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <SchedulePreviewDialog schedule={previewing} onClose={() => setPreviewing(null)} />
+      <AlertDialog open={!!folderToDelete} onOpenChange={(o) => !o && setFolderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir pasta inteira?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A pasta <span className="font-medium text-foreground">"{folderToDelete?.name}"</span> e <span className="font-medium text-foreground">todos os agendamentos dentro</span> serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDeleteFolder(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <SchedulePreviewDialog
+        items={previewing?.items || null}
+        title={previewing?.title}
+        onClose={() => setPreviewing(null)}
+      />
     </div>
   );
 }
