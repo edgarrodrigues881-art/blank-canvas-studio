@@ -270,14 +270,15 @@ async function resolveContact(
             valid: true,
           };
         }
-        // Não foi possível resolver: marca como inválido (não é um telefone real)
+        // Se não deu para descobrir o telefone real, mantém o @lid como destino válido.
+        // O WhatsApp aceita envio para @lid; só não podemos fingir que isso é telefone.
         return {
           original,
           type: "lid",
-          jid: null,
+          jid: `${digits}${LID_SUFFIX}`,
           number: null,
-          valid: false,
-          error: "LID não pôde ser resolvido para um número de telefone",
+          valid: true,
+          error: "Telefone real não retornado pela instância; usando @lid para disparo",
         };
       }
 
@@ -297,13 +298,14 @@ async function resolveContact(
     }
     const { jid, error } = await resolveLidViaUazapi(baseUrl, token, original);
     if (!jid) {
+      const fallbackLid = `${lidDigits}${LID_SUFFIX}`;
       return {
         original,
         type: "lid",
-        jid: null,
+        jid: fallbackLid,
         number: null,
-        valid: false,
-        error: error || "Falha ao resolver LID",
+        valid: true,
+        error: error || "Telefone real não retornado pela instância; usando @lid para disparo",
       };
     }
     return { original, type: "lid", jid, number: jidToNumber(jid), valid: true };
