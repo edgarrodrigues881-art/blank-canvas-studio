@@ -153,7 +153,7 @@ export default function LidConverter() {
       const cached = new Map<string, Row>();
       (alreadyData || []).forEach((r: any) => {
         const original = String(r.original);
-        if (isLikelyRawLid(original)) return;
+        if (needsLidPhoneRetry(original, { original, type: "lid", number: r.number ? String(r.number) : "—", jid: r.jid ? String(r.jid) : "—", valid: true })) return;
         cached.set(String(r.original), {
           original,
           type: (r.detected_type as EntryType) ?? "number",
