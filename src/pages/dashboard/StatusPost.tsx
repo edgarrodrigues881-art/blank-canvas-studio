@@ -431,6 +431,8 @@ function ScheduleDialog({
   const validateStep = (s: number): string | null => {
     if (s >= 1) {
       if (!name.trim()) return "Dê um nome ao agendamento";
+      if (!folderId && !creatingFolder) return "Escolha uma pasta ou crie uma nova para organizar";
+      if (creatingFolder && !newFolderName.trim()) return "Dê um nome para a nova pasta";
     }
     if (s >= 2) {
       if (type === "text" && !text.trim()) return "Digite o texto do status";
