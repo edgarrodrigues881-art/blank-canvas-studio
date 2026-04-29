@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload, Eye, ChevronLeft, ChevronRight, Folder as FolderIcon, FolderPlus, Copy, ChevronDown } from "lucide-react";
+import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload, Eye, ChevronLeft, ChevronRight, Folder as FolderIcon, FolderPlus, Copy, ChevronDown, Film, MessageCircleX } from "lucide-react";
 import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
 import { WhatsAppTextEditor, renderWhatsAppMarkdown } from "@/components/WhatsAppTextEditor";
 
@@ -1425,11 +1425,13 @@ function HistoryTab() {
   const [clearing, setClearing] = useState(false);
   const [deletingWa, setDeletingWa] = useState<string | null>(null);
   const [confirmWaDelete, setConfirmWaDelete] = useState<any | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<any | null>(null);
 
   const load = () => {
     if (!user) return;
     supabase.from("status_posts")
-      .select("id, type, text_content, caption, status, success_count, error_count, created_at, results")
+      .select("id, type, text_content, media_url, caption, background_color, font, status, success_count, error_count, created_at, results")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50)
@@ -1451,6 +1453,21 @@ function HistoryTab() {
       toast.error(e?.message || "Erro ao limpar");
     } finally {
       setClearing(false);
+    }
+  };
+
+  const deleteOne = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from("status_posts").delete().eq("id", id);
+      if (error) throw error;
+      setHistory((prev) => prev.filter((x) => x.id !== id));
+      setConfirmDelete(null);
+      toast.success("Publicação removida");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao remover");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -1486,12 +1503,80 @@ function HistoryTab() {
     return successes.length > 0 && successes.every((r: any) => r?.deleted);
   };
 
+  const statusBadge = (h: any) => {
+    if (h.status === "failed" || (h.error_count > 0 && h.success_count === 0)) {
+      return <Badge variant="destructive" className="text-[10px]">Falhou</Badge>;
+    }
+    if (h.error_count > 0) {
+      return <Badge className="text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20">Parcial</Badge>;
+    }
+    if (h.success_count > 0) {
+      return <Badge className="text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20">Enviado</Badge>;
+    }
+    return <Badge variant="secondary" className="text-[10px]">{h.status || "—"}</Badge>;
+  };
+
+  const renderThumb = (h: any) => {
+    const t = h.type;
+    if (t === "image" && h.media_url) {
+      return <img src={h.media_url} alt="" className="w-full h-full object-cover" loading="lazy" />;
+    }
+    if (t === "video" && h.media_url) {
+      return (
+        <div className="relative w-full h-full bg-black flex items-center justify-center">
+          <video src={h.media_url} className="w-full h-full object-cover" muted preload="metadata" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="w-8 h-8 rounded-full bg-white/90 flex items-center justify-center">
+              <div className="w-0 h-0 border-l-[10px] border-l-black border-y-[6px] border-y-transparent ml-0.5" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (t === "audio") {
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center">
+          <Mic className="w-7 h-7 text-white" />
+        </div>
+      );
+    }
+    // text
+    const bg = h.background_color || "#008080";
+    return (
+      <div className="w-full h-full flex items-center justify-center p-1.5" style={{ background: bg }}>
+        <p className="text-[9px] text-white text-center font-semibold leading-tight line-clamp-4 break-words">
+          {h.text_content || "—"}
+        </p>
+      </div>
+    );
+  };
+
+  const typeIcon = (t: string) => {
+    if (t === "image") return <ImageIcon className="w-3 h-3" />;
+    if (t === "video") return <Film className="w-3 h-3" />;
+    if (t === "audio") return <Mic className="w-3 h-3" />;
+    return <Type className="w-3 h-3" />;
+  };
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    const today = new Date();
+    const isToday = d.toDateString() === today.toDateString();
+    const time = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return `Hoje, ${time}`;
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return `Ontem, ${time}`;
+    return `${d.toLocaleDateString("pt-BR")} • ${time}`;
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {history.length === 0 ? "Nenhuma publicação ainda." : `${history.length} publicação(ões) recente(s).`}
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {history.length === 0 ? "Nenhuma publicação ainda." : `${history.length} publicação(ões) recente(s)`}
+          </p>
+        </div>
         {history.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => setConfirmOpen(true)} className="text-destructive hover:text-destructive">
             <Trash2 className="w-3.5 h-3.5 mr-1.5" />Limpar histórico
@@ -1499,35 +1584,93 @@ function HistoryTab() {
         )}
       </div>
 
+      {history.length === 0 && (
+        <Card className="p-8 text-center text-sm text-muted-foreground">
+          Suas publicações de status aparecerão aqui após serem enviadas.
+        </Card>
+      )}
+
       <div className="space-y-2">
-        {history.map((h) => (
-          <div key={h.id} className="flex items-center gap-3 p-3 border rounded-md">
-            <Badge variant="outline" className="capitalize">{h.type}</Badge>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm truncate">{h.text_content || h.caption || "—"}</p>
-              <p className="text-xs text-muted-foreground">{new Date(h.created_at).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 className="w-3.5 h-3.5" />{h.success_count}</span>
-              <span className="flex items-center gap-1 text-destructive"><XCircle className="w-3.5 h-3.5" />{h.error_count}</span>
-            </div>
-            {isAllDeleted(h) ? (
-              <Badge variant="secondary" className="text-xs">Apagado do WhatsApp</Badge>
-            ) : canDeleteFromWa(h) ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmWaDelete(h)}
-                disabled={deletingWa === h.id}
-                className="text-destructive hover:text-destructive"
-                title="Apagar status do WhatsApp via API"
-              >
-                {deletingWa === h.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                <span className="ml-1.5 hidden sm:inline">Apagar do WhatsApp</span>
-              </Button>
-            ) : null}
-          </div>
-        ))}
+        {history.map((h) => {
+          const total = (h.success_count || 0) + (h.error_count || 0);
+          const successRate = total > 0 ? Math.round(((h.success_count || 0) / total) * 100) : 0;
+          return (
+            <Card key={h.id} className="overflow-hidden hover:border-primary/40 transition-colors">
+              <div className="flex items-stretch gap-3 p-3">
+                {/* Thumbnail */}
+                <div className="w-16 h-20 flex-shrink-0 rounded-md overflow-hidden border border-border/50">
+                  {renderThumb(h)}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[10px] h-5 capitalize gap-1 px-1.5">
+                        {typeIcon(h.type)}{h.type}
+                      </Badge>
+                      {statusBadge(h)}
+                      {isAllDeleted(h) && (
+                        <Badge variant="secondary" className="text-[10px] h-5">Apagado do WhatsApp</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium truncate">
+                      {h.text_content || h.caption || <span className="text-muted-foreground italic">Sem legenda</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />{formatDate(h.created_at)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stats + actions */}
+                <div className="flex flex-col items-end justify-between gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" />{h.success_count || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-destructive font-semibold">
+                      <XCircle className="w-3.5 h-3.5" />{h.error_count || 0}
+                    </span>
+                    {total > 0 && (
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        ({successRate}%)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {canDeleteFromWa(h) && !isAllDeleted(h) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setConfirmWaDelete(h)}
+                        disabled={deletingWa === h.id}
+                        className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+                        title="Apagar do WhatsApp (remove dos celulares)"
+                      >
+                        {deletingWa === h.id
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <MessageCircleX className="w-4 h-4" />}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setConfirmDelete(h)}
+                      disabled={deletingId === h.id}
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Excluir do histórico"
+                    >
+                      {deletingId === h.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -1547,6 +1690,28 @@ function HistoryTab() {
             >
               {clearing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Limpar tudo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta publicação do histórico?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O registro será removido permanentemente. Isso <strong>não apaga</strong> o status do WhatsApp dos celulares — use o botão laranja para isso.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); if (confirmDelete) deleteOne(confirmDelete.id); }}
+              disabled={!!deletingId}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingId && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
