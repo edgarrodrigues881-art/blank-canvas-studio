@@ -97,87 +97,86 @@ const allPlans: Plan[] = [
 ];
 
 const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratarPlano: (plan: Plan) => void; loading: boolean }) => (
-  <div
-    className={`relative flex flex-col rounded-2xl card-hover-lift ${
-      plan.highlight === "amber"
-        ? "border border-amber-500/40"
-        : "border border-white/[0.06]"
-    }`}
-  >
-    {plan.highlight === "amber" && (
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-        <span className="bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-          Recomendado
-        </span>
-      </div>
-    )}
-    <div className={`relative flex flex-col rounded-2xl p-7 h-full bg-[#0f1419]`}>
-      <div className="mb-1">
-        <h3 className="text-xl font-bold text-white/90">{plan.name}</h3>
-        <p className="text-sm text-white/30">até {plan.instances} instâncias</p>
-      </div>
-
-      <p className="text-xs text-white/25 leading-relaxed mb-2 min-h-[2.5rem]">{plan.subtitle}</p>
-
-      {plan.extraCopy && (
-        <p className={`text-xs font-semibold mb-3 ${plan.highlight === "amber" ? "text-amber-400/80" : "text-emerald-400/70"}`}>
-          {plan.extraCopy}
-        </p>
+const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratarPlano: (plan: Plan) => void; loading: boolean }) => {
+  const isHighlight = plan.highlight === "amber";
+  return (
+    <div className="relative pt-3">
+      {isHighlight && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
+          <span className="inline-flex items-center gap-1 bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-lg shadow-amber-500/30">
+            <Star className="w-3 h-3 fill-black" />
+            Mais escolhido
+          </span>
+        </div>
       )}
-      {!plan.extraCopy && <div className="mb-3" />}
-
-      <div className="mb-4">
-        {plan.price ? (
-          <>
-            <span className="text-sm text-white/30">R$ </span>
-            <span className="text-4xl font-extrabold text-white/90 italic">{plan.price.split(',')[0]}</span>
-            <span className="text-lg font-bold text-white/90 italic">,{plan.price.split(',')[1]}</span>
-            <span className="text-white/30 text-sm"> / mês</span>
-          </>
-        ) : (
-          <span className="text-4xl font-extrabold text-white/90 italic">{plan.priceLabel}</span>
-        )}
-      </div>
-
-      <div className="h-px bg-white/[0.05] mb-5" />
-
-      <div className="space-y-3 mb-6 flex-1">
-        {plan.features.map((f, fi) => {
-          const isExcluded = f === "Relatórios via WhatsApp";
-          return (
-            <div key={fi} className={`flex items-start gap-3 text-sm ${isExcluded ? "text-white/25" : "text-white/50"}`}>
-              {isExcluded ? (
-                <span className="w-4 h-4 min-w-[16px] min-h-[16px] shrink-0 mt-0.5 text-white/15 text-center leading-4">✕</span>
-              ) : (
-                <Check className="w-4 h-4 min-w-[16px] min-h-[16px] text-white/30 shrink-0 mt-0.5" />
-              )}
-              {f}
-            </div>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={() => onContratarPlano(plan)}
-        disabled={loading}
-        className={`w-full py-3.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 btn-press disabled:opacity-60 disabled:cursor-not-allowed ${
-          plan.highlight === "amber"
-            ? "bg-amber-500 text-black font-bold hover:bg-amber-400"
-            : "bg-white/[0.05] text-white/60 hover:bg-white/[0.08] border border-white/[0.06]"
+      <div
+        className={`relative flex flex-col rounded-2xl p-5 h-full bg-[#0f1419] card-hover-lift transition-all ${
+          isHighlight
+            ? "border border-amber-500/60 shadow-[0_0_30px_-8px_rgba(245,158,11,0.4)]"
+            : "border border-white/[0.06]"
         }`}
       >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <>
-            {plan.cta}
-            <ArrowRight className="w-4 h-4 flex-shrink-0" />
-          </>
-        )}
-      </button>
+        <div className="mb-3">
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-white/40 uppercase">{plan.name}</p>
+        </div>
+
+        <div className="mb-4 flex items-baseline">
+          <span className="text-xs text-white/40 mr-1">R$</span>
+          <span className="text-4xl font-extrabold text-white leading-none">{plan.price!.split(',')[0]}</span>
+          <span className="text-base font-bold text-white/80 ml-0.5">,{plan.price!.split(',')[1]}</span>
+          <span className="text-white/40 text-xs ml-1">/mês</span>
+        </div>
+
+        <div className="mb-5">
+          <span
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold border ${
+              isHighlight
+                ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
+                : "bg-emerald-500/5 border-emerald-500/20 text-emerald-300/90"
+            }`}
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            {plan.instances} {plan.instances === "1" ? "Instância" : "Instâncias"}
+          </span>
+        </div>
+
+        <p className="text-[11px] text-white/35 leading-relaxed mb-4 line-clamp-3 min-h-[3.3rem]">
+          {plan.subtitle}
+        </p>
+
+        <div className="space-y-2.5 mb-6 flex-1">
+          {plan.features.map((f, fi) => (
+            <div key={fi} className="flex items-start gap-2 text-[12px] text-white/60">
+              <span className="mt-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/15 shrink-0">
+                <Check className="w-2.5 h-2.5 text-emerald-400" strokeWidth={3} />
+              </span>
+              <span className="leading-snug">{f}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => onContratarPlano(plan)}
+          disabled={loading}
+          className={`w-full py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 btn-press disabled:opacity-60 disabled:cursor-not-allowed transition ${
+            isHighlight
+              ? "bg-emerald-500 text-black font-bold hover:bg-emerald-400 shadow-lg shadow-emerald-500/20"
+              : "bg-white/[0.04] text-white/70 hover:bg-white/[0.08] border border-white/[0.08]"
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              {plan.cta}
+              <ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
+            </>
+          )}
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const PlansSection = () => {
   const navigate = useNavigate();
