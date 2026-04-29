@@ -221,18 +221,8 @@ const PlansSection = () => {
           </p>
         </AnimateOnView>
 
-        {/* Top row: 3 plans */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto mb-6">
-          {topPlans.map((plan, i) => (
-            <AnimateOnView key={plan.name} animation="slide-up" delay={Math.min(i + 1, 4)}>
-              <PlanCard plan={plan} onContratarPlano={handleContratarPlano} loading={loadingPlan === plan.name} />
-            </AnimateOnView>
-          ))}
-        </div>
-
-        {/* Bottom row: 3 plans */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {bottomPlans.map((plan, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 max-w-7xl mx-auto">
+          {allPlans.map((plan, i) => (
             <AnimateOnView key={plan.name} animation="slide-up" delay={Math.min(i + 1, 4)}>
               <PlanCard plan={plan} onContratarPlano={handleContratarPlano} loading={loadingPlan === plan.name} />
             </AnimateOnView>
