@@ -413,6 +413,7 @@ function ScheduleDialog({
   const [runDate, setRunDate] = useState<string>(""); // YYYY-MM-DD
   const [deviceMode, setDeviceMode] = useState<"all_online" | "fixed">("all_online");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
