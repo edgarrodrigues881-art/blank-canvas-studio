@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2, MessageSquareText, BellRing, LineChart, Clock } from "lucide-react";
 import CreditPackCards from "@/components/credits/CreditPackCards";
 import { startCheckout } from "@/lib/stripe";
 import { toast } from "sonner";
@@ -244,6 +244,133 @@ const MyPlan = () => {
           })}
         </div>
 
+
+        {/* ════════════ ADD-ON: RELATÓRIOS VIA WHATSAPP ════════════ */}
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <div
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5 border"
+              style={{ borderColor: "rgba(234,179,8,0.35)", background: "rgba(234,179,8,0.08)", color: "#FCD34D" }}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Complemento opcional
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Adicione Relatórios via WhatsApp ao seu plano
+            </h2>
+            <p className="text-sm mt-3 text-muted-foreground max-w-xl mx-auto">
+              Receba métricas, alertas e resumos diários direto no seu WhatsApp — disponível para qualquer plano como complemento mensal.
+            </p>
+          </div>
+
+          <div
+            className="relative rounded-2xl p-6 sm:p-8 border overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(37,211,102,0.06) 0%, rgba(20,20,30,0.4) 50%, rgba(234,179,8,0.06) 100%)",
+              borderColor: "rgba(37,211,102,0.25)",
+              boxShadow: "0 20px 60px -25px rgba(37,211,102,0.35)",
+            }}
+          >
+            {/* Glow decorativo */}
+            <div
+              className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl pointer-events-none"
+              style={{ background: "radial-gradient(circle, rgba(37,211,102,0.18) 0%, transparent 70%)" }}
+            />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
+              {/* Lado esquerdo — descrição + benefícios */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                      boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+                    }}
+                  >
+                    <MessageSquareText className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground leading-tight">
+                      Relatórios via WhatsApp
+                    </h3>
+                    <p className="text-[12px] text-muted-foreground">
+                      Add-on mensal · funciona com qualquer plano
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="space-y-2.5 mt-5">
+                  {[
+                    { icon: BellRing, text: "Alertas em tempo real de desconexões e falhas" },
+                    { icon: LineChart, text: "Resumos diários de disparos, leads e conversões" },
+                    { icon: Clock, text: "Relatórios programados nos horários que você definir" },
+                    { icon: CheckCircle2, text: "Cobertura para todas as instâncias da sua conta" },
+                  ].map((b, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-[13px] text-foreground/80 leading-[1.5]">
+                      <b.icon className="w-4 h-4 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
+                      <span>{b.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Lado direito — preço + CTA */}
+              <div
+                className="rounded-xl p-6 border bg-card/60 backdrop-blur-sm"
+                style={{ borderColor: "rgba(37,211,102,0.30)" }}
+              >
+                <div className="text-center">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
+                    A partir de
+                  </span>
+                  <div className="flex items-baseline justify-center gap-1 mt-2 mb-1">
+                    <span className="text-[12px] font-medium text-foreground/40">R$</span>
+                    <span className="text-[2.5rem] font-bold tracking-[-0.03em] leading-none text-foreground">
+                      29
+                    </span>
+                    <span className="text-[16px] font-semibold text-foreground/55">,99</span>
+                    <span className="text-[11px] text-foreground/35 ml-0.5">/mês</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-5">
+                    Cobre todas as instâncias da conta
+                  </p>
+
+                  <button
+                    onClick={() =>
+                      handleSelectPlan({
+                        name: "Add-on Relatórios WhatsApp",
+                        instances: 0,
+                        price: "29,99",
+                      } as any)
+                    }
+                    disabled={loadingPlan === "Add-on Relatórios WhatsApp"}
+                    style={{
+                      background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                      color: "#ffffff",
+                      boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+                    }}
+                    className="w-full h-11 text-[13px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loadingPlan === "Add-on Relatórios WhatsApp" ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        Ativar add-on
+                        <ArrowRight className="w-4 h-4 shrink-0" />
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-[10.5px] text-muted-foreground/70 mt-3 leading-[1.4]">
+                    Já incluso nos planos Scale, Business e Enterprise
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* ════════════ COMPARISON TABLE ════════════ */}
         <div className="max-w-5xl mx-auto">
