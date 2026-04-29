@@ -370,6 +370,10 @@ export default function LidConverter() {
     () => rows.filter((r) => r.valid && r.jid !== "—").map((r) => r.jid),
     [rows],
   );
+  const validDestinations = useMemo(
+    () => rows.filter((r) => r.valid).map((r) => (r.number !== "—" ? r.number : r.jid)).filter((v) => v && v !== "—"),
+    [rows],
+  );
 
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
@@ -391,6 +395,11 @@ export default function LidConverter() {
     if (validJids.length === 0) return toast.error("Nenhum JID válido.");
     const ok = await copyToClipboard(validJids.join("\n"));
     ok ? toast.success(`${validJids.length} JIDs copiados`) : toast.error("Falha ao copiar");
+  };
+  const handleCopyDestinations = async () => {
+    if (validDestinations.length === 0) return toast.error("Nenhum destino válido.");
+    const ok = await copyToClipboard(validDestinations.join("\n"));
+    ok ? toast.success(`${validDestinations.length} destinos copiados`) : toast.error("Falha ao copiar");
   };
 
   const exportRowsToCsv = (data: Row[], filename: string) => {
@@ -601,6 +610,9 @@ export default function LidConverter() {
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleCopyValidJids}>
                         <Copy className="h-4 w-4" /> Copiar JIDs válidos ({validJids.length})
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleCopyDestinations}>
+                        <Copy className="h-4 w-4" /> Copiar para disparo ({validDestinations.length})
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleExport}>
                         <Download className="h-4 w-4" /> Exportar CSV

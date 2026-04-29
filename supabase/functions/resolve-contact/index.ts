@@ -59,6 +59,72 @@ function numberToJid(num: string): string | null {
   return `${digits}${PRIVATE_JID_SUFFIX}`;
 }
 
+type LidPhoneMap = Map<string, string>;
+
+function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectLidPhoneMappings(item, map));
+    return;
+  }
+  if (typeof value !== "object") return;
+
+  const lids = new Set<string>();
+  const phones = new Set<string>();
+  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "user", "participant"]);
+
+  for (const [key, raw] of Object.entries(value)) {
+    if (typeof raw !== "string") continue;
+    const k = key.toLowerCase();
+    const digits = onlyDigits(raw);
+    if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
+    if (!raw.includes(LID_SUFFIX) && (raw.includes(PRIVATE_JID_SUFFIX) || phoneKeys.has(k))) {
+      if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
+    }
+  }
+
+  for (const lid of lids) {
+    for (const phone of phones) {
+      if (lid && phone && lid !== phone) map.set(lid, phone);
+    }
+  }
+
+  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map));
+}
+
+async function fetchUazapiJson(baseUrl: string, token: string, path: string, init?: RequestInit): Promise<any | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}${path}`, {
+      ...init,
+      headers: { token, Accept: "application/json", "Content-Type": "application/json", ...(init?.headers || {}) },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) return null;
+    try { return JSON.parse(text); } catch { return text; }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function buildLidPhoneMap(baseUrl: string, token: string): Promise<LidPhoneMap> {
+  const map: LidPhoneMap = new Map();
+  const requests = [
+    fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, sort: "-wa_lastMsgTimestamp" }) }),
+    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, contactScope: "all" }) }),
+    fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
+    fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
+    fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
+  ];
+  const payloads = await Promise.all(requests);
+  payloads.forEach((payload) => collectLidPhoneMappings(payload, map));
+  return map;
+}
+
 /**
  * Resolve LID via Uazapi using official/current endpoints first, then legacy fallbacks.
  * Some UAZAPI installations do not expose POST /chat/info for LID lookup; /chat/find
@@ -156,6 +222,7 @@ async function resolveContact(
   input: string,
   baseUrl: string,
   token: string,
+  lidPhoneMap?: LidPhoneMap,
 ): Promise<ResolvedContact> {
   const original = String(input || "").trim();
   try {
@@ -188,6 +255,11 @@ async function resolveContact(
       // Strings com 14+ dígitos quase sempre são LIDs colados sem o sufixo @lid.
       // Tentamos resolver via UAZAPI; se vier JID real, retornamos o número de telefone.
       if (isDisguisedLidNumber(original) && baseUrl && token) {
+        const mappedPhone = lidPhoneMap?.get(digits);
+        if (mappedPhone) {
+          const mappedJid = numberToJid(mappedPhone);
+          return { original, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+        }
         const { jid: resolvedJid } = await resolveLidViaUazapi(baseUrl, token, `${digits}${LID_SUFFIX}`);
         if (resolvedJid && resolvedJid.includes(PRIVATE_JID_SUFFIX)) {
           return {
@@ -198,14 +270,15 @@ async function resolveContact(
             valid: true,
           };
         }
-        // Não foi possível resolver: marca como inválido (não é um telefone real)
+        // Se não deu para descobrir o telefone real, mantém o @lid como destino válido.
+        // O WhatsApp aceita envio para @lid; só não podemos fingir que isso é telefone.
         return {
           original,
           type: "lid",
-          jid: null,
+          jid: `${digits}${LID_SUFFIX}`,
           number: null,
-          valid: false,
-          error: "LID não pôde ser resolvido para um número de telefone",
+          valid: true,
+          error: "Telefone real não retornado pela instância; usando @lid para disparo",
         };
       }
 
@@ -217,15 +290,22 @@ async function resolveContact(
     }
 
     // type === "lid" → consulta Uazapi
+    const lidDigits = onlyDigits(original);
+    const mappedPhone = lidPhoneMap?.get(lidDigits);
+    if (mappedPhone) {
+      const mappedJid = numberToJid(mappedPhone);
+      return { original, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+    }
     const { jid, error } = await resolveLidViaUazapi(baseUrl, token, original);
     if (!jid) {
+      const fallbackLid = `${lidDigits}${LID_SUFFIX}`;
       return {
         original,
         type: "lid",
-        jid: null,
+        jid: fallbackLid,
         number: null,
-        valid: false,
-        error: error || "Falha ao resolver LID",
+        valid: true,
+        error: error || "Telefone real não retornado pela instância; usando @lid para disparo",
       };
     }
     return { original, type: "lid", jid, number: jidToNumber(jid), valid: true };
@@ -361,6 +441,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token) : undefined;
+
     // Processa em paralelo (limitado)
     const concurrency = 5;
     const results: ResolvedContact[] = new Array(inputs.length);
@@ -369,7 +451,7 @@ Deno.serve(async (req: Request) => {
       while (true) {
         const idx = cursor++;
         if (idx >= inputs.length) break;
-        results[idx] = await resolveContact(inputs[idx], baseUrl, token);
+        results[idx] = await resolveContact(inputs[idx], baseUrl, token, lidPhoneMap);
       }
     }
     await Promise.all(Array.from({ length: Math.min(concurrency, inputs.length) }, worker));
