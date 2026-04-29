@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ArrowRight, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Loader2, Smartphone, Star } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { startCheckout } from "@/lib/stripe";
 import { toast } from "sonner";
