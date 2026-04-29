@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
+const PERMANENTLY_DISMISSED_WARNING_KEYS = [
+  "proxy-disclaimer-accepted",
+  "autosave_disclaimer_accepted",
+  "warmup_v2_warning_dismissed_v2",
+] as const;
+
+const getBaseDismissedWarnings = () => new Set<string>(PERMANENTLY_DISMISSED_WARNING_KEYS);
+
 /**
  * Tracks one-time disclaimer/warning dismissals **per user, persisted in the
  * database** (column `profiles.dismissed_warnings text[]`). Falls back to
@@ -12,11 +20,14 @@ import { useAuth } from "@/lib/auth";
 export function useDismissedWarnings() {
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    const base = getBaseDismissedWarnings();
     try {
       const raw = localStorage.getItem("dg_dismissed_warnings");
-      if (raw) return new Set(JSON.parse(raw));
+      if (raw) {
+        for (const key of JSON.parse(raw)) base.add(key);
+      }
     } catch {}
-    return new Set();
+    return base;
   });
   const [loaded, setLoaded] = useState(false);
   const lastUserIdRef = useRef<string | null>(null);
@@ -47,14 +58,14 @@ export function useDismissedWarnings() {
       if (cancelled) return;
       const remote: string[] = (data?.dismissed_warnings as string[] | null) ?? [];
       const local = dismissedRef.current;
-      const merged = new Set<string>([...local, ...remote]);
+      const merged = new Set<string>([...getBaseDismissedWarnings(), ...local, ...remote]);
       dismissedRef.current = merged;
       setDismissed(merged);
       try {
         localStorage.setItem("dg_dismissed_warnings", JSON.stringify([...merged]));
       } catch {}
       // If localStorage had keys the DB didn't, sync them up
-      const missing = [...local].filter((k) => !remote.includes(k));
+      const missing = [...merged].filter((k) => !remote.includes(k));
       if (missing.length > 0) {
         const { error } = await supabase
           .from("profiles")
