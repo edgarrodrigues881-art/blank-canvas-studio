@@ -832,45 +832,94 @@ function ScheduleDialog({
                 </button>
               </div>
 
-              {scheduleMode === "recurring" && (
-                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+              {scheduleMode === "recurring" && (() => {
+                const PRESETS = [
+                  { label: "Dias úteis", days: [1, 2, 3, 4, 5], gradient: "from-emerald-500/20 to-teal-500/10", iconColor: "text-emerald-500", Icon: Calendar },
+                  { label: "Fim de semana", days: [0, 6], gradient: "from-rose-500/20 to-pink-500/10", iconColor: "text-rose-500", Icon: Sun },
+                  { label: "Todos os dias", days: [0, 1, 2, 3, 4, 5, 6], gradient: "from-violet-500/20 to-fuchsia-500/10", iconColor: "text-violet-500", Icon: Sunrise },
+                ];
+                return (
+                <div className="space-y-4 rounded-xl border bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm">
                   <div>
                     <Label className="text-sm font-semibold flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary" />
                       Em quais dias da semana?
                     </Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Use os atalhos ou clique nos dias um a um.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Escolha um atalho rápido ou clique nos dias um a um.</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setWeekdayPreset([1, 2, 3, 4, 5])}
-                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([1, 2, 3, 4, 5]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
-                      💼 Dias úteis
-                    </button>
-                    <button type="button" onClick={() => setWeekdayPreset([0, 6])}
-                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([0, 6]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
-                      🏖️ Fim de semana
-                    </button>
-                    <button type="button" onClick={() => setWeekdayPreset([0, 1, 2, 3, 4, 5, 6])}
-                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([0, 1, 2, 3, 4, 5, 6]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
-                      📆 Todos os dias
-                    </button>
-                    <button type="button" onClick={() => setWeekdayPreset([])}
-                      className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-accent transition">
-                      ✖️ Limpar
-                    </button>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {PRESETS.map((p) => {
+                      const active = isPreset(p.days);
+                      const Icon = p.Icon;
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setWeekdayPreset(p.days)}
+                          className={`group relative overflow-hidden rounded-lg border p-3 text-left transition-all ${
+                            active
+                              ? "border-primary bg-primary/10 shadow-md shadow-primary/10"
+                              : "border-border/60 bg-background/50 hover:border-primary/40 hover:bg-background"
+                          }`}
+                        >
+                          <div className={`absolute inset-0 bg-gradient-to-br ${p.gradient} opacity-${active ? '100' : '40'} transition-opacity group-hover:opacity-100`} />
+                          <div className="relative flex flex-col items-start gap-1.5">
+                            <div className={`w-7 h-7 rounded-lg bg-background/70 backdrop-blur flex items-center justify-center ${p.iconColor}`}>
+                              <Icon className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="text-xs font-semibold leading-tight">{p.label}</span>
+                          </div>
+                          {active && (
+                            <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                              <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border/60" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">ou personalize</span>
+                    <div className="h-px flex-1 bg-border/60" />
+                  </div>
+
                   <div className="grid grid-cols-7 gap-1.5">
-                    {WEEKDAY_LABELS.map((label, i) => (
-                      <button key={i} type="button" onClick={() => toggleWeekday(i)}
-                        className={`py-2.5 rounded-md text-sm font-semibold border-2 transition ${weekdays.includes(i)
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                          : "bg-background border-border hover:bg-accent text-muted-foreground"}`}>
-                        {label}
-                      </button>
-                    ))}
+                    {WEEKDAY_LABELS.map((label, i) => {
+                      const active = weekdays.includes(i);
+                      const isWeekend = i === 0 || i === 6;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => toggleWeekday(i)}
+                          className={`relative h-12 rounded-lg text-xs font-bold transition-all ${
+                            active
+                              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.05]"
+                              : `bg-background/70 backdrop-blur border border-border/60 hover:border-primary/40 ${isWeekend ? "text-muted-foreground/70" : "text-foreground"}`
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {weekdays.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setWeekdayPreset([])}
+                      className="text-xs text-muted-foreground hover:text-destructive transition flex items-center gap-1.5"
+                    >
+                      <X className="w-3 h-3" />
+                      Limpar seleção
+                    </button>
+                  )}
                 </div>
-              )}
+                );
+              })()}
 
               {scheduleMode === "oneshot" && (
                 <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
