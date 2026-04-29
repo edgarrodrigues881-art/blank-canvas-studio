@@ -513,14 +513,45 @@ function ScheduleDialog({
               </TabsList>
 
               <TabsContent value="text" className="space-y-3 mt-3">
-                <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={700} placeholder="Texto do status" />
-                <div className="flex gap-2 flex-wrap">
-                  {STATUS_COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setBgColor(c)}
-                      className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
-                      style={{ backgroundColor: c }} />
-                  ))}
+                <WhatsAppTextEditor
+                  value={text}
+                  onChange={setText}
+                  rows={4}
+                  maxLength={700}
+                  placeholder="Texto do status — *negrito*, _itálico_, ~riscado~, ```mono```"
+                />
+                <div>
+                  <Label className="text-xs">Cor de fundo</Label>
+                  <div className="flex gap-2 flex-wrap mt-1.5">
+                    {STATUS_COLORS.map((c) => (
+                      <button key={c} type="button" onClick={() => setBgColor(c)}
+                        className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
                 </div>
+                <div>
+                  <Label className="text-xs">Fonte</Label>
+                  <div className="flex gap-2 flex-wrap mt-1.5">
+                    {STATUS_FONTS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFont(f.id)}
+                        className={`px-2.5 py-1 rounded-md border text-xs ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
+                        style={{ fontFamily: f.cssFamily }}
+                        title={f.label}
+                      >
+                        Aa
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div
+                  className="rounded-lg p-4 min-h-[100px] flex items-center justify-center text-center text-white text-base font-semibold whitespace-pre-wrap break-words"
+                  style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
+                  dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
+                />
               </TabsContent>
 
               <TabsContent value="image" className="space-y-3 mt-3">
