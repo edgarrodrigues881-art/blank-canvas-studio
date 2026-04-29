@@ -113,15 +113,24 @@ async function fetchUazapiJson(baseUrl: string, token: string, path: string, ini
 
 async function buildLidPhoneMap(baseUrl: string, token: string): Promise<LidPhoneMap> {
   const map: LidPhoneMap = new Map();
-  const requests = [
-    fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, sort: "-wa_lastMsgTimestamp" }) }),
-    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, contactScope: "all" }) }),
+  // Faz paginação ampla em /chat/find (até 5000 chats) + lista contatos + grupos com participantes.
+  // Quanto mais chats varrermos, maior a chance de encontrar o pareamento LID→telefone que o
+  // Whatsapp já entregou para a instância em algum momento.
+  const chatPages = await Promise.all(
+    [0, 1000, 2000, 3000, 4000].map((offset) =>
+      fetchUazapiJson(baseUrl, token, "/chat/find", {
+        method: "POST",
+        body: JSON.stringify({ operator: "AND", limit: 1000, offset, sort: "-wa_lastMsgTimestamp" }),
+      }),
+    ),
+  );
+  const otherPayloads = await Promise.all([
+    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 5000, offset: 0, contactScope: "all" }) }),
     fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
-  ];
-  const payloads = await Promise.all(requests);
-  payloads.forEach((payload) => collectLidPhoneMappings(payload, map));
+  ]);
+  [...chatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map));
   return map;
 }
 
