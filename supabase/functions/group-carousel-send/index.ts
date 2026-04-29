@@ -1333,31 +1333,38 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
     const messageFields = { text, body: text, message: text, ...captionField, ...mentionFields.payload };
 
     if (endpointPath === "/send/carousel" || endpointPath === "/send/menu") {
-      enrichedAttempts.push({
-        ...a,
-        label: `${a.label || ""}_mention_all`.replace(/^_/, ""),
-        body: { ...a.body, mentions: "all" },
-      });
-
-      if (mentionFields.mentionUsers) {
-        enrichedAttempts.push({
-          ...a,
-          label: `${a.label || ""}_mention_users`.replace(/^_/, ""),
-          body: { ...a.body, mentionUsers: mentionFields.mentionUsers },
-        });
-      }
+      // Inject mention tokens into text/caption fields so WhatsApp actually highlights/notifies
+      const enrichedBody: Record<string, unknown> = { ...a.body };
+      if (typeof (enrichedBody as any).text === "string") (enrichedBody as any).text = withTokens((enrichedBody as any).text);
+      if (typeof (enrichedBody as any).caption === "string") (enrichedBody as any).caption = withTokens((enrichedBody as any).caption);
+      if (typeof (enrichedBody as any).body === "string") (enrichedBody as any).body = withTokens((enrichedBody as any).body);
 
       if (mentionFields.jids.length > 0) {
         enrichedAttempts.push({
           ...a,
-          label: `${a.label || ""}_mentioned_jid`.replace(/^_/, ""),
+          label: `${a.label || ""}_mentioned_jid_tokens`.replace(/^_/, ""),
           body: {
-            ...a.body,
+            ...enrichedBody,
+            mentioned: mentionFields.jids,
             mentionedJid: mentionFields.jids,
             mentionedJidList: mentionFields.jids,
           },
         });
       }
+
+      if (mentionFields.mentionUsers) {
+        enrichedAttempts.push({
+          ...a,
+          label: `${a.label || ""}_mention_users`.replace(/^_/, ""),
+          body: { ...enrichedBody, mentionUsers: mentionFields.mentionUsers, mentions: mentionFields.mentionUsers },
+        });
+      }
+
+      enrichedAttempts.push({
+        ...a,
+        label: `${a.label || ""}_mention_all`.replace(/^_/, ""),
+        body: { ...enrichedBody, mentions: "all" },
+      });
 
       continue;
     }
