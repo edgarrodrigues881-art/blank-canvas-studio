@@ -42,6 +42,19 @@ const STATUS_COLORS = ["#25D366", "#128C7E", "#075E54", "#34B7F1", "#FF6B6B", "#
 const ONLINE_STATUSES = ["Ready", "Connected", "authenticated", "open", "active"];
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+// WhatsApp status fonts (1-5)
+const STATUS_FONTS: { id: number; label: string; cssFamily: string }[] = [
+  { id: 1, label: "Padrão", cssFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { id: 2, label: "Serif", cssFamily: 'Georgia, "Times New Roman", serif' },
+  { id: 3, label: "Manuscrita", cssFamily: '"Brush Script MT", "Lucida Handwriting", cursive' },
+  { id: 4, label: "Monoespaçada", cssFamily: '"Courier New", monospace' },
+  { id: 5, label: "Datilografada", cssFamily: '"Andale Mono", "Courier New", monospace' },
+];
+
+function fontCss(id?: number | null) {
+  return STATUS_FONTS.find((f) => f.id === id)?.cssFamily || STATUS_FONTS[0].cssFamily;
+}
+
 function uploadMediaFile(userId: string, file: File) {
   const ext = file.name.split(".").pop() || "bin";
   const path = `${userId}/status/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
