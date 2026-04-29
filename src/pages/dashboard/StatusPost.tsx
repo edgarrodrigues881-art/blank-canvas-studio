@@ -475,6 +475,8 @@ function ScheduleDialog({
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
       setFolderId(editing.folder_id || null);
+      setCreatingFolder(false);
+      setNewFolderName("");
     } else {
       setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
@@ -484,6 +486,8 @@ function ScheduleDialog({
       setRunDate("");
       setDeviceMode("all_online"); setSelectedDevices([]);
       setFolderId(defaultFolderId || null);
+      setCreatingFolder(false);
+      setNewFolderName("");
     }
   }, [editing, open]);
 
