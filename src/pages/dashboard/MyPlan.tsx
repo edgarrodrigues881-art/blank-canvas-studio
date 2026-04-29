@@ -245,7 +245,7 @@ const MyPlan = () => {
         </div>
 
 
-        {/* ════════════ ADD-ON: RELATÓRIOS VIA WHATSAPP ════════════ */}
+        {/* ════════════ RELATÓRIOS VIA WHATSAPP ════════════ */}
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <div
@@ -259,7 +259,7 @@ const MyPlan = () => {
               Adicione Relatórios via WhatsApp ao seu plano
             </h2>
             <p className="text-sm mt-3 text-muted-foreground max-w-xl mx-auto">
-              Receba métricas, alertas e resumos diários direto no seu WhatsApp — disponível para qualquer plano como complemento mensal.
+              Receba métricas, alertas e resumos diários direto no seu WhatsApp — disponível para qualquer plano por um valor único mensal.
             </p>
           </div>
 
@@ -272,14 +272,12 @@ const MyPlan = () => {
               boxShadow: "0 20px 60px -25px rgba(37,211,102,0.35)",
             }}
           >
-            {/* Glow decorativo */}
             <div
               className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl pointer-events-none"
               style={{ background: "radial-gradient(circle, rgba(37,211,102,0.18) 0%, transparent 70%)" }}
             />
 
             <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
-              {/* Lado esquerdo — descrição + benefícios */}
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div
@@ -296,7 +294,7 @@ const MyPlan = () => {
                       Relatórios via WhatsApp
                     </h3>
                     <p className="text-[12px] text-muted-foreground">
-                      Add-on mensal · funciona com qualquer plano
+                      Valor único mensal · funciona com qualquer plano
                     </p>
                   </div>
                 </div>
@@ -316,21 +314,20 @@ const MyPlan = () => {
                 </ul>
               </div>
 
-              {/* Lado direito — preço + CTA */}
               <div
                 className="rounded-xl p-6 border bg-card/60 backdrop-blur-sm"
                 style={{ borderColor: "rgba(37,211,102,0.30)" }}
               >
                 <div className="text-center">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground/45">
-                    A partir de
+                    Valor único
                   </span>
                   <div className="flex items-baseline justify-center gap-1 mt-2 mb-1">
                     <span className="text-[12px] font-medium text-foreground/40">R$</span>
                     <span className="text-[2.5rem] font-bold tracking-[-0.03em] leading-none text-foreground">
-                      29
+                      19
                     </span>
-                    <span className="text-[16px] font-semibold text-foreground/55">,99</span>
+                    <span className="text-[16px] font-semibold text-foreground/55">,80</span>
                     <span className="text-[11px] text-foreground/35 ml-0.5">/mês</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground mb-5">
@@ -340,12 +337,12 @@ const MyPlan = () => {
                   <button
                     onClick={() =>
                       handleSelectPlan({
-                        name: "Add-on Relatórios WhatsApp",
+                        name: "Relatórios via WhatsApp",
                         instances: 0,
-                        price: "29,99",
+                        price: "19,80",
                       } as any)
                     }
-                    disabled={loadingPlan === "Add-on Relatórios WhatsApp"}
+                    disabled={loadingPlan === "Relatórios via WhatsApp"}
                     style={{
                       background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
                       color: "#ffffff",
@@ -353,11 +350,11 @@ const MyPlan = () => {
                     }}
                     className="w-full h-11 text-[13px] font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {loadingPlan === "Add-on Relatórios WhatsApp" ? (
+                    {loadingPlan === "Relatórios via WhatsApp" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        Ativar add-on
+                        Ativar agora
                         <ArrowRight className="w-4 h-4 shrink-0" />
                       </>
                     )}
