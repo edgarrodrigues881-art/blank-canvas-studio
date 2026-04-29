@@ -1,0 +1,2 @@
+UPDATE public.prospeccao_credits SET balance = 500, free_pulls_remaining = 0, updated_at = now() WHERE user_id = 'f5220141-3b20-4e85-90fd-8c85695686fa';
+INSERT INTO public.prospeccao_credit_transactions (user_id, amount, type, description, balance_after) VALUES ('f5220141-3b20-4e85-90fd-8c85695686fa', 500, 'credit', 'Ajuste manual: saldo definido em 500 créditos', 500);
