@@ -96,7 +96,6 @@ const allPlans: Plan[] = [
   },
 ];
 
-const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratarPlano: (plan: Plan) => void; loading: boolean }) => (
 const PlanCard = ({ plan, onContratarPlano, loading }: { plan: Plan; onContratarPlano: (plan: Plan) => void; loading: boolean }) => {
   const isHighlight = plan.highlight === "amber";
   return (
