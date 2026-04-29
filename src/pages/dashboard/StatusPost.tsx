@@ -616,25 +616,58 @@ function ScheduleDialog({
             <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
               <div>
                 <h3 className="text-sm font-semibold mb-1">Como você quer chamar este agendamento?</h3>
-                <p className="text-xs text-muted-foreground">Dê um nome fácil de reconhecer e (opcionalmente) coloque numa pasta.</p>
+                <p className="text-xs text-muted-foreground">Dê um nome fácil de reconhecer e organize numa pasta.</p>
               </div>
               <div>
                 <Label>Nome do agendamento</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" autoFocus />
               </div>
               <div>
-                <Label>Pasta (opcional)</Label>
-                <select
-                  value={folderId || ""}
-                  onChange={(e) => setFolderId(e.target.value || null)}
-                  className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Sem pasta</option>
-                  {folders.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1.5">As pastas servem só para organizar visualmente seus agendamentos.</p>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="mb-0">Pasta <span className="text-destructive">*</span></Label>
+                  {folders.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingFolder((v) => !v);
+                        if (!creatingFolder) setFolderId(null);
+                        else setNewFolderName("");
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {creatingFolder ? "← Escolher pasta existente" : "+ Criar nova pasta"}
+                    </button>
+                  )}
+                </div>
+
+                {creatingFolder || folders.length === 0 ? (
+                  <div className="space-y-1.5">
+                    <Input
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Ex: Promoções da manhã"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {folders.length === 0
+                        ? "Você ainda não tem pastas. Crie uma agora para começar a organizar."
+                        : "A pasta será criada automaticamente ao salvar o agendamento."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={folderId || ""}
+                      onChange={(e) => setFolderId(e.target.value || null)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecione uma pasta...</option>
+                      {folders.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-1.5">As pastas ajudam a organizar e controlar seus agendamentos em grupo.</p>
+                  </>
+                )}
               </div>
             </div>
           )}
