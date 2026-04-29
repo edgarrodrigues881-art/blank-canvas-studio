@@ -494,6 +494,8 @@ function ScheduleDialog({
   const handleSave = async () => {
     if (!user) return;
     if (!name.trim()) return toast.error("Dê um nome ao agendamento");
+    if (!folderId && !creatingFolder) return toast.error("Escolha uma pasta ou crie uma nova");
+    if (creatingFolder && !newFolderName.trim()) return toast.error("Dê um nome para a nova pasta");
     if (type === "text" && !text.trim()) return toast.error("Digite o texto");
     if (type !== "text" && !file && !existingMediaUrl) return toast.error("Selecione um arquivo");
     if (!/^\d{2}:\d{2}$/.test(time)) return toast.error("Horário inválido");
@@ -505,6 +507,18 @@ function ScheduleDialog({
     try {
       let mediaUrl: string | null = existingMediaUrl;
       if (file) mediaUrl = await uploadMediaFile(user.id, file);
+
+      // Create folder on the fly if needed
+      let finalFolderId = folderId;
+      if (creatingFolder && newFolderName.trim()) {
+        const { data: newFolder, error: fErr } = await supabase
+          .from("status_schedule_folders")
+          .insert({ user_id: user.id, name: newFolderName.trim(), color: FOLDER_COLORS[0] })
+          .select()
+          .single();
+        if (fErr) throw fErr;
+        finalFolderId = newFolder.id;
+      }
 
       const payload: any = {
         user_id: user.id,
