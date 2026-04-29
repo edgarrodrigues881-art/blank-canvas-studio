@@ -136,6 +136,19 @@ async function fetchUazapiJson(baseUrl: string, token: string, path: string, ini
   }
 }
 
+async function runLimited<T>(tasks: Array<() => Promise<T>>, limit = 8): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < tasks.length) {
+      const idx = cursor++;
+      results[idx] = await tasks[idx]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
 async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set<string>): Promise<LidPhoneMap> {
   const map: LidPhoneMap = new Map();
   // Faz paginação ampla em /chat/find (até 5000 chats) + lista contatos + grupos com participantes.
@@ -158,11 +171,12 @@ async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set
     ),
   );
   const targetedChatPages = targetLids && targetLids.size > 0
-    ? await Promise.all(
+    ? await runLimited(
         Array.from(targetLids).slice(0, 250).flatMap((lid) => [
-          fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: lid, wa_chatlid: `${lid}${LID_SUFFIX}`, wa_chatid: `${lid}${LID_SUFFIX}` }) }),
-          fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: `~${lid}`, wa_chatlid: `~${lid}` }) }),
+          () => fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: lid, wa_chatlid: `${lid}${LID_SUFFIX}`, wa_chatid: `${lid}${LID_SUFFIX}` }) }),
+          () => fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: `~${lid}`, wa_chatlid: `~${lid}` }) }),
         ]),
+        8,
       )
     : [];
   const otherPayloads = await Promise.all([
