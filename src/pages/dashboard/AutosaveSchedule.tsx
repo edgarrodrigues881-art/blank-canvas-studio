@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 import {
   useAutosaveSchedules,
   useCreateAutosaveSchedule,
+  useUpdateAutosaveSchedule,
   useDeleteAutosaveSchedule,
   useTriggerAutosaveSchedule,
   useAutosaveScheduleLogs,
+  type AutosaveSchedule as AutosaveScheduleType,
 } from "@/hooks/useAutosaveSchedules";
 
 const WEEKDAYS = [
