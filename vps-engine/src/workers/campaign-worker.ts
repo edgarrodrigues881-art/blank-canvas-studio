@@ -521,8 +521,14 @@ function isTemporaryError(msg: string): boolean {
   if (l === "not found." || l === "not found" || l.includes("not on whats") || l.includes("not registered") || l.includes("not_exists")) return false;
   return ["timeout", "timed out", "econnreset", "econnrefused", "network", "socket", "fetch failed", "503", "502", "429", "rate limit", "temporarily", "internal server error", "500"].some(t => l.includes(t));
 }
-function translateErrorMessage(msg: string): string {
+function translateErrorMessage(msg: string, target?: string): string {
   const lower = msg.toLowerCase();
+  const isLidTarget = !!target && String(target).toLowerCase().includes("@lid");
+  // LID rejection by WhatsApp server: this is a permanent limitation, not a bug.
+  // WhatsApp only allows direct messaging to a LID if sender shares a community/group with it.
+  if (isLidTarget && (lower.includes("server rejected") || lower.includes("rejected this message") || lower.includes("not an internal api error"))) {
+    return "LID não acessível: esta instância não compartilha comunidade/grupo com este lead. Converta o LID em número real (Conversor de LID) ou use a instância que faz parte da mesma comunidade.";
+  }
   if (isDisconnectError(msg)) return "WhatsApp desconectado";
   if (lower === "not found." || lower.includes("user not found")) return "Número não encontrado no WhatsApp";
   if (lower.includes("not on whats") || lower.includes("not registered") || lower.includes("not_exists")) return "Número inválido";
@@ -532,6 +538,9 @@ function translateErrorMessage(msg: string): string {
   if (lower.includes("rate limit") || lower.includes("too many requests") || lower.includes("429")) return "Limite de envio excedido — aguarde";
   if (lower.includes("timeout") || lower.includes("timed out")) return "API não respondeu a tempo";
   if (lower.includes("500") || lower.includes("internal server error")) return "Erro temporário do servidor";
+  if (lower.includes("server rejected") || lower.includes("rejected this message")) {
+    return "WhatsApp recusou a mensagem (destinatário inválido ou inacessível para esta instância)";
+  }
   // Truncate overly long error messages
   if (msg.length > 120) return msg.substring(0, 117) + "...";
   return msg;
@@ -1187,7 +1196,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       msgsSincePause++;
       sendsInThisRun++;
     } else {
-      const translated = translateErrorMessage(sendError);
+      const translated = translateErrorMessage(sendError, sendTo);
       await sb.from("campaign_contacts").update({ status: "failed", error_message: translated, device_id: device.id }).eq("id", contact.id);
       if (isDisconnectError(sendError) && pauseOnDisconnect) {
         allDevices = allDevices.filter((d: any) => d.id !== device.id);
