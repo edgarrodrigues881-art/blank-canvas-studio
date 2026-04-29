@@ -991,11 +991,13 @@ export default function AutosaveSchedule() {
             ) : (
               <Button
                 onClick={handleCreate}
-                disabled={createMut.isPending}
+                disabled={createMut.isPending || updateMut.isPending}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
               >
-                <Rocket className="w-4 h-4" />
-                {createMut.isPending ? "Criando..." : "Criar Agendamento"}
+                {editingId ? <Save className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
+                {editingId
+                  ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
+                  : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
               </Button>
             )}
           </div>
