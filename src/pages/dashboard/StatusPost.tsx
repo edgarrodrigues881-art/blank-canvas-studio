@@ -38,7 +38,8 @@ type Schedule = {
   run_count: number;
 };
 
-const STATUS_COLORS = ["#25D366", "#128C7E", "#075E54", "#34B7F1", "#FF6B6B", "#FFD93D", "#9B59B6", "#000000"];
+// Cores oficiais do status do WhatsApp
+const STATUS_COLORS = ["#008080", "#073C4F", "#9DE1AE", "#FF6F61", "#FFB347", "#F4D35E", "#9B59B6", "#34B7F1"];
 const ONLINE_STATUSES = ["Ready", "Connected", "authenticated", "open", "active"];
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
