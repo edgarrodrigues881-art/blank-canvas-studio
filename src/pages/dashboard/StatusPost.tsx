@@ -510,9 +510,24 @@ function ScheduleDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          <div>
-            <Label>Nome do agendamento</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" />
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-3">
+            <div>
+              <Label>Nome do agendamento</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Bom dia matinal" />
+            </div>
+            <div>
+              <Label>Pasta</Label>
+              <select
+                value={folderId || ""}
+                onChange={(e) => setFolderId(e.target.value || null)}
+                className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Sem pasta</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
