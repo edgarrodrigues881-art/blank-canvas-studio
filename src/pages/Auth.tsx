@@ -208,17 +208,6 @@ const Auth = () => {
           "radial-gradient(ellipse at top, #1a2e25 0%, #0f1a16 40%, #0a0f0d 100%)",
       }}
     >
-      {/* Subtle green grid pattern */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.10]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(16,185,129,1) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,1) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-          maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
-          WebkitMaskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
-        }}
-      />
       {/* Soft green ambient glow behind card */}
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full"
