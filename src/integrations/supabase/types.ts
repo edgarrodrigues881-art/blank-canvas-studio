@@ -8446,6 +8446,10 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_autosave_contact_invalid: {
+        Args: { p_contact_id: string; p_reason?: string }
+        Returns: undefined
+      }
       mass_inject_lock_key: { Args: { p_campaign_id: string }; Returns: number }
       reassign_mass_inject_contacts: {
         Args: {
