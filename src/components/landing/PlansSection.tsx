@@ -21,61 +21,78 @@ interface Plan {
   isCustom?: boolean;
 }
 
-const baseFeatures = [
-  "Todas as funcionalidades inclusas",
-  "Mesmo nível de suporte",
-  "Monitoramento em tempo real",
-  "Infraestrutura completa",
+const featuresStarter = [
+  "1 chip simultâneo",
+  "CRM, automações e IA inclusos",
+  "Aquecimento e disparo inclusos",
 ];
 
-const featuresWithWhatsApp = [...baseFeatures, "Relatórios via WhatsApp incluso"];
-const featuresWithoutWhatsApp = [...baseFeatures, "Relatórios via WhatsApp"];
+const featuresEssencial = [
+  "Até 5 chips simultâneos",
+  "CRM, automações e IA inclusos",
+  "Aquecimento e disparo inclusos",
+];
 
-const topPlans: Plan[] = [
+const featuresPro = [
+  "Até 10 chips simultâneos",
+  "CRM completo + pipelines",
+  "Prospecção e IA inclusos",
+];
+
+const featuresScale = [
+  "Até 30 chips simultâneos",
+  "Suporte prioritário no WhatsApp",
+  "Relatórios e alertas via WhatsApp",
+];
+
+const featuresBusiness = [
+  "Até 50 chips simultâneos",
+  "Suporte prioritário no WhatsApp",
+  "Relatórios e alertas via WhatsApp",
+];
+
+const featuresEnterprise = [
+  "Até 100 chips simultâneos",
+  "Suporte prioritário dedicado",
+  "Relatórios e alertas via WhatsApp",
+];
+
+const allPlans: Plan[] = [
   {
     name: "Starter", instances: "1", price: "39,99",
-    subtitle: "Tudo que você precisa para começar a vender mais pelo WhatsApp com um número. CRM, disparo, automações, IA e prospecção em um só lugar.",
-    extraCopy: null, cta: "Começar", popular: false,
-    features: featuresWithoutWhatsApp,
-    addon: null,
+    subtitle: "Tudo para começar a vender mais pelo WhatsApp com um número. CRM, disparo, automações, IA e prospecção em um só lugar.",
+    extraCopy: null, cta: "Começar agora", popular: false,
+    features: featuresStarter, addon: null,
   },
   {
     name: "Essencial", instances: "5", price: "99,99",
-    subtitle: "Opere com consistência usando até 5 números simultâneos. Distribua atendimentos, mantenha backup e escale seus disparos sem travar a operação.",
-    extraCopy: null, cta: "Começar", popular: false,
-    features: featuresWithoutWhatsApp,
-    addon: null,
+    subtitle: "Opere com consistência usando até 5 números. Distribua atendimentos, mantenha backup e escale seus disparos sem travar.",
+    extraCopy: null, cta: "Testar o sistema", popular: false,
+    features: featuresEssencial, addon: null,
   },
   {
     name: "Pro", instances: "10", price: "187,99",
     subtitle: "Operação profissional com 10 números trabalhando juntos. Mais alcance no disparo, mais leads no CRM e mais produtividade no time.",
-    extraCopy: null, cta: "Começar", popular: false,
-    features: featuresWithoutWhatsApp,
-    addon: null,
+    extraCopy: null, cta: "Começar agora", popular: false,
+    features: featuresPro, addon: null,
   },
-];
-
-const bottomPlans: Plan[] = [
   {
     name: "Scale", instances: "30", price: "397,99",
     subtitle: "Escale com 30 números, automações avançadas e relatórios direto no WhatsApp. Ideal para times que vendem em alto volume todos os dias.",
-    extraCopy: "Mais escolhido", cta: "Escalar", popular: true, highlight: "amber",
-    features: featuresWithWhatsApp,
-    addon: null,
+    extraCopy: "Mais escolhido", cta: "Começar agora", popular: true, highlight: "amber",
+    features: featuresScale, addon: null,
   },
   {
     name: "Business", instances: "50", price: "597,99",
     subtitle: "Estrutura robusta com 50 números para empresas que precisam de performance, organização e controle total da operação comercial.",
-    extraCopy: null, cta: "Escalar", popular: false,
-    features: featuresWithWhatsApp,
-    addon: null,
+    extraCopy: null, cta: "Começar agora", popular: false,
+    features: featuresBusiness, addon: null,
   },
   {
     name: "Enterprise", instances: "100", price: "1.097,99",
     subtitle: "Máxima capacidade com 100 números simultâneos. Para grandes operações que exigem escala industrial, IA dedicada e prospecção em larga escala.",
-    extraCopy: null, cta: "Contratar", popular: false,
-    features: featuresWithWhatsApp,
-    addon: null,
+    extraCopy: null, cta: "Começar agora", popular: false,
+    features: featuresEnterprise, addon: null,
   },
 ];
 
