@@ -127,68 +127,83 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 bg-popover border-border max-h-[400px] overflow-y-auto">
-                <div className="flex items-center justify-between px-2 py-1.5">
-                  <DropdownMenuLabel className="text-xs font-medium text-foreground p-0">Notificações</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-[360px] bg-popover border-border max-h-[460px] overflow-y-auto p-0 rounded-xl shadow-xl">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 sticky top-0 bg-popover/95 backdrop-blur z-10">
+                  <div className="flex items-center gap-2">
+                    <DropdownMenuLabel className="text-sm font-semibold text-foreground p-0">Notificações</DropdownMenuLabel>
+                    {unreadCount > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-sidebar-primary/15 text-sidebar-primary">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </div>
                   {unreadCount > 0 && (
                     <button
                       onClick={(e) => { e.preventDefault(); markAllAsRead(); }}
-                      className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                      className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
                     >
                       <CheckCheck className="w-3 h-3" />
                       Marcar todas como lidas
                     </button>
                   )}
                 </div>
-                <DropdownMenuSeparator />
 
                 {loading ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">Carregando...</div>
+                  <div className="py-8 text-center text-xs text-muted-foreground">Carregando...</div>
                 ) : notifications.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">Nenhuma notificação</div>
+                  <div className="py-10 text-center">
+                    <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-muted/40 flex items-center justify-center">
+                      <Bell className="w-5 h-5 text-muted-foreground/50" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Nenhuma notificação</p>
+                  </div>
                 ) : (
-                  notifications.map((n) => {
-                    const Icon = typeIcons[n.type] || Info;
-                    const color = typeColors[n.type] || "text-muted-foreground";
-                    return (
-                      <DropdownMenuItem
-                        key={n.id}
-                        className={`flex items-start gap-3 py-3 cursor-pointer ${!n.read ? "bg-muted/30" : ""}`}
-                        onClick={() => { if (!n.read && !n.synthetic) markAsRead(n.id); }}
-                      >
-                        <Icon className={`w-4 h-4 ${color} mt-0.5 shrink-0`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className={`text-sm truncate ${!n.read ? "font-medium text-foreground" : "text-muted-foreground"}`}>{n.title}</p>
-                            {!n.read && <span className="w-1.5 h-1.5 bg-sidebar-primary rounded-full shrink-0" />}
+                  <div className="py-1">
+                    {notifications.map((n) => {
+                      const Icon = typeIcons[n.type] || Info;
+                      const color = typeColors[n.type] || "text-muted-foreground";
+                      const iconBg = typeIconBg[n.type] || "bg-muted/40";
+                      const accentBar = typeAccentBar[n.type] || "bg-muted-foreground/40";
+                      return (
+                        <DropdownMenuItem
+                          key={n.id}
+                          className={`relative flex items-start gap-3 px-4 py-3 cursor-pointer rounded-none border-b border-border/40 last:border-b-0 transition-colors ${!n.read ? "bg-muted/20 hover:bg-muted/40" : "hover:bg-muted/30"}`}
+                          onClick={() => { if (!n.read && !n.synthetic) markAsRead(n.id); }}
+                        >
+                          {!n.read && (
+                            <span className={`absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full ${accentBar}`} />
+                          )}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+                            <Icon className={`w-4 h-4 ${color}`} strokeWidth={2.2} />
                           </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
-                          </p>
-                        </div>
-                      </DropdownMenuItem>
-                    );
-                  })
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`text-[13px] leading-tight ${!n.read ? "font-semibold text-foreground" : "font-medium text-foreground/80"}`}>
+                                {n.title}
+                              </p>
+                              {!n.read && <span className="w-2 h-2 bg-sidebar-primary rounded-full shrink-0 mt-1" />}
+                            </div>
+                            <p className="text-[12px] text-muted-foreground line-clamp-2 mt-1 leading-snug">{n.message}</p>
+                            <p className="text-[10.5px] text-muted-foreground/60 mt-1.5 font-medium">
+                              {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+                            </p>
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </div>
                 )}
+
                 {systemNotificationsCount > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
+                  <div className="border-t border-border/60 bg-muted/10">
                     <DropdownMenuItem
-                      className="flex items-center justify-center gap-1.5 text-xs cursor-pointer"
-                      onClick={(e) => { e.preventDefault(); markAllAsRead(); }}
-                    >
-                      <CheckCheck className="w-3 h-3" />
-                      Marcar todas como lidas
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="flex items-center justify-center gap-1.5 text-xs cursor-pointer text-destructive hover:text-destructive"
+                      className="flex items-center justify-center gap-1.5 text-[11px] cursor-pointer text-destructive hover:text-destructive font-medium py-2.5"
                       onClick={(e) => { e.preventDefault(); clearAll(); }}
                     >
                       <Trash2 className="w-3 h-3" />
                       Limpar todas as notificações
                     </DropdownMenuItem>
-                  </>
+                  </div>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
