@@ -8237,6 +8237,16 @@ export type Database = {
         Args: { p_device_id: string; p_min_interval_ms: number }
         Returns: number
       }
+      claim_next_autosave_schedule_contact: {
+        Args: { p_exclude_phones?: string[]; p_user_id: string }
+        Returns: {
+          contact_name: string
+          id: string
+          phone_e164: string
+          use_count: number
+          was_recycled: boolean
+        }[]
+      }
       claim_next_mass_inject_contact: {
         Args: {
           p_campaign_id: string
