@@ -1085,6 +1085,15 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   const [folderEditing, setFolderEditing] = useState<Folder | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [deleting, setDeleting] = useState(false);
+  const [pausedFolders, setPausedFolders] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("statusPost.pausedFolders");
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const persistPaused = (next: Set<string>) => {
+    try { localStorage.setItem("statusPost.pausedFolders", JSON.stringify([...next])); } catch {}
+  };
 
   const load = async () => {
     if (!user) return;
