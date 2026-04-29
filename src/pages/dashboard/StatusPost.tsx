@@ -38,7 +38,9 @@ type Schedule = {
   device_ids: string[];
   last_run_at: string | null;
   run_count: number;
+  folder_id: string | null;
 };
+type Folder = { id: string; name: string; color: string; position: number };
 
 // Cores oficiais do status do WhatsApp
 const STATUS_COLORS = ["#008080", "#073C4F", "#9DE1AE", "#FF6F61", "#FFB347", "#F4D35E", "#9B59B6", "#34B7F1"];
