@@ -645,7 +645,7 @@ export default function AutosaveSchedule() {
                     type="button"
                     onClick={() => { if (done) setStep(st.n as any); }}
                     className={cn(
-                      "flex-1 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-2 rounded-md border transition-colors min-w-0",
+                      "flex-1 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-2 rounded-md border transition-colors min-w-0",
                       active && "bg-primary/10 border-primary/40 text-foreground",
                       done && "bg-emerald-500/5 border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/10",
                       !active && !done && "bg-muted/20 border-border/40 text-muted-foreground"
