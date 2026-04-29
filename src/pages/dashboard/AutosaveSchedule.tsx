@@ -539,6 +539,20 @@ export default function AutosaveSchedule() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setDetailId(s.id)}>Logs</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title="Editar agendamento"
+                      onClick={() => {
+                        if (s.status === "running") {
+                          toast.error("Pause o agendamento antes de editar");
+                          return;
+                        }
+                        openForEdit(s);
+                      }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                     {(s.status === "scheduled" || s.status === "paused" || s.status === "completed") && (
                       <Button size="sm" variant="ghost" onClick={() => triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })}>
                         <Play className="w-4 h-4" />
