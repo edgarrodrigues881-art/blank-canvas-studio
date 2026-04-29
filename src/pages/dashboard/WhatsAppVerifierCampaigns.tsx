@@ -110,6 +110,7 @@ export default function WhatsAppVerifierCampaigns() {
 
   // Spreadsheet import state
   const [importMode, setImportMode] = useState<ImportMode>("plain");
+  const [devicesOpen, setDevicesOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
   const [importRows, setImportRows] = useState<any[][]>([]);
