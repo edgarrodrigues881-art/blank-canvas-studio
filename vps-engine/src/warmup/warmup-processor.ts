@@ -589,66 +589,72 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   const { cycle, baseUrl, token, chipState } = ctx;
   const userProfile = ctx.profilesMap[job.user_id];
   if (userProfile?.autosave_enabled === false) {
-    await db.from("warmup_jobs").update({ status: "cancelled", last_error: "Auto Save desativado pelo usuário" }).eq("cycle_id", job.cycle_id).eq("job_type", "autosave_interaction").in("status", ["pending", "running"]);
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled", last_error: "Auto Save disabled" })
+      .eq("cycle_id", job.cycle_id)
+      .eq("job_type", "autosave_interaction")
+      .in("status", ["pending", "running"]);
     return false;
   }
 
-  const rIdx = Number(job.payload?.recipient_index ?? 0);
   const mIdx = Number(job.payload?.msg_index ?? 0);
-  const contacts = ctx.autosaveMap[job.user_id] || [];
   const maxRounds = getAutosaveRoundsPerContact(chipState);
-  if (mIdx >= maxRounds) { await db.from("warmup_jobs").update({ status: "cancelled" }).eq("id", job.id); return false; }
-
-  const autosavePool = contacts.map((c: any) => ({ ...c, _phone: String(c.phone_e164 || "").replace(/\D/g, "") })).filter((c: any) => c._phone.length >= 10);
-  if (!autosavePool.length) { bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "autosave_no_contacts", message: "Nenhum contato Auto Save válido" }); return true; }
-
-  const contactsForDay = getAutosaveContactsForDay(cycle.day_index || 1, chipState);
-  const rotatedPool = autosavePool.slice(0, contactsForDay);
-  if (!rotatedPool.length || rIdx >= rotatedPool.length) return true;
-
-  const target = rotatedPool[rIdx];
-  const msg = generateNaturalMessage("autosave");
-
-  // First msg: validate phone
-  if (mIdx === 0) {
-    try {
-      const hasWa = await uazapiCheckPhone(baseUrl, token, target._phone);
-      if (!hasWa) {
-        await db.from("warmup_autosave_contacts").update({ contact_status: "invalid", is_active: false }).eq("id", target.id);
-        bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "warn", event_type: "autosave_contact_invalid", message: `Contato ${target._phone} sem WhatsApp — desativado` });
-        return true;
-      }
-    } catch {}
+  if (mIdx >= maxRounds) {
+    await db.from("warmup_jobs")
+      .update({ status: "cancelled" })
+      .eq("id", job.id);
+    return false;
   }
+
+  const { data, error } = await db.rpc("claim_next_autosave_schedule_contact", {
+    p_user_id: job.user_id,
+    p_exclude_phones: []
+  });
+
+  if (error || !data?.[0]) {
+    bufferAudit(ctx, {
+      user_id: job.user_id,
+      device_id: job.device_id,
+      cycle_id: job.cycle_id,
+      level: "warn",
+      event_type: "autosave_no_available",
+      message: "No contacts available"
+    });
+    return true;
+  }
+
+  const contact = data[0];
+  const target = {
+    id: contact.id,
+    _phone: String(contact.phone_e164 || "").replace(/\D/g, ""),
+    contact_name: contact.contact_name,
+    use_count: contact.use_count
+  };
+
+  const msg = generateNaturalMessage("autosave");
 
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
-  } catch (e: any) {
-    if (mIdx === 0) {
-      await db.from("warmup_autosave_contacts").update({ contact_status: "discarded", is_active: false }).eq("id", target.id);
-      return true;
-    }
-    // Retry once
+  } catch {
     await new Promise(r => setTimeout(r, 2000));
     await uazapiSendText(baseUrl, token, target._phone, msg);
   }
 
-  const touchTimestamp = new Date().toISOString();
-  if (mIdx === maxRounds - 1) {
-    await db.from("warmup_autosave_contacts").update({ contact_status: "used", last_used_at: touchTimestamp, use_count: (target.use_count || 0) + 1, updated_at: touchTimestamp }).eq("id", target.id);
-    // Check rotation reset
-    const allContacts = ctx.autosaveMap[job.user_id] || [];
-    const remainingNew = allContacts.filter((c: any) => (c.contact_status || "new") === "new");
-    if (remainingNew.length === 0 && allContacts.length > 0) {
-      await db.from("warmup_autosave_contacts").update({ contact_status: "new" }).eq("user_id", job.user_id).eq("is_active", true).eq("contact_status", "used");
-    }
-  } else {
-    await db.from("warmup_autosave_contacts").update({ last_used_at: touchTimestamp, updated_at: touchTimestamp }).eq("id", target.id);
-  }
+  await db.rpc("increment_warmup_budget", {
+    p_cycle_id: cycle.id,
+    p_increment: 1,
+    p_unique_recipient: mIdx === 0
+  });
 
-  try { await db.from("warmup_unique_recipients").insert({ cycle_id: cycle.id, user_id: job.user_id, recipient_phone_e164: target.phone_e164, day_date: new Date().toISOString().split("T")[0] }); } catch {}
-  await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: mIdx === 0 });
-  bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "autosave_msg_sent", message: `Auto Save: msg ${mIdx + 1}/${maxRounds} para ${target.contact_name || target._phone}`, meta: { recipient_index: rIdx, msg_index: mIdx, phone: target._phone } });
+  bufferAudit(ctx, {
+    user_id: job.user_id,
+    device_id: job.device_id,
+    cycle_id: job.cycle_id,
+    level: "info",
+    event_type: "autosave_msg_sent",
+    message: `Auto Save sent to ${target._phone}`
+  });
+
   return true;
 }
 
