@@ -84,88 +84,119 @@ const CreditPackCards = () => {
     <div className="space-y-10">
       {/* Header */}
       <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-6 border border-amber-500/20 bg-amber-500/5 text-amber-400">
+        <div
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-5 border"
+          style={{ borderColor: "rgba(37,211,102,0.30)", background: "rgba(37,211,102,0.08)", color: WA_GREEN }}
+        >
           <Sparkles className="w-3.5 h-3.5" />
           Créditos de Prospecção
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
           Compre créditos para prospectar novos leads
         </h2>
         <p className="text-sm mt-3 text-muted-foreground max-w-lg mx-auto">
-          Use créditos para buscar leads qualificados diretamente do Google Maps. Quanto mais créditos, menor o custo por lead.
+          Use créditos para buscar leads qualificados direto do Google Maps. Quanto maior o pacote, menor o custo por lead.
         </p>
       </div>
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {creditPacks.map((pack) => (
-          <div
-            key={pack.name}
-            className={`group relative flex flex-col rounded-2xl transition-all duration-200 hover:scale-[1.02] ${
-              pack.popular
-                ? "border-2 border-amber-500/40 shadow-[0_0_30px_-8px_rgba(245,158,11,0.2)] hover:border-amber-500/60 hover:shadow-[0_0_40px_-8px_rgba(245,158,11,0.35)]"
-                : "border border-border/60 hover:border-border"
-            }`}
-          >
-            <div className="relative flex flex-col h-full rounded-2xl p-5 xl:p-4 2xl:p-5 bg-card">
-              {pack.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-r from-amber-500 to-yellow-500 text-black text-[9px] xl:text-[8px] 2xl:text-[9px] font-bold uppercase tracking-widest px-3 py-1 rounded-full whitespace-nowrap shadow-[0_0_20px_-4px_rgba(245,158,11,0.5)]">
-                  ⭐ Mais Escolhido
+        {creditPacks.map((pack) => {
+          const isPopular = pack.popular;
+          const pricePerLead = (
+            parseFloat(pack.price.replace(",", ".")) / pack.credits
+          ).toFixed(3);
+          return (
+            <div
+              key={pack.name}
+              style={
+                isPopular
+                  ? { boxShadow: "0 0 0 1px rgba(234,179,8,0.35), 0 20px 60px -20px rgba(234,179,8,0.35)" }
+                  : undefined
+              }
+              className={`relative rounded-2xl flex flex-col h-full p-5 transition-all duration-300 ease-out hover:-translate-y-1 ${
+                isPopular
+                  ? "bg-gradient-to-b from-yellow-500/[0.07] via-card to-card border border-yellow-500/50 lg:scale-[1.04]"
+                  : "bg-card border border-border/60 hover:border-[#25D366]/50 hover:shadow-[0_0_30px_-8px_rgba(37,211,102,0.35)]"
+              }`}
+            >
+              {isPopular && (
+                <span
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900 shadow-[0_8px_20px_-6px_rgba(234,179,8,0.6)] whitespace-nowrap"
+                  style={{ background: "linear-gradient(135deg, #FCD34D 0%, #EAB308 100%)" }}
+                >
+                  ★ Melhor custo
                 </span>
               )}
 
-              {/* Name */}
-              <div className="min-h-[40px]">
-                <h3 className="text-base xl:text-sm 2xl:text-base font-semibold text-foreground mt-1">
-                  {pack.name}
-                </h3>
-                <p className="text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                  {pack.credits.toLocaleString("pt-BR")} créditos
-                </p>
+              {/* Nome */}
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground/45 mb-3">
+                {pack.name}
+              </h3>
+
+              {/* Preço */}
+              <div className="flex items-baseline gap-1 mb-3">
+                <span className="text-[12px] font-medium text-foreground/40">R$</span>
+                <span className="text-[2rem] font-bold tracking-[-0.03em] leading-none text-foreground">
+                  {pack.price.split(",")[0]}
+                </span>
+                <span className="text-[14px] font-semibold text-foreground/55">
+                  ,{pack.price.split(",")[1]}
+                </span>
               </div>
 
-              {/* Description */}
-              <p className="text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground/60 leading-relaxed mt-2 min-h-[36px]">
+              {/* Destaque créditos — igual ao destaque de instâncias */}
+              <div
+                className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg mb-4 border"
+                style={{
+                  background: isPopular ? "rgba(234,179,8,0.10)" : "rgba(37,211,102,0.08)",
+                  borderColor: isPopular ? "rgba(234,179,8,0.35)" : "rgba(37,211,102,0.25)",
+                }}
+              >
+                <Zap className="w-3.5 h-3.5" style={{ color: isPopular ? "#FCD34D" : WA_GREEN }} />
+                <span className="text-[12px] font-bold text-foreground tracking-tight">
+                  {formatCredits(pack.credits)} créditos
+                </span>
+              </div>
+
+              <div className="border-t border-border/50 mb-4" />
+
+              <p className="text-[11px] text-muted-foreground leading-[1.55] mb-4 line-clamp-2">
                 {pack.subtitle}
               </p>
 
-              {/* Price */}
-              <div className="mt-3 mb-3 min-h-[40px] flex items-end">
-                <div className="flex items-baseline">
-                  <span className="text-2xl xl:text-xl 2xl:text-2xl font-bold text-foreground">
-                    R$ {pack.price}
-                  </span>
-                </div>
-              </div>
+              {/* Benefícios */}
+              <ul className="space-y-2 mb-5 flex-1">
+                <li className="flex items-start gap-2 text-[11.5px] text-foreground/70 leading-[1.45]">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
+                  <span>{pack.credits.toLocaleString("pt-BR")} créditos de prospecção</span>
+                </li>
+                <li className="flex items-start gap-2 text-[11.5px] text-foreground/70 leading-[1.45]">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
+                  <span>Créditos não expiram</span>
+                </li>
+                <li className="flex items-start gap-2 text-[11.5px] text-foreground/70 leading-[1.45]">
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-[2px]" style={{ color: WA_GREEN }} />
+                  <span>≈ R$ {pricePerLead.replace(".", ",")} por lead</span>
+                </li>
+              </ul>
 
-              <div className="h-px bg-border/50 mb-4" />
-
-              {/* Value prop */}
-              <div className="flex-1 space-y-2 xl:space-y-1.5 2xl:space-y-2 mb-5">
-                <div className="flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                  <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
-                  <span className="leading-snug">
-                    {pack.credits.toLocaleString("pt-BR")} créditos de prospecção
-                  </span>
-                </div>
-                <div className="flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                  <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
-                  <span className="leading-snug">Créditos não expiram</span>
-                </div>
-                <div className="flex items-start gap-2 text-[11px] xl:text-[10px] 2xl:text-[11px] text-muted-foreground">
-                  <Check className="w-3.5 h-3.5 min-w-[14px] min-h-[14px] shrink-0 mt-px text-muted-foreground/50" />
-                  <span className="leading-snug">Adição imediata ao saldo</span>
-                </div>
-              </div>
-
-              {/* CTA */}
               <button
                 onClick={() => handleBuyCredits(pack)}
                 disabled={loadingPack === pack.name}
-                className={`mt-auto w-full h-11 xl:h-10 2xl:h-11 rounded-lg font-semibold text-[13px] xl:text-[11px] 2xl:text-[13px] whitespace-nowrap flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${
-                  pack.popular
-                    ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-bold shadow-[0_0_20px_-4px_rgba(245,158,11,0.4)]"
-                    : "bg-muted text-muted-foreground border border-border/60 hover:bg-muted/80"
+                style={
+                  isPopular
+                    ? {
+                        background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                        color: "#ffffff",
+                        boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+                      }
+                    : undefined
+                }
+                className={`w-full h-10 text-[12.5px] font-semibold rounded-lg mt-auto flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${
+                  isPopular
+                    ? "hover:brightness-110 hover:shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] border-0"
+                    : "bg-transparent text-foreground border border-[#25D366]/40 hover:border-[#25D366] hover:bg-[#25D366]/10"
                 }`}
               >
                 {loadingPack === pack.name ? (
@@ -173,13 +204,13 @@ const CreditPackCards = () => {
                 ) : (
                   <>
                     {pack.cta}
-                    <ArrowRight className="w-4 h-4 shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                   </>
                 )}
               </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
