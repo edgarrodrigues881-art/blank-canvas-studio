@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,8 @@ import { Switch } from "@/components/ui/switch";
 // radio-group not available; using custom toggle
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X } from "lucide-react";
+import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload } from "lucide-react";
+import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
 
 type Device = { id: string; name: string; number: string | null; status: string };
 type StatusPost = { id: string; type: string; text_content: string | null; caption: string | null; status: string; success_count: number; error_count: number; created_at: string };
@@ -55,58 +56,144 @@ function PostNowTab({ devices }: { devices: Device[] }) {
   const [text, setText] = useState("");
   const [bgColor, setBgColor] = useState("#25D366");
   const [caption, setCaption] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [delaySeconds, setDelaySeconds] = useState<number>(5);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Object URLs estáveis por arquivo
+  const previewUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previewUrls.forEach((u) => URL.revokeObjectURL(u)), [previewUrls]);
 
   const onlineDevices = useMemo(() => devices.filter((d) => ONLINE_STATUSES.includes(d.status)), [devices]);
+
+  // Carrega rascunho do IndexedDB ao montar
+  useEffect(() => {
+    (async () => {
+      const { meta, files: storedFiles } = await loadDraft();
+      if (meta) {
+        setType(meta.type);
+        setText(meta.text || "");
+        setBgColor(meta.bgColor || "#25D366");
+        setCaption(meta.caption || "");
+        setSelected(meta.selectedDeviceIds || []);
+        setDelaySeconds(meta.delaySeconds ?? 5);
+        if (storedFiles.length) setFiles(storedFiles);
+      }
+      setDraftLoaded(true);
+    })();
+  }, []);
+
+  // Persiste rascunho ao mudar
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const meta: StatusDraftMeta = {
+      type, text, bgColor, caption,
+      selectedDeviceIds: selected,
+      delaySeconds,
+      fileNames: files.map((f) => f.name),
+    };
+    saveDraft(meta, files).catch(() => {});
+  }, [type, text, bgColor, caption, selected, delaySeconds, files, draftLoaded]);
+
+  const acceptForType = type === "image" ? "image/*" : type === "video" ? "video/*" : type === "audio" ? "audio/*" : "";
+
+  const onPickFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    setFiles((prev) => [...prev, ...Array.from(list)]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  const clearAll = async () => {
+    setFiles([]); setText(""); setCaption("");
+    await clearDraft();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.success("Conteúdo limpo");
+  };
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   const handleSend = async () => {
     if (!user) return;
     if (selected.length === 0) return toast.error("Selecione ao menos uma instância");
     if (type === "text" && !text.trim()) return toast.error("Digite o texto");
-    if (type !== "text" && !file) return toast.error("Selecione um arquivo");
+    if (type !== "text" && files.length === 0) return toast.error("Selecione ao menos um arquivo");
 
+    const items: Array<File | null> = type === "text" ? [null] : files;
     setSending(true);
+    setProgress({ done: 0, total: items.length });
+
+    let totalSucc = 0, totalErr = 0, postFails = 0;
+
     try {
-      let mediaUrl: string | null = null;
-      if (file) mediaUrl = await uploadMediaFile(user.id, file);
+      for (let i = 0; i < items.length; i++) {
+        const f = items[i];
+        try {
+          let mediaUrl: string | null = null;
+          if (f) mediaUrl = await uploadMediaFile(user.id, f);
 
-      const { data, error } = await supabase.functions.invoke("status-post", {
-        body: {
-          type,
-          text_content: type === "text" ? text.trim() : undefined,
-          media_url: mediaUrl || undefined,
-          caption: type !== "text" && type !== "audio" ? caption.trim() : undefined,
-          background_color: type === "text" ? bgColor : undefined,
-          font: type === "text" ? 1 : undefined,
-          device_ids: selected,
-        },
-      });
+          const { data, error } = await supabase.functions.invoke("status-post", {
+            body: {
+              type,
+              text_content: type === "text" ? text.trim() : undefined,
+              media_url: mediaUrl || undefined,
+              caption: type !== "text" && type !== "audio" ? caption.trim() : undefined,
+              background_color: type === "text" ? bgColor : undefined,
+              font: type === "text" ? 1 : undefined,
+              device_ids: selected,
+            },
+          });
 
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
+          if (error) throw new Error(error.message);
+          if ((data as any)?.error) throw new Error((data as any).error);
 
-      const succ = (data as any)?.success_count ?? 0;
-      const err = (data as any)?.error_count ?? 0;
-      if (err === 0) toast.success(`Status publicado em ${succ} instância(s)`);
-      else if (succ === 0) toast.error("Falha em todas as instâncias");
-      else toast.warning(`Publicado: ${succ} • Falhas: ${err}`);
+          totalSucc += (data as any)?.success_count ?? 0;
+          totalErr += (data as any)?.error_count ?? 0;
+        } catch (e: any) {
+          postFails += 1;
+          toast.error(`Item ${i + 1}: ${e?.message || "erro"}`);
+        }
 
-      setText(""); setCaption(""); setFile(null);
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao publicar");
+        setProgress({ done: i + 1, total: items.length });
+        if (i < items.length - 1 && delaySeconds > 0) await sleep(delaySeconds * 1000);
+      }
+
+      if (postFails === 0 && totalErr === 0) {
+        toast.success(`Publicado: ${items.length} item(ns) • ${totalSucc} envio(s)`);
+      } else if (totalSucc === 0) {
+        toast.error("Falha em todas as publicações");
+      } else {
+        toast.warning(`OK: ${totalSucc} • Falhas: ${totalErr + postFails}`);
+      }
+
+      if (postFails === 0) {
+        setFiles([]); setText(""); setCaption("");
+        await clearDraft();
+      }
     } finally {
       setSending(false);
+      setProgress(null);
     }
   };
 
   return (
     <div className="grid lg:grid-cols-[1fr_340px] gap-6">
       <Card>
-        <CardHeader><CardTitle className="text-base">Conteúdo</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Conteúdo</CardTitle>
+          {(files.length > 0 || text || caption) && (
+            <Button variant="ghost" size="sm" onClick={clearAll} disabled={sending}>
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />Limpar tudo
+            </Button>
+          )}
+        </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs value={type} onValueChange={(v) => setType(v as any)}>
+          <Tabs value={type} onValueChange={(v) => { setType(v as any); setFiles([]); }}>
             <TabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="text"><Type className="w-4 h-4 mr-1.5" />Texto</TabsTrigger>
               <TabsTrigger value="image"><ImageIcon className="w-4 h-4 mr-1.5" />Imagem</TabsTrigger>
@@ -131,47 +218,98 @@ function PostNowTab({ devices }: { devices: Device[] }) {
               </div>
             </TabsContent>
 
-            <TabsContent value="image" className="space-y-4 mt-4">
-              <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              {file && file.type.startsWith("image/") && (
-                <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt="Pré-visualização"
-                    className="max-h-[360px] w-auto object-contain"
-                    onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+            {(type === "image" || type === "video" || type === "audio") && (
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center gap-2">
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept={acceptForType}
+                    onChange={(e) => onPickFiles(e.target.files)}
                   />
+                  {files.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={() => setFiles([])} disabled={sending}>
+                      <X className="w-4 h-4 mr-1" />Remover todos
+                    </Button>
+                  )}
                 </div>
-              )}
-              <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
-            </TabsContent>
 
-            <TabsContent value="video" className="space-y-4 mt-4">
-              <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              {file && file.type.startsWith("video/") && (
-                <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
-                  <video
-                    src={URL.createObjectURL(file)}
-                    controls
-                    className="max-h-[360px] w-auto"
+                {type === "video" && (
+                  <p className="text-xs text-muted-foreground">Máx. 30 segundos por vídeo.</p>
+                )}
+
+                {files.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">{files.length} arquivo(s) — publicados em sequência na ordem abaixo.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {files.map((f, i) => (
+                        <div key={`${f.name}-${i}`} className="relative group rounded-lg overflow-hidden border bg-muted/30">
+                          <button
+                            type="button"
+                            onClick={() => removeFile(i)}
+                            disabled={sending}
+                            className="absolute top-1 right-1 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-100 transition"
+                            aria-label="Remover"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                          <div className="absolute top-1 left-1 z-10 bg-black/60 text-white text-[10px] rounded px-1.5 py-0.5">
+                            {i + 1}
+                          </div>
+                          {type === "image" && (
+                            <img src={previewUrls[i]} alt="" className="w-full h-32 object-cover" />
+                          )}
+                          {type === "video" && (
+                            <video src={previewUrls[i]} className="w-full h-32 object-cover" muted />
+                          )}
+                          {type === "audio" && (
+                            <div className="p-3 pt-7 space-y-2">
+                              <p className="text-xs truncate">{f.name}</p>
+                              <audio src={previewUrls[i]} controls className="w-full" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {type !== "audio" && (
+                  <Textarea
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    placeholder="Legenda (opcional) — usada em todos os itens"
+                    rows={2}
                   />
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Máx. 30 segundos.</p>
-              <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
-            </TabsContent>
-
-            <TabsContent value="audio" className="space-y-4 mt-4">
-              <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-              {file && file.type.startsWith("audio/") && (
-                <audio src={URL.createObjectURL(file)} controls className="w-full" />
-              )}
-            </TabsContent>
+                )}
+              </div>
+            )}
           </Tabs>
+
+          {/* Delay configurável (vale para texto também caso enviado em sequência futura) */}
+          {((type !== "text" && files.length > 1)) && (
+            <div className="flex items-center gap-3 rounded-lg border bg-muted/20 p-3">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Label htmlFor="delay" className="text-sm whitespace-nowrap">Delay entre publicações</Label>
+              <Input
+                id="delay"
+                type="number"
+                min={0}
+                max={3600}
+                value={delaySeconds}
+                onChange={(e) => setDelaySeconds(Math.max(0, Math.min(3600, Number(e.target.value) || 0)))}
+                className="w-24"
+              />
+              <span className="text-xs text-muted-foreground">segundos</span>
+            </div>
+          )}
 
           <Button onClick={handleSend} disabled={sending || selected.length === 0} className="w-full" size="lg">
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            Publicar Agora ({selected.length})
+            {sending && progress
+              ? `Publicando ${progress.done}/${progress.total}...`
+              : `Publicar Agora (${type === "text" ? selected.length : `${files.length || 0} × ${selected.length}`})`}
           </Button>
         </CardContent>
       </Card>
