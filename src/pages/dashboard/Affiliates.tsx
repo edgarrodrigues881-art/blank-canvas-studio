@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import {
   DollarSign, Users, TrendingUp, Copy, Crown, MessageCircle, Ticket, Wallet,
-  CheckCircle2, Clock, XCircle, Send,
+  CheckCircle2, Clock, XCircle, Send, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -43,7 +43,7 @@ type Referral = {
 };
 type Payment = {
   id: string; referral_id: string; month_number: number; amount: number;
-  commission_amount: number; status: string; paid_at: string | null;
+  commission_amount: number; status: string; paid_at: string | null; released_at: string | null;
 };
 type Payout = {
   id: string; amount: number; pix_key: string; status: string; created_at: string; paid_at: string | null;
@@ -82,7 +82,7 @@ export default function Affiliates() {
       const [cRes, rRes, pRes, poRes] = await Promise.all([
         supabase.from("affiliate_coupons").select("id,code,discount_percent,plan_name,max_uses,uses_count,is_active").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("affiliate_referrals").select("id,referred_name,referred_email,coupon_code,plan_name,paid_amount,commission_total,status,created_at").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("affiliate_payments").select("id,referral_id,month_number,amount,commission_amount,status,paid_at").eq("affiliate_user_id", user.id),
+        supabase.from("affiliate_payments").select("id,referral_id,month_number,amount,commission_amount,status,paid_at,released_at").eq("affiliate_user_id", user.id),
         supabase.from("affiliate_payouts").select("id,amount,pix_key,status,created_at,paid_at").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
       ]);
       setCoupons((cRes.data || []) as Coupon[]);
@@ -97,9 +97,23 @@ export default function Affiliates() {
   useEffect(() => { loadData(); }, [user?.id]);
 
   // Stats
+  const now = Date.now();
+  const isReleased = (p: Payment) =>
+    p.status === "paid" && p.released_at && new Date(p.released_at).getTime() <= now;
+  const isInGuarantee = (p: Payment) =>
+    p.status === "paid" && p.released_at && new Date(p.released_at).getTime() > now;
+
   const totalEarned = useMemo(
     () => payments.filter((p) => p.status === "paid").reduce((s, p) => s + Number(p.commission_amount || 0), 0),
     [payments]
+  );
+  const totalReleased = useMemo(
+    () => payments.filter(isReleased).reduce((s, p) => s + Number(p.commission_amount || 0), 0),
+    [payments, now]
+  );
+  const totalInGuarantee = useMemo(
+    () => payments.filter(isInGuarantee).reduce((s, p) => s + Number(p.commission_amount || 0), 0),
+    [payments, now]
   );
   const totalPending = useMemo(
     () => payments.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.commission_amount || 0), 0),
@@ -109,7 +123,7 @@ export default function Affiliates() {
     () => payouts.filter((p) => ["requested", "approved", "paid"].includes(p.status)).reduce((s, p) => s + Number(p.amount || 0), 0),
     [payouts]
   );
-  const availableBalance = Math.max(0, totalEarned - reservedInPayouts);
+  const availableBalance = Math.max(0, totalReleased - reservedInPayouts);
 
   const activeReferralsCount = referrals.filter((r) => r.status === "active").length;
 
