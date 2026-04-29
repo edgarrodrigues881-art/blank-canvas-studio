@@ -149,27 +149,24 @@ async function runLimited<T>(tasks: Array<() => Promise<T>>, limit = 8): Promise
   return results;
 }
 
-async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set<string>): Promise<LidPhoneMap> {
+async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set<string>, deepScan = true): Promise<LidPhoneMap> {
   const map: LidPhoneMap = new Map();
   // Faz paginação ampla em /chat/find (até 5000 chats) + lista contatos + grupos com participantes.
   // Quanto mais chats varrermos, maior a chance de encontrar o pareamento LID→telefone que o
   // Whatsapp já entregou para a instância em algum momento.
-  const chatPages = await Promise.all(
-    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000].map((offset) =>
-      fetchUazapiJson(baseUrl, token, "/chat/find", {
-        method: "POST",
-        body: JSON.stringify({ operator: "AND", limit: 1000, offset, sort: "-wa_lastMsgTimestamp" }),
-      }),
-    ),
-  );
-  const contactPages = await Promise.all(
-    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000].map((offset) =>
-      fetchUazapiJson(baseUrl, token, "/contacts/list", {
-        method: "POST",
-        body: JSON.stringify({ limit: 1000, offset, contactScope: "all" }),
-      }),
-    ),
-  );
+  const offsets = [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000];
+  const chatPages = deepScan ? await Promise.all(
+    offsets.map((offset) => fetchUazapiJson(baseUrl, token, "/chat/find", {
+      method: "POST",
+      body: JSON.stringify({ operator: "AND", limit: 1000, offset, sort: "-wa_lastMsgTimestamp" }),
+    })),
+  ) : [];
+  const contactPages = deepScan ? await Promise.all(
+    offsets.map((offset) => fetchUazapiJson(baseUrl, token, "/contacts/list", {
+      method: "POST",
+      body: JSON.stringify({ limit: 1000, offset, contactScope: "all" }),
+    })),
+  ) : [];
   const targetedChatPages = targetLids && targetLids.size > 0
     ? await runLimited(
         Array.from(targetLids).slice(0, 250).flatMap((lid) => [
@@ -179,11 +176,11 @@ async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set
         8,
       )
     : [];
-  const otherPayloads = await Promise.all([
+  const otherPayloads = deepScan ? await Promise.all([
     fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
-  ]);
+  ]) : [];
   [...chatPages, ...contactPages, ...targetedChatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map, targetLids));
   return map;
 }
@@ -533,7 +530,40 @@ Deno.serve(async (req: Request) => {
         .map((input) => onlyDigits(input))
         .filter((digits) => digits.length >= 8),
     );
-    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids) : undefined;
+    const deepScan = body?.deep_scan === true || (body?.deep_scan !== false && inputs.length <= 15);
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids, deepScan) : undefined;
+
+    if (body?.map_only === true && needsUazapi) {
+      const results: ResolvedContact[] = inputs.map((input) => {
+        const type = detectType(input) || "number";
+        const digits = onlyDigits(input);
+        const mappedPhone = digits ? lidPhoneMap?.get(digits) : null;
+        if (mappedPhone) {
+          const mappedJid = numberToJid(mappedPhone);
+          return { original: input, type: "lid", jid: mappedJid, number: mappedPhone, valid: !!mappedJid };
+        }
+        if (looksLikeLidNumber(input) && digits) {
+          return {
+            original: input,
+            type: "lid",
+            jid: `${digits}${LID_SUFFIX}`,
+            number: null,
+            valid: true,
+            error: "Telefone real não encontrado na varredura; usando @lid para disparo",
+          };
+        }
+        if (type === "jid") {
+          const jid = normalizePhoneJid(input) || input;
+          return { original: input, type, jid, number: jidToNumber(jid), valid: true };
+        }
+        const jid = numberToJid(digits);
+        return { original: input, type, jid, number: jid ? jidToNumber(jid) : null, valid: !!jid };
+      });
+      return new Response(JSON.stringify({ results }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Processa em paralelo (limitado)
     const concurrency = 5;

@@ -53,6 +53,7 @@ export default function LidConverter() {
 
   // Progresso global do processamento paralelo
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [stageText, setStageText] = useState("Processando...");
 
   useEffect(() => {
     (async () => {
@@ -142,6 +143,7 @@ export default function LidConverter() {
 
     setLoading(true);
     setProgress({ done: 0, total: 0 });
+    setStageText("Fazendo conversão rápida...");
     try {
       // Skip já-validados (cache de campanhas anteriores)
       const { data: alreadyData } = await supabase
@@ -168,6 +170,12 @@ export default function LidConverter() {
       setProgress({ done: 0, total: toResolve.length });
 
       if (toResolve.length > 0) {
+        const invokeResolveContact = (body: Record<string, unknown>, timeoutMs = 70_000) =>
+          Promise.race([
+            supabase.functions.invoke("resolve-contact", { body }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Tempo limite da instância atingido")), timeoutMs)),
+          ]);
+
         // Divide contatos em chunks por instância (round-robin)
         const buckets: Record<string, string[]> = {};
         deviceIds.forEach((id) => (buckets[id] = []));
@@ -179,9 +187,7 @@ export default function LidConverter() {
         const processChunk = async (devId: string, chunk: string[]): Promise<void> => {
           if (chunk.length === 0) return;
           try {
-            const { data, error } = await supabase.functions.invoke("resolve-contact", {
-              body: { inputs: chunk, device_id: devId },
-            });
+            const { data, error } = await invokeResolveContact({ inputs: chunk, device_id: devId, deep_scan: false });
             if (error) throw error;
             const results = Array.isArray(data?.results) ? data.results : [];
             results.forEach((r: any) => {
@@ -227,6 +233,7 @@ export default function LidConverter() {
         // antes de aceitar o fallback @lid. Isso aumenta a chance de achar o número, porque
         // o pareamento LID→telefone pode existir no histórico de outra sessão.
         if (deviceIds.length > 1) {
+          setStageText("Buscando LIDs restantes nas outras instâncias...");
           for (const devId of deviceIds) {
             const pending = toResolve.filter((contact) => needsLidPhoneRetry(contact, resolvedMap.get(contact)));
             if (pending.length === 0) break;
@@ -236,9 +243,7 @@ export default function LidConverter() {
 
             for (const chunk of retryChunks) {
               try {
-                const { data, error } = await supabase.functions.invoke("resolve-contact", {
-                  body: { inputs: chunk, device_id: devId },
-                });
+                const { data, error } = await invokeResolveContact({ inputs: chunk, device_id: devId, deep_scan: false });
                 if (error) throw error;
                 const results = Array.isArray(data?.results) ? data.results : [];
                 results.forEach((r: any) => {
@@ -258,6 +263,35 @@ export default function LidConverter() {
               }
             }
           }
+        }
+
+        const deepPending = toResolve.filter((contact) => needsLidPhoneRetry(contact, resolvedMap.get(contact)));
+        if (deepPending.length > 0) {
+          setStageText(`Varredura profunda em ${deviceIds.length} instância(s)...`);
+          setProgress({ done: 0, total: deviceIds.length });
+          await Promise.all(deviceIds.map(async (devId) => {
+            try {
+              const { data, error } = await invokeResolveContact({ inputs: deepPending, device_id: devId, deep_scan: true, map_only: true }, 90_000);
+              if (error) throw error;
+              const results = Array.isArray(data?.results) ? data.results : [];
+              results.forEach((r: any) => {
+                const orig = String(r?.original ?? "");
+                if (!orig || !r?.number) return;
+                resolvedMap.set(orig, {
+                  original: orig,
+                  type: (r?.type as EntryType) ?? "lid",
+                  number: String(r.number),
+                  jid: r?.jid ? String(r.jid) : "—",
+                  valid: true,
+                  error: r?.error,
+                });
+              });
+            } catch (err) {
+              console.warn(`[lid-converter] deep scan device ${devId} falhou`, err);
+            } finally {
+              setProgress((p) => ({ ...p, done: p.done + 1 }));
+            }
+          }));
         }
       }
 
@@ -675,7 +709,7 @@ export default function LidConverter() {
                 {loading ? (
                   <div className="flex items-center justify-center py-12 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    <span className="text-sm">Resolvendo via API Privada (dgcontingenciapro)...</span>
+                    <span className="text-sm">{stageText}</span>
                   </div>
                 ) : (
                   <ResultsTable rows={rows} />
