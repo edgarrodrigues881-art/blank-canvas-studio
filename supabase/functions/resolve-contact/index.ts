@@ -101,7 +101,6 @@ function collectLidPhoneMappings(value: any, map: LidPhoneMap, targetLids?: Set<
       lids.add(digits);
     }
 
-    const compactKey = k.replace(/[^a-z0-9]/g, "");
     if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || compactKey.includes("phone") || compactKey.includes("number") || compactKey.includes("chatid") || compactKey.includes("waid"))) {
       const phoneDigits = isPhoneJid(raw) ? jidToNumber(raw) : digits;
       if (phoneDigits && phoneDigits.length >= 8 && phoneDigits.length <= 15) phones.add(phoneDigits);
