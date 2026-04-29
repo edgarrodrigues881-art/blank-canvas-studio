@@ -470,80 +470,108 @@ const BrowserMockup = ({ src, alt, eager, imgY, imgScale }: {
   </div>
 );
 
+// Hook: detecta direção do scroll (down/up) para animar de forma bidirecional
+const useScrollDirection = () => {
+  const [direction, setDirection] = useState<"down" | "up">("down");
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) > 4) {
+        setDirection(y > lastY ? "down" : "up");
+        lastY = y;
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return direction;
+};
+
 const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: number }) => {
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  // Scroll-driven: animação de ENTRADA apenas. Nunca volta a opacity 0
-  // (evita "imagem some" quando o usuário rola rápido ou o lazy ainda não carregou).
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start 95%", "end 60%"],
-  });
-
-  // Card: fade-in + translateY (30px → 0), com stagger sutil por índice
-  const cardOpacity = useTransform(scrollYProgress, [0, 0.3], [0, 1]);
-  const cardY = useTransform(scrollYProgress, [0, 0.35], [30, 0]);
-  // Borda em gradiente: leve pulso no foco
-  const borderOpacity = useTransform(scrollYProgress, [0, 0.4, 1], [0.25, 0.5, 0.35]);
-
-  // Imagem: parallax leve + zoom sutil
-  const imgEntryY = useTransform(scrollYProgress, [0, 0.3, 1], [30, 0, -8]);
-  const imgScale = useTransform(scrollYProgress, [0, 0.5, 1], [1, 1.02, 1.03]);
-
-  // Stagger: cards posteriores entram com spring um pouco mais "lento" para efeito cascata
-  const staggerDelay = Math.min(index, 4) * 4;
-  const smoothCardY = useSpring(cardY, { stiffness: 110 - staggerDelay, damping: 22, mass: 0.5 });
-  const smoothImgY = useSpring(imgEntryY, { stiffness: 80 - staggerDelay, damping: 24, mass: 0.7 });
+  const direction = useScrollDirection();
+  // Descendo: entra de baixo (+24). Subindo: entra de cima (-24). Sempre fade-in suave.
+  const fromY = direction === "down" ? 24 : -24;
+  const cardDelay = 0.05;
+  const imgDelay = 0.18; // imagem entra logo depois do card (efeito cascata)
 
   return (
-    <motion.div
-      ref={ref}
-      style={{ opacity: cardOpacity, y: smoothCardY }}
-      className="w-full py-12 md:py-16 lg:py-24"
-    >
-      <div>
-        {/* CARD com badge flutuante e borda em gradiente */}
-        <div className="relative mx-auto w-full md:w-[90%] max-w-[820px] pt-6 px-4 md:px-0">
-          <motion.div
-            style={{ opacity: borderOpacity }}
-            className="absolute inset-x-4 md:inset-x-0 top-6 bottom-0 rounded-[12px] p-px bg-gradient-to-br from-emerald-500/40 via-white/5 to-orange-500/40 pointer-events-none"
-            aria-hidden
-          />
+    <div className="w-full py-12 md:py-16 lg:py-24">
+      {/* CARD com badge flutuante e borda em gradiente */}
+      <motion.div
+        initial={{ opacity: 0, y: fromY }}
+        whileInView={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -fromY }}
+        viewport={{ once: false, amount: 0.35, margin: "0px 0px -10% 0px" }}
+        transition={{ duration: 0.5, ease: easeOut, delay: cardDelay }}
+        className="relative mx-auto w-full md:w-[90%] max-w-[820px] pt-6 px-4 md:px-0"
+      >
+        <div
+          className="absolute inset-x-4 md:inset-x-0 top-6 bottom-0 rounded-[12px] p-px bg-gradient-to-br from-emerald-500/40 via-white/5 to-orange-500/40 pointer-events-none opacity-40"
+          aria-hidden
+        />
+        <div
+          className="relative rounded-[12px] p-8 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-[10px]"
+          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.1)" }}
+        >
           <div
-            className="relative rounded-[12px] p-8 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-[10px]"
-            style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.1)" }}
+            className="absolute -top-6 -left-2 md:-left-6 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg"
+            style={{ boxShadow: "0 0 20px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3)" }}
           >
-            <div
-              className="absolute -top-6 -left-2 md:-left-6 w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg"
-              style={{ boxShadow: "0 0 20px rgba(34,197,94,0.5), inset 0 1px 0 rgba(255,255,255,0.3)" }}
-            >
-              {step.n}
-            </div>
-            <div className="pt-2">
-              <h3 className="text-[18px] md:text-[20px] font-bold text-white tracking-[-0.01em] mb-2">
-                {step.title}
-              </h3>
-              <p className="text-[14px] md:text-[15px] text-gray-300 leading-[1.6]">
-                {step.desc}
-              </p>
-            </div>
+            {step.n}
+          </div>
+          <div className="pt-2">
+            <h3 className="text-[18px] md:text-[20px] font-bold text-white tracking-[-0.01em] mb-2">
+              {step.title}
+            </h3>
+            <p className="text-[14px] md:text-[15px] text-gray-300 leading-[1.6]">
+              {step.desc}
+            </p>
           </div>
         </div>
+      </motion.div>
 
-        {/* IMAGEM — eager nos 2 primeiros, restante com fetchpriority alto */}
-        <div className="mt-6 mx-auto w-full max-w-[900px] px-4 md:px-0">
-          <BrowserMockup
-            src={step.img}
-            alt={`${step.title} — passo ${step.n}`}
-            eager={true}
-            imgY={smoothImgY}
-            imgScale={imgScale}
-          />
-        </div>
-      </div>
-    </motion.div>
+      {/* IMAGEM — entra logo depois do card */}
+      <motion.div
+        initial={{ opacity: 0, y: fromY + 8, scale: 0.985 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -(fromY + 8), scale: 0.985 }}
+        viewport={{ once: false, amount: 0.2, margin: "0px 0px -5% 0px" }}
+        transition={{ duration: 0.55, ease: easeOut, delay: imgDelay }}
+        className="mt-6 mx-auto w-full max-w-[900px] px-4 md:px-0"
+      >
+        <BrowserMockupStatic
+          src={step.img}
+          alt={`${step.title} — passo ${step.n}`}
+        />
+      </motion.div>
+    </div>
   );
 };
+
+// Versão estática do BrowserMockup (sem motion interno — o wrapper já anima)
+const BrowserMockupStatic = ({ src, alt }: { src: string; alt: string }) => (
+  <div
+    className="relative overflow-hidden bg-[#1a1a1a] rounded-t-[12px] rounded-b-[8px]"
+    style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)" }}
+  >
+    <div className="flex items-center gap-2 px-4 h-8 bg-[#1a1a1a] border-b border-white/[0.06]">
+      <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
+      <span className="w-3 h-3 rounded-full" style={{ background: "#ffbd2e" }} />
+      <span className="w-3 h-3 rounded-full" style={{ background: "#28c940" }} />
+    </div>
+    <div className="relative w-full overflow-hidden bg-[#0a0f17]">
+      <img
+        src={src}
+        alt={alt}
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+        className="block w-full h-auto"
+      />
+    </div>
+  </div>
+);
 
 const UseCase = () => {
   return (
