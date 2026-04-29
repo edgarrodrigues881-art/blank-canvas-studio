@@ -220,7 +220,13 @@ function PostNowTab({ devices }: { devices: Device[] }) {
             </TabsList>
 
             <TabsContent value="text" className="space-y-4 mt-4">
-              <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Escreva seu status..." rows={5} maxLength={700} />
+              <WhatsAppTextEditor
+                value={text}
+                onChange={setText}
+                placeholder="Escreva seu status... (use *negrito*, _itálico_, ~riscado~, ```mono```)"
+                rows={5}
+                maxLength={700}
+              />
               <div>
                 <Label>Cor de fundo</Label>
                 <div className="flex gap-2 mt-2 flex-wrap">
@@ -231,9 +237,28 @@ function PostNowTab({ devices }: { devices: Device[] }) {
                   ))}
                 </div>
               </div>
-              <div className="rounded-lg p-6 min-h-[140px] flex items-center justify-center text-center text-white text-lg font-semibold whitespace-pre-wrap break-words" style={{ backgroundColor: bgColor }}>
-                {text || "Pré-visualização"}
+              <div>
+                <Label>Fonte</Label>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {STATUS_FONTS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFont(f.id)}
+                      className={`px-3 py-1.5 rounded-md border text-sm transition ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
+                      style={{ fontFamily: f.cssFamily }}
+                      title={f.label}
+                    >
+                      Aa
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div
+                className="rounded-lg p-6 min-h-[140px] flex items-center justify-center text-center text-white text-lg font-semibold whitespace-pre-wrap break-words"
+                style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
+                dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
+              />
             </TabsContent>
 
             {(type === "image" || type === "video" || type === "audio") && (
