@@ -390,10 +390,11 @@ function PostNowTab({ devices }: { devices: Device[] }) {
 
 // ===== SCHEDULE EDITOR DIALOG =====
 function ScheduleDialog({
-  open, onOpenChange, devices, editing, onSaved,
+  open, onOpenChange, devices, editing, onSaved, folders, defaultFolderId,
 }: {
   open: boolean; onOpenChange: (o: boolean) => void; devices: Device[];
   editing: Schedule | null; onSaved: () => void;
+  folders: Folder[]; defaultFolderId?: string | null;
 }) {
   const { user } = useAuth();
   const [name, setName] = useState("");
