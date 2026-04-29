@@ -821,10 +821,13 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 </div>
               </div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setDialogOpen(true); }}>
+                <Button size="icon" variant="ghost" onClick={() => setPreviewing(s)} title="Visualizar">
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setDialogOpen(true); }} title="Editar">
                   <Pencil className="w-4 h-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => setToDelete(s)} className="text-destructive">
+                <Button size="icon" variant="ghost" onClick={() => setToDelete(s)} className="text-destructive" title="Excluir">
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
