@@ -39,6 +39,7 @@ type Schedule = {
   last_run_at: string | null;
   run_count: number;
   folder_id: string | null;
+  created_at?: string;
 };
 type Folder = { id: string; name: string; color: string; position: number };
 
@@ -762,7 +763,11 @@ function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | 
   if (!items || items.length === 0) return null;
 
   // Sort by time so carousel reflects the campaign order
-  const sorted = [...items].sort((a, b) => (a.times?.[0] || "").localeCompare(b.times?.[0] || ""));
+  const sorted = [...items].sort((a, b) => {
+    const t = (a.times?.[0] || "").localeCompare(b.times?.[0] || "");
+    if (t !== 0) return t;
+    return (a.created_at || "").localeCompare(b.created_at || "");
+  });
 
   const slides = sorted.map((s) => ({
     id: s.id,
@@ -1168,10 +1173,14 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
       if (s.folder_id && map.has(s.folder_id)) map.get(s.folder_id)!.push(s);
       else orphans.push(s);
     }
-    // sort schedules in each folder by time asc
-    for (const arr of map.values()) {
-      arr.sort((a, b) => (a.times?.[0] || "").localeCompare(b.times?.[0] || ""));
-    }
+    // sort schedules in each folder by time asc, tiebreak by created_at asc (oldest first)
+    const cmp = (a: Schedule, b: Schedule) => {
+      const t = (a.times?.[0] || "").localeCompare(b.times?.[0] || "");
+      if (t !== 0) return t;
+      return (a.created_at || "").localeCompare(b.created_at || "");
+    };
+    for (const arr of map.values()) arr.sort(cmp);
+    orphans.sort(cmp);
     return { map, orphans };
   }, [schedules, folders]);
 
