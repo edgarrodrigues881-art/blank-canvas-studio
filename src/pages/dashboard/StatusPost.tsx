@@ -415,6 +415,8 @@ function ScheduleDialog({
   const [deviceMode, setDeviceMode] = useState<"all_online" | "fixed">("all_online");
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
