@@ -147,19 +147,77 @@ export default function AutosaveSchedule() {
   }, [initialLimit, dailyIncrement, maxLimit]);
 
   const validateStep = (s: 1 | 2 | 3 | 4): string | null => {
-    if (s === 1 && !name.trim()) return "Dê um nome para o agendamento";
+    if (s === 1) {
+      const trimmed = name.trim();
+      if (!trimmed) return "Dê um nome para o agendamento";
+      if (trimmed.length < 2) return "Nome deve ter pelo menos 2 caracteres";
+      if (trimmed.length > 80) return "Nome deve ter no máximo 80 caracteres";
+    }
     if (s === 2 && selectedDevices.length === 0) return "Selecione ao menos uma instância";
     if (s === 3) {
       if (selectedWeekdays.length === 0) return "Selecione ao menos um dia da semana";
-      if (!/^\d{2}:\d{2}$/.test(timeOfDay)) return "Horário inválido";
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(timeOfDay)) return "Horário inválido — use HH:MM (00:00 a 23:59)";
     }
     if (s === 4) {
+      const mpi = typeof msgsPerInstance === "number" ? msgsPerInstance : NaN;
+      if (!Number.isFinite(mpi) || mpi < 1) return "Mensagens por contato deve ser ≥ 1";
+      if (mpi > 50) return "Mensagens por contato deve ser ≤ 50";
+
+      // Delay entre msgs do MESMO contato — só obrigatório se mpi > 1
+      if (mpi > 1) {
+        const minD = typeof minDelay === "number" ? minDelay : NaN;
+        const maxD = typeof maxDelay === "number" ? maxDelay : NaN;
+        if (!Number.isFinite(minD) || minD < 1) return "Delay mín entre mensagens do mesmo contato deve ser ≥ 1s";
+        if (!Number.isFinite(maxD) || maxD < 1) return "Delay máx entre mensagens do mesmo contato deve ser ≥ 1s";
+        if (minD > maxD) return "Delay mín entre mensagens não pode ser maior que o máx";
+        if (maxD > 600) return "Delay máx entre mensagens deve ser ≤ 600s (10 min)";
+      }
+
+      // Delay entre CONTATOS
+      const bcMin = typeof betweenContactsMin === "number" ? betweenContactsMin : NaN;
+      const bcMax = typeof betweenContactsMax === "number" ? betweenContactsMax : NaN;
+      if (!Number.isFinite(bcMin) || bcMin < 1) return "Delay mín entre contatos deve ser ≥ 1s";
+      if (!Number.isFinite(bcMax) || bcMax < 1) return "Delay máx entre contatos deve ser ≥ 1s";
+      if (bcMin > bcMax) return "Delay mín entre contatos não pode ser maior que o máx";
+      if (bcMax > 3600) return "Delay máx entre contatos deve ser ≤ 3600s (1 hora)";
+
+      // Coerência: delay entre contatos ≥ delay entre msgs do mesmo contato
+      if (mpi > 1 && typeof minDelay === "number" && typeof maxDelay === "number") {
+        if (bcMin < minDelay) return `Delay mín entre contatos (${bcMin}s) deve ser ≥ delay mín entre mensagens do mesmo contato (${minDelay}s)`;
+        if (bcMax < maxDelay) return `Delay máx entre contatos (${bcMax}s) deve ser ≥ delay máx entre mensagens do mesmo contato (${maxDelay}s)`;
+      }
+
+      // Pausa entre lotes de contatos
+      const peMin = typeof pauseEveryMin === "number" ? pauseEveryMin : NaN;
+      const peMax = typeof pauseEveryMax === "number" ? pauseEveryMax : NaN;
+      const pdMin = typeof pauseDurationMin === "number" ? pauseDurationMin : NaN;
+      const pdMax = typeof pauseDurationMax === "number" ? pauseDurationMax : NaN;
+      if (!Number.isFinite(peMin) || peMin < 1) return "'Pausar a cada (mín)' deve ser ≥ 1 contato";
+      if (!Number.isFinite(peMax) || peMax < 1) return "'Pausar a cada (máx)' deve ser ≥ 1 contato";
+      if (peMin > peMax) return "'Pausar a cada (mín)' não pode ser maior que o (máx)";
+      if (peMax > 1000) return "'Pausar a cada (máx)' deve ser ≤ 1000 contatos";
+      if (!Number.isFinite(pdMin) || pdMin < 1) return "Duração mín da pausa deve ser ≥ 1s";
+      if (!Number.isFinite(pdMax) || pdMax < 1) return "Duração máx da pausa deve ser ≥ 1s";
+      if (pdMin > pdMax) return "Duração mín da pausa não pode ser maior que a máx";
+      if (pdMax > 7200) return "Duração máx da pausa deve ser ≤ 7200s (2 horas)";
+      // A pausa entre lotes deve ser maior que o delay normal entre contatos — senão perde o sentido
+      if (Number.isFinite(bcMax) && pdMin <= bcMax) return `Duração mín da pausa (${pdMin}s) deve ser maior que o delay máx entre contatos (${bcMax}s) — senão a pausa não tem efeito`;
+      // Coerência: o limite inicial precisa ser pelo menos do tamanho do menor lote, senão a pausa nunca dispara
+      if (Number.isFinite(peMin) && typeof initialLimit === "number" && initialLimit < peMin) {
+        return `Limite inicial (${initialLimit}) é menor que o lote mín de pausa (${peMin}) — a pausa nunca seria acionada no 1º dia`;
+      }
+
+      // Crescimento
       const ini = typeof initialLimit === "number" ? initialLimit : NaN;
       const inc = typeof dailyIncrement === "number" ? dailyIncrement : NaN;
       const mx = typeof maxLimit === "number" ? maxLimit : NaN;
       if (!Number.isFinite(ini) || ini < 1) return "Limite inicial deve ser ≥ 1";
+      if (ini > 5000) return "Limite inicial deve ser ≤ 5000";
       if (!Number.isFinite(inc) || inc < 0) return "Aumento por dia deve ser ≥ 0";
+      if (inc > 1000) return "Aumento por dia deve ser ≤ 1000";
       if (!Number.isFinite(mx) || mx < ini) return "Limite máximo deve ser ≥ limite inicial";
+      if (mx > 10000) return "Limite máximo deve ser ≤ 10000";
+      if (inc > 0 && mx === ini) return "Se há 'aumento por dia', o limite máximo precisa ser maior que o inicial";
     }
     return null;
   };
