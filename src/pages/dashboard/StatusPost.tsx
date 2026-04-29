@@ -773,7 +773,7 @@ function SchedulePreviewDialog({ schedule, onClose }: { schedule: Schedule | nul
 
         <div className="space-y-3">
           {/* Slide */}
-          <div className="relative bg-muted/30 border border-border rounded-xl overflow-hidden">
+          <div className="relative bg-muted/40 border border-border/60 rounded-xl overflow-hidden">
             {slide.type === "text" ? (
               <div
                 className="aspect-square flex items-center justify-center p-6 text-center"
