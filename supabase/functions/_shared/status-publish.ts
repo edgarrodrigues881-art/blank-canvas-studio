@@ -22,19 +22,23 @@ function buildAttempts(payload: StatusPayload): { path: string; body: Record<str
     ];
   }
 
+  // UAZAPI accepts the caption under different keys depending on the build:
+  // some expose `caption`, others use `text`. Send both to maximize compatibility.
+  const cap = (caption || "").trim();
+
   if (type === "image") {
     return [
-      { path: "/send/status", body: { type: "image", file: media_url, caption: caption || "" } },
-      { path: "/send/status", body: { type: "image", media: media_url, caption: caption || "" } },
-      { path: "/message/sendStatus", body: { type: "image", file: media_url, caption: caption || "" } },
+      { path: "/send/status", body: { type: "image", file: media_url, caption: cap, text: cap } },
+      { path: "/send/status", body: { type: "image", media: media_url, caption: cap, text: cap } },
+      { path: "/message/sendStatus", body: { type: "image", file: media_url, caption: cap, text: cap } },
     ];
   }
 
   if (type === "video") {
     return [
-      { path: "/send/status", body: { type: "video", file: media_url, caption: caption || "" } },
-      { path: "/send/status", body: { type: "video", media: media_url, caption: caption || "" } },
-      { path: "/message/sendStatus", body: { type: "video", file: media_url, caption: caption || "" } },
+      { path: "/send/status", body: { type: "video", file: media_url, caption: cap, text: cap } },
+      { path: "/send/status", body: { type: "video", media: media_url, caption: cap, text: cap } },
+      { path: "/message/sendStatus", body: { type: "video", file: media_url, caption: cap, text: cap } },
     ];
   }
 
