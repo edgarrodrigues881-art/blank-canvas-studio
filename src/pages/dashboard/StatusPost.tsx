@@ -1018,18 +1018,7 @@ function ScheduleRow({
   return (
     <Card className={s.enabled ? "" : "opacity-60"}>
       <CardContent className="p-4 flex items-center gap-4">
-        <Switch
-          checked={s.enabled}
-          disabled={locked}
-          onCheckedChange={() => {
-            if (locked) {
-              toast.info("Despause a pasta primeiro para alterar este agendamento");
-              return;
-            }
-            onToggle();
-          }}
-          title={locked ? "Pasta pausada — despause a pasta primeiro" : undefined}
-        />
+        <Switch checked={s.enabled} onCheckedChange={onToggle} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium">{s.name}</p>
