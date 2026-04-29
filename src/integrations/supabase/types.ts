@@ -5794,6 +5794,8 @@ export type Database = {
           media_url: string | null
           name: string
           run_count: number
+          run_date: string | null
+          schedule_mode: string
           text_content: string | null
           times: string[]
           type: string
@@ -5815,6 +5817,8 @@ export type Database = {
           media_url?: string | null
           name: string
           run_count?: number
+          run_date?: string | null
+          schedule_mode?: string
           text_content?: string | null
           times?: string[]
           type: string
@@ -5836,6 +5840,8 @@ export type Database = {
           media_url?: string | null
           name?: string
           run_count?: number
+          run_date?: string | null
+          schedule_mode?: string
           text_content?: string | null
           times?: string[]
           type?: string
