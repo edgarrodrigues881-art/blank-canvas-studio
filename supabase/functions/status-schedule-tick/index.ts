@@ -123,13 +123,18 @@ Deno.serve(async (req) => {
           sched.id,
         );
 
+        const updatePayload: any = { run_count: (sched.run_count || 0) + 1 };
+        // Se for disparo único, desativa após executar
+        if ((sched.schedule_mode || "recurring") === "oneshot") {
+          updatePayload.enabled = false;
+        }
         await admin
           .from("status_schedules")
-          .update({ run_count: (sched.run_count || 0) + 1 })
+          .update(updatePayload)
           .eq("id", sched.id);
 
         executed++;
-        console.log(`[status-schedule-tick] ${sched.id} → ok=${r.success_count} err=${r.error_count}`);
+        console.log(`[status-schedule-tick] ${sched.id} → ok=${r.success_count} err=${r.error_count}${updatePayload.enabled === false ? ' (desativado: oneshot)' : ''}`);
       } catch (e: any) {
         console.error(`[status-schedule-tick] schedule ${sched.id} failed:`, e?.message);
       }
