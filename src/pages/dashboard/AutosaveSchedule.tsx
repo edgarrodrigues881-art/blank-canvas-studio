@@ -625,15 +625,16 @@ export default function AutosaveSchedule() {
 
       {/* Create Wizard */}
       <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); setEditingId(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" /> {editingId ? "Editar Agendamento Auto Save" : "Novo Agendamento Auto Save"}
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg pr-6">
+              <CalendarIcon className="w-5 h-5 text-primary shrink-0" />
+              <span className="truncate">{editingId ? "Editar Agendamento Auto Save" : "Novo Agendamento Auto Save"}</span>
             </DialogTitle>
           </DialogHeader>
 
           {/* Stepper */}
-          <div className="flex items-center gap-1 mt-2 mb-4">
+          <div className="flex items-center gap-1 mt-2 mb-4 w-full">
             {STEPS.map((st, i) => {
               const active = st.n === step;
               const done = st.n < step;
@@ -644,27 +645,27 @@ export default function AutosaveSchedule() {
                     type="button"
                     onClick={() => { if (done) setStep(st.n as any); }}
                     className={cn(
-                      "flex-1 flex items-center gap-2 px-3 py-2 rounded-md border transition-colors min-w-0",
+                      "flex-1 flex items-center justify-center sm:justify-start gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-2 rounded-md border transition-colors min-w-0",
                       active && "bg-primary/10 border-primary/40 text-foreground",
                       done && "bg-emerald-500/5 border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/10",
                       !active && !done && "bg-muted/20 border-border/40 text-muted-foreground"
                     )}
                   >
                     <span className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                      "w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-bold shrink-0",
                       active && "bg-primary text-primary-foreground",
                       done && "bg-emerald-500/20 text-emerald-400",
                       !active && !done && "bg-muted text-muted-foreground"
                     )}>
-                      {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : st.n}
+                      {done ? <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : st.n}
                     </span>
                     <div className="min-w-0 hidden sm:block">
                       <p className="text-[11px] font-semibold leading-tight truncate">{st.title}</p>
                       <p className="text-[10px] opacity-70 leading-tight truncate">{st.desc}</p>
                     </div>
-                    <Icon className="w-4 h-4 ml-auto sm:hidden shrink-0" />
+                    <Icon className={cn("w-3.5 h-3.5 shrink-0 sm:hidden", active ? "text-primary" : "")} />
                   </button>
-                  {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
+                  {i < STEPS.length - 1 && <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-muted-foreground/40 shrink-0" />}
                 </div>
               );
             })}
