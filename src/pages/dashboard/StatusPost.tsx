@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload } from "lucide-react";
 import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
+import { WhatsAppTextEditor, renderWhatsAppMarkdown } from "@/components/WhatsAppTextEditor";
 
 type Device = { id: string; name: string; number: string | null; status: string };
 type StatusPost = { id: string; type: string; text_content: string | null; caption: string | null; status: string; success_count: number; error_count: number; created_at: string };
