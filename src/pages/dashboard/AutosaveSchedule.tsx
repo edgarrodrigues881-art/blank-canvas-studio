@@ -273,30 +273,38 @@ export default function AutosaveSchedule() {
     const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
+    const payload = {
+      name: name.trim() || "Agendamento Auto Save",
+      device_ids: selectedDevices,
+      weekdays: selectedWeekdays,
+      time_of_day: timeOfDay,
+      min_delay_seconds: minD,
+      max_delay_seconds: maxD,
+      between_contacts_min_seconds: bcMin,
+      between_contacts_max_seconds: bcMax,
+      pause_every_min: peMin,
+      pause_every_max: peMax,
+      pause_duration_min: pdMin,
+      pause_duration_max: pdMax,
+      messages_per_instance: mpi,
+      initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
+      daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
+      max_limit_per_instance: typeof maxLimit === "number" ? maxLimit : 100,
+    };
+
     try {
-      await createMut.mutateAsync({
-        name: name.trim() || "Agendamento Auto Save",
-        device_ids: selectedDevices,
-        weekdays: selectedWeekdays,
-        time_of_day: timeOfDay,
-        min_delay_seconds: minD,
-        max_delay_seconds: maxD,
-        between_contacts_min_seconds: bcMin,
-        between_contacts_max_seconds: bcMax,
-        pause_every_min: peMin,
-        pause_every_max: peMax,
-        pause_duration_min: pdMin,
-        pause_duration_max: pdMax,
-        messages_per_instance: mpi,
-        initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
-        daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
-        max_limit_per_instance: typeof maxLimit === "number" ? maxLimit : 100,
-      });
-      toast.success("Agendamento recorrente criado");
+      if (editingId) {
+        await updateMut.mutateAsync({ id: editingId, ...payload });
+        toast.success("Agendamento atualizado");
+      } else {
+        await createMut.mutateAsync(payload);
+        toast.success("Agendamento recorrente criado");
+      }
       setCreateOpen(false);
+      setEditingId(null);
       resetForm();
     } catch (e: any) {
-      toast.error(e.message || "Erro ao criar");
+      toast.error(e.message || "Erro ao salvar");
     }
   };
 
