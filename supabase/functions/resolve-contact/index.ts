@@ -149,13 +149,28 @@ async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set
       }),
     ),
   );
+  const contactPages = await Promise.all(
+    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000].map((offset) =>
+      fetchUazapiJson(baseUrl, token, "/contacts/list", {
+        method: "POST",
+        body: JSON.stringify({ limit: 1000, offset, contactScope: "all" }),
+      }),
+    ),
+  );
+  const targetedChatPages = targetLids && targetLids.size > 0
+    ? await Promise.all(
+        Array.from(targetLids).slice(0, 250).flatMap((lid) => [
+          fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: lid, wa_chatlid: `${lid}${LID_SUFFIX}`, wa_chatid: `${lid}${LID_SUFFIX}` }) }),
+          fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: `~${lid}`, wa_chatlid: `~${lid}` }) }),
+        ]),
+      )
+    : [];
   const otherPayloads = await Promise.all([
-    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 5000, offset: 0, contactScope: "all" }) }),
     fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
   ]);
-  [...chatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map, targetLids));
+  [...chatPages, ...contactPages, ...targetedChatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map, targetLids));
   return map;
 }
 
