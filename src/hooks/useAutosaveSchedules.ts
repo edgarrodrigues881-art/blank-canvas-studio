@@ -123,6 +123,44 @@ export function useCreateAutosaveSchedule() {
   });
 }
 
+export function useUpdateAutosaveSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...input
+    }: {
+      id: string;
+      name: string;
+      device_ids: string[];
+      weekdays: number[];
+      time_of_day: string;
+      min_delay_seconds: number;
+      max_delay_seconds: number;
+      between_contacts_min_seconds: number;
+      between_contacts_max_seconds: number;
+      pause_every_min: number;
+      pause_every_max: number;
+      pause_duration_min: number;
+      pause_duration_max: number;
+      messages_per_instance: number;
+      initial_limit_per_instance: number;
+      daily_increment: number;
+      max_limit_per_instance: number;
+    }) => {
+      const { data, error } = await supabase
+        .from("autosave_schedules" as any)
+        .update(input)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["autosave_schedules"] }),
+  });
+}
+
 export function useDeleteAutosaveSchedule() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info, Pencil, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 import {
   useAutosaveSchedules,
   useCreateAutosaveSchedule,
+  useUpdateAutosaveSchedule,
   useDeleteAutosaveSchedule,
   useTriggerAutosaveSchedule,
   useAutosaveScheduleLogs,
+  type AutosaveSchedule as AutosaveScheduleType,
 } from "@/hooks/useAutosaveSchedules";
 
 const WEEKDAYS = [
@@ -51,10 +53,12 @@ export default function AutosaveSchedule() {
   const { user } = useAuth();
   const { data: schedules = [], isLoading } = useAutosaveSchedules();
   const createMut = useCreateAutosaveSchedule();
+  const updateMut = useUpdateAutosaveSchedule();
   const deleteMut = useDeleteAutosaveSchedule();
   const triggerMut = useTriggerAutosaveSchedule();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -129,6 +133,28 @@ export default function AutosaveSchedule() {
     setDailyIncrement(5);
     setMaxLimit(100);
     setStep(1);
+  };
+
+  const openForEdit = (s: AutosaveScheduleType) => {
+    setEditingId(s.id);
+    setName(s.name || "");
+    setSelectedDevices(Array.isArray(s.device_ids) ? s.device_ids : []);
+    setSelectedWeekdays(Array.isArray(s.weekdays) ? s.weekdays : []);
+    setTimeOfDay(s.time_of_day || "13:00");
+    setMsgsPerInstance(s.messages_per_instance ?? 1);
+    setMinDelay(s.min_delay_seconds ?? 8);
+    setMaxDelay(s.max_delay_seconds ?? 20);
+    setBetweenContactsMin(s.between_contacts_min_seconds ?? 30);
+    setBetweenContactsMax(s.between_contacts_max_seconds ?? 90);
+    setPauseEveryMin(s.pause_every_min ?? 10);
+    setPauseEveryMax(s.pause_every_max ?? 20);
+    setPauseDurationMin(s.pause_duration_min ?? 60);
+    setPauseDurationMax(s.pause_duration_max ?? 180);
+    setInitialLimit(s.initial_limit_per_instance ?? 20);
+    setDailyIncrement(s.daily_increment ?? 5);
+    setMaxLimit(s.max_limit_per_instance ?? 100);
+    setStep(1);
+    setCreateOpen(true);
   };
 
   const toggleWeekday = (day: number) => {
@@ -247,30 +273,38 @@ export default function AutosaveSchedule() {
     const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
+    const payload = {
+      name: name.trim() || "Agendamento Auto Save",
+      device_ids: selectedDevices,
+      weekdays: selectedWeekdays,
+      time_of_day: timeOfDay,
+      min_delay_seconds: minD,
+      max_delay_seconds: maxD,
+      between_contacts_min_seconds: bcMin,
+      between_contacts_max_seconds: bcMax,
+      pause_every_min: peMin,
+      pause_every_max: peMax,
+      pause_duration_min: pdMin,
+      pause_duration_max: pdMax,
+      messages_per_instance: mpi,
+      initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
+      daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
+      max_limit_per_instance: typeof maxLimit === "number" ? maxLimit : 100,
+    };
+
     try {
-      await createMut.mutateAsync({
-        name: name.trim() || "Agendamento Auto Save",
-        device_ids: selectedDevices,
-        weekdays: selectedWeekdays,
-        time_of_day: timeOfDay,
-        min_delay_seconds: minD,
-        max_delay_seconds: maxD,
-        between_contacts_min_seconds: bcMin,
-        between_contacts_max_seconds: bcMax,
-        pause_every_min: peMin,
-        pause_every_max: peMax,
-        pause_duration_min: pdMin,
-        pause_duration_max: pdMax,
-        messages_per_instance: mpi,
-        initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
-        daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
-        max_limit_per_instance: typeof maxLimit === "number" ? maxLimit : 100,
-      });
-      toast.success("Agendamento recorrente criado");
+      if (editingId) {
+        await updateMut.mutateAsync({ id: editingId, ...payload });
+        toast.success("Agendamento atualizado");
+      } else {
+        await createMut.mutateAsync(payload);
+        toast.success("Agendamento recorrente criado");
+      }
       setCreateOpen(false);
+      setEditingId(null);
       resetForm();
     } catch (e: any) {
-      toast.error(e.message || "Erro ao criar");
+      toast.error(e.message || "Erro ao salvar");
     }
   };
 
@@ -341,7 +375,7 @@ export default function AutosaveSchedule() {
               <Pause className="w-4 h-4" /> Pausar todos
             </Button>
           )}
-          <Button onClick={() => { resetForm(); setCreateOpen(true); }} className="gap-2">
+          <Button onClick={() => { setEditingId(null); resetForm(); setCreateOpen(true); }} className="gap-2">
             <Plus className="w-4 h-4" /> Novo Agendamento
           </Button>
         </div>
@@ -505,6 +539,20 @@ export default function AutosaveSchedule() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Button size="sm" variant="ghost" onClick={() => setDetailId(s.id)}>Logs</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title="Editar agendamento"
+                      onClick={() => {
+                        if (s.status === "running") {
+                          toast.error("Pause o agendamento antes de editar");
+                          return;
+                        }
+                        openForEdit(s);
+                      }}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
                     {(s.status === "scheduled" || s.status === "paused" || s.status === "completed") && (
                       <Button size="sm" variant="ghost" onClick={() => triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })}>
                         <Play className="w-4 h-4" />
@@ -534,11 +582,11 @@ export default function AutosaveSchedule() {
       </Card>
 
       {/* Create Wizard */}
-      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); } }}>
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); setEditingId(null); } }}>
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" /> Novo Agendamento Auto Save
+              <CalendarIcon className="w-5 h-5 text-primary" /> {editingId ? "Editar Agendamento Auto Save" : "Novo Agendamento Auto Save"}
             </DialogTitle>
           </DialogHeader>
 
@@ -943,11 +991,13 @@ export default function AutosaveSchedule() {
             ) : (
               <Button
                 onClick={handleCreate}
-                disabled={createMut.isPending}
+                disabled={createMut.isPending || updateMut.isPending}
                 className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
               >
-                <Rocket className="w-4 h-4" />
-                {createMut.isPending ? "Criando..." : "Criar Agendamento"}
+                {editingId ? <Save className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
+                {editingId
+                  ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
+                  : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
               </Button>
             )}
           </div>
