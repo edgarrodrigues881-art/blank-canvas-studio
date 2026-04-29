@@ -865,6 +865,8 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SchedulePreviewDialog schedule={previewing} onClose={() => setPreviewing(null)} />
     </div>
   );
 }
