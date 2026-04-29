@@ -705,7 +705,8 @@ const Plans = () => {
             ? { boxShadow: "0 0 0 1px rgba(234,179,8,0.35), 0 20px 60px -20px rgba(234,179,8,0.35)" }
             : undefined
         }
-        className={`relative rounded-2xl flex flex-col h-full p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 backdrop-blur-sm ${
+        tabIndex={-1}
+        className={`relative rounded-2xl flex flex-col h-full p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 backdrop-blur-sm outline-none focus:outline-none focus-visible:outline-none [-webkit-tap-highlight-color:transparent] ${
           isPopular
             ? "bg-gradient-to-b from-yellow-500/[0.10] via-white/[0.04] to-white/[0.02] border border-yellow-500/50 lg:scale-[1.04]"
             : "bg-white/[0.03] border border-white/10 hover:border-[#25D366]/50 hover:bg-white/[0.05] hover:shadow-[0_0_30px_-8px_rgba(37,211,102,0.35)]"
