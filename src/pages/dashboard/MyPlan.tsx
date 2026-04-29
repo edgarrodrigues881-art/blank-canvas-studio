@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2 } from "lucide-react";
+import { Check, ArrowRight, Sparkles, BarChart3, Lock, Activity, TrendingUp, Smartphone, CheckCircle2, Loader2, MessageSquareText, BellRing, LineChart, Clock } from "lucide-react";
 import CreditPackCards from "@/components/credits/CreditPackCards";
 import { startCheckout } from "@/lib/stripe";
 import { toast } from "sonner";
