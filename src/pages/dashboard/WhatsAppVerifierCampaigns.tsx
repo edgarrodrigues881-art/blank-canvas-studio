@@ -389,18 +389,46 @@ export default function WhatsAppVerifierCampaigns() {
     onError: (error: any) => toast.error(error?.message || "Erro ao excluir"),
   });
 
-  const handleFileImportPlain = useCallback(() => {
+  // Importação unificada: detecta automaticamente se é txt/csv simples (só números)
+  // ou planilha com variáveis (xlsx/csv com 2+ colunas relevantes).
+  const handleSmartImport = useCallback(() => {
     const input = document.createElement("input");
-    input.type = "file"; input.accept = ".txt,.csv";
+    input.type = "file";
+    input.accept = ".txt,.csv,.xlsx,.xls";
     input.onchange = async (event: any) => {
       const file = event.target?.files?.[0];
       if (!file) return;
-      const text = await file.text();
-      setRawInput((prev) => (prev ? `${prev}\n${text}` : text));
-      toast.success(`Arquivo "${file.name}" importado`);
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+
+      // Planilhas Excel sempre passam pelo fluxo de mapeamento
+      if (ext === "xlsx" || ext === "xls") {
+        await handleSpreadsheetImport(file);
+        return;
+      }
+
+      // Para .txt/.csv: tenta detectar se há mais de uma coluna útil
+      try {
+        const text = await file.text();
+        const firstLines = text.split(/\r?\n/).slice(0, 5).filter(l => l.trim());
+        const looksTabular = firstLines.length > 0 && firstLines.every(l => /[,;\t]/.test(l));
+        const colCount = looksTabular
+          ? Math.max(...firstLines.map(l => l.split(/[,;\t]/).length))
+          : 1;
+
+        if (looksTabular && colCount >= 2) {
+          // CSV com variáveis → fluxo de mapeamento
+          await handleSpreadsheetImport(file);
+        } else {
+          // Apenas números → import direto
+          setRawInput((prev) => (prev ? `${prev}\n${text}` : text));
+          toast.success(`"${file.name}" importado`);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao ler arquivo: " + (err?.message || ""));
+      }
     };
     input.click();
-  }, []);
+  }, [handleSpreadsheetImport]);
 
   const triggerDownload = useCallback((blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
