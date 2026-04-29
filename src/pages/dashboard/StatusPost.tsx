@@ -39,6 +39,7 @@ type Schedule = {
   last_run_at: string | null;
   run_count: number;
   folder_id: string | null;
+  created_at?: string;
 };
 type Folder = { id: string; name: string; color: string; position: number };
 
