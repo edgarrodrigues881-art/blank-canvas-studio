@@ -65,7 +65,7 @@ export default function LidConverter() {
         ["Ready", "Connected", "connected", "authenticated", "open", "active", "online"].includes(String(d.status || ""))
       );
       setDevices(list as any);
-      if (list.length === 1) setDeviceIds([list[0].id]);
+      setDeviceIds((prev) => (prev.length > 0 ? prev : list.map((d: any) => d.id)));
     })();
   }, []);
 

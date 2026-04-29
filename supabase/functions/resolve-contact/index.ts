@@ -72,36 +72,49 @@ function normalizePhoneJid(jid: string): string | null {
   return number ? numberToJid(number) : null;
 }
 
-function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
+function collectLidPhoneMappings(value: any, map: LidPhoneMap, targetLids?: Set<string>) {
   if (!value) return;
   if (Array.isArray(value)) {
-    value.forEach((item) => collectLidPhoneMappings(item, map));
+    value.forEach((item) => collectLidPhoneMappings(item, map, targetLids));
     return;
   }
   if (typeof value !== "object") return;
 
   const lids = new Set<string>();
   const phones = new Set<string>();
-  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "user", "participant"]);
+  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "phone_number", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "contactjid", "user", "participant"]);
+  const lidKeys = new Set(["wa_chatlid", "chatlid", "lid", "lidjid", "remotelid", "participantlid"]);
 
   for (const [key, raw] of Object.entries(value)) {
     if (typeof raw !== "string") continue;
     const k = key.toLowerCase();
-    const digits = onlyDigits(raw);
-    if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
     const compactKey = k.replace(/[^a-z0-9]/g, "");
+    const digits = onlyDigits(raw);
+
+    if (raw.includes(LID_SUFFIX) || lidKeys.has(k) || compactKey.includes("chatlid") || compactKey.includes("lidjid") || compactKey.includes("remotelid")) {
+      if (digits.length >= 8) lids.add(digits);
+    }
+
+    // Em muitos retornos da UAZAPI, o LID vem em `wa_fastid` sem o sufixo @lid.
+    // Só tratamos como LID quando ele bate com a lista atual ou quando tem tamanho típico de LID.
+    if ((k === "wa_fastid" || compactKey === "wafastid") && digits.length >= 8 && (targetLids?.has(digits) || digits.length >= 14)) {
+      lids.add(digits);
+    }
+
     if (!raw.includes(LID_SUFFIX) && (isPhoneJid(raw) || phoneKeys.has(k) || compactKey.includes("phone") || compactKey.includes("number") || compactKey.includes("chatid") || compactKey.includes("waid"))) {
-      if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
+      const phoneDigits = isPhoneJid(raw) ? jidToNumber(raw) : digits;
+      if (phoneDigits && phoneDigits.length >= 8 && phoneDigits.length <= 15) phones.add(phoneDigits);
     }
   }
 
   for (const lid of lids) {
+    if (targetLids && targetLids.size > 0 && !targetLids.has(lid)) continue;
     for (const phone of phones) {
       if (lid && phone && lid !== phone) map.set(lid, phone);
     }
   }
 
-  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map));
+  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map, targetLids));
 }
 
 async function fetchUazapiJson(baseUrl: string, token: string, path: string, init?: RequestInit): Promise<any | null> {
@@ -123,26 +136,55 @@ async function fetchUazapiJson(baseUrl: string, token: string, path: string, ini
   }
 }
 
-async function buildLidPhoneMap(baseUrl: string, token: string): Promise<LidPhoneMap> {
+async function runLimited<T>(tasks: Array<() => Promise<T>>, limit = 8): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < tasks.length) {
+      const idx = cursor++;
+      results[idx] = await tasks[idx]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
+async function buildLidPhoneMap(baseUrl: string, token: string, targetLids?: Set<string>): Promise<LidPhoneMap> {
   const map: LidPhoneMap = new Map();
   // Faz paginação ampla em /chat/find (até 5000 chats) + lista contatos + grupos com participantes.
   // Quanto mais chats varrermos, maior a chance de encontrar o pareamento LID→telefone que o
   // Whatsapp já entregou para a instância em algum momento.
   const chatPages = await Promise.all(
-    [0, 1000, 2000, 3000, 4000].map((offset) =>
+    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000].map((offset) =>
       fetchUazapiJson(baseUrl, token, "/chat/find", {
         method: "POST",
         body: JSON.stringify({ operator: "AND", limit: 1000, offset, sort: "-wa_lastMsgTimestamp" }),
       }),
     ),
   );
+  const contactPages = await Promise.all(
+    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000].map((offset) =>
+      fetchUazapiJson(baseUrl, token, "/contacts/list", {
+        method: "POST",
+        body: JSON.stringify({ limit: 1000, offset, contactScope: "all" }),
+      }),
+    ),
+  );
+  const targetedChatPages = targetLids && targetLids.size > 0
+    ? await runLimited(
+        Array.from(targetLids).slice(0, 250).flatMap((lid) => [
+          () => fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: lid, wa_chatlid: `${lid}${LID_SUFFIX}`, wa_chatid: `${lid}${LID_SUFFIX}` }) }),
+          () => fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ operator: "OR", limit: 10, wa_fastid: `~${lid}`, wa_chatlid: `~${lid}` }) }),
+        ]),
+        8,
+      )
+    : [];
   const otherPayloads = await Promise.all([
-    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 5000, offset: 0, contactScope: "all" }) }),
     fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
     fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
   ]);
-  [...chatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map));
+  [...chatPages, ...contactPages, ...targetedChatPages, ...otherPayloads].forEach((payload) => collectLidPhoneMappings(payload, map, targetLids));
   return map;
 }
 
@@ -235,7 +277,8 @@ async function resolveLidViaUazapi(
       { path: "/chat/details", body: { number: lidDigits, preview: true } },
       { path: "/chat/check", body: { numbers: [normalizedLid] } },
       { path: "/chat/check", body: { numbers: [lidDigits] } },
-      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: lidDigits, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: lidDigits, wa_chatlid: normalizedLid, wa_chatid: normalizedLid } },
+      { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: `~${lidDigits}`, wa_chatlid: `~${lidDigits}` } },
       { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: normalizedLid } },
       { path: "/chat/info", body: { chatId: normalizedLid } },
       { path: "/chat/info", body: { number: normalizedLid } },
@@ -484,7 +527,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token) : undefined;
+    const targetLids = new Set(
+      inputs
+        .filter(looksLikeLidNumber)
+        .map((input) => onlyDigits(input))
+        .filter((digits) => digits.length >= 8),
+    );
+    const lidPhoneMap = needsUazapi && baseUrl && token ? await buildLidPhoneMap(baseUrl, token, targetLids) : undefined;
 
     // Processa em paralelo (limitado)
     const concurrency = 5;
