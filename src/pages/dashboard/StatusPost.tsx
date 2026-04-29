@@ -806,9 +806,16 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
                 <p className="text-xs text-muted-foreground mt-1 truncate">
                   {s.text_content || s.caption || "—"}
                 </p>
-                <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
-                  <span><Calendar className="w-3 h-3 inline mr-1" />{s.weekdays.map((w) => WEEKDAY_LABELS[w]).join(", ")}</span>
-                  <span><Clock className="w-3 h-3 inline mr-1" />{s.times.join(", ")}</span>
+                <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                  {(s.schedule_mode || "recurring") === "oneshot" && s.run_date ? (
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      Única: {s.run_date.split("-").reverse().join("/")}
+                    </span>
+                  ) : (
+                    <span><Calendar className="w-3 h-3 inline mr-1" />{(s.weekdays || []).map((w) => WEEKDAY_LABELS[w]).join(", ") || "—"}</span>
+                  )}
+                  <span><Clock className="w-3 h-3 inline mr-1" />{(s.times || []).join(", ")}</span>
                   <span>Execuções: {s.run_count}</span>
                 </div>
               </div>
