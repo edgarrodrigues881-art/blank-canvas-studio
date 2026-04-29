@@ -416,6 +416,43 @@ function ScheduleDialog({
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Reset to step 1 when dialog opens
+  useEffect(() => { if (open) setStep(1); }, [open, editing?.id]);
+
+  const STEPS = [
+    { n: 1, label: "Identificação", icon: FolderIcon },
+    { n: 2, label: "Conteúdo", icon: Type },
+    { n: 3, label: "Quando", icon: Calendar },
+    { n: 4, label: "Instâncias", icon: Send },
+  ] as const;
+
+  const validateStep = (s: number): string | null => {
+    if (s >= 1) {
+      if (!name.trim()) return "Dê um nome ao agendamento";
+    }
+    if (s >= 2) {
+      if (type === "text" && !text.trim()) return "Digite o texto do status";
+      if (type !== "text" && !file && !existingMediaUrl) return "Selecione um arquivo";
+    }
+    if (s >= 3) {
+      if (!/^\d{2}:\d{2}$/.test(time)) return "Horário inválido";
+      if (scheduleMode === "recurring" && weekdays.length === 0) return "Escolha ao menos um dia da semana";
+      if (scheduleMode === "oneshot" && !runDate) return "Escolha a data do disparo";
+    }
+    if (s >= 4) {
+      if (deviceMode === "fixed" && selectedDevices.length === 0) return "Selecione as instâncias";
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const err = validateStep(step);
+    if (err) return toast.error(err);
+    if (step < 4) setStep((step + 1) as 1 | 2 | 3 | 4);
+  };
+  const goBack = () => { if (step > 1) setStep((step - 1) as 1 | 2 | 3 | 4); };
 
   useEffect(() => {
     if (editing) {
