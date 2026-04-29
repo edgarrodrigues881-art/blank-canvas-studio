@@ -201,11 +201,11 @@ export default function Affiliates() {
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Em garantia</span>
+              <span className="text-xs text-muted-foreground">Saldo pendente</span>
               <ShieldCheck className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalInGuarantee)}</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Libera em 7 dias</p>
+            <div className="text-xl sm:text-2xl font-bold text-amber-400">{formatBRL(totalInGuarantee)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Cai em até 7 dias</p>
           </CardContent>
         </Card>
 
