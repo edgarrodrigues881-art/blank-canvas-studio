@@ -60,68 +60,93 @@ function numberToJid(num: string): string | null {
 }
 
 /**
- * Resolve LID via Uazapi POST /chat/info
- * Tries multiple response shapes for compatibility.
+ * Resolve LID via Uazapi using official/current endpoints first, then legacy fallbacks.
+ * Some UAZAPI installations do not expose POST /chat/info for LID lookup; /chat/find
+ * can resolve known chats by wa_chatlid and returns phone/wa_chatid when available.
  */
 async function resolveLidViaUazapi(
   baseUrl: string,
   token: string,
   lid: string,
 ): Promise<{ jid: string | null; raw?: any; error?: string }> {
-  try {
-    const url = `${baseUrl.replace(/\/+$/, "")}/chat/info`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ chatId: lid }),
-    });
+  const base = baseUrl.replace(/\/+$/, "");
+  const normalizedLid = lid.includes("@") ? lid : `${onlyDigits(lid)}${LID_SUFFIX}`;
+  const lidDigits = onlyDigits(normalizedLid);
 
-    const text = await res.text();
-    let payload: any = null;
+  const request = async (path: string, body: Record<string, unknown>) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
     try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = text;
+      const res = await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { token, "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const text = await res.text();
+      let payload: any = null;
+      try { payload = JSON.parse(text); } catch { payload = text; }
+      return { ok: res.ok, status: res.status, payload };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
+  const collectJids = (value: any, out: string[] = []): string[] => {
+    if (typeof value === "string") {
+      if (value.includes(PRIVATE_JID_SUFFIX)) out.push(value);
+      return out;
+    }
+    if (Array.isArray(value)) value.forEach((item) => collectJids(item, out));
+    else if (value && typeof value === "object") Object.values(value).forEach((item) => collectJids(item, out));
+    return out;
+  };
+
+  const collectPhoneFieldJids = (value: any, out: string[] = []): string[] => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => collectPhoneFieldJids(item, out));
+      return out;
+    }
+    if (!value || typeof value !== "object") return out;
+    for (const [key, raw] of Object.entries(value)) {
+      const k = key.toLowerCase();
+      if (["phone", "number", "telefone", "wa_chatid", "jid", "remotejid", "phonejid"].includes(k) && typeof raw === "string") {
+        if (raw.includes(PRIVATE_JID_SUFFIX)) out.push(raw);
+        else {
+          const digits = onlyDigits(raw);
+          if (digits && digits !== lidDigits) {
+            const jid = numberToJid(digits);
+            if (jid) out.push(jid);
+          }
+        }
+      }
+      collectPhoneFieldJids(raw, out);
+    }
+    return out;
+  };
+
+  try {
+    const attempts = [
+      { path: "/chat/find", body: { operator: "OR", limit: 5, wa_chatlid: normalizedLid, wa_chatid: normalizedLid, wa_fastid: lidDigits } },
+      { path: "/chat/check", body: { numbers: [normalizedLid] } },
+      { path: "/chat/info", body: { chatId: normalizedLid } },
+      { path: "/chat/info", body: { number: normalizedLid } },
+    ];
+
+    const diagnostics: string[] = [];
+    for (const attempt of attempts) {
+      const { ok, status, payload } = await request(attempt.path, attempt.body);
+      if (!ok) {
+        diagnostics.push(`${attempt.path}: HTTP ${status}`);
+        continue;
+      }
+      const found = [...collectJids(payload), ...collectPhoneFieldJids(payload)]
+        .find((candidate) => candidate.includes(PRIVATE_JID_SUFFIX) && onlyDigits(candidate) !== lidDigits);
+      if (found) return { jid: found, raw: payload };
+      diagnostics.push(`${attempt.path}: telefone não retornado`);
     }
 
-    if (!res.ok) {
-      return { jid: null, raw: payload, error: `HTTP ${res.status}` };
-    }
-
-    // Try common Uazapi response shapes
-    const candidates = [
-      payload?.jid,
-      payload?.id,
-      payload?.chat?.jid,
-      payload?.chat?.id,
-      payload?.data?.jid,
-      payload?.data?.id,
-      payload?.contact?.jid,
-      payload?.user?.jid,
-      payload?.wid,
-      payload?.phoneJid,
-    ].filter(Boolean) as string[];
-
-    const found = candidates.find((c) => typeof c === "string" && c.includes(PRIVATE_JID_SUFFIX));
-    if (found) return { jid: found, raw: payload };
-
-    // Sometimes they return only the digits / number
-    const numCandidates = [
-      payload?.number,
-      payload?.phone,
-      payload?.contact?.number,
-      payload?.user?.number,
-    ].filter(Boolean) as string[];
-    const num = numCandidates.find((n) => typeof n === "string" && /\d/.test(n));
-    if (num) {
-      const jid = numberToJid(num);
-      if (jid) return { jid, raw: payload };
-    }
-
-    return { jid: null, raw: payload, error: "JID not found in response" };
+    return { jid: null, error: diagnostics.join("; ") || "JID not found in response" };
   } catch (e) {
     return { jid: null, error: e instanceof Error ? e.message : String(e) };
   }
