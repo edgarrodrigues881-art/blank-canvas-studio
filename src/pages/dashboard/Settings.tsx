@@ -7,10 +7,12 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Shield, Crown, Building2, Phone, Mail, Lock, Eye, EyeOff, Smartphone, Pencil, Check, X, Camera, DollarSign, CalendarClock, Sun, Moon, Monitor } from "lucide-react";
+import { User, Shield, Crown, Building2, Phone, Mail, Lock, Eye, EyeOff, Smartphone, Pencil, Check, X, Camera, CalendarClock, Sun, Moon, Monitor, Sparkles, ArrowRight, Palette } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -230,99 +232,238 @@ const Settings = () => {
     );
   };
 
+  const WA_GREEN = "#25D366";
+  const WA_GREEN_DARK = "#07C160";
+
+  const usagePercent = planInfo?.max_instances
+    ? Math.min(100, Math.round((deviceCount / planInfo.max_instances) * 100))
+    : 0;
+  const usageColor =
+    usagePercent >= 90 ? "#EF4444" : usagePercent >= 70 ? "#F59E0B" : WA_GREEN;
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Gerencie seu perfil e segurança</p>
+    <div className="space-y-8 max-w-6xl pb-12">
+      {/* ════════════ HEADER ════════════ */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card via-card to-muted/30 p-6 sm:p-8">
+        <div
+          className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-60"
+          style={{ background: "radial-gradient(circle, rgba(37,211,102,0.15) 0%, transparent 70%)" }}
+        />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.14em] mb-3 border border-primary/20 bg-primary/5 text-primary">
+              <Sparkles className="w-3 h-3" />
+              Sua conta
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Configurações</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gerencie seu perfil, aparência e segurança em um só lugar.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative group shrink-0">
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-primary/30 shadow-lg" />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center border-2 border-primary/30 shadow-lg">
+                  <span className="text-lg font-bold text-primary">{initials}</span>
+                </div>
+              )}
+            </div>
+            <div className="hidden sm:block">
+              <p className="text-sm font-semibold text-foreground leading-tight">{profile.name || "Sem nome"}</p>
+              <p className="text-[11px] text-muted-foreground">{user?.email}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Main column */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Personal Info */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
+      {/* ════════════ PLAN HERO CARD ════════════ */}
+      <div
+        className="relative overflow-hidden rounded-2xl border p-6 sm:p-7"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(37,211,102,0.08) 0%, hsl(var(--card)) 60%, rgba(234,179,8,0.06) 100%)",
+          borderColor: "rgba(37,211,102,0.25)",
+          boxShadow: "0 20px 60px -25px rgba(37,211,102,0.35)",
+        }}
+      >
+        <div
+          className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full blur-3xl pointer-events-none"
+          style={{ background: "radial-gradient(circle, rgba(234,179,8,0.10) 0%, transparent 70%)" }}
+        />
+
+        <div className="relative grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] gap-6 items-center">
+          {/* Icon + título do plano */}
+          <div className="flex items-center gap-4">
+            <div
+              className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+              }}
+            >
+              <Crown className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-1">
+                Plano atual
+              </p>
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-2xl font-bold text-foreground tracking-tight">
+                  {planInfo?.plan_name || "Sem plano"}
+                </h2>
+                {planInfo && (
+                  <span className="text-sm font-semibold text-foreground/60">
+                    R$ {Number(planInfo.plan_price).toFixed(2).replace(".", ",")}
+                  </span>
+                )}
+              </div>
+              {daysRemaining !== null && (
+                <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <CalendarClock className="w-3 h-3" />
+                  Renovação em {daysRemaining} {daysRemaining === 1 ? "dia" : "dias"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Barra de uso de instâncias */}
+          <div className="lg:px-6 lg:border-l lg:border-r border-border/40">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5" />
+                Uso de instâncias
+              </span>
+              <span className="text-sm font-bold text-foreground">
+                {deviceCount}<span className="text-foreground/40 font-medium"> / {planInfo?.max_instances ?? "—"}</span>
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted/60 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${usagePercent}%`, background: usageColor, boxShadow: `0 0 12px ${usageColor}80` }}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {usagePercent}% do limite utilizado
+            </p>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={() => navigate("/dashboard/my-plan")}
+            className="h-11 px-5 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-[0.98] hover:brightness-110 whitespace-nowrap"
+            style={{
+              background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+              color: "#ffffff",
+              boxShadow: "0 8px 20px -6px rgba(7,193,96,0.5)",
+            }}
+          >
+            Ver planos
+            <ArrowRight className="w-4 h-4 shrink-0" />
+          </button>
+        </div>
+      </div>
+
+      {/* ════════════ MAIN GRID — Pessoais (esquerda) | Aparência + Segurança (direita) ════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Personal Info */}
+        <Card className="border-border/50 bg-card/80">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
                 <User className="w-4 h-4 text-primary" />
-                Informações Pessoais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Avatar */}
-              <div className="flex items-center gap-4">
-                <div className="relative group">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-border/50" />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center border-2 border-border/50">
-                      <span className="text-lg font-semibold text-primary">{initials}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingAvatar}
-                    className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  >
-                    <Camera className="w-5 h-5 text-white" />
-                  </button>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{profile.name || "Sem nome"}</p>
-                  <p className="text-xs text-muted-foreground">{uploadingAvatar ? "Enviando..." : "Clique na foto para alterar"}</p>
-                </div>
               </div>
-
-              <Separator className="bg-border/30" />
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <Mail className="w-3 h-3" />
-                  Email
-                </Label>
-                <div className="h-10 flex items-center px-3 rounded-lg bg-muted/30 text-muted-foreground text-sm cursor-not-allowed">
-                  {user?.email || ""}
-                </div>
+              Informações Pessoais
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="relative group">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-border/50" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center border-2 border-border/50">
+                    <span className="text-lg font-semibold text-primary">{initials}</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Camera className="w-5 h-5 text-white" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderEditableField("name", "Nome Completo", <User className="w-3 h-3" />, "Seu nome", 100)}
-                {renderEditableField("company", "Empresa", <Building2 className="w-3 h-3" />, "Nome da empresa", 100)}
+              <div>
+                <p className="text-sm font-medium text-foreground">{profile.name || "Sem nome"}</p>
+                <p className="text-xs text-muted-foreground">{uploadingAvatar ? "Enviando..." : "Clique na foto para alterar"}</p>
               </div>
+            </div>
 
-              {renderEditableField("phone", "Telefone", <Phone className="w-3 h-3" />, "+55 11 99999-9999", 20)}
-            </CardContent>
-          </Card>
+            <Separator className="bg-border/30" />
 
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Mail className="w-3 h-3" />
+                Email
+              </Label>
+              <div className="h-10 flex items-center px-3 rounded-lg bg-muted/30 text-muted-foreground text-sm cursor-not-allowed">
+                {user?.email || ""}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {renderEditableField("name", "Nome Completo", <User className="w-3 h-3" />, "Seu nome", 100)}
+              {renderEditableField("company", "Empresa", <Building2 className="w-3 h-3" />, "Nome da empresa", 100)}
+            </div>
+
+            {renderEditableField("phone", "Telefone", <Phone className="w-3 h-3" />, "+55 11 99999-9999", 20)}
+          </CardContent>
+        </Card>
+
+        {/* Coluna direita: Aparência + Segurança empilhados */}
+        <div className="space-y-5">
           {/* Appearance */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <Sun className="w-4 h-4 text-primary" />
+          <Card className="border-border/50 bg-card/80">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Palette className="w-4 h-4 text-primary" />
+                </div>
                 Aparência
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-1 p-1 rounded-xl bg-muted/50 border border-border/30">
+              <div className="grid grid-cols-3 gap-2">
                 {([
-                  { value: "light", label: "Claro", icon: Sun },
-                  { value: "dark", label: "Escuro", icon: Moon },
-                  { value: "system", label: "Sistema", icon: Monitor },
+                  { value: "light", label: "Claro", icon: Sun, desc: "Tema claro" },
+                  { value: "dark", label: "Escuro", icon: Moon, desc: "Tema escuro" },
+                  { value: "system", label: "Sistema", icon: Monitor, desc: "Automático" },
                 ] as const).map(({ value, label, icon: Icon }) => {
                   const isActive = theme === value;
                   return (
                     <button
                       key={value}
                       onClick={() => setTheme(value)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
+                      className={`group relative flex flex-col items-center justify-center gap-2 px-3 py-4 rounded-xl border transition-all duration-150 ${
                         isActive
-                          ? "bg-background text-foreground shadow-sm border border-border/40"
-                          : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                          ? "border-primary/50 bg-primary/5 shadow-[0_0_20px_-8px_hsl(var(--primary))]"
+                          : "border-border/50 bg-muted/20 hover:border-border hover:bg-muted/40"
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" strokeWidth={isActive ? 2 : 1.5} />
-                      {label}
+                      <Icon
+                        className={`w-5 h-5 transition-colors ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+                        strokeWidth={isActive ? 2.2 : 1.6}
+                      />
+                      <span className={`text-xs font-medium ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                        {label}
+                      </span>
+                      {isActive && (
+                        <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
                     </button>
                   );
                 })}
@@ -331,10 +472,12 @@ const Settings = () => {
           </Card>
 
           {/* Security */}
-          <Card className="border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <Shield className="w-4 h-4 text-primary" />
+          <Card className="border-border/50 bg-card/80">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-primary" />
+                </div>
                 Segurança da Conta
               </CardTitle>
             </CardHeader>
@@ -354,7 +497,7 @@ const Settings = () => {
 
               <Separator className="bg-border/30" />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Nova Senha</Label>
                   <div className="relative">
@@ -375,60 +518,18 @@ const Settings = () => {
                 </div>
               </div>
 
-              <Button variant="outline" onClick={handleChangePassword} disabled={changingPassword || !newPassword || !confirmPassword} className="border-border/60">
+              <Button
+                onClick={handleChangePassword}
+                disabled={changingPassword || !newPassword || !confirmPassword}
+                className="w-full h-10"
+                style={{
+                  background: `linear-gradient(135deg, ${WA_GREEN} 0%, ${WA_GREEN_DARK} 100%)`,
+                  color: "#ffffff",
+                  border: 0,
+                }}
+              >
                 {changingPassword ? "Atualizando..." : "Atualizar Senha"}
               </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar - Plan Info */}
-        <div>
-          <Card className="border-border/50 sticky top-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-foreground">
-                <Crown className="w-4 h-4 text-primary" />
-                Plano Atual
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Plano</span>
-                  <span className="text-sm font-medium text-foreground">{planInfo?.plan_name || "Sem plano"}</span>
-                </div>
-                <Separator className="bg-border/30" />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" />
-                    Valor
-                  </span>
-                  <span className="text-sm text-foreground">{planInfo ? `R$ ${Number(planInfo.plan_price).toFixed(2)}` : "—"}</span>
-                </div>
-                <Separator className="bg-border/30" />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Instâncias</span>
-                  <span className="text-sm text-foreground">{planInfo?.max_instances ?? "—"}</span>
-                </div>
-                <Separator className="bg-border/30" />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Smartphone className="w-3 h-3" />
-                    Em uso
-                  </span>
-                  <span className="text-sm text-foreground">{deviceCount}</span>
-                </div>
-                <Separator className="bg-border/30" />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <CalendarClock className="w-3 h-3" />
-                    Renovação
-                  </span>
-                  <span className="text-sm text-foreground">
-                    {daysRemaining !== null ? `${daysRemaining} dias` : "—"}
-                  </span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
