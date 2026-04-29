@@ -1048,63 +1048,79 @@ export default function WhatsAppVerifierCampaigns() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {jobs.map((job: any) => {
-            const total = job.total_phones || 0;
-            const verified = (job.success_count || 0) + (job.no_whatsapp_count || 0) + (job.error_count || 0);
-            const pct = total > 0 ? (verified / total) * 100 : 0;
-            const isActive = job.status === "running" || job.status === "pending";
-            const isPaused = job.status === "paused";
-            const listDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
-            const devInfo = getDeviceInfo(job.device_id);
-
+        <div className="space-y-8">
+          {STATUS_GROUP_ORDER.map((group) => {
+            const groupJobs = jobs.filter((j: any) => group.matches.includes(j.status));
+            if (groupJobs.length === 0) return null;
             return (
-              <Card key={job.id} className="border-border/50 bg-card/50 hover:bg-card/80 transition-colors cursor-pointer" onClick={() => { setSelectedJobId(job.id); setView("detail"); }}>
-                <CardContent className="py-4">
-                  <div className="flex items-center justify-between mb-2 gap-3">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="font-semibold text-foreground">{job.name}</h3>
-                      {jobStatusBadge(job.status)}
-                    </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      {isActive && (
-                        <Button variant="ghost" size="sm" className="h-7" onClick={() => pauseJob.mutate(job.id)} title="Pausar">
-                          <Pause className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      {isPaused && (
-                        <Button variant="ghost" size="sm" className="h-7 text-emerald-400" onClick={() => resumeJob.mutate(job.id)} title="Retomar">
-                          <Play className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      {(isActive || isPaused) && (
-                        <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => cancelJob.mutate(job.id)}>
-                          <StopCircle className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                      {!isActive && !isPaused && (
-                        <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => deleteJob.mutate(job.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+              <section key={group.key} className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <h2 className="text-sm font-semibold text-foreground/90 uppercase tracking-wider">{group.label}</h2>
+                  <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full font-medium">{groupJobs.length}</span>
+                  <div className="flex-1 h-px bg-border/50 ml-2" />
+                </div>
+                <div className="space-y-3">
+                  {groupJobs.map((job: any) => {
+                    const total = job.total_phones || 0;
+                    const verified = (job.success_count || 0) + (job.no_whatsapp_count || 0) + (job.error_count || 0);
+                    const pct = total > 0 ? (verified / total) * 100 : 0;
+                    const isActive = job.status === "running" || job.status === "pending";
+                    const isPaused = job.status === "paused";
+                    const listDeviceIds: string[] = Array.isArray(job.device_ids) && job.device_ids.length > 0 ? job.device_ids : job.device_id ? [job.device_id] : [];
+                    const devInfo = getDeviceInfo(job.device_id);
 
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Smartphone className="w-3 h-3" />
-                      {listDeviceIds.length > 1 ? `${listDeviceIds.length} chips` : devInfo ? devInfo.name : "—"}
-                    </span>
-                    <span>{total} números</span>
-                    <span className="text-emerald-400">✓ {job.success_count || 0}</span>
-                    <span className="text-red-400">✗ {job.no_whatsapp_count || 0}</span>
-                    <span className="text-amber-400">⚠ {job.error_count || 0}</span>
-                    <span className="ml-auto">{new Date(job.created_at).toLocaleDateString("pt-BR")}</span>
-                  </div>
+                    return (
+                      <Card key={job.id} className="border-border/50 bg-card/50 hover:bg-card/80 hover:border-border transition-all cursor-pointer" onClick={() => { setSelectedJobId(job.id); setView("detail"); }}>
+                        <CardContent className="py-4">
+                          <div className="flex items-center justify-between mb-2 gap-3">
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                              <h3 className="font-semibold text-foreground truncate">{job.name}</h3>
+                              {jobTypeBadge(job.name)}
+                              {jobStatusBadge(job.status)}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              {isActive && (
+                                <Button variant="ghost" size="sm" className="h-7" onClick={() => pauseJob.mutate(job.id)} title="Pausar">
+                                  <Pause className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                              {isPaused && (
+                                <Button variant="ghost" size="sm" className="h-7 text-emerald-400" onClick={() => resumeJob.mutate(job.id)} title="Retomar">
+                                  <Play className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                              {(isActive || isPaused) && (
+                                <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => cancelJob.mutate(job.id)} title="Cancelar">
+                                  <StopCircle className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                              {!isActive && !isPaused && (
+                                <Button variant="ghost" size="sm" className="h-7 text-destructive" onClick={() => deleteJob.mutate(job.id)} title="Excluir">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
 
-                  {(isActive || isPaused) && <Progress value={pct} className="h-1.5" />}
-                </CardContent>
-              </Card>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Smartphone className="w-3 h-3" />
+                              {listDeviceIds.length > 1 ? `${listDeviceIds.length} chips` : devInfo ? devInfo.name : "—"}
+                            </span>
+                            <span>{total} números</span>
+                            <span className="text-emerald-400">✓ {job.success_count || 0}</span>
+                            <span className="text-red-400">✗ {job.no_whatsapp_count || 0}</span>
+                            <span className="text-amber-400">⚠ {job.error_count || 0}</span>
+                            <span className="ml-auto">{new Date(job.created_at).toLocaleDateString("pt-BR")}</span>
+                          </div>
+
+                          {(isActive || isPaused) && <Progress value={pct} className="h-1.5" />}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
             );
           })}
         </div>
