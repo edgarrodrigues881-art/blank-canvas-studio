@@ -534,7 +534,7 @@ const StepBlock = ({ step, index }: { step: typeof HOWTO_STEPS[number]; index: n
           <BrowserMockup
             src={step.img}
             alt={`${step.title} — passo ${step.n}`}
-            eager={index < 2}
+            eager={true}
             imgY={smoothImgY}
             imgScale={imgScale}
           />
