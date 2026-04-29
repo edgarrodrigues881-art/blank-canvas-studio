@@ -607,18 +607,79 @@ function ScheduleDialog({
 
           <div>
             <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horários (BRT)</Label>
-            <div className="flex gap-2 mt-2">
-              <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-40" />
-              <Button type="button" variant="outline" onClick={addTime}><Plus className="w-4 h-4 mr-1" />Adicionar</Button>
-            </div>
+            <p className="text-xs text-muted-foreground mt-1">Toque nos horários abaixo para escolher quando publicar. Os selecionados ficam em verde.</p>
+
+            {/* Quick presets */}
             <div className="flex gap-2 flex-wrap mt-3">
-              {times.map((t) => (
-                <Badge key={t} variant="secondary" className="gap-1.5 pl-3 pr-1.5 py-1">
-                  {t}
-                  <button onClick={() => removeTime(t)} className="hover:text-destructive"><X className="w-3 h-3" /></button>
-                </Badge>
+              {[
+                { label: "🌅 Manhã (8h, 10h)", values: ["08:00", "10:00"] },
+                { label: "☀️ Almoço (12h)", values: ["12:00"] },
+                { label: "🌇 Tarde (15h, 17h)", values: ["15:00", "17:00"] },
+                { label: "🌙 Noite (19h, 21h)", values: ["19:00", "21:00"] },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setTimes((prev) => Array.from(new Set([...prev, ...preset.values])).sort())}
+                  className="px-2.5 py-1 text-xs rounded-md border border-border hover:bg-accent transition"
+                >
+                  + {preset.label}
+                </button>
               ))}
-              {times.length === 0 && <p className="text-xs text-muted-foreground">Nenhum horário</p>}
+            </div>
+
+            {/* Hour grid (00–23) */}
+            <div className="mt-3 grid grid-cols-8 gap-1.5">
+              {Array.from({ length: 24 }).map((_, h) => {
+                const hh = String(h).padStart(2, "0") + ":00";
+                const isOn = times.includes(hh);
+                return (
+                  <button
+                    key={hh}
+                    type="button"
+                    onClick={() => setTimes((prev) => isOn ? prev.filter((x) => x !== hh) : [...prev, hh].sort())}
+                    className={`py-2 rounded-md text-sm font-medium border transition ${
+                      isOn
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-background border-border hover:bg-accent"
+                    }`}
+                  >
+                    {hh}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom precise time */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Horário exato:</span>
+              <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="w-32 h-9" />
+              <Button type="button" variant="outline" size="sm" onClick={addTime}>
+                <Plus className="w-3.5 h-3.5 mr-1" />Adicionar
+              </Button>
+            </div>
+
+            {/* Selected times summary */}
+            <div className="mt-3 p-3 rounded-md bg-muted/40 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {times.length === 0 ? "Nenhum horário selecionado" : `${times.length} ${times.length === 1 ? "horário selecionado" : "horários selecionados"}`}
+                </span>
+                {times.length > 0 && (
+                  <button type="button" onClick={() => setTimes([])} className="text-xs text-destructive hover:underline">
+                    Limpar tudo
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {times.map((t) => (
+                  <Badge key={t} variant="secondary" className="gap-1.5 pl-2.5 pr-1.5 py-1 bg-primary/15 text-foreground border border-primary/30">
+                    <Clock className="w-3 h-3" />
+                    {t}
+                    <button onClick={() => removeTime(t)} className="hover:text-destructive ml-0.5"><X className="w-3 h-3" /></button>
+                  </Badge>
+                ))}
+              </div>
             </div>
           </div>
 
