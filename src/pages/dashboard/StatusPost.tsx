@@ -754,23 +754,30 @@ function ScheduleDialog({
 
 // ===== SCHEDULES TAB =====
 // ===== PREVIEW DIALOG (carousel-ready) =====
-function SchedulePreviewDialog({ schedule, onClose }: { schedule: Schedule | null; onClose: () => void }) {
+function SchedulePreviewDialog({ items, title, onClose }: { items: Schedule[] | null; title?: string; onClose: () => void }) {
   const [idx, setIdx] = useState(0);
-  useEffect(() => { setIdx(0); }, [schedule?.id]);
+  const key = items?.map((s) => s.id).join(",") || "";
+  useEffect(() => { setIdx(0); }, [key]);
 
-  if (!schedule) return null;
+  if (!items || items.length === 0) return null;
 
-  // Build slides — currently 1 per schedule; structured as array for future multi-media support
-  const slides: { type: string; mediaUrl?: string | null; caption?: string | null; text?: string | null; bg?: string | null; font?: number | null }[] = [
-    {
-      type: schedule.type,
-      mediaUrl: schedule.media_url,
-      caption: schedule.caption,
-      text: schedule.text_content,
-      bg: schedule.background_color,
-      font: schedule.font,
-    },
-  ];
+  // Sort by time so carousel reflects the campaign order
+  const sorted = [...items].sort((a, b) => (a.times?.[0] || "").localeCompare(b.times?.[0] || ""));
+
+  const slides = sorted.map((s) => ({
+    id: s.id,
+    name: s.name,
+    type: s.type,
+    mediaUrl: s.media_url,
+    caption: s.caption,
+    text: s.text_content,
+    bg: s.background_color,
+    font: s.font,
+    schedule_mode: s.schedule_mode,
+    run_date: s.run_date,
+    weekdays: s.weekdays,
+    times: s.times,
+  }));
 
   const total = slides.length;
   const slide = slides[idx];
