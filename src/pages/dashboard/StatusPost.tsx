@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload, Eye, ChevronLeft, ChevronRight, Folder as FolderIcon, FolderPlus, Copy, ChevronDown, Film, MessageCircleX } from "lucide-react";
+import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload, Eye, ChevronLeft, ChevronRight, Folder as FolderIcon, FolderPlus, Copy, ChevronDown, Film, MessageCircleX, Sunrise, Sun, Moon } from "lucide-react";
 import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
 import { WhatsAppTextEditor, renderWhatsAppMarkdown } from "@/components/WhatsAppTextEditor";
 
@@ -780,9 +780,9 @@ function ScheduleDialog({
             const isPreset = (days: number[]) =>
               weekdays.length === days.length && days.every((d) => weekdays.includes(d));
             const PERIODS = [
-              { label: "Manhã", emoji: "🌅", desc: "Pessoas acordando", times: ["07:00", "08:00", "09:00", "10:00"] },
-              { label: "Tarde", emoji: "☀️", desc: "Almoço e trabalho", times: ["12:00", "14:00", "15:00", "17:00"] },
-              { label: "Noite", emoji: "🌙", desc: "Mais visualizações", times: ["19:00", "20:00", "21:00", "22:00"] },
+              { label: "Manhã", Icon: Sunrise, desc: "Pessoas acordando", times: ["07:00", "08:00", "09:00", "10:00"], color: "from-amber-500/20 to-orange-500/10", iconColor: "text-amber-500", ring: "ring-amber-500/30" },
+              { label: "Tarde", Icon: Sun, desc: "Almoço e trabalho", times: ["12:00", "14:00", "15:00", "17:00"], color: "from-sky-500/20 to-cyan-500/10", iconColor: "text-sky-500", ring: "ring-sky-500/30" },
+              { label: "Noite", Icon: Moon, desc: "Mais visualizações", times: ["19:00", "20:00", "21:00", "22:00"], color: "from-indigo-500/20 to-violet-500/10", iconColor: "text-indigo-400", ring: "ring-indigo-500/30" },
             ];
             const friendlyDays = () => {
               if (weekdays.length === 0) return "nenhum dia";
@@ -889,39 +889,59 @@ function ScheduleDialog({
                 </div>
               )}
 
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+              <div className="space-y-4 rounded-xl border bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm">
                 <div>
                   <Label className="text-sm font-semibold flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" />
                     Em qual horário?
                   </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Escolha um horário pronto ou digite outro. Cada agendamento publica em <strong>1 horário</strong> só — para outros, crie outro agendamento.
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Escolha um horário pronto ou digite outro. Cada agendamento publica em <strong className="text-foreground">1 horário só</strong>.
                   </p>
                 </div>
-                <div className="space-y-2.5">
-                  {PERIODS.map((p) => (
-                    <div key={p.label} className="space-y-1.5">
-                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <span className="text-base">{p.emoji}</span>{p.label}
-                        <span className="text-[10px] text-muted-foreground/70">— {p.desc}</span>
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {p.times.map((preset) => (
-                          <button key={preset} type="button" onClick={() => setTime(preset)}
-                            className={`px-3 py-1.5 text-sm rounded-md border transition ${time === preset
-                              ? "bg-primary text-primary-foreground border-primary font-semibold"
-                              : "bg-background border-border hover:bg-accent"}`}>
-                            {preset}
-                          </button>
-                        ))}
+
+                <div className="space-y-3">
+                  {PERIODS.map((p) => {
+                    const Icon = p.Icon;
+                    return (
+                      <div key={p.label} className={`rounded-lg bg-gradient-to-br ${p.color} p-3 border border-border/50`}>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <div className={`w-7 h-7 rounded-lg bg-background/60 backdrop-blur flex items-center justify-center ${p.iconColor}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-semibold">{p.label}</span>
+                            <span className="text-[11px] text-muted-foreground">{p.desc}</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {p.times.map((preset) => {
+                            const active = time === preset;
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setTime(preset)}
+                                className={`h-10 text-sm font-medium rounded-lg border transition-all ${
+                                  active
+                                    ? `bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20 scale-[1.02]`
+                                    : `bg-background/70 backdrop-blur border-border/60 hover:border-primary/40 hover:bg-background`
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2 pt-1">
+
+                <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground whitespace-nowrap">Quer outro horário?</span>
-                  <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9" />
+                  <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9 ml-auto" />
                 </div>
               </div>
 
