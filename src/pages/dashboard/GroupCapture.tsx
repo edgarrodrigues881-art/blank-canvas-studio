@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import dgGroupAvatar from "@/assets/dg-group-avatar.png";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -228,7 +228,16 @@ const GroupCapture = () => {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [isStarting, setIsStarting] = useState(false);
-  const [activeTab, setActiveTab] = useState("custom");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      return localStorage.getItem("warmup_groups_active_tab") || "custom";
+    } catch {
+      return "custom";
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("warmup_groups_active_tab", activeTab); } catch {}
+  }, [activeTab]);
   const [deviceSearch, setDeviceSearch] = useState("");
 
   // Add group form
