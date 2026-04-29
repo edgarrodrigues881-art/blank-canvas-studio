@@ -319,10 +319,10 @@ function PostNowTab({ devices }: { devices: Device[] }) {
                 )}
 
                 {type !== "audio" && (
-                  <Textarea
+                  <WhatsAppTextEditor
                     value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Legenda (opcional) — usada em todos os itens"
+                    onChange={setCaption}
+                    placeholder="Legenda (opcional) — *negrito*, _itálico_, ~riscado~, ```mono```"
                     rows={2}
                   />
                 )}
