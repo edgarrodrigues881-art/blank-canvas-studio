@@ -459,7 +459,8 @@ function buildButtonsAttempts(
     throw new Error("Mensagens com botão exigem copy/texto principal.");
   }
 
-  const choices = normalizeButtons(buttons)
+  const normalized = normalizeButtons(buttons);
+  const choices = normalized
     .map((button, index) => buildMenuChoice(button, index))
     .filter((choice): choice is string => Boolean(choice));
 
@@ -467,11 +468,47 @@ function buildButtonsAttempts(
     throw new Error("Adicione pelo menos um botão válido.");
   }
 
+  // Detect if there are URL/copy/phone (action buttons) — they require list/menu rendering.
+  // For pure reply buttons we MUST use the "list" interactive template, which is the only
+  // format Meta still renders consistently on WhatsApp Web/Desktop. The legacy "button" type
+  // produces "Use seu celular para acessá-la" on Web for many client versions.
+  const hasActionButton = normalized.some((b) => {
+    const t = (b.type || "reply").toLowerCase();
+    return t === "url" || t === "copy" || t === "phone" || t === "call";
+  });
+
   const targetFields = { phone: groupJid, number: groupJid };
   const legacyTargetFields = { number: groupJid, chatId: groupJid };
   const imageFields = imageButton ? { imageButton } : {};
 
+  // Preferred type: "list" works on Web+Mobile; "button" stays only as legacy fallback.
+  const preferredType = hasActionButton ? "list" : "list";
+
   return [
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...targetFields,
+        type: preferredType,
+        text,
+        message: text,
+        choices,
+        ...imageFields,
+      },
+      label: imageButton ? "buttons_list_image" : "buttons_list",
+    },
+    {
+      endpoint: `${baseUrl}/send/menu`,
+      body: {
+        ...legacyTargetFields,
+        type: preferredType,
+        text,
+        choices,
+        ...imageFields,
+      },
+      label: imageButton ? "buttons_list_image_legacy" : "buttons_list_legacy",
+    },
+    // Legacy "button" type as last-resort fallback (older UAZAPI builds without list support).
     {
       endpoint: `${baseUrl}/send/menu`,
       body: {
@@ -482,18 +519,7 @@ function buildButtonsAttempts(
         choices,
         ...imageFields,
       },
-      label: imageButton ? "buttons_menu_image" : "buttons_menu",
-    },
-    {
-      endpoint: `${baseUrl}/send/menu`,
-      body: {
-        ...legacyTargetFields,
-        type: "button",
-        text,
-        choices,
-        ...imageFields,
-      },
-      label: imageButton ? "buttons_menu_image_legacy" : "buttons_menu_legacy",
+      label: imageButton ? "buttons_legacy_button_image" : "buttons_legacy_button",
     },
   ];
 }
@@ -1554,19 +1580,37 @@ Deno.serve(async (req) => {
       const buttonAttempts = buildButtonsAttempts(baseUrl, groupJid, normalizedTextContent, normalizedButtons);
 
       if (mentionAll) {
+        // Build the @<number> tokens that WhatsApp requires in the body to TRIGGER the
+        // mention notification on each member. Without these literal tokens, the recipients
+        // see a regular message and receive no ping — even when mentioned[] is populated.
+        const mentionFields = mentionPhones.length > 0 ? buildMentionFields(mentionPhones) : null;
+        const mentionTokens = mentionFields
+          ? mentionFields.numbers.map((n) => `@${n}`).join(" ")
+          : "";
+
+        const enrichBody = (body: Record<string, unknown>, extra: Record<string, unknown>) => {
+          const enriched: Record<string, unknown> = { ...body, ...extra };
+          if (mentionTokens) {
+            const baseText = String(body.text ?? body.message ?? normalizedTextContent).trim();
+            const withTokens = `${baseText}\n\n${mentionTokens}`;
+            if ("text" in enriched) enriched.text = withTokens;
+            if ("message" in enriched) enriched.message = withTokens;
+          }
+          return enriched;
+        };
+
         const blindFields = buildBlindMentionFields();
         const mentionButtonAttempts = buttonAttempts.map((attempt) => ({
           ...attempt,
-          body: { ...attempt.body, ...blindFields, mentions: "all" },
+          body: enrichBody(attempt.body, { ...blindFields, mentions: "all" }),
           label: `${attempt.label}_mention_all`,
         }));
 
-        if (mentionPhones.length > 0) {
-          const mentionFields = buildMentionFields(mentionPhones);
+        if (mentionFields) {
           buttonAttempts.forEach((attempt) => {
-            mentionButtonAttempts.push({
+            mentionButtonAttempts.unshift({
               ...attempt,
-              body: { ...attempt.body, ...mentionFields.payload },
+              body: enrichBody(attempt.body, mentionFields.payload),
               label: `${attempt.label}_mention_jids`,
             });
           });
