@@ -1196,7 +1196,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       msgsSincePause++;
       sendsInThisRun++;
     } else {
-      const translated = translateErrorMessage(sendError);
+      const translated = translateErrorMessage(sendError, sendTo);
       await sb.from("campaign_contacts").update({ status: "failed", error_message: translated, device_id: device.id }).eq("id", contact.id);
       if (isDisconnectError(sendError) && pauseOnDisconnect) {
         allDevices = allDevices.filter((d: any) => d.id !== device.id);
