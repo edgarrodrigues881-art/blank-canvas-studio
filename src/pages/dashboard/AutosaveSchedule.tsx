@@ -625,7 +625,7 @@ export default function AutosaveSchedule() {
 
       {/* Create Wizard */}
       <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); setEditingId(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-primary" /> {editingId ? "Editar Agendamento Auto Save" : "Novo Agendamento Auto Save"}
