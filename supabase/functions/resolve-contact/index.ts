@@ -59,6 +59,78 @@ function numberToJid(num: string): string | null {
   return `${digits}${PRIVATE_JID_SUFFIX}`;
 }
 
+function lidToJid(value: string): string | null {
+  const digits = onlyDigits(value);
+  if (!digits) return null;
+  return `${digits}${LID_SUFFIX}`;
+}
+
+type LidPhoneMap = Map<string, string>;
+
+function collectLidPhoneMappings(value: any, map: LidPhoneMap) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectLidPhoneMappings(item, map));
+    return;
+  }
+  if (typeof value !== "object") return;
+
+  const lids = new Set<string>();
+  const phones = new Set<string>();
+  const phoneKeys = new Set(["phone", "number", "telefone", "phonenumber", "pn", "wa_id", "waid", "wid", "wa_chatid", "jid", "remotejid", "phonejid", "user", "participant"]);
+
+  for (const [key, raw] of Object.entries(value)) {
+    if (typeof raw !== "string") continue;
+    const k = key.toLowerCase();
+    const digits = onlyDigits(raw);
+    if (raw.includes(LID_SUFFIX) || (k.includes("lid") && digits.length >= 8)) lids.add(digits);
+    if (!raw.includes(LID_SUFFIX) && (raw.includes(PRIVATE_JID_SUFFIX) || phoneKeys.has(k))) {
+      if (digits.length >= 8 && digits.length <= 15) phones.add(digits);
+    }
+  }
+
+  for (const lid of lids) {
+    for (const phone of phones) {
+      if (lid && phone && lid !== phone) map.set(lid, phone);
+    }
+  }
+
+  Object.values(value).forEach((item) => collectLidPhoneMappings(item, map));
+}
+
+async function fetchUazapiJson(baseUrl: string, token: string, path: string, init?: RequestInit): Promise<any | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}${path}`, {
+      ...init,
+      headers: { token, Accept: "application/json", "Content-Type": "application/json", ...(init?.headers || {}) },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) return null;
+    try { return JSON.parse(text); } catch { return text; }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function buildLidPhoneMap(baseUrl: string, token: string): Promise<LidPhoneMap> {
+  const map: LidPhoneMap = new Map();
+  const requests = [
+    fetchUazapiJson(baseUrl, token, "/chat/find", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, sort: "-wa_lastMsgTimestamp" }) }),
+    fetchUazapiJson(baseUrl, token, "/contacts/list", { method: "POST", body: JSON.stringify({ limit: 1000, offset: 0, contactScope: "all" }) }),
+    fetchUazapiJson(baseUrl, token, "/contacts", { method: "GET" }),
+    fetchUazapiJson(baseUrl, token, "/group/list?GetParticipants=true&count=500", { method: "GET" }),
+    fetchUazapiJson(baseUrl, token, "/group/fetchAllGroups", { method: "GET" }),
+  ];
+  const payloads = await Promise.all(requests);
+  payloads.forEach((payload) => collectLidPhoneMappings(payload, map));
+  return map;
+}
+
 /**
  * Resolve LID via Uazapi using official/current endpoints first, then legacy fallbacks.
  * Some UAZAPI installations do not expose POST /chat/info for LID lookup; /chat/find
