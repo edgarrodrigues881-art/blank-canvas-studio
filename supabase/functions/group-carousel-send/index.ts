@@ -1313,13 +1313,24 @@ function injectMentionsIntoAttempts(attempts: SendAttempt[], mentionPhones: stri
   const mentionFields = buildMentionFields(mentionPhones);
   console.log(`[group-carousel] Injecting ${mentionFields.count} mentions into ${attempts.length} attempt(s)`);
 
+  // CRITICAL: WhatsApp only fires mention notifications when the visible text contains
+  // "@<number>" tokens for each mentioned JID. Append them to the original text/caption.
+  const mentionTokens = mentionFields.numbers.map((num) => `@${num}`).join(" ");
+  const withTokens = (value: string) => {
+    const base = String(value || "").trim();
+    if (!mentionTokens) return base;
+    return base ? `${base}\n\n${mentionTokens}` : mentionTokens;
+  };
+
   const enrichedAttempts: SendAttempt[] = [];
 
   for (const a of attempts) {
     const endpointPath = new URL(a.endpoint).pathname;
     const target = extractAttemptTarget(a.body);
-    const text = extractAttemptText(a.body);
-    const messageFields = { text, body: text, message: text, ...mentionFields.payload };
+    const text = withTokens(extractAttemptText(a.body));
+    const captionRaw = typeof (a.body as any)?.caption === "string" ? (a.body as any).caption : undefined;
+    const captionField = captionRaw !== undefined ? { caption: withTokens(captionRaw) } : {};
+    const messageFields = { text, body: text, message: text, ...captionField, ...mentionFields.payload };
 
     if (endpointPath === "/send/carousel" || endpointPath === "/send/menu") {
       enrichedAttempts.push({
