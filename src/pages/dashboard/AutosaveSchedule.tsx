@@ -375,7 +375,7 @@ export default function AutosaveSchedule() {
               <Pause className="w-4 h-4" /> Pausar todos
             </Button>
           )}
-          <Button onClick={() => { resetForm(); setCreateOpen(true); }} className="gap-2">
+          <Button onClick={() => { setEditingId(null); resetForm(); setCreateOpen(true); }} className="gap-2">
             <Plus className="w-4 h-4" /> Novo Agendamento
           </Button>
         </div>
