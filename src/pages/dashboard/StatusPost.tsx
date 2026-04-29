@@ -397,6 +397,7 @@ function ScheduleDialog({
   const [type, setType] = useState<"text" | "image" | "video" | "audio">("text");
   const [text, setText] = useState("");
   const [bgColor, setBgColor] = useState("#25D366");
+  const [font, setFont] = useState<number>(1);
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
