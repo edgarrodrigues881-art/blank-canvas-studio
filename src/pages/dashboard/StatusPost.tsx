@@ -32,6 +32,8 @@ type Schedule = {
   font: number | null;
   weekdays: number[];
   times: string[];
+  schedule_mode: "recurring" | "oneshot";
+  run_date: string | null;
   device_mode: "all_online" | "fixed";
   device_ids: string[];
   last_run_at: string | null;
