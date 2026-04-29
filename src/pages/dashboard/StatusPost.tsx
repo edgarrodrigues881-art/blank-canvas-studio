@@ -1106,9 +1106,9 @@ function SchedulesTab({ devices }: { devices: Device[] }) {
   };
 
   const toggleFolder = async (folder: Folder, items: Schedule[]) => {
-    // If any are off, turn all on. Otherwise turn all off.
-    const allOn = items.every((s) => s.enabled);
-    const newVal = !allOn;
+    // Folder is "paused" when no item is enabled. Toggling pause flips all.
+    const anyOn = items.some((s) => s.enabled);
+    const newVal = !anyOn; // if any on -> pause all; if all off -> activate all
     await supabase.from("status_schedules").update({ enabled: newVal }).in("id", items.map((s) => s.id));
     toast.success(newVal ? "Pasta ativada" : "Pasta pausada");
     load();
