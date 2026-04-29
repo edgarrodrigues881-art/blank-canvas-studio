@@ -228,16 +228,40 @@ const GroupCapture = () => {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [isStarting, setIsStarting] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    try {
-      return localStorage.getItem("warmup_groups_active_tab") || "custom";
-    } catch {
-      return "custom";
-    }
-  });
+  const [activeTab, setActiveTab] = useState<string>("custom");
+
+  // Carrega aba salva no perfil do usuário (persistente entre logins/dispositivos).
   useEffect(() => {
-    try { localStorage.setItem("warmup_groups_active_tab", activeTab); } catch {}
-  }, [activeTab]);
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("ui_preferences")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const prefs = (data?.ui_preferences as Record<string, any> | null) ?? {};
+      const saved = prefs?.warmup_groups_tab;
+      if (saved === "custom" || saved === "system") setActiveTab(saved);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const handleTabChange = useCallback(async (val: string) => {
+    setActiveTab(val);
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("ui_preferences")
+      .eq("id", user.id)
+      .maybeSingle();
+    const prefs = (data?.ui_preferences as Record<string, any> | null) ?? {};
+    await supabase
+      .from("profiles")
+      .update({ ui_preferences: { ...prefs, warmup_groups_tab: val } })
+      .eq("id", user.id);
+  }, [user?.id]);
   const [deviceSearch, setDeviceSearch] = useState("");
 
   // Add group form
