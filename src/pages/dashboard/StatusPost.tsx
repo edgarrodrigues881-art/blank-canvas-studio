@@ -162,7 +162,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
               media_url: mediaUrl || undefined,
               caption: type !== "text" && type !== "audio" ? caption.trim() : undefined,
               background_color: type === "text" ? bgColor : undefined,
-              font: type === "text" ? 1 : undefined,
+              font: type === "text" ? font : undefined,
               device_ids: selected,
             },
           });
