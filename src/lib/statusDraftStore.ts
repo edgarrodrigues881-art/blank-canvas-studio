@@ -13,6 +13,7 @@ export type StatusDraftMeta = {
   selectedDeviceIds: string[];
   delaySeconds: number;
   fileNames: string[]; // ordem dos arquivos persistidos
+  font?: number;
 };
 
 function openDb(): Promise<IDBDatabase> {

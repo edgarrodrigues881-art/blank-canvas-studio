@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { Loader2, Send, Image as ImageIcon, Video, Mic, Type, History, CheckCircle2, XCircle, Plus, Trash2, Pencil, Calendar, Clock, X, Upload } from "lucide-react";
 import { saveDraft, loadDraft, clearDraft, type StatusDraftMeta } from "@/lib/statusDraftStore";
+import { WhatsAppTextEditor, renderWhatsAppMarkdown } from "@/components/WhatsAppTextEditor";
 
 type Device = { id: string; name: string; number: string | null; status: string };
 type StatusPost = { id: string; type: string; text_content: string | null; caption: string | null; status: string; success_count: number; error_count: number; created_at: string };
@@ -41,6 +42,19 @@ const STATUS_COLORS = ["#25D366", "#128C7E", "#075E54", "#34B7F1", "#FF6B6B", "#
 const ONLINE_STATUSES = ["Ready", "Connected", "authenticated", "open", "active"];
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+// WhatsApp status fonts (1-5)
+const STATUS_FONTS: { id: number; label: string; cssFamily: string }[] = [
+  { id: 1, label: "Padrão", cssFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { id: 2, label: "Serif", cssFamily: 'Georgia, "Times New Roman", serif' },
+  { id: 3, label: "Manuscrita", cssFamily: '"Brush Script MT", "Lucida Handwriting", cursive' },
+  { id: 4, label: "Monoespaçada", cssFamily: '"Courier New", monospace' },
+  { id: 5, label: "Datilografada", cssFamily: '"Andale Mono", "Courier New", monospace' },
+];
+
+function fontCss(id?: number | null) {
+  return STATUS_FONTS.find((f) => f.id === id)?.cssFamily || STATUS_FONTS[0].cssFamily;
+}
+
 function uploadMediaFile(userId: string, file: File) {
   const ext = file.name.split(".").pop() || "bin";
   const path = `${userId}/status/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -56,6 +70,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
   const [type, setType] = useState<"text" | "image" | "video" | "audio">("text");
   const [text, setText] = useState("");
   const [bgColor, setBgColor] = useState("#25D366");
+  const [font, setFont] = useState<number>(1);
   const [caption, setCaption] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -82,6 +97,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
         setCaption(meta.caption || "");
         setSelected(meta.selectedDeviceIds || []);
         setDelaySeconds(meta.delaySeconds ?? 5);
+        if (typeof meta.font === "number") setFont(meta.font);
         if (storedFiles.length) setFiles(storedFiles);
       }
       setDraftLoaded(true);
@@ -96,9 +112,10 @@ function PostNowTab({ devices }: { devices: Device[] }) {
       selectedDeviceIds: selected,
       delaySeconds,
       fileNames: files.map((f) => f.name),
+      font,
     };
     saveDraft(meta, files).catch(() => {});
-  }, [type, text, bgColor, caption, selected, delaySeconds, files, draftLoaded]);
+  }, [type, text, bgColor, caption, selected, delaySeconds, files, font, draftLoaded]);
 
   const acceptForType = type === "image" ? "image/*" : type === "video" ? "video/*" : type === "audio" ? "audio/*" : "";
 
@@ -145,7 +162,7 @@ function PostNowTab({ devices }: { devices: Device[] }) {
               media_url: mediaUrl || undefined,
               caption: type !== "text" && type !== "audio" ? caption.trim() : undefined,
               background_color: type === "text" ? bgColor : undefined,
-              font: type === "text" ? 1 : undefined,
+              font: type === "text" ? font : undefined,
               device_ids: selected,
             },
           });
@@ -203,7 +220,13 @@ function PostNowTab({ devices }: { devices: Device[] }) {
             </TabsList>
 
             <TabsContent value="text" className="space-y-4 mt-4">
-              <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Escreva seu status..." rows={5} maxLength={700} />
+              <WhatsAppTextEditor
+                value={text}
+                onChange={setText}
+                placeholder="Escreva seu status... (use *negrito*, _itálico_, ~riscado~, ```mono```)"
+                rows={5}
+                maxLength={700}
+              />
               <div>
                 <Label>Cor de fundo</Label>
                 <div className="flex gap-2 mt-2 flex-wrap">
@@ -214,9 +237,28 @@ function PostNowTab({ devices }: { devices: Device[] }) {
                   ))}
                 </div>
               </div>
-              <div className="rounded-lg p-6 min-h-[140px] flex items-center justify-center text-center text-white text-lg font-semibold whitespace-pre-wrap break-words" style={{ backgroundColor: bgColor }}>
-                {text || "Pré-visualização"}
+              <div>
+                <Label>Fonte</Label>
+                <div className="flex gap-2 mt-2 flex-wrap">
+                  {STATUS_FONTS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setFont(f.id)}
+                      className={`px-3 py-1.5 rounded-md border text-sm transition ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
+                      style={{ fontFamily: f.cssFamily }}
+                      title={f.label}
+                    >
+                      Aa
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div
+                className="rounded-lg p-6 min-h-[140px] flex items-center justify-center text-center text-white text-lg font-semibold whitespace-pre-wrap break-words"
+                style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
+                dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
+              />
             </TabsContent>
 
             {(type === "image" || type === "video" || type === "audio") && (
@@ -277,10 +319,10 @@ function PostNowTab({ devices }: { devices: Device[] }) {
                 )}
 
                 {type !== "audio" && (
-                  <Textarea
+                  <WhatsAppTextEditor
                     value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Legenda (opcional) — usada em todos os itens"
+                    onChange={setCaption}
+                    placeholder="Legenda (opcional) — *negrito*, _itálico_, ~riscado~, ```mono```"
                     rows={2}
                   />
                 )}
@@ -355,6 +397,7 @@ function ScheduleDialog({
   const [type, setType] = useState<"text" | "image" | "video" | "audio">("text");
   const [text, setText] = useState("");
   const [bgColor, setBgColor] = useState("#25D366");
+  const [font, setFont] = useState<number>(1);
   const [caption, setCaption] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
@@ -371,6 +414,7 @@ function ScheduleDialog({
       setType(editing.type);
       setText(editing.text_content || "");
       setBgColor(editing.background_color || "#25D366");
+      setFont(editing.font || 1);
       setCaption(editing.caption || "");
       setExistingMediaUrl(editing.media_url);
       setFile(null);
@@ -379,7 +423,7 @@ function ScheduleDialog({
       setDeviceMode(editing.device_mode);
       setSelectedDevices(editing.device_ids || []);
     } else {
-      setName(""); setType("text"); setText(""); setBgColor("#25D366"); setCaption("");
+      setName(""); setType("text"); setText(""); setBgColor("#25D366"); setFont(1); setCaption("");
       setFile(null); setExistingMediaUrl(null);
       setWeekdays([1, 2, 3, 4, 5]); setTimes(["09:00"]);
       setDeviceMode("all_online"); setSelectedDevices([]);
@@ -420,7 +464,7 @@ function ScheduleDialog({
         media_url: type !== "text" ? mediaUrl : null,
         caption: (type === "image" || type === "video") ? caption.trim() : null,
         background_color: type === "text" ? bgColor : null,
-        font: type === "text" ? 1 : null,
+        font: type === "text" ? font : null,
         weekdays,
         times,
         device_mode: deviceMode,
@@ -469,14 +513,45 @@ function ScheduleDialog({
               </TabsList>
 
               <TabsContent value="text" className="space-y-3 mt-3">
-                <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={700} placeholder="Texto do status" />
-                <div className="flex gap-2 flex-wrap">
-                  {STATUS_COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setBgColor(c)}
-                      className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
-                      style={{ backgroundColor: c }} />
-                  ))}
+                <WhatsAppTextEditor
+                  value={text}
+                  onChange={setText}
+                  rows={4}
+                  maxLength={700}
+                  placeholder="Texto do status — *negrito*, _itálico_, ~riscado~, ```mono```"
+                />
+                <div>
+                  <Label className="text-xs">Cor de fundo</Label>
+                  <div className="flex gap-2 flex-wrap mt-1.5">
+                    {STATUS_COLORS.map((c) => (
+                      <button key={c} type="button" onClick={() => setBgColor(c)}
+                        className={`w-8 h-8 rounded-md border-2 ${bgColor === c ? "border-foreground" : "border-transparent"}`}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
                 </div>
+                <div>
+                  <Label className="text-xs">Fonte</Label>
+                  <div className="flex gap-2 flex-wrap mt-1.5">
+                    {STATUS_FONTS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFont(f.id)}
+                        className={`px-2.5 py-1 rounded-md border text-xs ${font === f.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"}`}
+                        style={{ fontFamily: f.cssFamily }}
+                        title={f.label}
+                      >
+                        Aa
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div
+                  className="rounded-lg p-4 min-h-[100px] flex items-center justify-center text-center text-white text-base font-semibold whitespace-pre-wrap break-words"
+                  style={{ backgroundColor: bgColor, fontFamily: fontCss(font) }}
+                  dangerouslySetInnerHTML={{ __html: renderWhatsAppMarkdown(text) || '<span class="opacity-70">Pré-visualização</span>' }}
+                />
               </TabsContent>
 
               <TabsContent value="image" className="space-y-3 mt-3">
@@ -490,7 +565,7 @@ function ScheduleDialog({
                   </div>
                 )}
                 <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda" rows={2} />
+                <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
               </TabsContent>
 
               <TabsContent value="video" className="space-y-3 mt-3">
@@ -504,7 +579,7 @@ function ScheduleDialog({
                   </div>
                 )}
                 <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda" rows={2} />
+                <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
               </TabsContent>
 
               <TabsContent value="audio" className="space-y-3 mt-3">
