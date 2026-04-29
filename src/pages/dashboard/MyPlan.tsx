@@ -264,18 +264,12 @@ const MyPlan = () => {
           </div>
 
           <div
-            className="relative rounded-2xl p-6 sm:p-8 border overflow-hidden"
+            className="relative rounded-2xl p-6 sm:p-8 border overflow-hidden bg-card"
             style={{
-              background:
-                "linear-gradient(135deg, rgba(37,211,102,0.06) 0%, rgba(20,20,30,0.4) 50%, rgba(234,179,8,0.06) 100%)",
               borderColor: "rgba(37,211,102,0.25)",
               boxShadow: "0 20px 60px -25px rgba(37,211,102,0.35)",
             }}
           >
-            <div
-              className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-3xl pointer-events-none"
-              style={{ background: "radial-gradient(circle, rgba(37,211,102,0.18) 0%, transparent 70%)" }}
-            />
 
             <div className="relative grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 items-center">
               <div>
