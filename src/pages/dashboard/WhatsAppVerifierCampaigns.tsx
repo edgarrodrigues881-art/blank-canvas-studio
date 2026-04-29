@@ -609,10 +609,12 @@ export default function WhatsAppVerifierCampaigns() {
               {importMode === "plain" ? (
                 <>
                   <Textarea placeholder={"Cole os números aqui, um por linha:\n5511999999999\n5521988888888"} value={rawInput} onChange={(e) => setRawInput(e.target.value)} className="min-h-[180px] bg-background/50 font-mono text-sm" />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={handleFileImportPlain}><Upload className="w-4 h-4 mr-1.5" /> Importar TXT/CSV</Button>
-                    <Button variant="outline" size="sm" onClick={handleSpreadsheetClick} className="gap-1.5">
-                      <FileSpreadsheet className="w-4 h-4" /> Importar Planilha com Variáveis
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Aceita TXT, CSV ou Excel — variáveis são detectadas automaticamente.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={handleSmartImport} className="gap-1.5">
+                      <Upload className="w-4 h-4" /> Importar arquivo
                     </Button>
                   </div>
                 </>
