@@ -301,6 +301,208 @@ export type Database = {
         }
         Relationships: []
       }
+      affiliate_coupons: {
+        Row: {
+          affiliate_user_id: string
+          code: string
+          created_at: string
+          discount_percent: number
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          notes: string | null
+          plan_name: string | null
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          affiliate_user_id: string
+          code: string
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          notes?: string | null
+          plan_name?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          affiliate_user_id?: string
+          code?: string
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          notes?: string | null
+          plan_name?: string | null
+          updated_at?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
+      affiliate_payments: {
+        Row: {
+          affiliate_user_id: string
+          amount: number
+          commission_amount: number
+          created_at: string
+          due_date: string | null
+          id: string
+          month_number: number
+          notes: string | null
+          paid_at: string | null
+          referral_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_user_id: string
+          amount: number
+          commission_amount: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          month_number: number
+          notes?: string | null
+          paid_at?: string | null
+          referral_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_user_id?: string
+          amount?: number
+          commission_amount?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          month_number?: number
+          notes?: string | null
+          paid_at?: string | null
+          referral_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_payments_referral_id_fkey"
+            columns: ["referral_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_referrals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_payouts: {
+        Row: {
+          admin_notes: string | null
+          affiliate_user_id: string
+          amount: number
+          created_at: string
+          id: string
+          paid_at: string | null
+          pix_key: string
+          pix_key_type: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          affiliate_user_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          pix_key: string
+          pix_key_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          affiliate_user_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          pix_key?: string
+          pix_key_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      affiliate_referrals: {
+        Row: {
+          affiliate_user_id: string
+          commission_percent: number
+          commission_total: number
+          coupon_code: string | null
+          coupon_id: string | null
+          created_at: string
+          discount_amount: number
+          id: string
+          notes: string | null
+          paid_amount: number
+          plan_name: string
+          plan_price: number
+          referred_email: string | null
+          referred_name: string | null
+          referred_user_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          affiliate_user_id: string
+          commission_percent?: number
+          commission_total: number
+          coupon_code?: string | null
+          coupon_id?: string | null
+          created_at?: string
+          discount_amount?: number
+          id?: string
+          notes?: string | null
+          paid_amount: number
+          plan_name: string
+          plan_price: number
+          referred_email?: string | null
+          referred_name?: string | null
+          referred_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          affiliate_user_id?: string
+          commission_percent?: number
+          commission_total?: number
+          coupon_code?: string | null
+          coupon_id?: string | null
+          created_at?: string
+          discount_amount?: number
+          id?: string
+          notes?: string | null
+          paid_amount?: number
+          plan_name?: string
+          plan_price?: number
+          referred_email?: string | null
+          referred_name?: string | null
+          referred_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_referrals_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_coupons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_alerts_config: {
         Row: {
           alert_appointment_reminder: boolean
@@ -8216,6 +8418,7 @@ export type Database = {
         Returns: string
       }
       use_free_pull: { Args: { p_user_id: string }; Returns: Json }
+      validate_affiliate_coupon: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       alert_severity: "INFO" | "WARNING" | "CRITICAL"
