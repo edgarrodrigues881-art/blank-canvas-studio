@@ -133,17 +133,39 @@ function PostNowTab({ devices }: { devices: Device[] }) {
 
             <TabsContent value="image" className="space-y-4 mt-4">
               <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("image/") && (
+                <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt="Pré-visualização"
+                    className="max-h-[360px] w-auto object-contain"
+                    onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                  />
+                </div>
+              )}
               <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
             </TabsContent>
 
             <TabsContent value="video" className="space-y-4 mt-4">
               <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("video/") && (
+                <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                  <video
+                    src={URL.createObjectURL(file)}
+                    controls
+                    className="max-h-[360px] w-auto"
+                  />
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">Máx. 30 segundos.</p>
               <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda (opcional)" rows={2} />
             </TabsContent>
 
             <TabsContent value="audio" className="space-y-4 mt-4">
               <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              {file && file.type.startsWith("audio/") && (
+                <audio src={URL.createObjectURL(file)} controls className="w-full" />
+              )}
             </TabsContent>
           </Tabs>
 
@@ -319,21 +341,39 @@ function ScheduleDialog({
               </TabsContent>
 
               <TabsContent value="image" className="space-y-3 mt-3">
-                {existingMediaUrl && !file && (
-                  <img src={existingMediaUrl} alt="" className="max-h-32 rounded" />
+                {file && file.type.startsWith("image/") ? (
+                  <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                    <img src={URL.createObjectURL(file)} alt="" className="max-h-[280px] w-auto object-contain" />
+                  </div>
+                ) : existingMediaUrl && (
+                  <div className="rounded-lg overflow-hidden border bg-muted/30 flex items-center justify-center">
+                    <img src={existingMediaUrl} alt="" className="max-h-[280px] w-auto object-contain" />
+                  </div>
                 )}
                 <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda" rows={2} />
               </TabsContent>
 
               <TabsContent value="video" className="space-y-3 mt-3">
-                {existingMediaUrl && !file && <p className="text-xs text-muted-foreground">Vídeo atual mantido</p>}
+                {file && file.type.startsWith("video/") ? (
+                  <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                    <video src={URL.createObjectURL(file)} controls className="max-h-[280px] w-auto" />
+                  </div>
+                ) : existingMediaUrl && (
+                  <div className="rounded-lg overflow-hidden border bg-black flex items-center justify-center">
+                    <video src={existingMediaUrl} controls className="max-h-[280px] w-auto" />
+                  </div>
+                )}
                 <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                 <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda" rows={2} />
               </TabsContent>
 
               <TabsContent value="audio" className="space-y-3 mt-3">
-                {existingMediaUrl && !file && <p className="text-xs text-muted-foreground">Áudio atual mantido</p>}
+                {file && file.type.startsWith("audio/") ? (
+                  <audio src={URL.createObjectURL(file)} controls className="w-full" />
+                ) : existingMediaUrl && (
+                  <audio src={existingMediaUrl} controls className="w-full" />
+                )}
                 <Input type="file" accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
               </TabsContent>
             </Tabs>
