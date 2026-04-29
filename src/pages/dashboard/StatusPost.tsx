@@ -719,32 +719,97 @@ function ScheduleDialog({
           )}
 
           {/* STEP 3 — Quando publicar */}
-          {step === 3 && (
-            <div className="space-y-4 animate-in fade-in-50 slide-in-from-right-2 duration-200">
+          {step === 3 && (() => {
+            const FULL_WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+            const setWeekdayPreset = (days: number[]) => setWeekdays([...days].sort());
+            const isPreset = (days: number[]) =>
+              weekdays.length === days.length && days.every((d) => weekdays.includes(d));
+            const PERIODS = [
+              { label: "Manhã", emoji: "🌅", desc: "Pessoas acordando", times: ["07:00", "08:00", "09:00", "10:00"] },
+              { label: "Tarde", emoji: "☀️", desc: "Almoço e trabalho", times: ["12:00", "14:00", "15:00", "17:00"] },
+              { label: "Noite", emoji: "🌙", desc: "Mais visualizações", times: ["19:00", "20:00", "21:00", "22:00"] },
+            ];
+            const friendlyDays = () => {
+              if (weekdays.length === 0) return "nenhum dia";
+              if (isPreset([1, 2, 3, 4, 5])) return "todos os dias úteis (segunda a sexta)";
+              if (isPreset([0, 6])) return "no fim de semana (sábado e domingo)";
+              if (isPreset([0, 1, 2, 3, 4, 5, 6])) return "todos os dias da semana";
+              if (weekdays.length === 1) return `toda ${FULL_WEEKDAYS[weekdays[0]]}`;
+              const names = weekdays.map((d) => FULL_WEEKDAYS[d]);
+              const last = names.pop();
+              return `às ${names.join(", ")} e ${last}`;
+            };
+            const friendlyTime = () => {
+              const [h] = time.split(":");
+              const hour = parseInt(h, 10);
+              if (hour < 12) return `às ${time} da manhã`;
+              if (hour < 18) return `às ${time} da tarde`;
+              return `às ${time} da noite`;
+            };
+            return (
+            <div className="space-y-5 animate-in fade-in-50 slide-in-from-right-2 duration-200">
               <div>
-                <h3 className="text-sm font-semibold mb-1">Quando publicar?</h3>
-                <p className="text-xs text-muted-foreground">Defina se é recorrente ou único, os dias e o horário (BRT).</p>
+                <h3 className="text-sm font-semibold mb-1">Quando você quer que o status seja publicado?</h3>
+                <p className="text-xs text-muted-foreground">Vamos por partes — escolha primeiro se é toda semana ou só uma vez.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button type="button" onClick={() => setScheduleMode("recurring")}
-                  className={`text-left p-3 border rounded-md transition ${scheduleMode === "recurring" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                  <p className="text-sm font-medium flex items-center gap-2"><Calendar className="w-4 h-4" />Recorrente</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Repete nos dias da semana escolhidos</p>
+                  className={`text-left p-4 border-2 rounded-lg transition ${scheduleMode === "recurring" ? "border-primary bg-primary/10" : "border-border hover:bg-accent"}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">🔁</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold">Toda semana</p>
+                      <p className="text-xs text-muted-foreground mt-1">Vai repetir nos dias da semana que você escolher.</p>
+                      <p className="text-[11px] text-primary/80 mt-2 italic">Ex: "Toda segunda às 8h"</p>
+                    </div>
+                  </div>
                 </button>
                 <button type="button" onClick={() => setScheduleMode("oneshot")}
-                  className={`text-left p-3 border rounded-md transition ${scheduleMode === "oneshot" ? "border-primary bg-primary/5" : "hover:bg-accent"}`}>
-                  <p className="text-sm font-medium flex items-center gap-2"><Clock className="w-4 h-4" />Data única</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Dispara 1 vez no dia escolhido</p>
+                  className={`text-left p-4 border-2 rounded-lg transition ${scheduleMode === "oneshot" ? "border-primary bg-primary/10" : "border-border hover:bg-accent"}`}>
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">📅</div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold">Só uma vez</p>
+                      <p className="text-xs text-muted-foreground mt-1">Vai publicar apenas no dia específico que você marcar.</p>
+                      <p className="text-[11px] text-primary/80 mt-2 italic">Ex: "Dia 15/06 às 14h"</p>
+                    </div>
+                  </div>
                 </button>
               </div>
 
               {scheduleMode === "recurring" && (
-                <div>
-                  <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Dias da semana</Label>
-                  <div className="flex gap-2 mt-2 flex-wrap">
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                  <div>
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      Em quais dias da semana?
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Use os atalhos ou clique nos dias um a um.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setWeekdayPreset([1, 2, 3, 4, 5])}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([1, 2, 3, 4, 5]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
+                      💼 Dias úteis
+                    </button>
+                    <button type="button" onClick={() => setWeekdayPreset([0, 6])}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([0, 6]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
+                      🏖️ Fim de semana
+                    </button>
+                    <button type="button" onClick={() => setWeekdayPreset([0, 1, 2, 3, 4, 5, 6])}
+                      className={`px-3 py-1.5 text-xs rounded-full border transition ${isPreset([0, 1, 2, 3, 4, 5, 6]) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent border-border"}`}>
+                      📆 Todos os dias
+                    </button>
+                    <button type="button" onClick={() => setWeekdayPreset([])}
+                      className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-accent transition">
+                      ✖️ Limpar
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5">
                     {WEEKDAY_LABELS.map((label, i) => (
                       <button key={i} type="button" onClick={() => toggleWeekday(i)}
-                        className={`px-3 py-1.5 rounded-md text-sm border transition ${weekdays.includes(i) ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent"}`}>
+                        className={`py-2.5 rounded-md text-sm font-semibold border-2 transition ${weekdays.includes(i)
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-background border-border hover:bg-accent text-muted-foreground"}`}>
                         {label}
                       </button>
                     ))}
@@ -753,55 +818,73 @@ function ScheduleDialog({
               )}
 
               {scheduleMode === "oneshot" && (
-                <div>
-                  <Label className="flex items-center gap-2"><Calendar className="w-4 h-4" />Data do disparo</Label>
+                <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    Em qual dia exato vai publicar?
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Escolha a data no calendário abaixo.</p>
                   <Input
                     type="date"
                     value={runDate}
                     onChange={(e) => setRunDate(e.target.value)}
                     min={new Date().toISOString().slice(0, 10)}
-                    className="mt-2 w-48"
+                    className="mt-1 w-full sm:w-56 h-11"
                   />
-                  {runDate && (
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Será publicado no dia {runDate.split("-").reverse().join("/")} às {time} (BRT) e desativado depois.
-                    </p>
-                  )}
                 </div>
               )}
 
-              <div>
-                <Label className="flex items-center gap-2"><Clock className="w-4 h-4" />Horário (BRT)</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cada agendamento publica em <strong>1 horário</strong>. Para outros horários, crie outros agendamentos.
-                </p>
-                <div className="flex gap-2 flex-wrap mt-3">
-                  {["08:00", "10:00", "12:00", "15:00", "17:00", "19:00", "21:00"].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setTime(preset)}
-                      className={`px-3 py-1.5 text-sm rounded-md border transition ${
-                        time === preset
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-border hover:bg-accent"
-                      }`}
-                    >
-                      {preset}
-                    </button>
+              <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    Em qual horário?
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Escolha um horário pronto ou digite outro. Cada agendamento publica em <strong>1 horário</strong> só — para outros, crie outro agendamento.
+                  </p>
+                </div>
+                <div className="space-y-2.5">
+                  {PERIODS.map((p) => (
+                    <div key={p.label} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <span className="text-base">{p.emoji}</span>{p.label}
+                        <span className="text-[10px] text-muted-foreground/70">— {p.desc}</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.times.map((preset) => (
+                          <button key={preset} type="button" onClick={() => setTime(preset)}
+                            className={`px-3 py-1.5 text-sm rounded-md border transition ${time === preset
+                              ? "bg-primary text-primary-foreground border-primary font-semibold"
+                              : "bg-background border-border hover:bg-accent"}`}>
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">Outro horário:</span>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Quer outro horário?</span>
                   <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32 h-9" />
                 </div>
-                <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 border border-primary/30">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">Vai publicar às <span className="text-primary">{time}</span></span>
-                </div>
               </div>
+
+              {((scheduleMode === "recurring" && weekdays.length > 0) || (scheduleMode === "oneshot" && runDate)) && (
+                <div className="rounded-lg border-2 border-primary/40 bg-primary/10 p-4">
+                  <p className="text-xs text-primary/80 font-semibold uppercase tracking-wider mb-1.5">✓ Vai funcionar assim:</p>
+                  <p className="text-sm leading-relaxed">
+                    {scheduleMode === "recurring" ? (
+                      <>Vou publicar seu status <strong>{friendlyDays()}</strong>, sempre <strong>{friendlyTime()}</strong> (horário de Brasília).</>
+                    ) : (
+                      <>Vou publicar seu status <strong>uma única vez</strong>, no dia <strong>{runDate.split("-").reverse().join("/")}</strong> {friendlyTime()} (horário de Brasília).</>
+                    )}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* STEP 4 — Instâncias */}
           {step === 4 && (
