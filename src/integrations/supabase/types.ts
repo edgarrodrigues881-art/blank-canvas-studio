@@ -355,6 +355,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           referral_id: string
+          released_at: string | null
           status: string
           updated_at: string
         }
@@ -369,6 +370,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           referral_id: string
+          released_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -383,6 +385,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           referral_id?: string
+          released_at?: string | null
           status?: string
           updated_at?: string
         }

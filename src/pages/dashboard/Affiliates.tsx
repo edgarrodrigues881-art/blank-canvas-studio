@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import {
   DollarSign, Users, TrendingUp, Copy, Crown, MessageCircle, Ticket, Wallet,
-  CheckCircle2, Clock, XCircle, Send,
+  CheckCircle2, Clock, XCircle, Send, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -43,7 +43,7 @@ type Referral = {
 };
 type Payment = {
   id: string; referral_id: string; month_number: number; amount: number;
-  commission_amount: number; status: string; paid_at: string | null;
+  commission_amount: number; status: string; paid_at: string | null; released_at: string | null;
 };
 type Payout = {
   id: string; amount: number; pix_key: string; status: string; created_at: string; paid_at: string | null;
@@ -82,7 +82,7 @@ export default function Affiliates() {
       const [cRes, rRes, pRes, poRes] = await Promise.all([
         supabase.from("affiliate_coupons").select("id,code,discount_percent,plan_name,max_uses,uses_count,is_active").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("affiliate_referrals").select("id,referred_name,referred_email,coupon_code,plan_name,paid_amount,commission_total,status,created_at").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("affiliate_payments").select("id,referral_id,month_number,amount,commission_amount,status,paid_at").eq("affiliate_user_id", user.id),
+        supabase.from("affiliate_payments").select("id,referral_id,month_number,amount,commission_amount,status,paid_at,released_at").eq("affiliate_user_id", user.id),
         supabase.from("affiliate_payouts").select("id,amount,pix_key,status,created_at,paid_at").eq("affiliate_user_id", user.id).order("created_at", { ascending: false }),
       ]);
       setCoupons((cRes.data || []) as Coupon[]);
@@ -97,9 +97,23 @@ export default function Affiliates() {
   useEffect(() => { loadData(); }, [user?.id]);
 
   // Stats
+  const now = Date.now();
+  const isReleased = (p: Payment) =>
+    p.status === "paid" && p.released_at && new Date(p.released_at).getTime() <= now;
+  const isInGuarantee = (p: Payment) =>
+    p.status === "paid" && p.released_at && new Date(p.released_at).getTime() > now;
+
   const totalEarned = useMemo(
     () => payments.filter((p) => p.status === "paid").reduce((s, p) => s + Number(p.commission_amount || 0), 0),
     [payments]
+  );
+  const totalReleased = useMemo(
+    () => payments.filter(isReleased).reduce((s, p) => s + Number(p.commission_amount || 0), 0),
+    [payments, now]
+  );
+  const totalInGuarantee = useMemo(
+    () => payments.filter(isInGuarantee).reduce((s, p) => s + Number(p.commission_amount || 0), 0),
+    [payments, now]
   );
   const totalPending = useMemo(
     () => payments.filter((p) => p.status === "pending").reduce((s, p) => s + Number(p.commission_amount || 0), 0),
@@ -109,7 +123,7 @@ export default function Affiliates() {
     () => payouts.filter((p) => ["requested", "approved", "paid"].includes(p.status)).reduce((s, p) => s + Number(p.amount || 0), 0),
     [payouts]
   );
-  const availableBalance = Math.max(0, totalEarned - reservedInPayouts);
+  const availableBalance = Math.max(0, totalReleased - reservedInPayouts);
 
   const activeReferralsCount = referrals.filter((r) => r.status === "active").length;
 
@@ -171,25 +185,27 @@ export default function Affiliates() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <Card className="relative overflow-hidden border-emerald-500/20">
           <div className="pointer-events-none absolute -top-20 -right-20 w-48 h-48 rounded-full bg-emerald-500/10 blur-3xl" />
           <CardContent className="relative p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Total ganho</span>
-              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs text-muted-foreground">Saldo disponível</span>
+              <Wallet className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-emerald-400">{formatBRL(totalEarned)}</div>
+            <div className="text-xl sm:text-2xl font-bold text-emerald-400">{formatBRL(availableBalance)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Pronto para sacar</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground">Saldo disponível</span>
-              <Wallet className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Em garantia</span>
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-xl sm:text-2xl font-bold">{formatBRL(availableBalance)}</div>
+            <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalInGuarantee)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Libera em 7 dias</p>
           </CardContent>
         </Card>
 
@@ -200,6 +216,18 @@ export default function Affiliates() {
               <Clock className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalPending)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Mês ainda não pago</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-muted-foreground">Total ganho</span>
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <div className="text-xl sm:text-2xl font-bold">{formatBRL(totalEarned)}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Histórico acumulado</p>
           </CardContent>
         </Card>
 
@@ -210,8 +238,17 @@ export default function Affiliates() {
               <Users className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="text-xl sm:text-2xl font-bold">{activeReferralsCount}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Clientes ativos</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Aviso de garantia */}
+      <div className="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 flex items-start gap-3">
+        <ShieldCheck className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <span className="text-foreground font-medium">Período de garantia de 7 dias:</span> toda comissão fica em garantia por 7 dias após o cliente pagar. Depois disso, o valor entra no <span className="text-emerald-400 font-medium">Saldo disponível</span> e pode ser sacado via Pix.
+        </p>
       </div>
 
       {/* Cupom + Link */}
@@ -414,17 +451,21 @@ export default function Affiliates() {
                     const monthCell = (n: number) => {
                       const p = ps.find((x) => x.month_number === n);
                       if (!p) return <span className="text-xs text-muted-foreground">—</span>;
-                      const icon = p.status === "paid" ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> :
+                      const inGuarantee = isInGuarantee(p);
+                      const released = isReleased(p);
+                      const icon = released ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> :
+                                   inGuarantee ? <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> :
                                    p.status === "cancelled" ? <XCircle className="w-3.5 h-3.5 text-destructive" /> :
-                                   <Clock className="w-3.5 h-3.5 text-amber-400" />;
+                                   <Clock className="w-3.5 h-3.5 text-muted-foreground" />;
+                      const label = released ? `Liberado ${formatDate(p.released_at)}` :
+                                    inGuarantee ? `Libera ${formatDate(p.released_at)}` :
+                                    p.status === "cancelled" ? "Cancelado" : "Aguardando pagamento";
                       return (
                         <div className="flex flex-col">
                           <div className="flex items-center gap-1.5 text-xs font-medium">
                             {icon} {formatBRL(Number(p.commission_amount))}
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {p.status === "paid" ? `Pago ${formatDate(p.paid_at)}` : p.status === "cancelled" ? "Cancelado" : "Aguardando"}
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">{label}</span>
                         </div>
                       );
                     };
