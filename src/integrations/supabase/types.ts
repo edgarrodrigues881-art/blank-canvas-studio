@@ -4988,6 +4988,7 @@ export type Database = {
           risk_flag: boolean
           signup_ip: string | null
           status: string
+          ui_preferences: Json
           updated_at: string
           whatsapp_monitor_token: string | null
         }
@@ -5011,6 +5012,7 @@ export type Database = {
           risk_flag?: boolean
           signup_ip?: string | null
           status?: string
+          ui_preferences?: Json
           updated_at?: string
           whatsapp_monitor_token?: string | null
         }
@@ -5034,6 +5036,7 @@ export type Database = {
           risk_flag?: boolean
           signup_ip?: string | null
           status?: string
+          ui_preferences?: Json
           updated_at?: string
           whatsapp_monitor_token?: string | null
         }
@@ -8394,6 +8397,7 @@ export type Database = {
           risk_flag: boolean
           signup_ip: string | null
           status: string
+          ui_preferences: Json
           updated_at: string
           whatsapp_monitor_token: string | null
         }
