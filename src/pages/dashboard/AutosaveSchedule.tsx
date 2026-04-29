@@ -1113,29 +1113,31 @@ export default function AutosaveSchedule() {
           )}
 
           {/* Footer / navigation */}
-          <div className="flex gap-2 pt-3 mt-2 border-t border-border/40">
+          <div className="flex gap-2 pt-3 mt-2 border-t border-border/40 w-full">
             {step > 1 ? (
-              <Button variant="outline" onClick={back} className="gap-2">
+              <Button variant="outline" onClick={back} className="gap-2 shrink-0">
                 <ArrowLeft className="w-4 h-4" /> Voltar
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setCreateOpen(false)} className="shrink-0">Cancelar</Button>
             )}
             <div className="flex-1" />
             {step < 4 ? (
-              <Button onClick={next} className="gap-2">
+              <Button onClick={next} className="gap-2 shrink-0">
                 Próximo <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
               <Button
                 onClick={handleCreate}
                 disabled={createMut.isPending || updateMut.isPending}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2 shrink-0"
               >
                 {editingId ? <Save className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
-                {editingId
-                  ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
-                  : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
+                <span className="truncate">
+                  {editingId
+                    ? (updateMut.isPending ? "Salvando..." : "Salvar Alterações")
+                    : (createMut.isPending ? "Criando..." : "Criar Agendamento")}
+                </span>
               </Button>
             )}
           </div>
