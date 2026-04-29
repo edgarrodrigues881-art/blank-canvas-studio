@@ -76,10 +76,30 @@ async function checkBatchNumbers(baseUrl: string, token: string, phones: string[
         return q === phone;
       });
       if (!item) return { phone, status: "error" as const, detail: "Sem resposta da API" };
-      if (item.isInWhatsapp === true) return { phone, status: "success" as const, detail: "Tem WhatsApp" };
-      if (item.isInWhatsapp === false) return { phone, status: "no_whatsapp" as const, detail: "Sem WhatsApp" };
-      if (item.jid && String(item.jid).includes("@s.whatsapp.net")) return { phone, status: "success" as const, detail: "Tem WhatsApp" };
-      return { phone, status: "error" as const, detail: "Resposta inesperada" };
+
+      // ✅ Sinais EXPLÍCITOS e CONFIÁVEIS de que o número TEM WhatsApp:
+      //    - isInWhatsapp === true (campo oficial UAZAPI)
+      //    - exists === true (variação em algumas versões)
+      //    - presença de name/verifiedName/pushname (só existem se a conta WA existir)
+      const hasWa =
+        item.isInWhatsapp === true ||
+        item.exists === true ||
+        (typeof item.name === "string" && item.name.trim().length > 0) ||
+        (typeof item.verifiedName === "string" && item.verifiedName.trim().length > 0) ||
+        (typeof item.pushname === "string" && item.pushname.trim().length > 0);
+
+      // ❌ Sinais EXPLÍCITOS de que NÃO tem WhatsApp
+      const noWa =
+        item.isInWhatsapp === false ||
+        item.exists === false;
+
+      if (hasWa) return { phone, status: "success" as const, detail: "Tem WhatsApp" };
+      if (noWa) return { phone, status: "no_whatsapp" as const, detail: "Sem WhatsApp" };
+
+      // ⚠️ IMPORTANTE: o `jid` montado (numero@s.whatsapp.net) NÃO é prova de existência —
+      // a UAZAPI gera esse endereço para qualquer consulta. Se chegou aqui, a resposta
+      // não foi conclusiva → marca como erro pra reprocessamento (evita falso positivo).
+      return { phone, status: "error" as const, detail: "Resposta inconclusiva da API" };
     });
   } catch (err: any) {
     const detail = err?.name === "AbortError" ? "Timeout" : "Erro de conexão";
