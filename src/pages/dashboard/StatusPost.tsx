@@ -565,7 +565,7 @@ function ScheduleDialog({
                   </div>
                 )}
                 <Input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-                <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Legenda" rows={2} />
+                <WhatsAppTextEditor value={caption} onChange={setCaption} placeholder="Legenda — *negrito*, _itálico_, ~riscado~, ```mono```" rows={2} />
               </TabsContent>
 
               <TabsContent value="video" className="space-y-3 mt-3">
