@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info, Pencil, Save } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info, Pencil, Save, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1010,9 +1010,22 @@ export default function AutosaveSchedule() {
                   </div>
                   <div>
                     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite máximo</Label>
-                    <Input type="number" min={1} value={maxLimit} placeholder="ex: 100"
-                      onChange={(e) => { const v = e.target.value; if (v === "") return setMaxLimit(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setMaxLimit(n); }} />
-                    <p className="text-[10px] text-muted-foreground/70 mt-1">Teto que o chip <strong>nunca</strong> passa.</p>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={maxLimit}
+                      placeholder="ex: 100"
+                      onChange={(e) => { const v = e.target.value; if (v === "") return setMaxLimit(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setMaxLimit(n); }}
+                      className={typeof maxLimit === "number" && maxLimit >= 55 ? "text-red-500 border-red-500/60 focus-visible:ring-red-500/40" : ""}
+                    />
+                    {typeof maxLimit === "number" && maxLimit >= 55 ? (
+                      <p className="text-[10px] text-red-500 mt-1 flex items-start gap-1">
+                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                        <span><strong>Risco de restrição ou banimento.</strong> Acima de 55 envios/dia o chip pode ser limitado pelo WhatsApp.</span>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">Teto que o chip <strong>nunca</strong> passa.</p>
+                    )}
                   </div>
                 </div>
 
