@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { ArrowRight, Sparkles, Check, Loader2 } from "lucide-react";
+import { ArrowRight, Sparkles, CheckCircle2, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+
+const WA_GREEN = "#25D366";
+const WA_GREEN_DARK = "#07C160";
 
 const creditPacks = [
   {
