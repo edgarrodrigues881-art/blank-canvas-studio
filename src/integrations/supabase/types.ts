@@ -5779,6 +5779,36 @@ export type Database = {
           },
         ]
       }
+      status_schedule_folders: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       status_schedules: {
         Row: {
           background_color: string | null
@@ -5787,6 +5817,7 @@ export type Database = {
           device_ids: string[]
           device_mode: string
           enabled: boolean
+          folder_id: string | null
           font: number | null
           id: string
           last_run_at: string | null
@@ -5810,6 +5841,7 @@ export type Database = {
           device_ids?: string[]
           device_mode?: string
           enabled?: boolean
+          folder_id?: string | null
           font?: number | null
           id?: string
           last_run_at?: string | null
@@ -5833,6 +5865,7 @@ export type Database = {
           device_ids?: string[]
           device_mode?: string
           enabled?: boolean
+          folder_id?: string | null
           font?: number | null
           id?: string
           last_run_at?: string | null
@@ -5849,7 +5882,15 @@ export type Database = {
           user_id?: string
           weekdays?: number[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "status_schedules_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "status_schedule_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscription_cycles: {
         Row: {
