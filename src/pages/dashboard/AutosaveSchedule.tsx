@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Save, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Calendar as CalendarIcon, Plus, Play, Pause, Trash2, Smartphone, Activity, CheckCircle2, AlertCircle, Clock, Repeat, Rocket, ArrowRight, ArrowLeft, MessageSquare, TrendingUp, Users, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,13 @@ function weekdaysLabel(days: number[]): string {
   return WEEKDAYS.filter((w) => days.includes(w.value)).map((w) => w.short).join(", ");
 }
 
+const STEPS = [
+  { n: 1, title: "Identificação", desc: "Nome do agendamento", icon: CalendarIcon },
+  { n: 2, title: "Instâncias", desc: "Quais chips disparam", icon: Smartphone },
+  { n: 3, title: "Agenda", desc: "Dias e horário", icon: Clock },
+  { n: 4, title: "Envio + Crescimento", desc: "Ritmo e progressão", icon: Activity },
+] as const;
+
 export default function AutosaveSchedule() {
   const { user } = useAuth();
   const { data: schedules = [], isLoading } = useAutosaveSchedules();
@@ -48,6 +55,7 @@ export default function AutosaveSchedule() {
   const triggerMut = useTriggerAutosaveSchedule();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data: contactStats = { total: 0, valid: 0, invalid: 0 } } = useQuery({
@@ -65,24 +73,6 @@ export default function AutosaveSchedule() {
     enabled: !!user,
   });
   const autosaveCount = contactStats.total;
-
-  // Resumo do dia: agregados a partir dos logs
-  const todayISO = format(new Date(), "yyyy-MM-dd");
-  const { data: todayLogStats = { invalid: 0, failed: 0, limit_reached: 0 } } = useQuery({
-    queryKey: ["autosave_today_log_stats", user?.id, todayISO],
-    queryFn: async () => {
-      if (!user) return { invalid: 0, failed: 0, limit_reached: 0 };
-      const startISO = `${todayISO}T00:00:00.000Z`;
-      const [inv, fail, lim] = await Promise.all([
-        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "invalid_number").gte("sent_at", startISO),
-        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "failed").gte("sent_at", startISO),
-        supabase.from("autosave_schedule_logs" as any).select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "limit_reached").gte("sent_at", startISO),
-      ]);
-      return { invalid: inv.count || 0, failed: fail.count || 0, limit_reached: lim.count || 0 };
-    },
-    enabled: !!user,
-    refetchInterval: 10_000,
-  });
 
   const { data: devices = [] } = useQuery({
     queryKey: ["devices_for_autosave_schedule", user?.id],
@@ -104,13 +94,19 @@ export default function AutosaveSchedule() {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [timeOfDay, setTimeOfDay] = useState("13:00");
-  const [minDelay, setMinDelay] = useState<number | "">(15);
-  const [maxDelay, setMaxDelay] = useState<number | "">(60);
-  const [pauseEveryMin, setPauseEveryMin] = useState<number | "">(10);
-  const [pauseEveryMax, setPauseEveryMax] = useState<number | "">(20);
-  const [pauseDurationMin, setPauseDurationMin] = useState<number | "">(30);
-  const [pauseDurationMax, setPauseDurationMax] = useState<number | "">(120);
+
+  // Envio
   const [msgsPerInstance, setMsgsPerInstance] = useState<number | "">(1);
+  const [minDelay, setMinDelay] = useState<number | "">(8);          // entre msgs do mesmo contato
+  const [maxDelay, setMaxDelay] = useState<number | "">(20);
+  const [betweenContactsMin, setBetweenContactsMin] = useState<number | "">(30); // entre contatos
+  const [betweenContactsMax, setBetweenContactsMax] = useState<number | "">(90);
+  const [pauseEveryMin, setPauseEveryMin] = useState<number | "">(10);   // pausa a cada X CONTATOS
+  const [pauseEveryMax, setPauseEveryMax] = useState<number | "">(20);
+  const [pauseDurationMin, setPauseDurationMin] = useState<number | "">(60);
+  const [pauseDurationMax, setPauseDurationMax] = useState<number | "">(180);
+
+  // Crescimento
   const [initialLimit, setInitialLimit] = useState<number | "">(20);
   const [dailyIncrement, setDailyIncrement] = useState<number | "">(5);
   const [maxLimit, setMaxLimit] = useState<number | "">(100);
@@ -120,12 +116,19 @@ export default function AutosaveSchedule() {
     setSelectedDevices([]);
     setSelectedWeekdays([1, 2, 3, 4, 5]);
     setTimeOfDay("13:00");
-    setMinDelay(15);
-    setMaxDelay(60);
     setMsgsPerInstance(1);
+    setMinDelay(8);
+    setMaxDelay(20);
+    setBetweenContactsMin(30);
+    setBetweenContactsMax(90);
+    setPauseEveryMin(10);
+    setPauseEveryMax(20);
+    setPauseDurationMin(60);
+    setPauseDurationMax(180);
     setInitialLimit(20);
     setDailyIncrement(5);
     setMaxLimit(100);
+    setStep(1);
   };
 
   const toggleWeekday = (day: number) => {
@@ -134,40 +137,56 @@ export default function AutosaveSchedule() {
     );
   };
 
-  const handleCreate = async () => {
-    if (selectedDevices.length === 0) {
-      toast.error("Selecione ao menos uma instância");
-      return;
-    }
-    if (selectedWeekdays.length === 0) {
-      toast.error("Selecione ao menos um dia da semana");
-      return;
-    }
-    if (autosaveCount === 0) {
-      toast.error("Nenhum contato Auto Save cadastrado");
-      return;
-    }
-    if (!/^\d{2}:\d{2}$/.test(timeOfDay)) {
-      toast.error("Horário inválido");
-      return;
-    }
-    // Progressão é sempre obrigatória
-    const ini = typeof initialLimit === "number" ? initialLimit : NaN;
-    const inc = typeof dailyIncrement === "number" ? dailyIncrement : NaN;
-    const mx = typeof maxLimit === "number" ? maxLimit : NaN;
-    if (!Number.isFinite(ini) || ini < 1) return toast.error("Limite inicial deve ser ≥ 1");
-    if (!Number.isFinite(inc) || inc < 0) return toast.error("Aumento por dia deve ser ≥ 0");
-    if (!Number.isFinite(mx) || mx < ini) return toast.error("Limite máximo deve ser ≥ limite inicial");
-    const payloadProgression = { initial_limit_per_instance: ini, daily_increment: inc, max_limit_per_instance: mx };
+  // Preview da progressão (primeiros 7 dias)
+  const growthPreview = useMemo(() => {
+    const ini = typeof initialLimit === "number" ? initialLimit : 0;
+    const inc = typeof dailyIncrement === "number" ? dailyIncrement : 0;
+    const mx = typeof maxLimit === "number" ? maxLimit : 0;
+    if (!ini || !mx) return [];
+    return Array.from({ length: 7 }, (_, i) => Math.min(mx, ini + i * inc));
+  }, [initialLimit, dailyIncrement, maxLimit]);
 
-    // Normaliza valores numéricos: vazio → 1 (apenas no momento de salvar)
+  const validateStep = (s: 1 | 2 | 3 | 4): string | null => {
+    if (s === 1 && !name.trim()) return "Dê um nome para o agendamento";
+    if (s === 2 && selectedDevices.length === 0) return "Selecione ao menos uma instância";
+    if (s === 3) {
+      if (selectedWeekdays.length === 0) return "Selecione ao menos um dia da semana";
+      if (!/^\d{2}:\d{2}$/.test(timeOfDay)) return "Horário inválido";
+    }
+    if (s === 4) {
+      const ini = typeof initialLimit === "number" ? initialLimit : NaN;
+      const inc = typeof dailyIncrement === "number" ? dailyIncrement : NaN;
+      const mx = typeof maxLimit === "number" ? maxLimit : NaN;
+      if (!Number.isFinite(ini) || ini < 1) return "Limite inicial deve ser ≥ 1";
+      if (!Number.isFinite(inc) || inc < 0) return "Aumento por dia deve ser ≥ 0";
+      if (!Number.isFinite(mx) || mx < ini) return "Limite máximo deve ser ≥ limite inicial";
+    }
+    return null;
+  };
+
+  const next = () => {
+    const err = validateStep(step);
+    if (err) return toast.error(err);
+    setStep((s) => (s < 4 ? ((s + 1) as 2 | 3 | 4) : s));
+  };
+  const back = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3) : s));
+
+  const handleCreate = async () => {
+    for (const s of [1, 2, 3, 4] as const) {
+      const err = validateStep(s);
+      if (err) { setStep(s); return toast.error(err); }
+    }
+    if (autosaveCount === 0) return toast.error("Nenhum contato Auto Save cadastrado");
+
     const num = (v: number | "", fallback: number) => (typeof v === "number" && !isNaN(v) ? v : fallback);
-    const minD = Math.max(5, num(minDelay, 15));
-    const maxD = Math.max(minD, num(maxDelay, 60));
+    const minD = Math.max(1, num(minDelay, 8));
+    const maxD = Math.max(minD, num(maxDelay, 20));
+    const bcMin = Math.max(1, num(betweenContactsMin, 30));
+    const bcMax = Math.max(bcMin, num(betweenContactsMax, 90));
     const peMin = Math.max(1, num(pauseEveryMin, 10));
     const peMax = Math.max(peMin, num(pauseEveryMax, 20));
-    const pdMin = Math.max(1, num(pauseDurationMin, 30));
-    const pdMax = Math.max(pdMin, num(pauseDurationMax, 120));
+    const pdMin = Math.max(1, num(pauseDurationMin, 60));
+    const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
     try {
@@ -178,12 +197,16 @@ export default function AutosaveSchedule() {
         time_of_day: timeOfDay,
         min_delay_seconds: minD,
         max_delay_seconds: maxD,
+        between_contacts_min_seconds: bcMin,
+        between_contacts_max_seconds: bcMax,
         pause_every_min: peMin,
         pause_every_max: peMax,
         pause_duration_min: pdMin,
         pause_duration_max: pdMax,
         messages_per_instance: mpi,
-        ...payloadProgression,
+        initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
+        daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
+        max_limit_per_instance: typeof maxLimit === "number" ? maxLimit : 100,
       });
       toast.success("Agendamento recorrente criado");
       setCreateOpen(false);
@@ -260,7 +283,7 @@ export default function AutosaveSchedule() {
               <Pause className="w-4 h-4" /> Pausar todos
             </Button>
           )}
-          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+          <Button onClick={() => { resetForm(); setCreateOpen(true); }} className="gap-2">
             <Plus className="w-4 h-4" /> Novo Agendamento
           </Button>
         </div>
@@ -383,23 +406,6 @@ export default function AutosaveSchedule() {
             <p className="text-sm text-foreground font-medium">
               Crie um agendamento para iniciar o aquecimento automático entre seus chips.
             </p>
-            <div className="mt-5 max-w-md mx-auto grid grid-cols-3 gap-3 text-left">
-              {[
-                { n: 1, t: "Escolha instâncias", icon: Smartphone },
-                { n: 2, t: "Defina dias e horário", icon: Clock },
-                { n: 3, t: "Configure envio", icon: Activity },
-              ].map((step) => (
-                <div key={step.n} className="rounded-lg border border-border/50 bg-muted/20 p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center">
-                      {step.n}
-                    </span>
-                    <step.icon className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-foreground/80">{step.t}</p>
-                </div>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="divide-y divide-border/40">
@@ -425,7 +431,7 @@ export default function AutosaveSchedule() {
                         {s.total_sent} enviadas{s.total_failed > 0 && ` · ${s.total_failed} falhas`}
                       </span>
                       <span className="flex items-center gap-1 text-emerald-400/80">
-                        <Activity className="w-3 h-3" />
+                        <TrendingUp className="w-3 h-3" />
                         {(() => {
                           const cur = Math.min(
                             s.max_limit_per_instance,
@@ -469,326 +475,423 @@ export default function AutosaveSchedule() {
         )}
       </Card>
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Create Wizard */}
+      <Dialog open={createOpen} onOpenChange={(o) => { if (!o) { setCreateOpen(false); } }}>
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-primary" /> Novo Agendamento Auto Save
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 pt-2">
-            {/* ============ BLOCO 1: BÁSICO ============ */}
-            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-                <span className="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">1</span>
-                <h3 className="text-sm font-semibold">Básico</h3>
-                <span className="text-[11px] text-muted-foreground ml-auto">Identificação e quando executar</span>
+          {/* Stepper */}
+          <div className="flex items-center gap-1 mt-2 mb-4">
+            {STEPS.map((st, i) => {
+              const active = st.n === step;
+              const done = st.n < step;
+              const Icon = st.icon;
+              return (
+                <div key={st.n} className="flex-1 flex items-center gap-1 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => { if (done) setStep(st.n as any); }}
+                    className={cn(
+                      "flex-1 flex items-center gap-2 px-3 py-2 rounded-md border transition-colors min-w-0",
+                      active && "bg-primary/10 border-primary/40 text-foreground",
+                      done && "bg-emerald-500/5 border-emerald-500/30 text-emerald-400 cursor-pointer hover:bg-emerald-500/10",
+                      !active && !done && "bg-muted/20 border-border/40 text-muted-foreground"
+                    )}
+                  >
+                    <span className={cn(
+                      "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                      active && "bg-primary text-primary-foreground",
+                      done && "bg-emerald-500/20 text-emerald-400",
+                      !active && !done && "bg-muted text-muted-foreground"
+                    )}>
+                      {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : st.n}
+                    </span>
+                    <div className="min-w-0 hidden sm:block">
+                      <p className="text-[11px] font-semibold leading-tight truncate">{st.title}</p>
+                      <p className="text-[10px] opacity-70 leading-tight truncate">{st.desc}</p>
+                    </div>
+                    <Icon className="w-4 h-4 ml-auto sm:hidden shrink-0" />
+                  </button>
+                  {i < STEPS.length - 1 && <ArrowRight className="w-3 h-3 text-muted-foreground/40 shrink-0" />}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ============ STEP 1: IDENTIFICAÇÃO ============ */}
+          {step === 1 && (
+            <section className="space-y-4">
+              <div className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <CalendarIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Dê um nome para identificar</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Ajuda a reconhecer o agendamento na lista. Pode ser algo como "Aquecimento principal" ou "Chips novos – manhã".</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Nome do agendamento</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Aquecimento diário – chips novos" />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ============ STEP 2: INSTÂNCIAS ============ */}
+          {step === 2 && (
+            <section className="space-y-4">
+              <div className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <Smartphone className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Quais chips vão disparar?</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Cada chip selecionado fará envios de forma INDEPENDENTE — todos rodam em paralelo, cada um no seu próprio ritmo.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                    Instâncias ({selectedDevices.length} selecionadas)
+                  </Label>
+                  <div className="flex gap-2 mb-2">
+                    <button type="button" onClick={() => setSelectedDevices(devices.map((d: any) => d.id))} className="text-[11px] text-primary hover:underline">Selecionar todos</button>
+                    <span className="text-[11px] text-muted-foreground/30">·</span>
+                    <button type="button" onClick={() => setSelectedDevices([])} className="text-[11px] text-muted-foreground hover:text-primary">Limpar</button>
+                  </div>
+                  <Card className="p-2 max-h-72 overflow-y-auto">
+                    {devices.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center p-3">Nenhuma instância encontrada</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {devices.map((d: any) => {
+                          const isOnline = ["Ready", "Connected", "authenticated", "open"].includes(d.status);
+                          const isSel = selectedDevices.includes(d.id);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() =>
+                                setSelectedDevices((prev) =>
+                                  prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
+                                )
+                              }
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors",
+                                isSel ? "bg-primary/10 text-foreground" : "hover:bg-muted/40 text-muted-foreground"
+                              )}
+                            >
+                              <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                              <span className="flex-1 truncate">{d.name || d.number || "—"}</span>
+                              {isSel && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ============ STEP 3: AGENDA ============ */}
+          {step === 3 && (
+            <section className="space-y-4">
+              <div className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Quando deve executar?</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Marque os dias da semana e o horário. O agendamento será disparado UMA vez em cada dia marcado, no horário (BRT) escolhido.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
+                    Dias da semana ({selectedWeekdays.length} selecionados)
+                  </Label>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {WEEKDAYS.map((w) => {
+                      const isSel = selectedWeekdays.includes(w.value);
+                      return (
+                        <button
+                          key={w.value}
+                          type="button"
+                          onClick={() => toggleWeekday(w.value)}
+                          className={cn(
+                            "py-2.5 rounded-md text-xs font-medium transition-colors border",
+                            isSel
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
+                          )}
+                          title={w.long}
+                        >
+                          {w.short}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([1, 2, 3, 4, 5])}>Seg a Sex</button>
+                    <span className="text-[11px] text-muted-foreground/30">·</span>
+                    <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([0, 1, 2, 3, 4, 5, 6])}>Todos</button>
+                    <span className="text-[11px] text-muted-foreground/30">·</span>
+                    <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([])}>Limpar</button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Horário (BRT)</Label>
+                  <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+                  <p className="text-[11px] text-muted-foreground/80 mt-1.5">{weekdaysLabel(selectedWeekdays)} às {timeOfDay}</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* ============ STEP 4: ENVIO + CRESCIMENTO ============ */}
+          {step === 4 && (
+            <section className="space-y-4">
+              {/* Mensagens por contato + delays */}
+              <div className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <MessageSquare className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Como cada chip dispara</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Defina quantas mensagens cada contato recebe e o ritmo entre elas.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Mensagens por contato</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={msgsPerInstance}
+                    placeholder="Ex: 3"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") return setMsgsPerInstance("");
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n) && n >= 0) setMsgsPerInstance(n);
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground/80 mt-1.5">
+                    Quantas mensagens serão enviadas para cada contato antes de pular para o próximo.
+                  </p>
+                </div>
+
+                {/* Delay entre mensagens do MESMO contato */}
+                <div className={cn(
+                  "rounded-md border p-3 space-y-3",
+                  (typeof msgsPerInstance === "number" && msgsPerInstance > 1)
+                    ? "border-blue-500/30 bg-blue-500/5"
+                    : "border-border/60 bg-muted/10 opacity-60"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-semibold uppercase tracking-wider">Delay entre mensagens (mesmo contato)</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/90">
+                    Tempo de espera entre uma mensagem e outra <strong>dentro do mesmo contato</strong>. Só é usado quando "mensagens por contato" for maior que 1.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Mín (s)</Label>
+                      <Input type="number" min={1} value={minDelay} placeholder="ex: 8"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setMinDelay(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setMinDelay(n); }} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Máx (s)</Label>
+                      <Input type="number" min={1} value={maxDelay} placeholder="ex: 20"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setMaxDelay(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setMaxDelay(n); }} />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/80">
+                    Aleatório entre <span className="text-foreground font-medium">{minDelay || "—"}–{maxDelay || "—"}s</span> entre cada mensagem do mesmo contato.
+                  </p>
+                </div>
+
+                {/* Delay entre CONTATOS */}
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-semibold uppercase tracking-wider">Delay entre contatos</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/90">
+                    Tempo de espera <strong>após terminar de enviar para um contato</strong>, antes de começar o próximo. Contado da última mensagem do contato anterior até a primeira do próximo.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Mín (s)</Label>
+                      <Input type="number" min={1} value={betweenContactsMin} placeholder="ex: 30"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setBetweenContactsMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setBetweenContactsMin(n); }} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Máx (s)</Label>
+                      <Input type="number" min={1} value={betweenContactsMax} placeholder="ex: 90"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setBetweenContactsMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setBetweenContactsMax(n); }} />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/80">
+                    Aleatório entre <span className="text-foreground font-medium">{betweenContactsMin || "—"}–{betweenContactsMax || "—"}s</span> entre o fim de um contato e o início do próximo.
+                  </p>
+                </div>
+
+                {/* Pausa entre lotes de CONTATOS */}
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Pause className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes de contatos</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/90">
+                    Após atender uma quantidade de <strong>contatos completos</strong>, o chip faz uma pausa maior antes de continuar — simula um descanso humano.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín contatos)</Label>
+                      <Input type="number" min={1} value={pauseEveryMin} placeholder="ex: 10"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMin(n); }} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx contatos)</Label>
+                      <Input type="number" min={1} value={pauseEveryMax} placeholder="ex: 20"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMax(n); }} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
+                      <Input type="number" min={1} value={pauseDurationMin} placeholder="ex: 60"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMin(n); }} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
+                      <Input type="number" min={1} value={pauseDurationMax} placeholder="ex: 180"
+                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMax(n); }} />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/80">
+                    A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos atendidos</span>, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
+              {/* Crescimento */}
+              <div className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Crescimento automático diário</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      O limite de envios <strong>cresce a cada dia executado</strong> — começa baixo e vai aumentando até chegar no máximo. Isso protege chips novos.
+                    </p>
+                  </div>
+                </div>
 
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
-                  Instâncias ({selectedDevices.length} selecionadas)
-                </Label>
-                <Card className="p-2 max-h-44 overflow-y-auto">
-                  {devices.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center p-3">Nenhuma instância encontrada</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {devices.map((d: any) => {
-                        const isOnline = ["Ready", "Connected", "authenticated", "open"].includes(d.status);
-                        const isSel = selectedDevices.includes(d.id);
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite inicial</Label>
+                    <Input type="number" min={1} value={initialLimit} placeholder="ex: 20"
+                      onChange={(e) => { const v = e.target.value; if (v === "") return setInitialLimit(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setInitialLimit(n); }} />
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">Quantos envios o chip faz no <strong>1º dia</strong>.</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Aumento por dia</Label>
+                    <Input type="number" min={0} value={dailyIncrement} placeholder="ex: 5"
+                      onChange={(e) => { const v = e.target.value; if (v === "") return setDailyIncrement(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setDailyIncrement(n); }} />
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">Quanto <strong>soma</strong> a cada novo dia.</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite máximo</Label>
+                    <Input type="number" min={1} value={maxLimit} placeholder="ex: 100"
+                      onChange={(e) => { const v = e.target.value; if (v === "") return setMaxLimit(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setMaxLimit(n); }} />
+                    <p className="text-[10px] text-muted-foreground/70 mt-1">Teto que o chip <strong>nunca</strong> passa.</p>
+                  </div>
+                </div>
+
+                {/* Preview da progressão */}
+                {growthPreview.length > 0 && (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400">Como vai crescer (envios por chip)</span>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {growthPreview.map((v, i) => {
+                        const reachedMax = typeof maxLimit === "number" && v >= maxLimit;
                         return (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() =>
-                              setSelectedDevices((prev) =>
-                                prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
-                              )
-                            }
-                            className={cn(
-                              "w-full flex items-center gap-2 px-3 py-2 rounded-md text-left text-sm transition-colors",
-                              isSel ? "bg-primary/10 text-foreground" : "hover:bg-muted/40 text-muted-foreground"
-                            )}
-                          >
-                            <div className={cn("w-2 h-2 rounded-full", isOnline ? "bg-emerald-500" : "bg-muted-foreground/40")} />
-                            <span className="flex-1 truncate">{d.name || d.number || "—"}</span>
-                            {isSel && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                          </button>
+                          <div key={i} className={cn(
+                            "rounded p-2 text-center border",
+                            reachedMax ? "border-amber-500/40 bg-amber-500/10" : "border-emerald-500/30 bg-emerald-500/10"
+                          )}>
+                            <p className="text-[9px] uppercase text-muted-foreground/70">Dia {i + 1}</p>
+                            <p className="text-sm font-bold text-foreground">{v}</p>
+                          </div>
                         );
                       })}
                     </div>
-                  )}
-                </Card>
+                    <p className="text-[11px] text-muted-foreground/90 mt-2 leading-relaxed">
+                      Exemplo: começando em <strong>{initialLimit || "—"}</strong>, aumentando <strong>+{dailyIncrement || 0}</strong> por dia até o teto de <strong>{maxLimit || "—"}</strong>.
+                      No 1º dia o chip envia <strong>{growthPreview[0]}</strong>, no 2º dia <strong>{growthPreview[1]}</strong>, no 3º dia <strong>{growthPreview[2]}</strong>… e assim por diante (não é sempre o mesmo número).
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">
-                  Dias da semana ({selectedWeekdays.length} selecionados)
-                </Label>
-                <div className="grid grid-cols-7 gap-1.5">
-                  {WEEKDAYS.map((w) => {
-                    const isSel = selectedWeekdays.includes(w.value);
-                    return (
-                      <button
-                        key={w.value}
-                        type="button"
-                        onClick={() => toggleWeekday(w.value)}
-                        className={cn(
-                          "py-2.5 rounded-md text-xs font-medium transition-colors border",
-                          isSel
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50"
-                        )}
-                        title={w.long}
-                      >
-                        {w.short}
-                      </button>
-                    );
-                  })}
+              {/* Resumo final */}
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Resumo</span>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([1, 2, 3, 4, 5])}>Seg a Sex</button>
-                  <span className="text-[11px] text-muted-foreground/30">·</span>
-                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([0, 1, 2, 3, 4, 5, 6])}>Todos</button>
-                  <span className="text-[11px] text-muted-foreground/30">·</span>
-                  <button type="button" className="text-[11px] text-muted-foreground hover:text-primary" onClick={() => setSelectedWeekdays([])}>Limpar</button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Horário</Label>
-                <Input type="time" value={timeOfDay} onChange={(e) => setTimeOfDay(e.target.value)} />
+                <p className="text-[11px] text-muted-foreground/90">
+                  <strong>{name}</strong> · {selectedDevices.length} chip(s) · {weekdaysLabel(selectedWeekdays)} às {timeOfDay} ·
+                  {" "}{msgsPerInstance || 1} msg(s)/contato · delay {betweenContactsMin || "—"}–{betweenContactsMax || "—"}s entre contatos · pausa após {pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos.
+                </p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  {autosaveCount} contatos disponíveis · crescimento {initialLimit}→{maxLimit} (+{dailyIncrement}/dia).
+                </p>
               </div>
             </section>
+          )}
 
-            {/* ============ BLOCO 2: ENVIO ============ */}
-            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-                <span className="w-6 h-6 rounded-full bg-blue-500/15 text-blue-400 text-xs font-bold flex items-center justify-center">2</span>
-                <h3 className="text-sm font-semibold">Envio</h3>
-                <span className="text-[11px] text-muted-foreground ml-auto">Como cada instância dispara</span>
-              </div>
-
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground/70 mb-2 block">Mensagens por contato</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={msgsPerInstance}
-                  placeholder="ex: 3 (vazio = 1)"
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "") return setMsgsPerInstance("");
-                    const n = parseInt(v, 10);
-                    if (!isNaN(n) && n >= 0) setMsgsPerInstance(n);
-                  }}
-                />
-                <p className="text-[11px] text-muted-foreground/80 mt-1.5">Quantidade de mensagens enviadas para cada número.</p>
-              </div>
-
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Intervalo entre mensagens</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Mín (s)</Label>
-                    <Input
-                      type="number"
-                      min={5}
-                      value={minDelay}
-                      placeholder="ex: 15"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setMinDelay("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setMinDelay(n);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Máx (s)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={maxDelay}
-                      placeholder="ex: 60"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setMaxDelay("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setMaxDelay(n);
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground/80">Aleatório entre <span className="text-foreground font-medium">{minDelay || "—"}–{maxDelay || "—"}s</span> entre cada envio.</p>
-              </div>
-
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Pause className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={pauseEveryMin}
-                      placeholder="ex: 10"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setPauseEveryMin("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setPauseEveryMin(n);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={pauseEveryMax}
-                      placeholder="ex: 20"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setPauseEveryMax("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setPauseEveryMax(n);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={pauseDurationMin}
-                      placeholder="ex: 30"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setPauseDurationMin("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setPauseDurationMin(n);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={pauseDurationMax}
-                      placeholder="ex: 120"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "") return setPauseDurationMax("");
-                        const n = parseInt(v, 10);
-                        if (!isNaN(n) && n >= 0) setPauseDurationMax(n);
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground/80">A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"}</span> mensagens, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.</p>
-              </div>
-            </section>
-
-            {/* ============ BLOCO 3: CRESCIMENTO ============ */}
-            <section className="rounded-lg border border-border/60 bg-card/40 p-4 space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-border/40">
-                <span className="w-6 h-6 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center justify-center">3</span>
-                <h3 className="text-sm font-semibold">Crescimento</h3>
-                <span className="text-[11px] text-muted-foreground ml-auto">Progressão automática diária</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite inicial</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={initialLimit}
-                    placeholder="ex: 20"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") return setInitialLimit("");
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n >= 0) setInitialLimit(n);
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Aumento por dia</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={dailyIncrement}
-                    placeholder="ex: 5"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") return setDailyIncrement("");
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n >= 0) setDailyIncrement(n);
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Limite máximo</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={maxLimit}
-                    placeholder="ex: 100"
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") return setMaxLimit("");
-                      const n = parseInt(v, 10);
-                      if (!isNaN(n) && n >= 0) setMaxLimit(n);
-                    }}
-                  />
-                </div>
-              </div>
-
-              <p className="text-[11px] text-muted-foreground/80">
-                Cada chip começa enviando <span className="text-foreground font-medium">{typeof initialLimit === "number" ? initialLimit : "—"}</span> mensagens por dia
-                e aumenta automaticamente <span className="text-foreground font-medium">+{typeof dailyIncrement === "number" ? dailyIncrement : "—"}</span> por dia
-                até o limite máximo de <span className="text-foreground font-medium">{typeof maxLimit === "number" ? maxLimit : "—"}</span>.
-              </p>
-            </section>
-
-            <p className="text-[10px] text-muted-foreground/60 leading-relaxed px-1 flex items-start gap-1.5">
-              <Repeat className="w-2.5 h-2.5 mt-0.5 shrink-0 opacity-60" />
-              <span>
-                {selectedWeekdays.length > 0
-                  ? `${weekdaysLabel(selectedWeekdays)} às ${timeOfDay}`
-                  : "selecione os dias"}
-                {" · "}{autosaveCount} contatos · {msgsPerInstance} msg/contato · limite diário pela progressão automática.
-              </span>
-            </p>
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+          {/* Footer / navigation */}
+          <div className="flex gap-2 pt-3 mt-2 border-t border-border/40">
+            {step > 1 ? (
+              <Button variant="outline" onClick={back} className="gap-2">
+                <ArrowLeft className="w-4 h-4" /> Voltar
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            )}
+            <div className="flex-1" />
+            {step < 4 ? (
+              <Button onClick={next} className="gap-2">
+                Próximo <ArrowRight className="w-4 h-4" />
+              </Button>
+            ) : (
               <Button
-                className="flex-[1.5] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
                 onClick={handleCreate}
                 disabled={createMut.isPending}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all gap-2"
               >
                 <Rocket className="w-4 h-4" />
                 {createMut.isPending ? "Criando..." : "Criar Agendamento"}
               </Button>
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

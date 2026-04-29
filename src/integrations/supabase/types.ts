@@ -1463,6 +1463,8 @@ export type Database = {
       }
       autosave_schedules: {
         Row: {
+          between_contacts_max_seconds: number
+          between_contacts_min_seconds: number
           completed_at: string | null
           contact_cursor: Json
           created_at: string
@@ -1495,6 +1497,8 @@ export type Database = {
           weekdays: Json
         }
         Insert: {
+          between_contacts_max_seconds?: number
+          between_contacts_min_seconds?: number
           completed_at?: string | null
           contact_cursor?: Json
           created_at?: string
@@ -1527,6 +1531,8 @@ export type Database = {
           weekdays?: Json
         }
         Update: {
+          between_contacts_max_seconds?: number
+          between_contacts_min_seconds?: number
           completed_at?: string | null
           contact_cursor?: Json
           created_at?: string
