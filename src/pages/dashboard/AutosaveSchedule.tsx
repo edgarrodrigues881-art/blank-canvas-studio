@@ -151,7 +151,7 @@ export default function AutosaveSchedule() {
     setBetweenContactsMax(s.between_contacts_max_seconds ?? 90);
     const peMinSaved = s.pause_every_min ?? 10;
     const peMaxSaved = s.pause_every_max ?? 20;
-    const pauseOff = peMinSaved >= 999999 || peMaxSaved >= 999999;
+    const pauseOff = peMinSaved === 0 || peMaxSaved === 0 || peMinSaved >= 999999 || peMaxSaved >= 999999;
     setPauseEnabled(!pauseOff);
     setPauseEveryMin(pauseOff ? 10 : peMinSaved);
     setPauseEveryMax(pauseOff ? 20 : peMaxSaved);
@@ -324,11 +324,12 @@ export default function AutosaveSchedule() {
     const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
-    // Quando a pausa entre lotes está desabilitada, enviamos um lote "impossível" (999999)
-    // mantendo durações válidas — o worker nunca vai disparar a pausa.
-    const DISABLED_BATCH = 999999;
-    const finalPeMin = pauseEnabled ? peMin : DISABLED_BATCH;
-    const finalPeMax = pauseEnabled ? peMax : DISABLED_BATCH;
+    // Quando a pausa entre lotes está desabilitada, enviamos 0 — flag oficial do worker
+    // (contrato: pause_every_* ou pause_duration_* = 0 ⇒ pausas DESATIVADAS).
+    const finalPeMin = pauseEnabled ? peMin : 0;
+    const finalPeMax = pauseEnabled ? peMax : 0;
+    const finalPdMin = pauseEnabled ? pdMin : 0;
+    const finalPdMax = pauseEnabled ? pdMax : 0;
 
     const payload = {
       name: name.trim() || "Agendamento Auto Save",
@@ -341,8 +342,8 @@ export default function AutosaveSchedule() {
       between_contacts_max_seconds: bcMax,
       pause_every_min: finalPeMin,
       pause_every_max: finalPeMax,
-      pause_duration_min: pdMin,
-      pause_duration_max: pdMax,
+      pause_duration_min: finalPdMin,
+      pause_duration_max: finalPdMax,
       messages_per_instance: mpi,
       initial_limit_per_instance: typeof initialLimit === "number" ? initialLimit : 20,
       daily_increment: typeof dailyIncrement === "number" ? dailyIncrement : 5,
