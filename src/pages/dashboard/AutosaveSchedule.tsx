@@ -63,6 +63,7 @@ export default function AutosaveSchedule() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; description: string; onConfirm: () => void } | null>(null);
 
   const { data: contactStats = { total: 0, valid: 0, invalid: 0 } } = useQuery({
     queryKey: ["autosave_contact_stats", user?.id],
