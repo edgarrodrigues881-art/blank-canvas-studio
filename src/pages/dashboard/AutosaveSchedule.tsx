@@ -409,11 +409,16 @@ export default function AutosaveSchedule() {
               onClick={() => {
                 const targets = schedules.filter((s) => s.status === "scheduled" || s.status === "paused");
                 if (!targets.length) return;
-                if (!confirm(`Iniciar/retomar ${targets.length} agendamento(s)?`)) return;
-                targets.forEach((s) =>
-                  triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
-                );
-                toast.success(`${targets.length} agendamento(s) iniciados`);
+                setConfirmDialog({
+                  title: "Iniciar agendamentos",
+                  description: `Deseja iniciar/retomar ${targets.length} agendamento(s)?`,
+                  onConfirm: () => {
+                    targets.forEach((s) =>
+                      triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
+                    );
+                    toast.success(`${targets.length} agendamento(s) iniciados`);
+                  },
+                });
               }}
             >
               <Play className="w-4 h-4" /> Iniciar todos
