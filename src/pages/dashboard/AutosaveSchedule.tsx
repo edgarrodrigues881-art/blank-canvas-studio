@@ -1149,7 +1149,7 @@ export default function AutosaveSchedule() {
                 </div>
                 <p className="text-[11px] text-muted-foreground/90">
                   <strong>{name}</strong> · {selectedDevices.length} chip(s) · {weekdaysLabel(selectedWeekdays)} às {timeOfDay} ·
-                  {" "}{msgsPerInstance || 1} msg(s)/contato · delay {betweenContactsMin || "—"}–{betweenContactsMax || "—"}s entre contatos · pausa após {pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos.
+                  {" "}{msgsPerInstance || 1} msg(s)/contato · delay {betweenContactsMin || "—"}–{betweenContactsMax || "—"}s entre contatos · {pauseEnabled ? <>pausa após {pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos</> : <span className="text-amber-400">sem pausa entre lotes</span>}.
                 </p>
                 <p className="text-[11px] text-muted-foreground/80">
                   {autosaveCount} contatos disponíveis · crescimento {initialLimit}→{maxLimit} (+{dailyIncrement}/dia).
