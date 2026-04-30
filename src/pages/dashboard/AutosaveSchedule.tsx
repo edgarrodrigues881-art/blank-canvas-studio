@@ -261,24 +261,26 @@ export default function AutosaveSchedule() {
         if (bcMax < maxDelay) return `Delay máx entre contatos (${bcMax}s) deve ser ≥ delay máx entre mensagens do mesmo contato (${maxDelay}s)`;
       }
 
-      // Pausa entre lotes de contatos
-      const peMin = typeof pauseEveryMin === "number" ? pauseEveryMin : NaN;
-      const peMax = typeof pauseEveryMax === "number" ? pauseEveryMax : NaN;
-      const pdMin = typeof pauseDurationMin === "number" ? pauseDurationMin : NaN;
-      const pdMax = typeof pauseDurationMax === "number" ? pauseDurationMax : NaN;
-      if (!Number.isFinite(peMin) || peMin < 1) return "'Pausar a cada (mín)' deve ser ≥ 1 contato";
-      if (!Number.isFinite(peMax) || peMax < 1) return "'Pausar a cada (máx)' deve ser ≥ 1 contato";
-      if (peMin > peMax) return "'Pausar a cada (mín)' não pode ser maior que o (máx)";
-      if (peMax > 1000) return "'Pausar a cada (máx)' deve ser ≤ 1000 contatos";
-      if (!Number.isFinite(pdMin) || pdMin < 1) return "Duração mín da pausa deve ser ≥ 1s";
-      if (!Number.isFinite(pdMax) || pdMax < 1) return "Duração máx da pausa deve ser ≥ 1s";
-      if (pdMin > pdMax) return "Duração mín da pausa não pode ser maior que a máx";
-      if (pdMax > 7200) return "Duração máx da pausa deve ser ≤ 7200s (2 horas)";
-      // A pausa entre lotes deve ser maior que o delay normal entre contatos — senão perde o sentido
-      if (Number.isFinite(bcMax) && pdMin <= bcMax) return `Duração mín da pausa (${pdMin}s) deve ser maior que o delay máx entre contatos (${bcMax}s) — senão a pausa não tem efeito`;
-      // Coerência: o limite inicial precisa ser pelo menos do tamanho do menor lote, senão a pausa nunca dispara
-      if (Number.isFinite(peMin) && typeof initialLimit === "number" && initialLimit < peMin) {
-        return `Limite inicial (${initialLimit}) é menor que o lote mín de pausa (${peMin}) — a pausa nunca seria acionada no 1º dia`;
+      // Pausa entre lotes de contatos (apenas se habilitada)
+      if (pauseEnabled) {
+        const peMin = typeof pauseEveryMin === "number" ? pauseEveryMin : NaN;
+        const peMax = typeof pauseEveryMax === "number" ? pauseEveryMax : NaN;
+        const pdMin = typeof pauseDurationMin === "number" ? pauseDurationMin : NaN;
+        const pdMax = typeof pauseDurationMax === "number" ? pauseDurationMax : NaN;
+        if (!Number.isFinite(peMin) || peMin < 1) return "'Pausar a cada (mín)' deve ser ≥ 1 contato";
+        if (!Number.isFinite(peMax) || peMax < 1) return "'Pausar a cada (máx)' deve ser ≥ 1 contato";
+        if (peMin > peMax) return "'Pausar a cada (mín)' não pode ser maior que o (máx)";
+        if (peMax > 1000) return "'Pausar a cada (máx)' deve ser ≤ 1000 contatos";
+        if (!Number.isFinite(pdMin) || pdMin < 1) return "Duração mín da pausa deve ser ≥ 1s";
+        if (!Number.isFinite(pdMax) || pdMax < 1) return "Duração máx da pausa deve ser ≥ 1s";
+        if (pdMin > pdMax) return "Duração mín da pausa não pode ser maior que a máx";
+        if (pdMax > 7200) return "Duração máx da pausa deve ser ≤ 7200s (2 horas)";
+        // A pausa entre lotes deve ser maior que o delay normal entre contatos — senão perde o sentido
+        if (Number.isFinite(bcMax) && pdMin <= bcMax) return `Duração mín da pausa (${pdMin}s) deve ser maior que o delay máx entre contatos (${bcMax}s) — senão a pausa não tem efeito`;
+        // Coerência: o limite inicial precisa ser pelo menos do tamanho do menor lote, senão a pausa nunca dispara
+        if (Number.isFinite(peMin) && typeof initialLimit === "number" && initialLimit < peMin) {
+          return `Limite inicial (${initialLimit}) é menor que o lote mín de pausa (${peMin}) — a pausa nunca seria acionada no 1º dia`;
+        }
       }
 
       // Crescimento
