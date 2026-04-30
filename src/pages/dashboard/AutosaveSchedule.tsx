@@ -960,40 +960,58 @@ export default function AutosaveSchedule() {
                 </div>
 
                 {/* Pausa entre lotes de CONTATOS */}
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Pause className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes de contatos</span>
+                <div className={cn(
+                  "rounded-md border p-3 space-y-3 transition-colors",
+                  pauseEnabled ? "border-amber-500/30 bg-amber-500/5" : "border-border/40 bg-muted/20"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Pause className={cn("w-4 h-4", pauseEnabled ? "text-amber-400" : "text-muted-foreground")} />
+                      <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes de contatos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-[11px] font-medium", pauseEnabled ? "text-amber-400" : "text-muted-foreground")}>
+                        {pauseEnabled ? "Ativada" : "Desativada"}
+                      </span>
+                      <Switch checked={pauseEnabled} onCheckedChange={setPauseEnabled} />
+                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground/90">
-                    Após atender uma quantidade de <strong>contatos completos</strong>, o chip faz uma pausa maior antes de continuar — simula um descanso humano.
+                    {pauseEnabled
+                      ? <>Após atender uma quantidade de <strong>contatos completos</strong>, o chip faz uma pausa maior antes de continuar — simula um descanso humano.</>
+                      : <>Pausa desativada — o chip vai enviar continuamente até atingir o limite diário, sem pausas longas entre lotes. <strong className="text-amber-400">Pode aumentar o risco de banimento.</strong></>}
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín contatos)</Label>
-                      <Input type="number" min={1} value={pauseEveryMin} placeholder="ex: 10"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMin(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx contatos)</Label>
-                      <Input type="number" min={1} value={pauseEveryMax} placeholder="ex: 20"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMax(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
-                      <Input type="number" min={1} value={pauseDurationMin} placeholder="ex: 60"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMin(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
-                      <Input type="number" min={1} value={pauseDurationMax} placeholder="ex: 180"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMax(n); }} />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground/80">
-                    A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos atendidos</span>, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.
-                  </p>
+                  {pauseEnabled && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín contatos)</Label>
+                          <Input type="number" min={1} value={pauseEveryMin} placeholder="ex: 10"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMin(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx contatos)</Label>
+                          <Input type="number" min={1} value={pauseEveryMax} placeholder="ex: 20"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMax(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
+                          <Input type="number" min={1} value={pauseDurationMin} placeholder="ex: 60"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMin(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
+                          <Input type="number" min={1} value={pauseDurationMax} placeholder="ex: 180"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMax(n); }} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos atendidos</span>, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.
+                      </p>
+                    </>
+                  )}
                 </div>
+
               </div>
 
               {/* Crescimento */}
