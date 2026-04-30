@@ -21,6 +21,7 @@ export type ResourceCategory =
 
 export type WorkerType =
   | "campaign"
+  | "autosave_schedule"
   | "mass_inject"
   | "warmup"
   | "group_interaction"
@@ -33,6 +34,7 @@ export type WorkerType =
 // ── Worker → Category mapping ──
 const WORKER_CATEGORY: Record<WorkerType, ResourceCategory> = {
   campaign: "messaging_heavy",
+  autosave_schedule: "messaging_heavy",
   mass_inject: "group_heavy",
   warmup: "warmup",
   group_interaction: "group_interaction",
@@ -88,6 +90,7 @@ export interface DeviceLockInfo {
 // ── Worker labels (PT-BR) ──
 const WORKER_LABELS: Record<WorkerType, string> = {
   campaign: "Campanha de disparo",
+  autosave_schedule: "Agendamento Auto Save",
   mass_inject: "Adição em massa",
   warmup: "Aquecimento",
   group_interaction: "Interação de grupo",
