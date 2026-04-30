@@ -638,7 +638,11 @@ export default function AutosaveSchedule() {
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       onClick={() => {
-                        if (confirm("Deletar este agendamento?")) deleteMut.mutate(s.id);
+                        setConfirmDialog({
+                          title: "Deletar agendamento",
+                          description: "Esta ação é permanente. Tem certeza que deseja excluir este agendamento?",
+                          onConfirm: () => deleteMut.mutate(s.id),
+                        });
                       }}
                     >
                       <Trash2 className="w-4 h-4" />
