@@ -105,6 +105,7 @@ export default function AutosaveSchedule() {
   const [maxDelay, setMaxDelay] = useState<number | "">(20);
   const [betweenContactsMin, setBetweenContactsMin] = useState<number | "">(30); // entre contatos
   const [betweenContactsMax, setBetweenContactsMax] = useState<number | "">(90);
+  const [pauseEnabled, setPauseEnabled] = useState<boolean>(true);
   const [pauseEveryMin, setPauseEveryMin] = useState<number | "">(10);   // pausa a cada X CONTATOS
   const [pauseEveryMax, setPauseEveryMax] = useState<number | "">(20);
   const [pauseDurationMin, setPauseDurationMin] = useState<number | "">(60);
