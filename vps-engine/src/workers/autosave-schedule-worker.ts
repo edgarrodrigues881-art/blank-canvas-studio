@@ -127,6 +127,7 @@ async function processSchedule(schedule: any) {
     if (devices.length === 0) {
       await db.from("autosave_schedules").update({
         status: "scheduled",
+        last_run_date: null,
         last_error: "Nenhuma instância conectada com API configurada",
         updated_at: nowIso(),
       }).eq("id", scheduleId);
@@ -147,6 +148,7 @@ async function processSchedule(schedule: any) {
     if (activeDevices.length === 0) {
       await db.from("autosave_schedules").update({
         status: "scheduled",
+        last_run_date: null,
         last_error: "Instâncias ocupadas por outro disparo",
         updated_at: nowIso(),
       }).eq("id", scheduleId);
