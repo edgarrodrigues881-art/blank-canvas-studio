@@ -188,7 +188,7 @@ async function processSchedule(schedule: any) {
             failed++;
             const errMsg = String(error?.message || error || "Erro ao enviar").slice(0, 500);
             await insertLog(db, claimed, device, contact, message, "failed", errMsg);
-            await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }).catch(() => undefined);
+            try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
           }
 
           await db.from("autosave_schedules").update({
