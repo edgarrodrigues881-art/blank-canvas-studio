@@ -1025,6 +1025,7 @@ async function mainLoop() {
     trialCleanup: false,
     massInjectWatchdog: false,
     scheduledCampaigns: false,
+    autosaveSchedule: false,
     groupsSync: false,
   };
 
@@ -1140,6 +1141,10 @@ async function mainLoop() {
 
     guardedLoop("scheduledCampaigns", async () => {
       await scheduledCampaignsTick();
+    }, 30_000)(),
+
+    guardedLoop("autosaveSchedule", async () => {
+      await autosaveScheduleTick();
     }, 30_000)(),
 
     guardedLoop("massInjectWatchdog", async () => {
