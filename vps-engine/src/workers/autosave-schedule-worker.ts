@@ -205,9 +205,18 @@ async function processSchedule(schedule: any) {
     const excludedPhones: string[] = [];
 
     for (const device of activeDevices) {
+      let deviceDisconnected = false;
       for (let contactIndex = 0; contactIndex < dailyLimit; contactIndex++) {
         const { data: live } = await db.from("autosave_schedules").select("status").eq("id", scheduleId).maybeSingle();
         if (live?.status !== "running") throw new Error(`Interrompido: status atual ${live?.status || "desconhecido"}`);
+
+        // Verifica se o device ainda está conectado antes de prosseguir (proteção anti-ban)
+        const { data: deviceLive } = await db.from("devices").select("status").eq("id", device.id).maybeSingle();
+        if (!deviceLive || !CONNECTED_STATUSES.includes(String(deviceLive.status))) {
+          log.warn(`schedule ${scheduleId.slice(0, 8)}: device ${device.name} desconectou (${deviceLive?.status}) — pulando`);
+          deviceDisconnected = true;
+          break;
+        }
 
         const contact = await claimContact(db, claimed.user_id, excludedPhones);
         if (!contact) {
@@ -215,17 +224,33 @@ async function processSchedule(schedule: any) {
           break;
         }
         excludedPhones.push(String(contact.phone_e164 || ""));
+
+        const cleanPhone = String(contact.phone_e164 || "").replace(/\D/g, "");
+        const baseUrl = String(device.uazapi_base_url || "").replace(/\/+$/, "");
+        const tokenStr = String(device.uazapi_token || "").trim();
+
+        // PROTEÇÃO ANTI-BAN: valida se o número tem WhatsApp ANTES de mandar
+        // Tentar enviar para números sem WA é o gatilho clássico para banir chips novos
+        let hasWhatsapp = true;
+        try {
+          hasWhatsapp = await uazapiCheckPhone(baseUrl, tokenStr, cleanPhone);
+        } catch {
+          hasWhatsapp = true; // se a checagem falha, tenta enviar mesmo assim
+        }
+
+        if (!hasWhatsapp) {
+          // Não conta como falha — apenas desativa silenciosamente o contato
+          try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: "Número sem WhatsApp ativo (verificado antes do envio)" }); } catch {}
+          contactIndex--; // não consome a cota de envio do device
+          continue;
+        }
+
         contactsTouched++;
 
         for (let messageIndex = 0; messageIndex < messagesPerContact; messageIndex++) {
           const message = generateNaturalMessage("autosave");
           try {
-            await uazapiSendText(
-              String(device.uazapi_base_url || "").replace(/\/+$/, ""),
-              String(device.uazapi_token || "").trim(),
-              String(contact.phone_e164 || "").replace(/\D/g, ""),
-              message,
-            );
+            await uazapiSendText(baseUrl, tokenStr, cleanPhone, message);
             sent++;
             await insertLog(db, claimed, device, contact, message, "sent");
           } catch (error: any) {
@@ -255,6 +280,7 @@ async function processSchedule(schedule: any) {
           await sleep(randInt(betweenContactMin, betweenContactMax) * 1000);
         }
       }
+      if (deviceDisconnected) continue;
     }
 
     await db.from("autosave_schedules").update({
