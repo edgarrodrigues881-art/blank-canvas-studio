@@ -7,7 +7,7 @@ import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
-import { uazapiSendText } from "../integrations/uazapi";
+import { uazapiSendText, uazapiCheckPhone } from "../integrations/uazapi";
 import { generateNaturalMessage } from "../utils/message-generator";
 
 const log = createLogger("autosave-schedule");
