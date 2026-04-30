@@ -222,7 +222,11 @@ async function processSchedule(schedule: any) {
     log.info(`schedule ${scheduleId.slice(0, 8)} done: sent=${sent} failed=${failed} devices=${activeDevices.length}`);
   } catch (error: any) {
     const errMsg = String(error?.message || error || "Erro desconhecido").slice(0, 500);
-    await db.from("autosave_schedules").update({ status: "scheduled", last_error: errMsg, updated_at: nowIso() }).eq("id", scheduleId);
+    const { data: live } = await db.from("autosave_schedules").select("status").eq("id", scheduleId).maybeSingle();
+    const keepUserStatus = ["paused", "completed"].includes(String(live?.status || ""));
+    await db.from("autosave_schedules")
+      .update({ last_error: errMsg, updated_at: nowIso(), ...(keepUserStatus ? {} : { status: "scheduled" }) })
+      .eq("id", scheduleId);
     log.error(`schedule ${scheduleId.slice(0, 8)} failed: ${errMsg}`);
   } finally {
     for (const deviceId of lockIds) DeviceLockManager.release(deviceId, `autosave_${scheduleId}_${deviceId}`);
