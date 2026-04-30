@@ -202,7 +202,9 @@ async function processSchedule(schedule: any) {
             failed++;
             const errMsg = String(error?.message || error || "Erro ao enviar").slice(0, 500);
             await insertLog(db, claimed, device, contact, message, "failed", errMsg);
-            try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            if (isDefinitiveInvalidSendError(errMsg)) {
+              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            }
           }
 
           await db.from("autosave_schedules").update({
@@ -223,10 +225,8 @@ async function processSchedule(schedule: any) {
       }
     }
 
-    const { date } = brtParts(new Date());
     await db.from("autosave_schedules").update({
       status: "scheduled",
-      last_run_date: date,
       days_executed: Number(claimed.days_executed || 0) + 1,
       completed_at: nowIso(),
       last_error: failed > 0 ? `${failed} falha(s) no último ciclo` : null,
