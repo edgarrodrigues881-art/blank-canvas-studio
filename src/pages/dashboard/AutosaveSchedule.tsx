@@ -126,6 +126,7 @@ export default function AutosaveSchedule() {
     setMaxDelay(20);
     setBetweenContactsMin(30);
     setBetweenContactsMax(90);
+    setPauseEnabled(true);
     setPauseEveryMin(10);
     setPauseEveryMax(20);
     setPauseDurationMin(60);
