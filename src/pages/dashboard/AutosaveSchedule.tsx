@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -323,6 +324,12 @@ export default function AutosaveSchedule() {
     const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
+    // Quando a pausa entre lotes está desabilitada, enviamos um lote "impossível" (999999)
+    // mantendo durações válidas — o worker nunca vai disparar a pausa.
+    const DISABLED_BATCH = 999999;
+    const finalPeMin = pauseEnabled ? peMin : DISABLED_BATCH;
+    const finalPeMax = pauseEnabled ? peMax : DISABLED_BATCH;
+
     const payload = {
       name: name.trim() || "Agendamento Auto Save",
       device_ids: selectedDevices,
@@ -332,8 +339,8 @@ export default function AutosaveSchedule() {
       max_delay_seconds: maxD,
       between_contacts_min_seconds: bcMin,
       between_contacts_max_seconds: bcMax,
-      pause_every_min: peMin,
-      pause_every_max: peMax,
+      pause_every_min: finalPeMin,
+      pause_every_max: finalPeMax,
       pause_duration_min: pdMin,
       pause_duration_max: pdMax,
       messages_per_instance: mpi,
