@@ -30,6 +30,7 @@ import { reportWaTick, lastReportWaTickAt } from "./workers/report-wa-worker";
 import { trialCleanupTick, lastTrialCleanupTickAt } from "./workers/trial-cleanup-worker";
 import { massInjectWatchdogTick, lastMassInjectWatchdogTickAt } from "./workers/mass-inject-watchdog-worker";
 import { scheduledCampaignsTick, lastScheduledCampaignsTickAt } from "./workers/scheduled-campaigns-worker";
+import { autosaveScheduleTick, lastAutosaveScheduleTickAt } from "./workers/autosave-schedule-worker";
 import { groupsSyncTick, lastGroupsSyncTickAt } from "./workers/groups-sync-worker";
 import { backoffMinutes } from "./core/retry";
 import { validateUazapiCredentials } from "./integrations/uazapi";
@@ -71,6 +72,7 @@ app.get("/health", (_req: Request, res: Response) => {
     lastTrialCleanupTick: lastTrialCleanupTickAt?.toISOString() || null,
     lastMassInjectWatchdogTick: lastMassInjectWatchdogTickAt?.toISOString() || null,
     lastScheduledCampaignsTick: lastScheduledCampaignsTickAt?.toISOString() || null,
+    lastAutosaveScheduleTick: lastAutosaveScheduleTickAt?.toISOString() || null,
     lastGroupsSyncTick: lastGroupsSyncTickAt?.toISOString() || null,
     activeMassInjectCampaigns: massInjectStatus.activeCampaigns,
     activeCampaignWorker: campaignWorkerStatus.activeCampaigns,
