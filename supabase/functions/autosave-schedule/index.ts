@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
       case "resume":
         // Recurring: reset to scheduled so worker picks it up at next valid weekday/time
         updates.status = "scheduled";
+        updates.last_run_date = null;
         updates.last_error = null;
         updates.completed_at = null;
         break;

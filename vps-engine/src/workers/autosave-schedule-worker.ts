@@ -52,6 +52,18 @@ function isPauseDisabled(schedule: any): boolean {
     || Number(schedule.pause_duration_max || 0) === 0;
 }
 
+function isDefinitiveInvalidSendError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    "not_in_whatsapp",
+    "not in whatsapp",
+    "numero nao existe",
+    "número não existe",
+    "invalid number",
+    "jid does not exist",
+  ].some((needle) => normalized.includes(needle));
+}
+
 async function resolveDevices(db: any, schedule: any) {
   const deviceIds = normalizeIdList(schedule.device_ids);
   if (deviceIds.length === 0) return [];
@@ -98,12 +110,14 @@ async function processSchedule(schedule: any) {
   const scheduleId = schedule.id as string;
   const lockIds: string[] = [];
   let globalSlotAcquired = false;
+  const runDate = brtParts(new Date()).date;
 
   try {
     const { data: claimed } = await db.from("autosave_schedules")
-      .update({ status: "running", started_at: schedule.started_at || nowIso(), last_error: null, updated_at: nowIso() })
+      .update({ status: "running", started_at: nowIso(), last_run_date: runDate, last_error: null, updated_at: nowIso() })
       .eq("id", scheduleId)
       .eq("status", "scheduled")
+      .or(`last_run_date.is.null,last_run_date.neq.${runDate}`)
       .select("*")
       .maybeSingle();
 
@@ -113,6 +127,7 @@ async function processSchedule(schedule: any) {
     if (devices.length === 0) {
       await db.from("autosave_schedules").update({
         status: "scheduled",
+        last_run_date: null,
         last_error: "Nenhuma instância conectada com API configurada",
         updated_at: nowIso(),
       }).eq("id", scheduleId);
@@ -133,6 +148,7 @@ async function processSchedule(schedule: any) {
     if (activeDevices.length === 0) {
       await db.from("autosave_schedules").update({
         status: "scheduled",
+        last_run_date: null,
         last_error: "Instâncias ocupadas por outro disparo",
         updated_at: nowIso(),
       }).eq("id", scheduleId);
@@ -188,7 +204,9 @@ async function processSchedule(schedule: any) {
             failed++;
             const errMsg = String(error?.message || error || "Erro ao enviar").slice(0, 500);
             await insertLog(db, claimed, device, contact, message, "failed", errMsg);
-            try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            if (isDefinitiveInvalidSendError(errMsg)) {
+              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            }
           }
 
           await db.from("autosave_schedules").update({
@@ -209,10 +227,8 @@ async function processSchedule(schedule: any) {
       }
     }
 
-    const { date } = brtParts(new Date());
     await db.from("autosave_schedules").update({
       status: "scheduled",
-      last_run_date: date,
       days_executed: Number(claimed.days_executed || 0) + 1,
       completed_at: nowIso(),
       last_error: failed > 0 ? `${failed} falha(s) no último ciclo` : null,
@@ -250,6 +266,22 @@ export async function autosaveScheduleTick(): Promise<void> {
     log.error(`Error fetching schedules: ${error.message}`);
     return;
   }
+
+    const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const staleRuns = await db.from("autosave_schedules")
+      .select("id, updated_at")
+      .eq("status", "running")
+      .or(`last_run_date.is.null,last_run_date.neq.${date}`)
+      .lt("updated_at", staleBefore)
+      .limit(10);
+
+    for (const stale of staleRuns.data || []) {
+      await db.from("autosave_schedules").update({
+        status: "scheduled",
+        last_error: "Execução anterior travou no VPS; liberado automaticamente para retomar",
+        updated_at: nowIso(),
+      }).eq("id", stale.id).eq("status", "running");
+    }
 
   for (const schedule of schedules || []) {
     const weekdays = Array.isArray(schedule.weekdays) ? schedule.weekdays.map(Number) : [];
