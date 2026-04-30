@@ -265,6 +265,22 @@ export async function autosaveScheduleTick(): Promise<void> {
     return;
   }
 
+    const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const staleRuns = await db.from("autosave_schedules")
+      .select("id, updated_at")
+      .eq("status", "running")
+      .or(`last_run_date.is.null,last_run_date.neq.${date}`)
+      .lt("updated_at", staleBefore)
+      .limit(10);
+
+    for (const stale of staleRuns.data || []) {
+      await db.from("autosave_schedules").update({
+        status: "scheduled",
+        last_error: "Execução anterior travou no VPS; liberado automaticamente para retomar",
+        updated_at: nowIso(),
+      }).eq("id", stale.id).eq("status", "running");
+    }
+
   for (const schedule of schedules || []) {
     const weekdays = Array.isArray(schedule.weekdays) ? schedule.weekdays.map(Number) : [];
     if (!weekdays.includes(weekday)) continue;
