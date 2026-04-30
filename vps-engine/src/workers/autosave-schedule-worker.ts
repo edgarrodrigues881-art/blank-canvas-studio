@@ -52,6 +52,18 @@ function isPauseDisabled(schedule: any): boolean {
     || Number(schedule.pause_duration_max || 0) === 0;
 }
 
+function isDefinitiveInvalidSendError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return [
+    "not_in_whatsapp",
+    "not in whatsapp",
+    "numero nao existe",
+    "número não existe",
+    "invalid number",
+    "jid does not exist",
+  ].some((needle) => normalized.includes(needle));
+}
+
 async function resolveDevices(db: any, schedule: any) {
   const deviceIds = normalizeIdList(schedule.device_ids);
   if (deviceIds.length === 0) return [];
@@ -98,12 +110,14 @@ async function processSchedule(schedule: any) {
   const scheduleId = schedule.id as string;
   const lockIds: string[] = [];
   let globalSlotAcquired = false;
+  const runDate = brtParts(new Date()).date;
 
   try {
     const { data: claimed } = await db.from("autosave_schedules")
-      .update({ status: "running", started_at: schedule.started_at || nowIso(), last_error: null, updated_at: nowIso() })
+      .update({ status: "running", started_at: nowIso(), last_run_date: runDate, last_error: null, updated_at: nowIso() })
       .eq("id", scheduleId)
       .eq("status", "scheduled")
+      .or(`last_run_date.is.null,last_run_date.neq.${runDate}`)
       .select("*")
       .maybeSingle();
 
