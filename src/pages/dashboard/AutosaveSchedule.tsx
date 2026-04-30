@@ -148,8 +148,12 @@ export default function AutosaveSchedule() {
     setMaxDelay(s.max_delay_seconds ?? 20);
     setBetweenContactsMin(s.between_contacts_min_seconds ?? 30);
     setBetweenContactsMax(s.between_contacts_max_seconds ?? 90);
-    setPauseEveryMin(s.pause_every_min ?? 10);
-    setPauseEveryMax(s.pause_every_max ?? 20);
+    const peMinSaved = s.pause_every_min ?? 10;
+    const peMaxSaved = s.pause_every_max ?? 20;
+    const pauseOff = peMinSaved >= 999999 || peMaxSaved >= 999999;
+    setPauseEnabled(!pauseOff);
+    setPauseEveryMin(pauseOff ? 10 : peMinSaved);
+    setPauseEveryMax(pauseOff ? 20 : peMaxSaved);
     setPauseDurationMin(s.pause_duration_min ?? 60);
     setPauseDurationMax(s.pause_duration_max ?? 180);
     setInitialLimit(s.initial_limit_per_instance ?? 20);
