@@ -54,14 +54,42 @@ function isPauseDisabled(schedule: any): boolean {
 
 function isDefinitiveInvalidSendError(message: string): boolean {
   const normalized = message.toLowerCase();
-  return [
+  // Frases explícitas
+  const phrases = [
     "not_in_whatsapp",
     "not in whatsapp",
     "numero nao existe",
     "número não existe",
     "invalid number",
     "jid does not exist",
-  ].some((needle) => normalized.includes(needle));
+    "no whatsapp",
+    "user not found",
+  ];
+  if (phrases.some((needle) => normalized.includes(needle))) return true;
+  // Códigos HTTP que a UAZAPI retorna no /message/sendText quando o número não tem WhatsApp
+  // (405 Method Not Allowed, 404 Not Found, 400 Bad Request no endpoint sendText)
+  if (/\b(405|404|400)\b.*\/message\/sendtext/i.test(message)) return true;
+  return false;
+}
+
+function humanizeSendError(message: string): string {
+  const normalized = message.toLowerCase();
+  if (isDefinitiveInvalidSendError(message)) {
+    return "Número sem WhatsApp ativo — contato desativado automaticamente";
+  }
+  if (/\b429\b/.test(message) || normalized.includes("rate limit")) {
+    return "Muitas mensagens em pouco tempo — tente reduzir o ritmo";
+  }
+  if (/\b401\b|\b403\b/.test(message) || normalized.includes("unauthorized")) {
+    return "Token da instância inválido ou expirado";
+  }
+  if (/\b5\d\d\b/.test(message) || normalized.includes("timeout") || normalized.includes("econn")) {
+    return "Servidor WhatsApp indisponível no momento";
+  }
+  if (normalized.includes("disconnected") || normalized.includes("not connected")) {
+    return "Instância desconectada";
+  }
+  return "Falha ao enviar mensagem";
 }
 
 async function resolveDevices(db: any, schedule: any) {
@@ -203,9 +231,11 @@ async function processSchedule(schedule: any) {
           } catch (error: any) {
             failed++;
             const errMsg = String(error?.message || error || "Erro ao enviar").slice(0, 500);
-            await insertLog(db, claimed, device, contact, message, "failed", errMsg);
-            if (isDefinitiveInvalidSendError(errMsg)) {
-              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            const isInvalid = isDefinitiveInvalidSendError(errMsg);
+            const friendly = humanizeSendError(errMsg);
+            await insertLog(db, claimed, device, contact, message, "failed", friendly);
+            if (isInvalid) {
+              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: friendly }); } catch {}
             }
           }
 
