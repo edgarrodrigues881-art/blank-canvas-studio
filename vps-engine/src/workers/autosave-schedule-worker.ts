@@ -231,9 +231,11 @@ async function processSchedule(schedule: any) {
           } catch (error: any) {
             failed++;
             const errMsg = String(error?.message || error || "Erro ao enviar").slice(0, 500);
-            await insertLog(db, claimed, device, contact, message, "failed", errMsg);
-            if (isDefinitiveInvalidSendError(errMsg)) {
-              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: errMsg }); } catch {}
+            const isInvalid = isDefinitiveInvalidSendError(errMsg);
+            const friendly = humanizeSendError(errMsg);
+            await insertLog(db, claimed, device, contact, message, "failed", friendly);
+            if (isInvalid) {
+              try { await db.rpc("mark_autosave_contact_invalid", { p_contact_id: contact.id, p_reason: friendly }); } catch {}
             }
           }
 
