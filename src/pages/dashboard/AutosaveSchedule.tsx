@@ -432,9 +432,14 @@ export default function AutosaveSchedule() {
               onClick={() => {
                 const targets = schedules.filter((s) => s.status === "running");
                 if (!targets.length) return;
-                if (!confirm(`Pausar ${targets.length} agendamento(s) em execução?`)) return;
-                targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
-                toast.success(`${targets.length} agendamento(s) pausados`);
+                setConfirmDialog({
+                  title: "Pausar agendamentos",
+                  description: `Deseja pausar ${targets.length} agendamento(s) em execução?`,
+                  onConfirm: () => {
+                    targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
+                    toast.success(`${targets.length} agendamento(s) pausados`);
+                  },
+                });
               }}
             >
               <Pause className="w-4 h-4" /> Pausar todos
