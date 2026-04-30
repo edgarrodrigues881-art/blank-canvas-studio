@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -62,6 +63,7 @@ export default function AutosaveSchedule() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; description: string; onConfirm: () => void } | null>(null);
 
   const { data: contactStats = { total: 0, valid: 0, invalid: 0 } } = useQuery({
     queryKey: ["autosave_contact_stats", user?.id],
@@ -407,11 +409,16 @@ export default function AutosaveSchedule() {
               onClick={() => {
                 const targets = schedules.filter((s) => s.status === "scheduled" || s.status === "paused");
                 if (!targets.length) return;
-                if (!confirm(`Iniciar/retomar ${targets.length} agendamento(s)?`)) return;
-                targets.forEach((s) =>
-                  triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
-                );
-                toast.success(`${targets.length} agendamento(s) iniciados`);
+                setConfirmDialog({
+                  title: "Iniciar agendamentos",
+                  description: `Deseja iniciar/retomar ${targets.length} agendamento(s)?`,
+                  onConfirm: () => {
+                    targets.forEach((s) =>
+                      triggerMut.mutate({ id: s.id, action: s.status === "paused" ? "resume" : "start" })
+                    );
+                    toast.success(`${targets.length} agendamento(s) iniciados`);
+                  },
+                });
               }}
             >
               <Play className="w-4 h-4" /> Iniciar todos
@@ -425,9 +432,14 @@ export default function AutosaveSchedule() {
               onClick={() => {
                 const targets = schedules.filter((s) => s.status === "running");
                 if (!targets.length) return;
-                if (!confirm(`Pausar ${targets.length} agendamento(s) em execução?`)) return;
-                targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
-                toast.success(`${targets.length} agendamento(s) pausados`);
+                setConfirmDialog({
+                  title: "Pausar agendamentos",
+                  description: `Deseja pausar ${targets.length} agendamento(s) em execução?`,
+                  onConfirm: () => {
+                    targets.forEach((s) => triggerMut.mutate({ id: s.id, action: "pause" }));
+                    toast.success(`${targets.length} agendamento(s) pausados`);
+                  },
+                });
               }}
             >
               <Pause className="w-4 h-4" /> Pausar todos
@@ -626,7 +638,11 @@ export default function AutosaveSchedule() {
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                       onClick={() => {
-                        if (confirm("Deletar este agendamento?")) deleteMut.mutate(s.id);
+                        setConfirmDialog({
+                          title: "Deletar agendamento",
+                          description: "Esta ação é permanente. Tem certeza que deseja excluir este agendamento?",
+                          onConfirm: () => deleteMut.mutate(s.id),
+                        });
                       }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1192,6 +1208,26 @@ export default function AutosaveSchedule() {
       </Dialog>
 
       <LogsDialog scheduleId={detailId} onClose={() => setDetailId(null)} />
+
+      <AlertDialog open={!!confirmDialog} onOpenChange={(o) => { if (!o) setConfirmDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                confirmDialog?.onConfirm();
+                setConfirmDialog(null);
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
