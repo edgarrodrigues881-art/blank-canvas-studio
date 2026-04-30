@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,6 +106,7 @@ export default function AutosaveSchedule() {
   const [maxDelay, setMaxDelay] = useState<number | "">(20);
   const [betweenContactsMin, setBetweenContactsMin] = useState<number | "">(30); // entre contatos
   const [betweenContactsMax, setBetweenContactsMax] = useState<number | "">(90);
+  const [pauseEnabled, setPauseEnabled] = useState<boolean>(true);
   const [pauseEveryMin, setPauseEveryMin] = useState<number | "">(10);   // pausa a cada X CONTATOS
   const [pauseEveryMax, setPauseEveryMax] = useState<number | "">(20);
   const [pauseDurationMin, setPauseDurationMin] = useState<number | "">(60);
@@ -125,6 +127,7 @@ export default function AutosaveSchedule() {
     setMaxDelay(20);
     setBetweenContactsMin(30);
     setBetweenContactsMax(90);
+    setPauseEnabled(true);
     setPauseEveryMin(10);
     setPauseEveryMax(20);
     setPauseDurationMin(60);
@@ -146,8 +149,12 @@ export default function AutosaveSchedule() {
     setMaxDelay(s.max_delay_seconds ?? 20);
     setBetweenContactsMin(s.between_contacts_min_seconds ?? 30);
     setBetweenContactsMax(s.between_contacts_max_seconds ?? 90);
-    setPauseEveryMin(s.pause_every_min ?? 10);
-    setPauseEveryMax(s.pause_every_max ?? 20);
+    const peMinSaved = s.pause_every_min ?? 10;
+    const peMaxSaved = s.pause_every_max ?? 20;
+    const pauseOff = peMinSaved >= 999999 || peMaxSaved >= 999999;
+    setPauseEnabled(!pauseOff);
+    setPauseEveryMin(pauseOff ? 10 : peMinSaved);
+    setPauseEveryMax(pauseOff ? 20 : peMaxSaved);
     setPauseDurationMin(s.pause_duration_min ?? 60);
     setPauseDurationMax(s.pause_duration_max ?? 180);
     setInitialLimit(s.initial_limit_per_instance ?? 20);
@@ -255,24 +262,26 @@ export default function AutosaveSchedule() {
         if (bcMax < maxDelay) return `Delay máx entre contatos (${bcMax}s) deve ser ≥ delay máx entre mensagens do mesmo contato (${maxDelay}s)`;
       }
 
-      // Pausa entre lotes de contatos
-      const peMin = typeof pauseEveryMin === "number" ? pauseEveryMin : NaN;
-      const peMax = typeof pauseEveryMax === "number" ? pauseEveryMax : NaN;
-      const pdMin = typeof pauseDurationMin === "number" ? pauseDurationMin : NaN;
-      const pdMax = typeof pauseDurationMax === "number" ? pauseDurationMax : NaN;
-      if (!Number.isFinite(peMin) || peMin < 1) return "'Pausar a cada (mín)' deve ser ≥ 1 contato";
-      if (!Number.isFinite(peMax) || peMax < 1) return "'Pausar a cada (máx)' deve ser ≥ 1 contato";
-      if (peMin > peMax) return "'Pausar a cada (mín)' não pode ser maior que o (máx)";
-      if (peMax > 1000) return "'Pausar a cada (máx)' deve ser ≤ 1000 contatos";
-      if (!Number.isFinite(pdMin) || pdMin < 1) return "Duração mín da pausa deve ser ≥ 1s";
-      if (!Number.isFinite(pdMax) || pdMax < 1) return "Duração máx da pausa deve ser ≥ 1s";
-      if (pdMin > pdMax) return "Duração mín da pausa não pode ser maior que a máx";
-      if (pdMax > 7200) return "Duração máx da pausa deve ser ≤ 7200s (2 horas)";
-      // A pausa entre lotes deve ser maior que o delay normal entre contatos — senão perde o sentido
-      if (Number.isFinite(bcMax) && pdMin <= bcMax) return `Duração mín da pausa (${pdMin}s) deve ser maior que o delay máx entre contatos (${bcMax}s) — senão a pausa não tem efeito`;
-      // Coerência: o limite inicial precisa ser pelo menos do tamanho do menor lote, senão a pausa nunca dispara
-      if (Number.isFinite(peMin) && typeof initialLimit === "number" && initialLimit < peMin) {
-        return `Limite inicial (${initialLimit}) é menor que o lote mín de pausa (${peMin}) — a pausa nunca seria acionada no 1º dia`;
+      // Pausa entre lotes de contatos (apenas se habilitada)
+      if (pauseEnabled) {
+        const peMin = typeof pauseEveryMin === "number" ? pauseEveryMin : NaN;
+        const peMax = typeof pauseEveryMax === "number" ? pauseEveryMax : NaN;
+        const pdMin = typeof pauseDurationMin === "number" ? pauseDurationMin : NaN;
+        const pdMax = typeof pauseDurationMax === "number" ? pauseDurationMax : NaN;
+        if (!Number.isFinite(peMin) || peMin < 1) return "'Pausar a cada (mín)' deve ser ≥ 1 contato";
+        if (!Number.isFinite(peMax) || peMax < 1) return "'Pausar a cada (máx)' deve ser ≥ 1 contato";
+        if (peMin > peMax) return "'Pausar a cada (mín)' não pode ser maior que o (máx)";
+        if (peMax > 1000) return "'Pausar a cada (máx)' deve ser ≤ 1000 contatos";
+        if (!Number.isFinite(pdMin) || pdMin < 1) return "Duração mín da pausa deve ser ≥ 1s";
+        if (!Number.isFinite(pdMax) || pdMax < 1) return "Duração máx da pausa deve ser ≥ 1s";
+        if (pdMin > pdMax) return "Duração mín da pausa não pode ser maior que a máx";
+        if (pdMax > 7200) return "Duração máx da pausa deve ser ≤ 7200s (2 horas)";
+        // A pausa entre lotes deve ser maior que o delay normal entre contatos — senão perde o sentido
+        if (Number.isFinite(bcMax) && pdMin <= bcMax) return `Duração mín da pausa (${pdMin}s) deve ser maior que o delay máx entre contatos (${bcMax}s) — senão a pausa não tem efeito`;
+        // Coerência: o limite inicial precisa ser pelo menos do tamanho do menor lote, senão a pausa nunca dispara
+        if (Number.isFinite(peMin) && typeof initialLimit === "number" && initialLimit < peMin) {
+          return `Limite inicial (${initialLimit}) é menor que o lote mín de pausa (${peMin}) — a pausa nunca seria acionada no 1º dia`;
+        }
       }
 
       // Crescimento
@@ -315,6 +324,12 @@ export default function AutosaveSchedule() {
     const pdMax = Math.max(pdMin, num(pauseDurationMax, 180));
     const mpi = Math.max(1, num(msgsPerInstance, 1));
 
+    // Quando a pausa entre lotes está desabilitada, enviamos um lote "impossível" (999999)
+    // mantendo durações válidas — o worker nunca vai disparar a pausa.
+    const DISABLED_BATCH = 999999;
+    const finalPeMin = pauseEnabled ? peMin : DISABLED_BATCH;
+    const finalPeMax = pauseEnabled ? peMax : DISABLED_BATCH;
+
     const payload = {
       name: name.trim() || "Agendamento Auto Save",
       device_ids: selectedDevices,
@@ -324,8 +339,8 @@ export default function AutosaveSchedule() {
       max_delay_seconds: maxD,
       between_contacts_min_seconds: bcMin,
       between_contacts_max_seconds: bcMax,
-      pause_every_min: peMin,
-      pause_every_max: peMax,
+      pause_every_min: finalPeMin,
+      pause_every_max: finalPeMax,
       pause_duration_min: pdMin,
       pause_duration_max: pdMax,
       messages_per_instance: mpi,
@@ -945,40 +960,58 @@ export default function AutosaveSchedule() {
                 </div>
 
                 {/* Pausa entre lotes de CONTATOS */}
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Pause className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes de contatos</span>
+                <div className={cn(
+                  "rounded-md border p-3 space-y-3 transition-colors",
+                  pauseEnabled ? "border-amber-500/30 bg-amber-500/5" : "border-border/40 bg-muted/20"
+                )}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Pause className={cn("w-4 h-4", pauseEnabled ? "text-amber-400" : "text-muted-foreground")} />
+                      <span className="text-xs font-semibold uppercase tracking-wider">Pausa entre lotes de contatos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("text-[11px] font-medium", pauseEnabled ? "text-amber-400" : "text-muted-foreground")}>
+                        {pauseEnabled ? "Ativada" : "Desativada"}
+                      </span>
+                      <Switch checked={pauseEnabled} onCheckedChange={setPauseEnabled} />
+                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground/90">
-                    Após atender uma quantidade de <strong>contatos completos</strong>, o chip faz uma pausa maior antes de continuar — simula um descanso humano.
+                    {pauseEnabled
+                      ? <>Após atender uma quantidade de <strong>contatos completos</strong>, o chip faz uma pausa maior antes de continuar — simula um descanso humano.</>
+                      : <>Pausa desativada — o chip vai enviar continuamente até atingir o limite diário, sem pausas longas entre lotes. <strong className="text-amber-400">Pode aumentar o risco de banimento.</strong></>}
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín contatos)</Label>
-                      <Input type="number" min={1} value={pauseEveryMin} placeholder="ex: 10"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMin(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx contatos)</Label>
-                      <Input type="number" min={1} value={pauseEveryMax} placeholder="ex: 20"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMax(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
-                      <Input type="number" min={1} value={pauseDurationMin} placeholder="ex: 60"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMin(n); }} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
-                      <Input type="number" min={1} value={pauseDurationMax} placeholder="ex: 180"
-                        onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMax(n); }} />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground/80">
-                    A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos atendidos</span>, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.
-                  </p>
+                  {pauseEnabled && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (mín contatos)</Label>
+                          <Input type="number" min={1} value={pauseEveryMin} placeholder="ex: 10"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMin(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Pausar a cada (máx contatos)</Label>
+                          <Input type="number" min={1} value={pauseEveryMax} placeholder="ex: 20"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseEveryMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseEveryMax(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração mín (s)</Label>
+                          <Input type="number" min={1} value={pauseDurationMin} placeholder="ex: 60"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMin(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMin(n); }} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mb-1.5 block">Duração máx (s)</Label>
+                          <Input type="number" min={1} value={pauseDurationMax} placeholder="ex: 180"
+                            onChange={(e) => { const v = e.target.value; if (v === "") return setPauseDurationMax(""); const n = parseInt(v, 10); if (!isNaN(n) && n >= 0) setPauseDurationMax(n); }} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        A cada <span className="text-foreground font-medium">{pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos atendidos</span>, pausa por <span className="text-foreground font-medium">{pauseDurationMin || "—"}–{pauseDurationMax || "—"}s</span>.
+                      </p>
+                    </>
+                  )}
                 </div>
+
               </div>
 
               {/* Crescimento */}
@@ -1116,7 +1149,7 @@ export default function AutosaveSchedule() {
                 </div>
                 <p className="text-[11px] text-muted-foreground/90">
                   <strong>{name}</strong> · {selectedDevices.length} chip(s) · {weekdaysLabel(selectedWeekdays)} às {timeOfDay} ·
-                  {" "}{msgsPerInstance || 1} msg(s)/contato · delay {betweenContactsMin || "—"}–{betweenContactsMax || "—"}s entre contatos · pausa após {pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos.
+                  {" "}{msgsPerInstance || 1} msg(s)/contato · delay {betweenContactsMin || "—"}–{betweenContactsMax || "—"}s entre contatos · {pauseEnabled ? <>pausa após {pauseEveryMin || "—"}–{pauseEveryMax || "—"} contatos</> : <span className="text-amber-400">sem pausa entre lotes</span>}.
                 </p>
                 <p className="text-[11px] text-muted-foreground/80">
                   {autosaveCount} contatos disponíveis · crescimento {initialLimit}→{maxLimit} (+{dailyIncrement}/dia).
