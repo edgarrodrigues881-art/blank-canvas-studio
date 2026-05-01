@@ -242,15 +242,28 @@ export function pickActionType(ctx: ActionMixContext): WarmupActionType {
         : ["text", "image", "audio", "sticker", "vcard", "location", "status"]
     );
 
-    // 1) Opportunistic status injection (does NOT block regular actions)
+    // 1) Opportunistic status injection (does NOT block regular actions).
+    //    Now also enforces: BRT time window (07:00–22:30), daily cap, and
+    //    90–180min anti-burst spacing between status posts.
     if (
       supported.has("status") &&
-      state.statusSentToday < state.statusCapToday &&
       Math.random() < STATUS_OPPORTUNITY_P[stage] &&
       !isRepeating(state, "status")
     ) {
-      pushHistory(state, "status");
-      return "status";
+      const ev = evaluateStatusEligibility(state);
+      console.log("WARMUP_STATUS_DECISION", {
+        instanceId: ctx.instanceId,
+        allowed: ev.allowed,
+        reason: ev.reason,
+        nextAllowedAt: ev.nextAllowedAt,
+        sentToday: state.statusSentToday,
+        cap: state.statusCapToday,
+        context: "pick",
+      });
+      if (ev.allowed) {
+        pushHistory(state, "status");
+        return "status";
+      }
     }
 
     // 2) Weighted pick from stage table, filtered by supported + non-repeat
