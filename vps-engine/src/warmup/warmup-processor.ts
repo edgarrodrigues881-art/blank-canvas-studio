@@ -19,6 +19,7 @@ import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
 import { applyPresence } from "../utils/presence";
 import { trackSendResult, getHealthScore } from "../utils/warmup-health";
+import { trackRecovery, isRecovered, logRecovery } from "../utils/warmup-recovery";
 
 // Adaptive throttle based on instance health (observability-driven, never blocks).
 function getAdaptiveDelay(instanceId: string): number {
@@ -31,22 +32,34 @@ function getAdaptiveDelay(instanceId: string): number {
 
 async function applyAdaptiveThrottle(instanceId: string, context: "group" | "community" | "autosave"): Promise<void> {
   try {
-    const extraDelay = getAdaptiveDelay(instanceId);
+    const baseDelay = getAdaptiveDelay(instanceId);
+    let finalDelay = baseDelay;
+    let recovered = false;
+    try {
+      recovered = isRecovered(instanceId);
+    } catch {}
+    if (recovered && baseDelay > 0) {
+      finalDelay = Math.floor(baseDelay / 2);
+    }
     console.log("WARMUP_THROTTLE", {
       instanceId,
       score: getHealthScore(instanceId),
-      appliedDelay: extraDelay,
+      baseDelay,
+      appliedDelay: finalDelay,
+      recovered,
       context,
     });
-    if (extraDelay > 0) {
-      await new Promise((resolve) => setTimeout(resolve, extraDelay));
+    if (finalDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, finalDelay));
     }
   } catch {}
 }
 
 // Safe-mode deferral: if instance health is critical, postpone the job rather than send.
+// Recovered instances skip the defer to allow gradual return to normal cadence.
 function shouldDeferSend(instanceId: string): boolean {
   try {
+    if (isRecovered(instanceId)) return false;
     return getHealthScore(instanceId) < 35;
   } catch {
     return false;
@@ -82,6 +95,14 @@ async function tryDeferForHealth(
     // Fail-safe: never block a send on deferral logic errors.
     return false;
   }
+}
+
+// Pre-send recovery tracking — updates streak counters and emits log.
+function tickRecovery(instanceId: string): void {
+  try {
+    trackRecovery(instanceId);
+    logRecovery(instanceId);
+  } catch {}
 }
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
