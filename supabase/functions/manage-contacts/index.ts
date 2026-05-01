@@ -126,7 +126,8 @@ Deno.serve(async (req) => {
       const toDelete: string[] = [];
 
       for (const c of allContacts) {
-        const normalized = c.phone.replace(/\D/g, "");
+        const rawPhone = String(c.phone || "").trim();
+        const normalized = isLidTarget(rawPhone) ? toLidChatId(rawPhone) : onlyDigits(rawPhone);
         if (seen.has(normalized)) {
           toDelete.push(c.id);
         } else {
