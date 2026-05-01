@@ -844,26 +844,28 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   const fallbackMediaTypeC = pickMediaTypeCommunity(cycle.daily_interaction_budget_used || 0);
   const decisionC = decideNextAction(
     { dayIndex: cycle.day_index, chipState: ctx.chipState },
-    { channel: "chat", allowStatus: false, allowedPayloads: ["text", "image", "audio", "location"] }
+    { channel: "chat", allowStatus: true, allowedPayloads: ["text", "image", "audio", "location", "vcard"] }
   );
-  const supportedC = new Set(["text", "image", "audio", "location"]);
-  let mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
+  // Community 1:1 supports: text/image/audio/location/vcard (+status as independent action).
+  // sticker is intentionally avoided in 1:1 chats.
+  const supportedC = new Set(["text", "image", "audio", "location", "vcard"]);
+  let mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as
+    "text" | "image" | "audio" | "location" | "vcard";
 
   // ── Action mix override (human-like distribution, anti-repeat) ──
-  // sticker/vcard/status not implemented in community 1:1 dispatcher → fallback to "text".
   const mixPickC = pickActionType({
     instanceId: job.device_id,
     cycleKey: cycle.id,
     day: cycle.day_index || 1,
-    supported: ["text", "image", "audio", "location"],
+    supported: ["text", "image", "audio", "location", "vcard", "status"],
   });
-  const mixResolvedC = (mixPickC === "status" || mixPickC === "vcard" || mixPickC === "sticker")
-    ? "text"
-    : mixPickC;
-  if (["text", "image", "audio", "location"].includes(mixResolvedC)) {
-    mediaType = mixResolvedC as "text" | "image" | "audio" | "location";
+  // sticker not appropriate for 1:1, status is independent (not sent to chat).
+  const mixResolvedC = (mixPickC === "sticker") ? "text" : mixPickC;
+  if (["text", "image", "audio", "location", "vcard"].includes(mixResolvedC)) {
+    mediaType = mixResolvedC as "text" | "image" | "audio" | "location" | "vcard";
   }
-  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPickC, resolved: mediaType, context: "community" });
+  const sendStatusAlongsideC = (mixPickC === "status");
+  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPickC, resolved: mediaType, statusAlongside: sendStatusAlongsideC, context: "community" });
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
   // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
   // so we always proceed (fail-safe), but log cooldown state for observability.
@@ -895,32 +897,57 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   }
 
   let msg = generateNaturalMessage("community");
+  let endpointUsedC = "/send/text";
+
+  // Independent status side-action (not sent to peer chat). Fail-safe.
+  if (sendStatusAlongsideC) {
+    try {
+      const sp = pickStatusPayload(ctx.imagePool || []);
+      await uazapiSendStatus(baseUrl, token, sp);
+      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community" });
+    } catch (e: any) {
+      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community", failed: true, error: e?.message });
+    }
+  }
 
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
       const caption = pickRandom(IMAGE_CAPTIONS);
       await uazapiSendImage(baseUrl, token, peerPhone, imgUrl, "");
+      endpointUsedC = "/send/media(image)";
       await new Promise(r => setTimeout(r, randInt(1000, 3000)));
       await uazapiSendText(baseUrl, token, peerPhone, caption);
       msg = `[IMG+TXT] ${caption}`;
     } else if (mediaType === "audio") {
       const audioUrl = pickRandom(ctx.audioPool);
       await uazapiSendAudio(baseUrl, token, peerPhone, audioUrl);
+      endpointUsedC = "/send/audio";
       msg = "[AUDIO] 🎤";
     } else if (mediaType === "location") {
       const loc = pickFakeLocation();
       const locCaption = pickRandom(LOCATION_CAPTIONS);
       await uazapiSendLocation(baseUrl, token, peerPhone, loc.lat, loc.lng, loc.name);
+      endpointUsedC = "/send/location";
       await new Promise(r => setTimeout(r, randInt(1000, 2000)));
       await uazapiSendText(baseUrl, token, peerPhone, locCaption);
       msg = `[LOC+TXT] ${loc.name}: ${locCaption}`;
+    } else if (mediaType === "vcard") {
+      const vc = pickFakeContact();
+      await uazapiSendContact(baseUrl, token, peerPhone, vc.fullName, vc.phoneNumber);
+      endpointUsedC = "/send/contact";
+      msg = `[VCARD] ${vc.fullName}`;
     } else {
       await uazapiSendText(baseUrl, token, peerPhone, msg);
+      endpointUsedC = "/send/text";
     }
-  } catch {
+    console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community" });
+  } catch (err: any) {
+    console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community", failed: true, error: err?.message });
+    // Fail-safe: only fallback to text on actual API error.
     msg = generateNaturalMessage("community");
     await uazapiSendText(baseUrl, token, peerPhone, msg);
+    console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "community", fallback: true });
   }
 
   const nowIso = new Date().toISOString();
