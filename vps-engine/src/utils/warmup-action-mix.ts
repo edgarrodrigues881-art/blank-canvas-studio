@@ -25,6 +25,10 @@ interface ActionState {
   statusSentToday: number;
   // Cap chosen for status today (random within the stage range)
   statusCapToday: number;
+  // Per-instance anti-burst spacing (ms epoch)
+  lastStatusAt: number;
+  // Required gap between status posts, frozen per day (ms)
+  statusGapMs: number;
 }
 
 const perInstanceActionState = new Map<string, ActionState>();
@@ -64,21 +68,31 @@ const WEIGHTS: Record<Stage, Array<[Exclude<WarmupActionType, "status">, number]
   ],
 };
 
-// Status daily caps per stage (random within range, frozen per day)
+// Status daily caps per stage — random within range, frozen per day.
+// Spec: max 2–3 status per instance per day overall.
 const STATUS_CAPS: Record<Stage, [number, number]> = {
-  early: [1, 1],     // up to 1/day
-  mid: [1, 2],       // 1–2/day
+  early: [1, 2],     // 1–2/day
+  mid: [2, 2],       // 2/day
   advanced: [2, 3],  // 2–3/day
 };
 
-// Status frequency vs. regular sends. We let status occur opportunistically
-// during the day with this small per-call probability — not blocking other
-// actions and naturally spaced. Cap still enforced.
+// Per-call probability of injecting a status during a regular tick.
+// Spec: early 3%, mid 6%, advanced 10%.
 const STATUS_OPPORTUNITY_P: Record<Stage, number> = {
-  early: 0.02,
-  mid: 0.04,
-  advanced: 0.06,
+  early: 0.03,
+  mid: 0.06,
+  advanced: 0.10,
 };
+
+// Anti-burst minimum gap between two status posts (ms).
+const STATUS_MIN_GAP_MS = 90 * 60 * 1000;   // 90 min
+const STATUS_MAX_GAP_MS = 180 * 60 * 1000;  // 180 min
+
+// Allowed BRT time window for posting status.
+const STATUS_WINDOW_START_HOUR = 7;     // 07:00
+const STATUS_WINDOW_END_HOUR = 22;
+const STATUS_WINDOW_END_MINUTE = 30;    // 22:30
+
 
 function randInRange(lo: number, hi: number): number {
   if (hi <= lo) return lo;
