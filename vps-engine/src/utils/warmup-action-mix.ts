@@ -181,6 +181,14 @@ function evaluateStatusEligibility(state: ActionState): {
   return { allowed: true, reason: "ok", nextAllowedAt: null };
 }
 
+export interface ActionMixContext {
+  instanceId: string;
+  cycleKey: string;   // e.g. cycle.id (resets state on QR reconnect)
+  day: number;        // 1-based
+  /** Which payload types the call-site can actually dispatch right now. */
+  supported?: WarmupActionType[];
+}
+
 /** Returns true if this instance still has room for a status today AND respects spacing/window. */
 export function canSendStatus(ctx: ActionMixContext): boolean {
   try {
