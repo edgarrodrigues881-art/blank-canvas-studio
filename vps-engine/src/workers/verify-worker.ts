@@ -49,6 +49,10 @@ interface DeviceInfo {
 }
 
 async function checkBatchNumbers(baseUrl: string, token: string, phones: string[]): Promise<VerifyResult[]> {
+  for (const target of phones) {
+    console.log("VALIDATION CHECK", { target, isLid: isLidTarget(target) });
+  }
+
   const lidResults = phones
     .filter(isLidTarget)
     .map(phone => ({ phone, status: "success" as const, detail: "LID — validação de número ignorada" }));
