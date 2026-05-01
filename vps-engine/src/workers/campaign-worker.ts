@@ -1148,14 +1148,22 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
     }
 
-    // 7. Validate number
-    const isLid = contact.phone.includes("@lid");
-    const phone = isLid ? contact.phone.replace("@lid", "") : contact.phone.replace(/\D/g, "");
-    if (!isLid && phone.length < 10) {
+    // 7. Validate / classify destination
+    // Detect LID by suffix OR by long numeric string (>13 digits without
+    // a valid long-phone country prefix). LIDs MUST bypass BR normalization
+    // and skip /check/exist (which only understands real phone numbers).
+    const rawPhone = String(contact.phone || "").trim();
+    const phoneDigits = rawPhone.replace(/\D/g, "");
+    const isLid = rawPhone.toLowerCase().includes("@lid") || isLikelyLid(phoneDigits);
+
+    if (!isLid && phoneDigits.length < 10) {
       await sb.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: device.id }).eq("id", contact.id);
       continue;
     }
-    let sendTo = isLid ? `${phone}@lid` : normalizeBrazilianPhone(phone);
+
+    // sendTo carries the chat identifier as it should travel into the API layer.
+    // For LID we keep the `@lid` suffix so buildCampaignTarget routes it via `chatId`.
+    let sendTo = isLid ? `${phoneDigits}@lid` : normalizeBrazilianPhone(phoneDigits);
 
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);
