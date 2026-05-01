@@ -931,6 +931,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Human-like pre-send delay (after save, before API). Fail-safe.
   await applyHumanDelay(mediaType === "text" ? msg : { length: 0 });
 
+  // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
+  await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
+
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
