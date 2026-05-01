@@ -192,45 +192,91 @@ function detectMediaType(url: string): string {
   return "image";
 }
 
-async function sendCaptionedMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, caption: string) {
+// ── Target classification ──
+// CRITICAL: UAZAPI rule — `@lid` MUST be carried in `chatId`. The `number`
+// field must always be digits-only (or contain `@s.whatsapp.net` / `@g.us`).
+// Sending `<digits>@lid` inside `number` causes silent drops / "server rejected".
+interface CampaignTarget {
+  chatId: string;       // full chat identifier (with @lid / @s.whatsapp.net / @g.us)
+  number: string;       // digits-only — safe for `number` field
+  isLid: boolean;
+  isGroup: boolean;
+}
+
+function buildCampaignTarget(target: string): CampaignTarget {
+  const raw = String(target || "").trim();
+  const lower = raw.toLowerCase();
+  const isLid = lower.includes("@lid");
+  const isGroup = lower.includes("@g.us");
+  const digits = raw.replace(/\D/g, "");
+
+  let chatId: string;
+  if (isLid) {
+    chatId = `${digits}@lid`;
+  } else if (raw.includes("@")) {
+    chatId = raw;
+  } else if (isLikelyLid(digits)) {
+    // Long numeric string with no suffix — treat as LID per spec
+    chatId = `${digits}@lid`;
+    return { chatId, number: digits, isLid: true, isGroup: false };
+  } else {
+    chatId = `${digits}@s.whatsapp.net`;
+  }
+
+  return { chatId, number: digits, isLid, isGroup };
+}
+
+// ── Media senders — accept the raw target; route LID via `chatId`, others via `number`. ──
+function mediaBaseFields(t: CampaignTarget): Record<string, unknown> {
+  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+}
+
+async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
+  const t = buildCampaignTarget(target);
+  const base = mediaBaseFields(t);
+  const compressFlag = mediaType === "image" ? { compress: false } : {};
   try {
-    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
+    return await uazapiRequest(baseUrl, token, "/send/media", { ...base, file: mediaUrl, type: mediaType, caption, ...compressFlag });
   } catch {
     try {
-      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
+      return await uazapiRequest(baseUrl, token, "/send/media", { ...base, media: mediaUrl, type: mediaType, caption, ...compressFlag });
     } catch (e2) {
-      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, caption, viewOnce: false });
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { ...base, image: mediaUrl, caption, viewOnce: false });
       throw e2;
     }
   }
 }
 
-async function sendPlainMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string) {
+async function sendPlainMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string) {
+  const t = buildCampaignTarget(target);
+  const base = mediaBaseFields(t);
+  const compressFlag = mediaType === "image" ? { compress: false } : {};
   try {
-    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+    return await uazapiRequest(baseUrl, token, "/send/media", { ...base, file: mediaUrl, type: mediaType, ...compressFlag });
   } catch {
     try {
-      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+      return await uazapiRequest(baseUrl, token, "/send/media", { ...base, media: mediaUrl, type: mediaType, ...compressFlag });
     } catch (e2) {
-      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, viewOnce: false });
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { ...base, image: mediaUrl, viewOnce: false });
       throw e2;
     }
   }
 }
 
-async function sendPrivateMediaThenText(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string) {
-  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+async function sendPrivateMediaThenText(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string) {
+  await sendPlainMedia(baseUrl, token, target, mediaUrl, mediaType || "image");
   const plainText = typeof text === "string" ? text.trim() : "";
   if (plainText) {
     await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-    await sendTextWithFallback(baseUrl, token, phone, plainText);
+    await sendTextWithFallback(baseUrl, token, target, plainText);
   }
 }
 
-async function sendPrivateMediaThenMenu(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
-  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+async function sendPrivateMediaThenMenu(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
+  await sendPlainMedia(baseUrl, token, target, mediaUrl, mediaType || "image");
   await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-  return await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+  const t = buildCampaignTarget(target);
+  return await uazapiRequest(baseUrl, token, "/send/menu", { ...mediaBaseFields(t), type: "button", text, choices });
 }
 
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
@@ -310,30 +356,31 @@ function buildPlainButtonLines(buttons: Array<Partial<CampaignButton>> = []): st
     .filter(Boolean);
 }
 
-async function sendCarouselMessage(baseUrl: string, token: string, phone: string, body: string, cards: CarouselCard[]) {
+async function sendCarouselMessage(baseUrl: string, token: string, target: string, body: string, cards: CarouselCard[]) {
   const normalized = normalizeCarouselCards(cards);
   if (normalized.length === 0) throw new Error("Carrossel sem cards configurados.");
   const primaryText = body?.trim() || null;
-  const isGroupTarget = phone.endsWith("@g.us");
+  const t = buildCampaignTarget(target);
 
-  if (!isGroupTarget) {
+  if (!t.isGroup) {
     for (let i = 0; i < normalized.length; i++) {
       const card = normalized[i];
       const mediaUrl = card.mediaUrl?.trim();
       const cardText = [i === 0 ? primaryText : null, card.text?.trim(), ...buildPlainButtonLines(card.buttons || [])]
         .filter(Boolean)
         .join("\n\n");
-      if (mediaUrl) await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, detectMediaType(mediaUrl), cardText);
-      else if (cardText) await sendTextWithFallback(baseUrl, token, phone, cardText);
+      if (mediaUrl) await sendPrivateMediaThenText(baseUrl, token, target, mediaUrl, detectMediaType(mediaUrl), cardText);
+      else if (cardText) await sendTextWithFallback(baseUrl, token, target, cardText);
       if (i < normalized.length - 1) await sleep(800 + Math.random() * 800);
     }
     return;
   }
 
   const hasUrlButtons = normalized.some(card => (card.buttons || []).some((button: any) => (button.type || "").toLowerCase() === "url"));
+  const base = mediaBaseFields(t);
 
   const payload = {
-    number: phone,
+    ...base,
     ...(primaryText ? { text: primaryText } : {}),
     carousel: normalized.map(c => ({
       text: (c.text || "").trim(),
@@ -354,7 +401,7 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
     return await uazapiRequest(baseUrl, token, "/send/carousel", payload);
   } catch {
     return await uazapiRequest(baseUrl, token, "/send/menu", {
-      number: phone,
+      ...base,
       type: hasUrlButtons ? "list" : "carousel",
       ...(primaryText ? { text: primaryText } : {}),
       choices: menuChoices,
@@ -362,18 +409,15 @@ async function sendCarouselMessage(baseUrl: string, token: string, phone: string
   }
 }
 
-// LID detection: WhatsApp community internal IDs that need @lid suffix
+// LID detection: WhatsApp community internal IDs that need @lid suffix.
+// Per UAZAPI spec: real phones (E.164) max 15 digits; LIDs are typically 14-20 digits
+// with no real country-code structure. We are conservative for known long-phone
+// country prefixes, but treat anything >13 digits without that prefix as a LID.
 function isLikelyLid(digits: string): boolean {
-  // LIDs are typically 14-20 digit numbers generated by WhatsApp for community members
-  // Real phone numbers with country code are at most 15 digits (E.164 max)
+  if (!digits) return false;
   if (digits.length > 15) return true;
-  if (digits.length < 14) return false;
-  // 14-15 digit numbers: check if they match realistic phone patterns
-  // Real phones: country code (1-3 digits) + subscriber (7-12 digits) = max ~15
-  // For 14-15 digits, only a few country codes produce valid numbers of that length
-  // BR phones: 55 + 2 DDD + 8-9 = 12-13 digits max — so 14+ is suspicious
-  // Most real 14-15 digit phones are from countries like China (86), India (91)
-  // Be conservative: if it has @lid already, trust it; otherwise check known patterns
+  if (digits.length <= 13) return false; // BR (12-13), most countries fit here
+  // 14-15 digits: only a few country codes legitimately produce phones this long.
   const knownLongPhonePatterns = /^(86\d{11,13}|91\d{10,12}|62\d{10,12}|234\d{10,11}|880\d{10,11}|92\d{10,11}|81\d{10,11}|44\d{10,12}|1\d{10,13})$/;
   if (knownLongPhonePatterns.test(digits)) return false;
   return true;
@@ -384,45 +428,33 @@ function resolveDirectNumber(target: string): string {
 }
 
 function resolveTargetChatId(target: string): string {
-  const raw = String(target || "").trim();
-  if (!raw) return "";
-  if (raw.includes("@")) return raw;
-
-  const digits = resolveDirectNumber(raw);
-  if (!digits) return raw;
-  // Detect LID numbers and use @lid suffix
-  if (isLikelyLid(digits)) return `${digits}@lid`;
-  return `${digits}@s.whatsapp.net`;
+  return buildCampaignTarget(target).chatId;
 }
 
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
   const text = typeof body === "string" ? body.trim() : "";
   if (!text) throw new Error("Texto vazio");
 
-  const rawTarget = String(target || "").trim();
-  const directNumber = resolveDirectNumber(rawTarget);
-  const chatId = resolveTargetChatId(rawTarget);
-  const isGroup = chatId.endsWith("@g.us");
+  const t = buildCampaignTarget(target);
 
-  const attempts = isGroup
+  // CRITICAL UAZAPI rule:
+  //   - LID destinations → MUST use `chatId` field (never `number`)
+  //   - Number destinations → digits-only `number` (or `@s.whatsapp.net` chatId fallback)
+  const attempts = t.isLid
     ? [
-        { path: "/chat/send-text", body: { chatId, text, body: text } },
-        { path: "/message/sendText", body: { chatId, text } },
-        { path: "/send/text", body: { number: chatId, text } },
+        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
+        { path: "/message/sendText", body: { chatId: t.chatId, text } },
+      ]
+    : t.isGroup
+    ? [
+        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
+        { path: "/message/sendText", body: { chatId: t.chatId, text } },
+        { path: "/send/text", body: { number: t.chatId, text } },
       ]
     : [
-        {
-          path: "/chat/send-text",
-          body: {
-            number: directNumber || rawTarget,
-            to: directNumber || rawTarget,
-            chatId,
-            body: text,
-            text,
-          },
-        },
-        { path: "/message/sendText", body: { chatId, text } },
-        { path: "/send/text", body: { number: rawTarget.includes("@") ? chatId : directNumber || rawTarget, text } },
+        { path: "/chat/send-text", body: { number: t.number, to: t.number, chatId: t.chatId, body: text, text } },
+        { path: "/message/sendText", body: { chatId: t.chatId, text } },
+        { path: "/send/text", body: { number: t.number, text } },
       ];
 
   let lastErr = "";
@@ -432,7 +464,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.path, attempt.body);
     } catch (err: any) {
       lastErr = err?.message || String(err);
-      log.warn(`Text send fallback failed on ${attempt.path} for ${chatId || rawTarget}: ${lastErr}`);
+      log.warn(`Text send fallback failed on ${attempt.path} for ${t.chatId}: ${lastErr}`);
     }
   }
 
@@ -440,74 +472,71 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 }
 
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const rawTarget = String(to || "").trim();
-  const isExplicitChatId = rawTarget.includes("@");
-  const phone = isExplicitChatId ? rawTarget : rawTarget.replace(/\D/g, "");
+  const t = buildCampaignTarget(to);
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter(Boolean) as string[] : [];
   const normalizedCards = normalizeCarouselCards(carouselCards);
+  // Use original `to` so downstream helpers can rebuild the target consistently.
+  const target = to;
 
-  if (messageType === "carousel") return await sendCarouselMessage(baseUrl, token, phone, text, normalizedCards);
+  if (messageType === "carousel") return await sendCarouselMessage(baseUrl, token, target, text, normalizedCards);
 
   if (choices.length > 0) {
     if (!text) throw new Error("Mensagens com botão exigem copy/texto principal.");
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
-    const isGroupTarget = phone.endsWith("@g.us");
+    const base = mediaBaseFields(t); // { chatId } for LID, { number } otherwise
 
-    log.info(`[campaign-worker] send_menu_payload phone=${phone.slice(0,6)}*** isGroup=${isGroupTarget} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+    log.info(`[campaign-worker] send_menu_payload chatId=${t.chatId.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
-      if (isGroupTarget) {
+      if (t.isGroup) {
         // Grupos: estratégia validada — imagem + menu de botões em mensagens separadas (funciona 100%).
         log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (buttons) separately`);
-        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: mediaType || "image", file: mediaUrl });
+        await uazapiRequest(baseUrl, token, "/send/media", { ...base, type: mediaType || "image", file: mediaUrl });
         await sleep(800 + Math.random() * 800);
-        await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+        await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: "button", text, choices });
       } else {
-        // 1:1 (privado): não usar imageButton. No WhatsApp mobile ele gera
-        // "versão incompatível". Envia imagem limpa e, em seguida, copy + botão
-        // via /send/menu para preservar o botão sem anexar mídia no mesmo payload.
+        // 1:1 (privado / LID): mídia limpa + menu separadamente.
         log.info(`[campaign-worker] 1:1 target -> plain media + menu buttons separately`);
-        await sendPrivateMediaThenMenu(baseUrl, token, phone, mediaUrl, mediaType || "image", text, choices);
+        await sendPrivateMediaThenMenu(baseUrl, token, target, mediaUrl, mediaType || "image", text, choices);
       }
       return;
     }
-    if (!isGroupTarget) {
+    if (!t.isGroup) {
       const buttonLines = buildPlainButtonLines(buttons || []);
       const plainText = [text, ...buttonLines].filter(Boolean).join("\n\n");
       log.info(`[campaign-worker] 1:1 target -> plain text only (no /send/menu)`);
-      await sendTextWithFallback(baseUrl, token, phone, plainText);
+      await sendTextWithFallback(baseUrl, token, target, plainText);
       if (isAudio && mediaUrl) {
         await sleep(1500 + Math.random() * 1500);
-        await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
+        await uazapiRequest(baseUrl, token, "/send/media", { ...base, type: "ptt", file: mediaUrl });
       }
       return;
     }
-    await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+    await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: "button", text, choices });
     if (isAudio && mediaUrl) {
       await sleep(1500 + Math.random() * 1500);
-      await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
+      await uazapiRequest(baseUrl, token, "/send/media", { ...base, type: "ptt", file: mediaUrl });
     }
     return;
   }
 
   if (mediaUrl) {
     const mediaType = detectMediaType(mediaUrl);
-    const isGroupTarget = phone.endsWith("@g.us");
     if (mediaType === "audio") {
-      if (text) { await sendTextWithFallback(baseUrl, token, phone, text); await sleep(1500 + Math.random() * 1500); }
-      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, type: "ptt", file: mediaUrl });
+      if (text) { await sendTextWithFallback(baseUrl, token, target, text); await sleep(1500 + Math.random() * 1500); }
+      return await uazapiRequest(baseUrl, token, "/send/media", { ...mediaBaseFields(t), type: "ptt", file: mediaUrl });
     }
-    if (!isGroupTarget && text) {
-      return await sendPrivateMediaThenText(baseUrl, token, phone, mediaUrl, mediaType, text);
+    if (!t.isGroup && text) {
+      return await sendPrivateMediaThenText(baseUrl, token, target, mediaUrl, mediaType, text);
     }
-    return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
+    return await sendCaptionedMedia(baseUrl, token, target, mediaUrl, mediaType, text);
   }
 
-  return await sendTextWithFallback(baseUrl, token, phone, text);
+  return await sendTextWithFallback(baseUrl, token, target, text);
 }
 
 // ── Error classification ──
@@ -1119,14 +1148,22 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       }
     }
 
-    // 7. Validate number
-    const isLid = contact.phone.includes("@lid");
-    const phone = isLid ? contact.phone.replace("@lid", "") : contact.phone.replace(/\D/g, "");
-    if (!isLid && phone.length < 10) {
+    // 7. Validate / classify destination
+    // Detect LID by suffix OR by long numeric string (>13 digits without
+    // a valid long-phone country prefix). LIDs MUST bypass BR normalization
+    // and skip /check/exist (which only understands real phone numbers).
+    const rawPhone = String(contact.phone || "").trim();
+    const phoneDigits = rawPhone.replace(/\D/g, "");
+    const isLid = rawPhone.toLowerCase().includes("@lid") || isLikelyLid(phoneDigits);
+
+    if (!isLid && phoneDigits.length < 10) {
       await sb.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: device.id }).eq("id", contact.id);
       continue;
     }
-    let sendTo = isLid ? `${phone}@lid` : normalizeBrazilianPhone(phone);
+
+    // sendTo carries the chat identifier as it should travel into the API layer.
+    // For LID we keep the `@lid` suffix so buildCampaignTarget routes it via `chatId`.
+    let sendTo = isLid ? `${phoneDigits}@lid` : normalizeBrazilianPhone(phoneDigits);
 
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);
