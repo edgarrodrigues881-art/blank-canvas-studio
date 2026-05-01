@@ -735,6 +735,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   // Human-like pre-send delay (after save, before API). Fail-safe.
   await applyHumanDelay(msg);
 
+  // Presence (typing) — direct chat, fail-safe
+  await applyPresence(baseUrl, token, target._phone, "text");
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
   } catch {
