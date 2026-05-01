@@ -552,7 +552,16 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const longCachedMsgs = cachedMsgs?.filter((m: string) => m.length >= 60) || [];
   const getMsg = () => longCachedMsgs.length > 0 && Math.random() < 0.3 ? pickRandom(longCachedMsgs) : generateNaturalMessage("group");
 
-  const mediaType = pickMediaTypeGroup(cycle.daily_interaction_budget_used || 0);
+  // ── Decision engine: weighted random action selection ──
+  const fallbackMediaType = pickMediaTypeGroup(cycle.daily_interaction_budget_used || 0);
+  const decision = decideNextAction(
+    { dayIndex: cycle.day_index, chipState: ctx.chipState },
+    { channel: "group", allowStatus: false, allowedPayloads: ["text", "image", "audio", "sticker"] }
+  );
+  // Map unsupported payloads (vcard/menu/location/status) → existing legacy picker for safe routing
+  const supported = new Set(["text", "image", "audio", "sticker"]);
+  const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
+  console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
   let message = getMsg();
 
   try {
