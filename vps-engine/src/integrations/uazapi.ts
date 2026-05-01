@@ -5,6 +5,7 @@
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
 import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
+import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
@@ -169,13 +170,13 @@ export function buildUazapiTarget(target: string, forceGroup = false): {
 } {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
-  const isLid = lower.includes("@lid");
+  const isLid = isLidTarget(raw);
   const isGroup = forceGroup || lower.includes("@g.us");
-  const digits = raw.replace(/\D/g, "");
+  const digits = onlyDigits(raw);
 
   let chatId: string;
   if (isLid) {
-    chatId = `${digits}@lid`;
+    chatId = toLidChatId(raw);
   } else if (raw.includes("@")) {
     chatId = raw;
   } else if (isGroup) {
@@ -393,13 +394,12 @@ export async function uazapiCheckPhone(
   baseUrl: string,
   token: string,
   phone: string,
-): Promise<boolean> {
-  // LIDs cannot be validated via checkPhones — UAZAPI only supports digit-based phone validation.
-  // Treat as "exists" so the caller does not block LID dispatches.
-  if (String(phone || "").toLowerCase().includes("@lid")) return true;
+): Promise<{ exists: boolean }> {
+  // LIDs are not phone numbers. Never validate them via /chat/check or any number-check endpoint.
+  if (isLidTarget(phone)) return { exists: true };
 
-  const digitsOnly = String(phone || "").replace(/\D/g, "");
-  if (!digitsOnly) return false;
+  const digitsOnly = onlyDigits(phone);
+  if (!digitsOnly) return { exists: false };
 
   const endpoints = [
     { url: `${baseUrl}/misc/checkPhones`, body: { phones: [digitsOnly] } },
@@ -420,11 +420,11 @@ export async function uazapiCheckPhone(
       const parsed = JSON.parse(raw);
       const item = Array.isArray(parsed) ? parsed[0] : parsed?.data?.[0] || parsed?.data || parsed;
       if (!item) continue;
-      if (item.exists === false || item.onWhatsapp === false || item.isOnWhatsapp === false || item.numberExists === false) return false;
-      if (item.exists === true || item.onWhatsapp === true || item.isOnWhatsapp === true || item.numberExists === true) return true;
+      if (item.exists === false || item.onWhatsapp === false || item.isOnWhatsapp === false || item.numberExists === false) return { exists: false };
+      if (item.exists === true || item.onWhatsapp === true || item.isOnWhatsapp === true || item.numberExists === true) return { exists: true };
     } catch { continue; }
   }
-  return true;
+  return { exists: true };
 }
 
 export async function fetchLiveGroups(baseUrl: string, token: string): Promise<any[]> {

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isLidTarget, onlyDigits, toLidChatId } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -642,9 +643,10 @@ const RETRY_DELAY_MAX_MS = 60_000;
 function buildPhoneSendCandidates(to: string): string[] {
   const raw = String(to || "").trim();
   if (!raw) return [];
+  if (isLidTarget(raw)) return [toLidChatId(raw)];
   if (raw.includes("@")) return [raw];
 
-  const digits = raw.replace(/\D/g, "");
+  const digits = onlyDigits(raw);
   if (!digits) return [];
 
   const candidates = new Set<string>();
@@ -719,6 +721,8 @@ async function sendWithRetry(
 }
 
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
+  if (isLidTarget(phone)) return { exists: true };
+
   try {
     const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: phone });
     // Only trust explicit "does not exist" responses from the API
@@ -741,7 +745,7 @@ async function checkNumberExists(baseUrl: string, token: string, phone: string):
 }
 
 function normalizeBrazilianPhone(phone: string): string {
-  const raw = phone.replace(/\D/g, "");
+  const raw = onlyDigits(phone);
   if ((raw.length === 10 || raw.length === 11) && !raw.startsWith("55")) return `55${raw}`;
   return raw;
 }
@@ -1450,8 +1454,8 @@ Deno.serve(async (req) => {
           const activeToken = activeDevice.uazapi_token;
           const activeBaseUrl = (activeDevice.uazapi_base_url || "").replace(/\/+$/, "");
 
-          const isLidContact = contact.phone.includes("@lid");
-          const phone = isLidContact ? contact.phone.replace(/@lid/i, "") : contact.phone.replace(/\D/g, "");
+          const isLidContact = isLidTarget(contact.phone);
+          const phone = isLidContact ? onlyDigits(contact.phone) : onlyDigits(contact.phone);
           if (!isLidContact && phone.length < 10) {
                 await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone, status: "failed", deviceId: activeDevice.id, errorMessage: "Número inválido" });
             failedCount++;
@@ -1467,7 +1471,14 @@ Deno.serve(async (req) => {
             const chosenMessage = messageVariants[msgIndex % messageVariants.length];
             if (sequentialMode) sequentialIndex = (sequentialIndex + 1) % messageVariants.length;
             const personalizedMessage = replaceVariables(chosenMessage, contact, rand4, rand3);
-            const normalizedPhone = isLidContact ? `${phone}@lid` : normalizeBrazilianPhone(phone);
+            const normalizedPhone = isLidContact ? toLidChatId(contact.phone) : normalizeBrazilianPhone(phone);
+
+            console.log(JSON.stringify({
+              event: "campaign_destination_classified",
+              original: contact.phone,
+              isLid: isLidContact,
+              finalTarget: normalizedPhone,
+            }));
 
             if (heartbeatCounter % 3 === 1) {
               const { data: deviceStatus } = await serviceClient.from("devices").select("status").eq("id", activeDevice.id).single();

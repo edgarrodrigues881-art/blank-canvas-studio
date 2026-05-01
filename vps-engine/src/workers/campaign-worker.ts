@@ -10,6 +10,7 @@ import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 import { buildUazapiHeaders } from "../integrations/uazapi-headers";
+import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
 
 const log = createLogger("campaign");
 
@@ -206,19 +207,15 @@ interface CampaignTarget {
 function buildCampaignTarget(target: string): CampaignTarget {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
-  const isLid = lower.includes("@lid");
+  const isLid = isLidTarget(raw);
   const isGroup = lower.includes("@g.us");
-  const digits = raw.replace(/\D/g, "");
+  const digits = onlyDigits(raw);
 
   let chatId: string;
   if (isLid) {
-    chatId = `${digits}@lid`;
+    chatId = toLidChatId(raw);
   } else if (raw.includes("@")) {
     chatId = raw;
-  } else if (isLikelyLid(digits)) {
-    // Long numeric string with no suffix — treat as LID per spec
-    chatId = `${digits}@lid`;
-    return { chatId, number: digits, isLid: true, isGroup: false };
   } else {
     chatId = `${digits}@s.whatsapp.net`;
   }
@@ -409,22 +406,8 @@ async function sendCarouselMessage(baseUrl: string, token: string, target: strin
   }
 }
 
-// LID detection: WhatsApp community internal IDs that need @lid suffix.
-// Per UAZAPI spec: real phones (E.164) max 15 digits; LIDs are typically 14-20 digits
-// with no real country-code structure. We are conservative for known long-phone
-// country prefixes, but treat anything >13 digits without that prefix as a LID.
-function isLikelyLid(digits: string): boolean {
-  if (!digits) return false;
-  if (digits.length > 15) return true;
-  if (digits.length <= 13) return false; // BR (12-13), most countries fit here
-  // 14-15 digits: only a few country codes legitimately produce phones this long.
-  const knownLongPhonePatterns = /^(86\d{11,13}|91\d{10,12}|62\d{10,12}|234\d{10,11}|880\d{10,11}|92\d{10,11}|81\d{10,11}|44\d{10,12}|1\d{10,13})$/;
-  if (knownLongPhonePatterns.test(digits)) return false;
-  return true;
-}
-
 function resolveDirectNumber(target: string): string {
-  return String(target || "").replace(/\D/g, "");
+  return onlyDigits(target);
 }
 
 function resolveTargetChatId(target: string): string {
@@ -635,6 +618,8 @@ function generateBrazilianVariations(phone: string): string[] {
 }
 
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; validPhone?: string; error?: string }> {
+  if (isLidTarget(phone)) return { exists: true, validPhone: toLidChatId(phone) };
+
   const variations = generateBrazilianVariations(phone);
 
   for (const variant of variations) {
@@ -654,7 +639,7 @@ async function checkNumberExists(baseUrl: string, token: string, phone: string):
 
 // ── Variable replacement ──
 function normalizeBrazilianPhone(phone: string): string {
-  const raw = phone.replace(/\D/g, "");
+  const raw = onlyDigits(phone);
   if ((raw.length === 10 || raw.length === 11) && !raw.startsWith("55")) return `55${raw}`;
   return raw;
 }
@@ -1149,21 +1134,23 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
     }
 
     // 7. Validate / classify destination
-    // Detect LID by suffix OR by long numeric string (>13 digits without
-    // a valid long-phone country prefix). LIDs MUST bypass BR normalization
-    // and skip /check/exist (which only understands real phone numbers).
+    // LIDs are not phone numbers: never normalize them as BR phones and never call /check/exist.
     const rawPhone = String(contact.phone || "").trim();
-    const phoneDigits = rawPhone.replace(/\D/g, "");
-    const isLid = rawPhone.toLowerCase().includes("@lid") || isLikelyLid(phoneDigits);
+    const phoneDigits = onlyDigits(rawPhone);
+    const isLid = isLidTarget(rawPhone);
 
     if (!isLid && phoneDigits.length < 10) {
       await sb.from("campaign_contacts").update({ status: "failed", error_message: "Número inválido", device_id: device.id }).eq("id", contact.id);
       continue;
     }
 
-    // sendTo carries the chat identifier as it should travel into the API layer.
-    // For LID we keep the `@lid` suffix so buildCampaignTarget routes it via `chatId`.
-    let sendTo = isLid ? `${phoneDigits}@lid` : normalizeBrazilianPhone(phoneDigits);
+    let sendTo = isLid ? toLidChatId(rawPhone) : normalizeBrazilianPhone(phoneDigits);
+
+    log.info("campaign destination classified", {
+      original: contact.phone,
+      isLid,
+      finalTarget: sendTo,
+    });
 
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);

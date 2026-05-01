@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { isLidTarget, onlyDigits as cleanDigits } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,11 +30,11 @@ function isPhoneJid(value: string): boolean {
 }
 
 function onlyDigits(value: string): string {
-  return String(value || "").replace(/\D/g, "");
+  return cleanDigits(value);
 }
 
 function isDisguisedLidNumber(value: string): boolean {
-  return onlyDigits(value).length >= 14;
+  return isLidTarget(value);
 }
 
 function detectType(input: string): ResolvedType | null {
@@ -272,8 +273,6 @@ async function resolveLidViaUazapi(
     const attempts = [
       { path: "/chat/details", body: { number: normalizedLid, preview: true } },
       { path: "/chat/details", body: { number: lidDigits, preview: true } },
-      { path: "/chat/check", body: { numbers: [normalizedLid] } },
-      { path: "/chat/check", body: { numbers: [lidDigits] } },
       { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: lidDigits, wa_chatlid: normalizedLid, wa_chatid: normalizedLid } },
       { path: "/chat/find", body: { operator: "OR", limit: 10, wa_fastid: `~${lidDigits}`, wa_chatlid: `~${lidDigits}` } },
       { path: "/chat/find", body: { operator: "OR", limit: 5, wa_fastid: normalizedLid } },
@@ -283,6 +282,7 @@ async function resolveLidViaUazapi(
 
     const diagnostics: string[] = [];
     for (const attempt of attempts) {
+      if (attempt.path === "/chat/check" && isLidTarget(normalizedLid)) continue;
       const { ok, status, payload } = await request(attempt.path, attempt.body);
       if (!ok) {
         diagnostics.push(`${attempt.path}: HTTP ${status}`);

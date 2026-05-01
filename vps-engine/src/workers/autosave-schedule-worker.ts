@@ -9,6 +9,7 @@ import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 import { uazapiSendText, uazapiCheckPhone } from "../integrations/uazapi";
 import { generateNaturalMessage } from "../utils/message-generator";
+import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
 
 const log = createLogger("autosave-schedule");
 
@@ -225,15 +226,23 @@ async function processSchedule(schedule: any) {
         }
         excludedPhones.push(String(contact.phone_e164 || ""));
 
-        const cleanPhone = String(contact.phone_e164 || "").replace(/\D/g, "");
+        const originalPhone = String(contact.phone_e164 || "").trim();
+        const isLid = isLidTarget(originalPhone);
+        const finalTarget = isLid ? toLidChatId(originalPhone) : onlyDigits(originalPhone);
         const baseUrl = String(device.uazapi_base_url || "").replace(/\/+$/, "");
         const tokenStr = String(device.uazapi_token || "").trim();
+
+        log.info("autosave destination classified", {
+          original: contact.phone_e164,
+          isLid,
+          finalTarget,
+        });
 
         // PROTEÇÃO ANTI-BAN: valida se o número tem WhatsApp ANTES de mandar
         // Tentar enviar para números sem WA é o gatilho clássico para banir chips novos
         let hasWhatsapp = true;
         try {
-          hasWhatsapp = await uazapiCheckPhone(baseUrl, tokenStr, cleanPhone);
+          hasWhatsapp = isLid ? true : (await uazapiCheckPhone(baseUrl, tokenStr, finalTarget)).exists;
         } catch {
           hasWhatsapp = true; // se a checagem falha, tenta enviar mesmo assim
         }
@@ -250,7 +259,7 @@ async function processSchedule(schedule: any) {
         for (let messageIndex = 0; messageIndex < messagesPerContact; messageIndex++) {
           const message = generateNaturalMessage("autosave");
           try {
-            await uazapiSendText(baseUrl, tokenStr, cleanPhone, message);
+            await uazapiSendText(baseUrl, tokenStr, finalTarget, message);
             sent++;
             await insertLog(db, claimed, device, contact, message, "sent");
           } catch (error: any) {
