@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isLidTarget, onlyDigits } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +36,13 @@ async function checkBatchNumbers(
   phones: string[],
 ): Promise<VerifyResult[]> {
   const now = new Date().toISOString();
+  const lidResults = phones
+    .filter(isLidTarget)
+    .map((phone) => ({ phone, status: "success" as const, detail: "LID — validação de número ignorada", checked_at: now }));
+  const numberPhones = phones.filter((phone) => !isLidTarget(phone));
+
+  if (numberPhones.length === 0) return lidResults;
+
   const url = `${baseUrl}/chat/check`;
   
   try {
@@ -45,18 +53,18 @@ async function checkBatchNumbers(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ numbers: phones }),
+        body: JSON.stringify({ numbers: numberPhones }),
     });
 
     const text = await res.text();
     console.log(`[verify] POST /chat/check [${phones.length} numbers] => ${res.status} | ${text.substring(0, 400)}`);
 
     if (res.status === 401 || res.status === 403) {
-      return phones.map(phone => ({ phone, status: "error", detail: "Token da instância inválido", checked_at: now }));
+      return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail: "Token da instância inválido", checked_at: now }))];
     }
 
     if (!res.ok) {
-      return phones.map(phone => ({ phone, status: "error", detail: `API retornou HTTP ${res.status}`, checked_at: now }));
+      return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail: `API retornou HTTP ${res.status}`, checked_at: now }))];
     }
 
     let parsed: any = null;
@@ -68,14 +76,14 @@ async function checkBatchNumbers(
     // Build a map from query phone to result for fast lookup
     const resultMap = new Map<string, any>();
     for (const item of items) {
-      const query = String(item?.query || item?.phone || item?.number || "").replace(/\D/g, "");
+      const query = onlyDigits(item?.query || item?.phone || item?.number || "");
       if (query) resultMap.set(query, item);
     }
 
     // Map back to our input phones preserving order
-    return phones.map(phone => {
+    return [...lidResults, ...numberPhones.map(phone => {
       const item = resultMap.get(phone) || items.find((it: any) => {
-        const q = String(it?.query || it?.phone || it?.number || "").replace(/\D/g, "");
+        const q = onlyDigits(it?.query || it?.phone || it?.number || "");
         return q === phone;
       });
 
@@ -96,11 +104,11 @@ async function checkBatchNumbers(
       }
 
       return { phone, status: "error" as const, detail: "Resposta inesperada da API", checked_at: now };
-    });
+    })];
   } catch (err: any) {
     console.error(`[verify] batch error: ${err?.message || err}`);
     const detail = err?.name === "AbortError" ? "Timeout na consulta" : "Erro de conexão com a API";
-    return phones.map(phone => ({ phone, status: "error" as const, detail, checked_at: now }));
+    return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail, checked_at: now }))];
   }
 }
 
@@ -138,7 +146,7 @@ Deno.serve(async (req) => {
       ? Array.from(
           new Set(
             rawPhones
-              .map((value: unknown) => String(value ?? "").replace(/\D/g, ""))
+              .map((value: unknown) => onlyDigits(value))
               .filter((value: string) => value.length >= 8),
           ),
         )
