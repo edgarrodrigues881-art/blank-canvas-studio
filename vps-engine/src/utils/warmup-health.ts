@@ -51,12 +51,42 @@ export function getHealthScore(instanceId: string): number {
   return score;
 }
 
+export function getHealthStatus(score: number): "good" | "ok" | "warning" | "critical" {
+  if (score >= 80) return "good";
+  if (score >= 60) return "ok";
+  if (score >= 40) return "warning";
+  return "critical";
+}
+
 export function logHealth(instanceId: string): void {
   try {
+    const data = instanceHealth.get(instanceId);
+    const score = getHealthScore(instanceId);
+    const status = getHealthStatus(score);
+    const success = data?.success || 0;
+    const fail = data?.fail || 0;
+    const lastErrors = data?.lastErrors ? [...data.lastErrors] : [];
+    const total = success + fail;
+    const timestamp = Date.now();
+
     console.log("WARMUP_HEALTH", {
       instanceId,
-      score: getHealthScore(instanceId),
+      score,
+      status,
+      success,
+      fail,
+      total,
+      lastErrors,
+      timestamp,
     });
+
+    if (score < 50) {
+      console.log("WARMUP_HEALTH_ALERT", {
+        instanceId,
+        score,
+        status,
+      });
+    }
   } catch {}
 }
 
