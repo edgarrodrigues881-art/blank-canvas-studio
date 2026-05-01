@@ -2294,7 +2294,7 @@ const Campaigns = () => {
             {showContactTable && contacts.length > 0 && (() => {
               const varKeys = CONTACT_VARIANT_KEYS.slice(0, detectedVariantCount);
               const isNumValid = (n: string) => contactMode === "lid"
-                ? normalizeLidValue(n).length >= 3
+                ? extractDigitsFromLid(n).length >= 3
                 : /^\d{10,15}$/.test(n.replace(/\D/g, ""));
               return (
               <SurfaceCard className="p-0 overflow-hidden">
