@@ -8,6 +8,7 @@ import { createLogger } from "../core/logger";
 import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
 import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation, decideNextAction } from "../utils/message-generator";
+import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../utils/contact-tracker";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
@@ -514,10 +515,12 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     }
     if (resolved.length > 0) {
       resolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
-      const chosen = resolved[0];
-      groupJid = chosen.jid;
-      const grpRef = ctx.groupsMap[chosen.target.group_id];
-      groupName = grpRef?.name || chosen.target.group_name || "Grupo";
+      // Skip JIDs recently used by other chips (5–15 min cooldown). Fail-safe after 3 attempts.
+      const { chosen } = pickAvailableContact(resolved, (r) => r.jid, job.device_id, 3);
+      const finalChoice = chosen || resolved[0];
+      groupJid = finalChoice.jid;
+      const grpRef = ctx.groupsMap[finalChoice.target.group_id];
+      groupName = grpRef?.name || finalChoice.target.group_name || "Grupo";
     }
   }
 
@@ -588,6 +591,7 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     await uazapiSendText(baseUrl, token, groupJid, message, true);
   }
 
+  markContactUsed(groupJid, job.device_id);
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
   bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "group_msg_sent", message: `Msg no grupo ${groupName}: "${message.substring(0, 50)}"`, meta: { group_jid: groupJid, media_type: mediaType } });
   return true;
@@ -768,6 +772,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   const supportedC = new Set(["text", "image", "audio", "location"]);
   const mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
+  // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
+  // so we always proceed (fail-safe), but log cooldown state for observability.
+  isContactOnCooldown(peerPhone, job.device_id);
   let msg = generateNaturalMessage("community");
 
   try {
@@ -812,6 +819,7 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   };
 
   await db.from("community_pairs").update({ meta: nextMeta }).eq("id", selectedPair.id);
+  markContactUsed(peerPhone, job.device_id);
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
 
   if (hasNextTurn && nextCycle) {
