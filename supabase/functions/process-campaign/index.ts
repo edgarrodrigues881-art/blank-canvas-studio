@@ -557,83 +557,19 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
   const normalizedCarouselCards = normalizeCarouselCards(carouselCards);
 
-  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
-  console.log(JSON.stringify({
-    event: "payload_built",
-    origin: "campaign",
-    originalValue: t.original,
-    finalUsedValue: t.number,
-    isLid: t.isLid,
-    isGroup: t.isGroup,
-    messageType: messageType || null,
-    hasMedia: Boolean(mediaUrl),
-    hasButtons,
-    buttonCount: choices.length,
-    carouselCount: normalizedCarouselCards.length,
-    textLength: text.length,
-    textPreview: text.substring(0, 80),
-  }));
-
-  // Carousel: pass the universal V2 `number` value. sendCarouselMessage
-  // builds payloads using the same `number` field internally.
-  if (messageType === "carousel") {
-    return await sendCarouselMessage(baseUrl, token, t.number, text, normalizedCarouselCards);
-  }
-
-  if (choices.length > 0) {
-    const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
-    const isAudioMedia = mediaType === "audio";
-    const hasVisualMedia = !!mediaUrl && !isAudioMedia;
-
-    if (!text) {
-      console.log(JSON.stringify({ event: "fallback_text_applied", prevented: true, reason: "missing_primary_text_with_buttons" }));
-      throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
-    }
-
-    const base = baseSendFields(t);
-
-    // IMAGE + TEXT + BUTTONS — UAZAPIGO V2 compatibility.
-    // `imageButton` inside /send/menu causes "WhatsApp version not compatible" on modern clients.
-    // Strategy aligned with vps-engine/campaign-worker.ts: send media FIRST, then menu separately.
-    if (hasVisualMedia && mediaUrl) {
-      const visualType = mediaType || "image";
-      console.log(JSON.stringify({
-        event: "send_media_then_menu",
-        origin: "campaign",
-        isGroup: t.isGroup,
-        isLid: t.isLid,
-        mediaType: visualType,
-        buttonCount: choices.length,
-        captionLength: text.length,
-      }));
-
-      // Step 1: send the media as a standalone message (no caption — caption goes in the menu).
-      await uazapiRequest(baseUrl, token, "/send/media", {
-        ...base,
-        type: visualType,
-        file: mediaUrl,
-        ...(visualType === "image" ? { compress: false } : {}),
-      });
-
-      // Step 2: small jitter delay, mirroring VPS behavior (800–1600ms).
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
-
-      // Step 3: send the menu (text + buttons) as a separate message.
-      await uazapiRequest(baseUrl, token, "/send/menu", {
-        ...base,
-        type: "button",
-        text,
-        choices,
-      });
-
-      console.log(JSON.stringify({ event: "send_media_then_menu_success" }));
-      return;
-    }
-
+  // UAZAPI V2: `type: "button"` only renders REPLY buttons.
+  // When URL/phone (call) buttons are present, the API needs `type: "list"` to render them as
+  // interactive actions; otherwise `url:` / `call:` choices fall back to plain text on the client.
+  const hasInteractiveAction = hasButtons && (buttons || []).some((b) => {
+    const type = (b?.type || "").toLowerCase();
+    return type === "url" || type === "phone" || type === "call";
+  });
+  const menuType = hasInteractiveAction ? "list" : "button";
+...
     // TEXT-ONLY BUTTONS
     await uazapiRequest(baseUrl, token, "/send/menu", {
       ...base,
-      type: "button",
+      type: menuType,
       text,
       choices,
     });
