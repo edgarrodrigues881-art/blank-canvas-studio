@@ -630,6 +630,9 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     }
   }
 
+  // Human-like pre-send delay (single, content-aware). Skips status/join.
+  await applyHumanDelay(mediaType === "text" ? message : { length: 0 });
+
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
