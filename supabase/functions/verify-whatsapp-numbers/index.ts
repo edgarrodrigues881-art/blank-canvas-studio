@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { isLidTarget, onlyDigits } from "../_shared/lid.ts";
+import { isLidTarget, onlyDigits, toLidChatId } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
       ? Array.from(
           new Set(
             rawPhones
-              .map((value: unknown) => onlyDigits(value))
+              .map((value: unknown) => isLidTarget(value) ? toLidChatId(value) : onlyDigits(value))
               .filter((value: string) => value.length >= 8),
           ),
         )
