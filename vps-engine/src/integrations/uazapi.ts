@@ -214,23 +214,13 @@ export async function uazapiSendText(
 
   const t = buildUazapiTarget(target, isGroup);
 
-  // LID: only chatId-based attempts. NEVER place "@lid" in `number`.
-  const attempts = t.isLid
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text: safeText, body: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ]
-    : t.isGroup
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text: safeText } },
-        { path: "/send/text", body: { number: t.chatId, text: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ]
-    : [
-        { path: "/send/text", body: { number: t.number, text: safeText } },
-        { path: "/chat/send-text", body: { number: t.number, to: t.number, chatId: t.chatId, body: safeText, text: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ];
+  // UAZAPIGO V2: always use `number` (universal field).
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+
+  const attempts = [
+    { path: "/send/text", body: { number: t.number, text: safeText } },
+    { path: "/message/sendText", body: { number: t.number, text: safeText } },
+  ];
 
   let lastErr = "";
   for (const at of attempts) {
