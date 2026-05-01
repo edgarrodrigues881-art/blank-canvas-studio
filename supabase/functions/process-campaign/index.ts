@@ -455,43 +455,82 @@ function resolveDirectNumber(target: string): string {
 function resolveTargetChatId(target: string): string {
   const raw = String(target || "").trim();
   if (!raw) return "";
+  // Preserva @lid / @g.us / @s.whatsapp.net intactos.
   if (raw.includes("@")) return raw;
 
   const digits = resolveDirectNumber(raw);
   return digits ? `${digits}@s.whatsapp.net` : raw;
 }
 
+// ── Target classification ──
+// CRITICAL: UAZAPI rule — `@lid` MUST travel in `chatId`. The `number` field
+// must always be digits-only (or `@s.whatsapp.net` / `@g.us`). Sending
+// `<digits>@lid` inside `number` causes silent drops / "número inválido".
+// Converter is read-only: we ALWAYS use the original target value here.
+interface CampaignSendTarget {
+  original: string;
+  chatId: string;       // full identifier (with @lid / @s.whatsapp.net / @g.us)
+  number: string;       // digits-only — safe for `number` field
+  isLid: boolean;
+  isGroup: boolean;
+}
+
+function buildSendTarget(target: string): CampaignSendTarget {
+  const original = String(target || "").trim();
+  const isLid = isLidTarget(original);
+  const isGroup = original.toLowerCase().includes("@g.us");
+  const digits = onlyDigits(original);
+
+  let chatId: string;
+  if (isLid) {
+    chatId = toLidChatId(original);
+  } else if (original.includes("@")) {
+    chatId = original;
+  } else {
+    chatId = digits ? `${digits}@s.whatsapp.net` : original;
+  }
+
+  return { original, chatId, number: digits, isLid, isGroup };
+}
+
+// LID → { chatId }; otherwise → { number } (digits-only).
+function baseSendFields(t: CampaignSendTarget): Record<string, unknown> {
+  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+}
+
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
   const text = typeof body === "string" ? body.trim() : "";
   if (!text) throw new Error("Texto vazio");
 
-  const rawTarget = String(target || "").trim();
-  const directNumber = resolveDirectNumber(rawTarget);
-  const chatId = resolveTargetChatId(rawTarget);
-  const isGroup = chatId.endsWith("@g.us");
+  const t = buildSendTarget(target);
 
-  const attempts = isGroup
+  console.log(JSON.stringify({
+    event: "send_text_dispatch",
+    originalValue: t.original,
+    finalUsedValue: t.isLid ? t.chatId : t.number,
+    isLid: t.isLid,
+    isGroup: t.isGroup,
+  }));
+
+  // LID: ONLY chatId-based attempts. NEVER place "@lid" in `number`.
+  const attempts = t.isLid
     ? [
-        { endpoint: "/chat/send-text", payload: { chatId, text, body: text } },
-        { endpoint: "/message/sendText", payload: { chatId, text } },
-        { endpoint: "/send/text", payload: { number: chatId, text } },
+        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
+        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
+      ]
+    : t.isGroup
+    ? [
+        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
+        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
+        { endpoint: "/send/text", payload: { number: t.chatId, text } },
       ]
     : [
         {
           endpoint: "/chat/send-text",
-          payload: {
-            number: directNumber || rawTarget,
-            to: directNumber || rawTarget,
-            chatId,
-            body: text,
-            text,
-          },
+          payload: { number: t.number, to: t.number, chatId: t.chatId, body: text, text },
         },
-        { endpoint: "/message/sendText", payload: { chatId, text } },
-        {
-          endpoint: "/send/text",
-          payload: { number: rawTarget.includes("@") ? chatId : directNumber || rawTarget, text },
-        },
+        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
+        { endpoint: "/send/text", payload: { number: t.number, text } },
       ];
 
   let lastError: Error | null = null;
@@ -501,7 +540,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.endpoint, attempt.payload);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${chatId || rawTarget}: ${lastError.message}`);
+      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${t.chatId || t.original}: ${lastError.message}`);
     }
   }
 
@@ -509,9 +548,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 }
 
 async function sendUazapiMessage(baseUrl: string, token: string, to: string, body: string, mediaUrl?: string | null, buttons?: CampaignButton[], messageType?: string, carouselCards?: CarouselCard[]) {
-  const rawTarget = String(to || "").trim();
-  const isExplicitChatId = rawTarget.includes("@");
-  const phone = isExplicitChatId ? rawTarget : rawTarget.replace(/\D/g, "");
+  const t = buildSendTarget(to);
   const text = typeof body === "string" ? body.trim() : "";
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
@@ -520,6 +557,10 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   console.log(JSON.stringify({
     event: "payload_built",
     origin: "campaign",
+    originalValue: t.original,
+    finalUsedValue: t.isLid ? t.chatId : t.number,
+    isLid: t.isLid,
+    isGroup: t.isGroup,
     messageType: messageType || null,
     hasMedia: Boolean(mediaUrl),
     hasButtons,
@@ -529,8 +570,11 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     textPreview: text.substring(0, 80),
   }));
 
+  // Carousel keeps legacy signature (uses `number` field). LIDs aren't
+  // supported by /send/carousel server-side, so we forward the original digits
+  // for non-LID and the chatId for LID; sendCarouselMessage will branch.
   if (messageType === "carousel") {
-    return await sendCarouselMessage(baseUrl, token, phone, text, normalizedCarouselCards);
+    return await sendCarouselMessage(baseUrl, token, t.isLid ? t.chatId : t.number, text, normalizedCarouselCards);
   }
 
   if (choices.length > 0) {
@@ -543,8 +587,9 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
     }
 
-    // IMAGE + TEXT + BUTTONS in a single message via /send/menu with imageButton.
-    // Uses the official uazapi payload: type=button, text, imageButton (URL), choices.
+    const base = baseSendFields(t);
+
+    // IMAGE + TEXT + BUTTONS via /send/menu with imageButton.
     if (hasVisualMedia && mediaUrl) {
       console.log(JSON.stringify({
         event: "send_menu_image_button",
@@ -554,7 +599,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       }));
 
       await uazapiRequest(baseUrl, token, "/send/menu", {
-        number: phone,
+        ...base,
         type: "button",
         text,
         imageButton: mediaUrl,
@@ -564,9 +609,9 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       return;
     }
 
-    // TEXT-ONLY BUTTONS (no image) — works fine on all devices
+    // TEXT-ONLY BUTTONS
     await uazapiRequest(baseUrl, token, "/send/menu", {
-      number: phone,
+      ...base,
       type: "button",
       text,
       choices,
@@ -575,7 +620,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     if (isAudioMedia && mediaUrl) {
       await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
       await uazapiRequest(baseUrl, token, "/send/media", {
-        number: phone,
+        ...base,
         type: "ptt",
         file: mediaUrl,
       });
@@ -586,22 +631,23 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   // NO BUTTONS — just media or text
   if (mediaUrl) {
     const mediaType = detectMediaType(mediaUrl);
+    const base = baseSendFields(t);
     if (mediaType === "audio") {
       if (text) {
-        await sendTextWithFallback(baseUrl, token, phone, text);
+        await sendTextWithFallback(baseUrl, token, t.original, text);
         await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1500));
       }
       return await uazapiRequest(baseUrl, token, "/send/media", {
-        number: phone,
+        ...base,
         type: "ptt",
         file: mediaUrl,
       });
     }
 
-    return await sendCaptionedMedia(baseUrl, token, phone, mediaUrl, mediaType, text);
+    return await sendCaptionedMedia(baseUrl, token, t.original, mediaUrl, mediaType, text);
   }
 
-  return await sendTextWithFallback(baseUrl, token, phone, text);
+  return await sendTextWithFallback(baseUrl, token, t.original, text);
 }
 
 function isDisconnectError(msg: string): boolean {
