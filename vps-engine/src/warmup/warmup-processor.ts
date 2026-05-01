@@ -13,6 +13,7 @@ import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
 import { pickActionType, canSendStatus, registerStatusSend } from "../utils/warmup-action-mix";
 import { shouldSendLocation, registerLocationSend } from "../utils/warmup-location";
+import { checkGroupJoinGrace, markGroupInitialized } from "../utils/warmup-group-join";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
@@ -509,6 +510,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   // Resolve group JID with least-used strategy
   let groupJid: string | null = null;
   let groupName = "Grupo";
+  let chosenGroupId: string | null = null;
+  let chosenJoinedAt: string | null = null;
 
   if (joinedGroups.length > 0) {
     const resetFloor = cycle.last_daily_reset_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -529,6 +532,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       const { chosen } = pickAvailableContact(pool, (r) => r.jid, job.device_id, 3);
       const finalChoice = chosen || pool[0];
       groupJid = finalChoice.jid;
+      chosenGroupId = finalChoice.target.group_id || null;
+      chosenJoinedAt = finalChoice.target.joined_at || null;
       const grpRef = ctx.groupsMap[finalChoice.target.group_id];
       groupName = grpRef?.name || finalChoice.target.group_name || "Grupo";
     }
@@ -549,6 +554,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       refreshedResolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
       const chosen = refreshedResolved[0];
       groupJid = chosen.jid;
+      chosenGroupId = chosen.target.group_id || null;
+      chosenJoinedAt = chosen.target.joined_at || null;
       const grpRef = ctx.groupsMap[chosen.target.group_id];
       groupName = grpRef?.name || chosen.target.group_name || "Grupo";
     }
@@ -558,6 +565,19 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     await db.from("warmup_jobs").update({ status: "cancelled", last_error: "Sem grupos com JID resolvido" }).eq("cycle_id", job.cycle_id).eq("job_type", "group_interaction").eq("status", "pending");
     await ensureJoinGroupJobs(db, job.cycle_id, job.user_id, job.device_id);
     throw new Error("Nenhum grupo com JID resolvido");
+  }
+
+  // ── Group join-grace: defer FIRST message in this group by 2–10 min ──
+  // Subsequent messages skip this check (markGroupInitialized after first send).
+  if (chosenGroupId) {
+    const grace = checkGroupJoinGrace({ instanceId: job.device_id, groupId: chosenGroupId, joinedAtIso: chosenJoinedAt });
+    if (!grace.allowed) {
+      // Requeue the job with a small delay; do NOT mutate scheduling otherwise.
+      try {
+        await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + grace.waitMs).toISOString() }).eq("id", job.id);
+      } catch {}
+      return false;
+    }
   }
 
   // Send message
@@ -680,6 +700,7 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   markContactUsed(groupJid, job.device_id);
   registerSend(job.device_id, groupJid);
   registerDailySend({ instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1, chipState: ctx.chipState });
+  if (chosenGroupId) markGroupInitialized(job.device_id, chosenGroupId);
   console.log("WARMUP_SENT", { instanceId: job.device_id, targetJid: groupJid, context: "group" });
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
   bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "group_msg_sent", message: `Msg no grupo ${groupName}: "${message.substring(0, 50)}"`, meta: { group_jid: groupJid, media_type: mediaType } });
