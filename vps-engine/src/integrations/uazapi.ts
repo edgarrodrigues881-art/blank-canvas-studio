@@ -394,12 +394,12 @@ export async function uazapiCheckPhone(
   baseUrl: string,
   token: string,
   phone: string,
-): Promise<boolean> {
+): Promise<{ exists: boolean }> {
   // LIDs are not phone numbers. Never validate them via /chat/check or any number-check endpoint.
-  if (isLidTarget(phone)) return true;
+  if (isLidTarget(phone)) return { exists: true };
 
   const digitsOnly = onlyDigits(phone);
-  if (!digitsOnly) return false;
+  if (!digitsOnly) return { exists: false };
 
   const endpoints = [
     { url: `${baseUrl}/misc/checkPhones`, body: { phones: [digitsOnly] } },
@@ -420,11 +420,11 @@ export async function uazapiCheckPhone(
       const parsed = JSON.parse(raw);
       const item = Array.isArray(parsed) ? parsed[0] : parsed?.data?.[0] || parsed?.data || parsed;
       if (!item) continue;
-      if (item.exists === false || item.onWhatsapp === false || item.isOnWhatsapp === false || item.numberExists === false) return false;
-      if (item.exists === true || item.onWhatsapp === true || item.isOnWhatsapp === true || item.numberExists === true) return true;
+      if (item.exists === false || item.onWhatsapp === false || item.isOnWhatsapp === false || item.numberExists === false) return { exists: false };
+      if (item.exists === true || item.onWhatsapp === true || item.isOnWhatsapp === true || item.numberExists === true) return { exists: true };
     } catch { continue; }
   }
-  return true;
+  return { exists: true };
 }
 
 export async function fetchLiveGroups(baseUrl: string, token: string): Promise<any[]> {
