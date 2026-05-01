@@ -1024,11 +1024,19 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
       endpointUsedC = "/send/text";
     }
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community" });
+    trackSendResult(job.device_id, true);
   } catch (err: any) {
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community", failed: true, error: err?.message });
+    trackSendResult(job.device_id, false);
     // Fail-safe: only fallback to text on actual API error.
     msg = generateNaturalMessage("community");
-    await uazapiSendText(baseUrl, token, peerPhone, msg);
+    try {
+      await uazapiSendText(baseUrl, token, peerPhone, msg);
+      trackSendResult(job.device_id, true);
+    } catch (fbErr: any) {
+      trackSendResult(job.device_id, false);
+      throw fbErr;
+    }
     console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "community", fallback: true });
   }
 
