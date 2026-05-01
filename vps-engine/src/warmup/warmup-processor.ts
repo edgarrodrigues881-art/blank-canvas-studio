@@ -759,7 +759,15 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
     if (!nextCycle) return false;
   }
 
-  const mediaType = pickMediaTypeCommunity(cycle.daily_interaction_budget_used || 0);
+  // ── Decision engine: weighted random action selection (community 1:1) ──
+  const fallbackMediaTypeC = pickMediaTypeCommunity(cycle.daily_interaction_budget_used || 0);
+  const decisionC = decideNextAction(
+    { dayIndex: cycle.day_index, chipState: ctx.chipState },
+    { channel: "chat", allowStatus: false, allowedPayloads: ["text", "image", "audio", "location"] }
+  );
+  const supportedC = new Set(["text", "image", "audio", "location"]);
+  const mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
+  console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
   let msg = generateNaturalMessage("community");
 
   try {
