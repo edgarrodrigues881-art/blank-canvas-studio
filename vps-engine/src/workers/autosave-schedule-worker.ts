@@ -237,6 +237,7 @@ async function processSchedule(schedule: any) {
           isLid,
           finalTarget,
         });
+        console.log("VALIDATION CHECK", { target: finalTarget, isLid });
 
         // PROTEÇÃO ANTI-BAN: valida se o número tem WhatsApp ANTES de mandar
         // Tentar enviar para números sem WA é o gatilho clássico para banir chips novos

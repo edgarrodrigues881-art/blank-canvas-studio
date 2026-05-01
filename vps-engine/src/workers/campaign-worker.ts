@@ -618,7 +618,9 @@ function generateBrazilianVariations(phone: string): string[] {
 }
 
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; validPhone?: string; error?: string }> {
-  if (isLidTarget(phone)) return { exists: true, validPhone: toLidChatId(phone) };
+  const isLid = isLidTarget(phone);
+  console.log("VALIDATION CHECK", { target: phone, isLid });
+  if (isLid) return { exists: true, validPhone: toLidChatId(phone) };
 
   const variations = generateBrazilianVariations(phone);
 
@@ -1151,6 +1153,7 @@ async function processOneCampaign(sb: any, campaign: any, isRunningRef: { value:
       isLid,
       finalTarget: sendTo,
     });
+    console.log("VALIDATION CHECK", { target: sendTo, isLid });
 
     if (!isLid) {
       const check = await checkNumberExists(baseUrl, device.uazapi_token, sendTo);

@@ -1,15 +1,18 @@
 export const PRIVATE_JID_SUFFIX = "@s.whatsapp.net";
 export const GROUP_JID_SUFFIX = "@g.us";
+export const LID_JID_SUFFIX = "@lid";
 
 export const cleanNumber = (value: string) => String(value || "").replace(/\D/g, "");
 
 export const isGroupJid = (value: string) => String(value || "").includes(GROUP_JID_SUFFIX);
+export const isLidJid = (value: string) => String(value || "").toLowerCase().includes(LID_JID_SUFFIX);
 
 export function normalizeChatId(value: string, isGroup = false) {
   const raw = String(value || "").trim();
   if (!raw) return "";
 
   if (raw.endsWith(GROUP_JID_SUFFIX)) return raw;
+  if (isLidJid(raw)) return `${cleanNumber(raw)}${LID_JID_SUFFIX}`;
 
   const digits = cleanNumber(raw);
   if (!digits) return raw.includes("@") ? raw : "";
@@ -39,6 +42,7 @@ export function buildEquivalentChatIds(value: string) {
   const normalized = normalizeChatId(value, isGroupJid(value));
   if (!normalized) return [];
   if (normalized.endsWith(GROUP_JID_SUFFIX)) return [normalized];
+  if (normalized.endsWith(LID_JID_SUFFIX)) return [normalized];
 
   return buildBrazilPhoneVariants(cleanNumber(normalized)).map((digits) => `${digits}${PRIVATE_JID_SUFFIX}`);
 }

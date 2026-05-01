@@ -396,6 +396,7 @@ export async function uazapiCheckPhone(
   phone: string,
 ): Promise<{ exists: boolean }> {
   // LIDs are not phone numbers. Never validate them via /chat/check or any number-check endpoint.
+  console.log("VALIDATION CHECK", { target: phone, isLid: isLidTarget(phone) });
   if (isLidTarget(phone)) return { exists: true };
 
   const digitsOnly = onlyDigits(phone);

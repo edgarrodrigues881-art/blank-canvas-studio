@@ -36,6 +36,10 @@ async function checkBatchNumbers(
   phones: string[],
 ): Promise<VerifyResult[]> {
   const now = new Date().toISOString();
+  for (const target of phones) {
+    console.log("VALIDATION CHECK", { target, isLid: isLidTarget(target) });
+  }
+
   const lidResults = phones
     .filter(isLidTarget)
     .map((phone) => ({ phone, status: "success" as const, detail: "LID — validação de número ignorada", checked_at: now }));

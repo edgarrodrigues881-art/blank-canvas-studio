@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isLidTarget, onlyDigits, toLidChatId } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,14 +55,19 @@ Deno.serve(async (req) => {
         .select("phone")
         .eq("user_id", userId);
 
-      const existingPhones = new Set((existing || []).map((c: any) => c.phone.replace(/\D/g, "")));
+      const existingPhones = new Set((existing || []).map((c: any) => {
+        const stored = String(c.phone || "").trim();
+        return isLidTarget(stored) ? toLidChatId(stored) : onlyDigits(stored);
+      }));
 
       const validated: any[] = [];
       const skipped: string[] = [];
 
       for (const c of contacts) {
-        const phone = (c.phone || "").replace(/\D/g, "");
-        if (phone.length < 10) {
+        const rawPhone = String(c.phone || "").trim();
+        const isLid = isLidTarget(rawPhone);
+        const phone = isLid ? toLidChatId(rawPhone) : onlyDigits(rawPhone);
+        if (!isLid && phone.length < 10) {
           skipped.push(`${c.name || "?"}: número inválido`);
           continue;
         }
@@ -120,7 +126,8 @@ Deno.serve(async (req) => {
       const toDelete: string[] = [];
 
       for (const c of allContacts) {
-        const normalized = c.phone.replace(/\D/g, "");
+        const rawPhone = String(c.phone || "").trim();
+        const normalized = isLidTarget(rawPhone) ? toLidChatId(rawPhone) : onlyDigits(rawPhone);
         if (seen.has(normalized)) {
           toDelete.push(c.id);
         } else {
@@ -151,7 +158,12 @@ Deno.serve(async (req) => {
 
       const invalid: any[] = [];
       for (const c of allContacts || []) {
-        const phone = c.phone.replace(/\D/g, "");
+        const target = String(c.phone || "").trim();
+        const isLid = isLidTarget(target);
+        console.log("VALIDATION CHECK", { target, isLid });
+        if (isLid) continue;
+
+        const phone = onlyDigits(target);
         if (phone.length < 10 || phone.length > 15) {
           invalid.push({ id: c.id, name: c.name, phone: c.phone, reason: "Tamanho inválido" });
         }
