@@ -5,7 +5,7 @@
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
 import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
-import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
+import { isLidTarget, onlyDigits } from "../utils/lid";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
