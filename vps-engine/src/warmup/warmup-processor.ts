@@ -724,6 +724,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   const msg = generateNaturalMessage("autosave");
 
+  // Pre-send step: save contact in address book (direct chat only, dedupe 24h, fail-safe)
+  await saveContactIfNeeded(baseUrl, token, job.device_id, target._phone);
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
   } catch {
