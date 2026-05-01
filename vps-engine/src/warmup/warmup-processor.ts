@@ -515,10 +515,12 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     }
     if (resolved.length > 0) {
       resolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
-      const chosen = resolved[0];
-      groupJid = chosen.jid;
-      const grpRef = ctx.groupsMap[chosen.target.group_id];
-      groupName = grpRef?.name || chosen.target.group_name || "Grupo";
+      // Skip JIDs recently used by other chips (5–15 min cooldown). Fail-safe after 3 attempts.
+      const { chosen } = pickAvailableContact(resolved, (r) => r.jid, job.device_id, 3);
+      const finalChoice = chosen || resolved[0];
+      groupJid = finalChoice.jid;
+      const grpRef = ctx.groupsMap[finalChoice.target.group_id];
+      groupName = grpRef?.name || finalChoice.target.group_name || "Grupo";
     }
   }
 
