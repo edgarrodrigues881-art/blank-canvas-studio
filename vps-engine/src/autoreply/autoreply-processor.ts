@@ -238,8 +238,13 @@ async function sendFlowMessage(
   }
   if (buttons && buttons.length > 0) {
     const choices = buttons.map(buildChoice).filter(Boolean);
+    // UAZAPIGO V2: send media first, then menu separately. `imageButton` causes
+    // "WhatsApp version not compatible" on modern clients.
+    if (imageUrl) {
+      await uazapiSend(baseUrl, token, "/send/media", { number: cleanPhone, file: imageUrl, type: "image", compress: false });
+      await new Promise(r => setTimeout(r, 1000));
+    }
     const payload: any = { number: cleanPhone, type: "button", text, choices };
-    if (imageUrl) payload.imageButton = imageUrl;
     return uazapiSend(baseUrl, token, "/send/menu", payload);
   }
   if (imageUrl) {
