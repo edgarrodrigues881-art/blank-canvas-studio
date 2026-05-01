@@ -565,7 +565,80 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     return type === "url" || type === "phone" || type === "call";
   });
   const menuType = hasInteractiveAction ? "list" : "button";
-...
+
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  console.log(JSON.stringify({
+    event: "payload_built",
+    origin: "campaign",
+    originalValue: t.original,
+    finalUsedValue: t.number,
+    isLid: t.isLid,
+    isGroup: t.isGroup,
+    messageType: messageType || null,
+    hasMedia: Boolean(mediaUrl),
+    hasButtons,
+    buttonCount: choices.length,
+    menuType,
+    hasInteractiveAction,
+    carouselCount: normalizedCarouselCards.length,
+    textLength: text.length,
+    textPreview: text.substring(0, 80),
+  }));
+
+  // Carousel: pass the universal V2 `number` value.
+  if (messageType === "carousel") {
+    return await sendCarouselMessage(baseUrl, token, t.number, text, normalizedCarouselCards);
+  }
+
+  if (choices.length > 0) {
+    const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
+    const isAudioMedia = mediaType === "audio";
+    const hasVisualMedia = !!mediaUrl && !isAudioMedia;
+
+    if (!text) {
+      console.log(JSON.stringify({ event: "fallback_text_applied", prevented: true, reason: "missing_primary_text_with_buttons" }));
+      throw new Error("Mensagens com botão exigem copy/texto principal. O sistema não envia mais 'Escolha uma opção' automaticamente.");
+    }
+
+    const base = baseSendFields(t);
+
+    // IMAGE + TEXT + BUTTONS — UAZAPIGO V2 compatibility (split-send: media first, then menu).
+    if (hasVisualMedia && mediaUrl) {
+      const visualType = mediaType || "image";
+      console.log(JSON.stringify({
+        event: "send_media_then_menu",
+        origin: "campaign",
+        isGroup: t.isGroup,
+        isLid: t.isLid,
+        mediaType: visualType,
+        buttonCount: choices.length,
+        menuType,
+        captionLength: text.length,
+      }));
+
+      // Step 1: send the media as a standalone message.
+      await uazapiRequest(baseUrl, token, "/send/media", {
+        ...base,
+        type: visualType,
+        file: mediaUrl,
+        ...(visualType === "image" ? { compress: false } : {}),
+      });
+
+      // Step 2: jitter delay.
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
+
+      // Step 3: send menu (text + buttons). Use `list` if any URL/phone button.
+      await uazapiRequest(baseUrl, token, "/send/menu", {
+        ...base,
+        type: menuType,
+        text,
+        choices,
+      });
+
+      console.log(JSON.stringify({ event: "send_media_then_menu_success" }));
+      return;
+    }
+
     // TEXT-ONLY BUTTONS
     await uazapiRequest(baseUrl, token, "/send/menu", {
       ...base,
