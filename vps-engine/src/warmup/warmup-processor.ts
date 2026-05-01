@@ -13,6 +13,7 @@ import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
 import { pickActionType, canSendStatus, registerStatusSend } from "../utils/warmup-action-mix";
 import { shouldSendLocation, registerLocationSend } from "../utils/warmup-location";
+import { checkGroupJoinGrace, markGroupInitialized } from "../utils/warmup-group-join";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
