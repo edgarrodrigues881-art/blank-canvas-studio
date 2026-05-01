@@ -159,33 +159,41 @@ export async function uazapiRequest(
 }
 
 // ── Target classification helpers ──
-// CRITICAL: UAZAPI requires `@lid` in `chatId`, NEVER inside `number`.
-// `number` must be digits-only (or include `@s.whatsapp.net` / `@g.us`),
-// while LID destinations must travel through `chatId`.
+// UAZAPIGO V2 RULE: the `number` field is UNIVERSAL. It carries:
+//   - normal numbers   → "5511999999999"
+//   - LID              → "123456789@lid"
+//   - groups           → "123@g.us"
+//   - newsletters      → "123@newsletter"
+// `chatId` MUST NOT be used in any send payload anymore.
 export function buildUazapiTarget(target: string, forceGroup = false): {
-  chatId: string;
-  number: string;        // digits-only — safe for `number` field
+  number: string;        // UNIVERSAL field for UAZAPIGO V2 (digits | @lid | @g.us | @newsletter)
   isLid: boolean;
   isGroup: boolean;
+  isNewsletter: boolean;
+  original: string;
 } {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
   const isLid = isLidTarget(raw);
   const isGroup = forceGroup || lower.includes("@g.us");
+  const isNewsletter = lower.includes("@newsletter");
   const digits = onlyDigits(raw);
 
-  let chatId: string;
+  let number: string;
   if (isLid) {
-    chatId = toLidChatId(raw);
-  } else if (raw.includes("@")) {
-    chatId = raw;
+    number = `${digits}@lid`;
+  } else if (isNewsletter) {
+    number = raw;
   } else if (isGroup) {
-    chatId = `${digits}@g.us`;
+    number = raw.includes("@") ? raw : `${digits}@g.us`;
+  } else if (raw.includes("@")) {
+    // any other JID (e.g. @s.whatsapp.net) — keep digits-only per V2.
+    number = digits || raw;
   } else {
-    chatId = `${digits}@s.whatsapp.net`;
+    number = digits;
   }
 
-  return { chatId, number: digits, isLid, isGroup };
+  return { number, isLid, isGroup, isNewsletter, original: raw };
 }
 
 export async function uazapiSendText(
