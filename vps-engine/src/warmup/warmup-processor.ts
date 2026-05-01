@@ -532,6 +532,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       const { chosen } = pickAvailableContact(pool, (r) => r.jid, job.device_id, 3);
       const finalChoice = chosen || pool[0];
       groupJid = finalChoice.jid;
+      chosenGroupId = finalChoice.target.group_id || null;
+      chosenJoinedAt = finalChoice.target.joined_at || null;
       const grpRef = ctx.groupsMap[finalChoice.target.group_id];
       groupName = grpRef?.name || finalChoice.target.group_name || "Grupo";
     }
