@@ -569,7 +569,23 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   );
   // Map unsupported payloads (vcard/menu/location/status) → existing legacy picker for safe routing
   const supported = new Set(["text", "image", "audio", "sticker"]);
-  const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
+  let mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
+
+  // ── Action mix override (human-like distribution, anti-repeat) ──
+  // status/vcard not yet implemented in this dispatcher → safe-fallback to "text".
+  const mixPick = pickActionType({
+    instanceId: job.device_id,
+    cycleKey: cycle.id,
+    day: cycle.day_index || 1,
+    supported: ["text", "image", "audio", "sticker", "status"],
+  });
+  const mixResolved = (mixPick === "status" || mixPick === "vcard" || mixPick === "location")
+    ? "text"
+    : mixPick;
+  if (["text", "image", "audio", "sticker"].includes(mixResolved)) {
+    mediaType = mixResolved as "text" | "image" | "audio" | "sticker";
+  }
+  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPick, resolved: mediaType, context: "group" });
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
 
   // ── Per-instance daily volume gate (chip-type aware ramp) ──
