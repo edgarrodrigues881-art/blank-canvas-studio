@@ -9,6 +9,7 @@ import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
 import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation, decideNextAction } from "../utils/message-generator";
 import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../utils/contact-tracker";
+import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-coordinator";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
@@ -515,9 +516,12 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     }
     if (resolved.length > 0) {
       resolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
-      // Skip JIDs recently used by other chips (5–15 min cooldown). Fail-safe after 3 attempts.
-      const { chosen } = pickAvailableContact(resolved, (r) => r.jid, job.device_id, 3);
-      const finalChoice = chosen || resolved[0];
+      // Prefer targets NOT recently used globally across all instances (10–20min window).
+      const notRecent = resolved.filter((r) => !isTargetRecentlyUsed(r.jid));
+      const pool = notRecent.length > 0 ? notRecent : resolved;
+      // Skip JIDs recently used by THIS chip (5–15 min cooldown). Fail-safe after 3 attempts.
+      const { chosen } = pickAvailableContact(pool, (r) => r.jid, job.device_id, 3);
+      const finalChoice = chosen || pool[0];
       groupJid = finalChoice.jid;
       const grpRef = ctx.groupsMap[finalChoice.target.group_id];
       groupName = grpRef?.name || finalChoice.target.group_name || "Grupo";
@@ -565,6 +569,20 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const supported = new Set(["text", "image", "audio", "sticker"]);
   const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
+
+  // ── Cross-instance coordination: avoid simultaneous sends ──
+  const allowedNow = canSendNow(job.device_id);
+  const targetBlocked = isTargetRecentlyUsed(groupJid);
+  console.log("WARMUP_COORD", { instanceId: job.device_id, allowed: allowedNow, targetBlocked, target: groupJid, context: "group" });
+  if (!allowedNow) {
+    // Skip this cycle without retrying immediately — defer the job by 8–20s.
+    const deferMs = 8000 + Math.floor(Math.random() * 12000);
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMs).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   let message = getMsg();
 
   try {
@@ -592,6 +610,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   }
 
   markContactUsed(groupJid, job.device_id);
+  registerSend(job.device_id, groupJid);
+  console.log("WARMUP_SENT", { instanceId: job.device_id, targetJid: groupJid, context: "group" });
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
   bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "group_msg_sent", message: `Msg no grupo ${groupName}: "${message.substring(0, 50)}"`, meta: { group_jid: groupJid, media_type: mediaType } });
   return true;
@@ -775,6 +795,20 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
   // so we always proceed (fail-safe), but log cooldown state for observability.
   isContactOnCooldown(peerPhone, job.device_id);
+
+  // ── Cross-instance coordination: avoid simultaneous sends ──
+  const allowedNowC = canSendNow(job.device_id);
+  const targetBlockedC = isTargetRecentlyUsed(peerPhone);
+  console.log("WARMUP_COORD", { instanceId: job.device_id, allowed: allowedNowC, targetBlocked: targetBlockedC, target: peerPhone, context: "community" });
+  if (!allowedNowC) {
+    // Defer this turn — community pair is fixed, so we can't pick another target.
+    const deferMsC = 8000 + Math.floor(Math.random() * 12000);
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMsC).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   let msg = generateNaturalMessage("community");
 
   try {
@@ -820,6 +854,8 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
 
   await db.from("community_pairs").update({ meta: nextMeta }).eq("id", selectedPair.id);
   markContactUsed(peerPhone, job.device_id);
+  registerSend(job.device_id, peerPhone);
+  console.log("WARMUP_SENT", { instanceId: job.device_id, targetJid: peerPhone, context: "community" });
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
 
   if (hasNextTurn && nextCycle) {
