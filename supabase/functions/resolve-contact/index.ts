@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { isLidTarget } from "../_shared/lid.ts";
+import { isLidTarget, onlyDigits as cleanDigits } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,11 +30,11 @@ function isPhoneJid(value: string): boolean {
 }
 
 function onlyDigits(value: string): string {
-  return String(value || "").replace(/\D/g, "");
+  return cleanDigits(value);
 }
 
 function isDisguisedLidNumber(value: string): boolean {
-  return onlyDigits(value).length >= 14;
+  return isLidTarget(value);
 }
 
 function detectType(input: string): ResolvedType | null {
