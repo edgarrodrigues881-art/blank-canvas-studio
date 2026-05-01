@@ -18,7 +18,31 @@ import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, ua
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
 import { applyPresence } from "../utils/presence";
-import { trackSendResult } from "../utils/warmup-health";
+import { trackSendResult, getHealthScore } from "../utils/warmup-health";
+
+// Adaptive throttle based on instance health (observability-driven, never blocks).
+function getAdaptiveDelay(instanceId: string): number {
+  const score = getHealthScore(instanceId);
+  if (score >= 80) return 0;
+  if (score >= 60) return 500;
+  if (score >= 40) return 1500;
+  return 3000;
+}
+
+async function applyAdaptiveThrottle(instanceId: string, context: "group" | "community" | "autosave"): Promise<void> {
+  try {
+    const extraDelay = getAdaptiveDelay(instanceId);
+    console.log("WARMUP_THROTTLE", {
+      instanceId,
+      score: getHealthScore(instanceId),
+      appliedDelay: extraDelay,
+      context,
+    });
+    if (extraDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, extraDelay));
+    }
+  } catch {}
+}
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
