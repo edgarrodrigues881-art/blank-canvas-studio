@@ -11,6 +11,7 @@ import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMe
 import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../utils/contact-tracker";
 import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-coordinator";
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
+import { pickActionType } from "../utils/warmup-action-mix";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
