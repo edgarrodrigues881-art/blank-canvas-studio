@@ -685,6 +685,9 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   // Human-like pre-send delay (single, content-aware). Skips status/join.
   await applyHumanDelay(mediaType === "text" ? message : { length: 0 });
 
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "group");
+
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
