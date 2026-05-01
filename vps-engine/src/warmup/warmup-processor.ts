@@ -571,6 +571,18 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
 
+  // ── Per-instance daily volume gate (chip-type aware ramp) ──
+  const volCtx = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1, chipState: ctx.chipState };
+  const vol = canSendToday(volCtx);
+  console.log("WARMUP_VOLUME", { instanceId: job.device_id, day: vol.day, chipKind: mapChipKind(ctx.chipState), sentToday: vol.sentToday, limit: vol.limit, allowed: vol.allowed, context: "group" });
+  if (!vol.allowed) {
+    const deferMs = 30_000 + Math.floor(Math.random() * 60_000); // 30–90s
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMs).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   // ── Cross-instance coordination: avoid simultaneous sends ──
   const allowedNow = canSendNow(job.device_id);
   const targetBlocked = isTargetRecentlyUsed(groupJid);
