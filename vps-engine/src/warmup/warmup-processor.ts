@@ -510,6 +510,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   // Resolve group JID with least-used strategy
   let groupJid: string | null = null;
   let groupName = "Grupo";
+  let chosenGroupId: string | null = null;
+  let chosenJoinedAt: string | null = null;
 
   if (joinedGroups.length > 0) {
     const resetFloor = cycle.last_daily_reset_at || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
