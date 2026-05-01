@@ -693,7 +693,8 @@ async function sendCampaignAlertToWa(sb: any, userId: string, campaignName: stri
     else if (status === "canceled") msg = `🚫 CAMPANHA CANCELADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     else if (status === "completed") msg = `📣 CAMPANHA FINALIZADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n📬 Entregues: ${s.delivered || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     if (!msg) return;
-    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, { method: "POST", headers: buildUazapiHeaders(dev.uazapi_token, { json: true, context: "campaign-worker" }), body: JSON.stringify({ chatId: targetGroup, text: msg }) });
+    console.log("UAZAPI SEND", { original: targetGroup, finalNumber: targetGroup });
+    const res = await fetch(`${dev.uazapi_base_url}/send/text`, { method: "POST", headers: buildUazapiHeaders(dev.uazapi_token, { json: true, context: "campaign-worker" }), body: JSON.stringify({ number: targetGroup, text: msg }) });
     await res.text();
   } catch {}
 }
