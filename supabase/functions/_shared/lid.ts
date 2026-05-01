@@ -8,7 +8,7 @@ export function isLidTarget(value: unknown): boolean {
   const raw = String(value || "").trim().toLowerCase();
   if (!raw) return false;
   if (raw.includes(LID_SUFFIX)) return true;
-  return onlyDigits(raw).length >= 14;
+  return /^\d{14,}$/.test(raw);
 }
 
 export function toLidChatId(value: unknown): string {
