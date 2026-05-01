@@ -1514,7 +1514,9 @@ Deno.serve(async (req) => {
           const activeBaseUrl = (activeDevice.uazapi_base_url || "").replace(/\/+$/, "");
 
           const isLidContact = isLidTarget(contact.phone);
-          const phone = isLidContact ? onlyDigits(contact.phone) : onlyDigits(contact.phone);
+          // CRITICAL: original `contact.phone` (e.g. "12345@lid") is preserved.
+          // `phone` (digits-only) is used ONLY for length validation/logs.
+          const phone = onlyDigits(contact.phone);
           if (!isLidContact && phone.length < 10) {
                 await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone, status: "failed", deviceId: activeDevice.id, errorMessage: "Número inválido" });
             failedCount++;
