@@ -269,10 +269,9 @@ export async function uazapiSendImage(
   const safeCaption = (caption || "📸").trim() || "📸";
 
   const t = buildUazapiTarget(target);
-  // LID → chatId; otherwise digits-only `number`.
-  const payload: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId, file: imageUrl, type: "image", caption: safeCaption }
-    : { number: t.number, file: imageUrl, type: "image", caption: safeCaption };
+  // UAZAPIGO V2: universal `number` field.
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const payload: Record<string, unknown> = { number: t.number, file: imageUrl, type: "image", caption: safeCaption };
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
@@ -295,9 +294,8 @@ export async function uazapiSendSticker(
   if (!imageUrl) throw new Error("Sticker URL ausente");
 
   const t = buildUazapiTarget(target);
-  const payload: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId, file: imageUrl, type: "sticker" }
-    : { number: t.number, file: imageUrl, type: "sticker" };
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const payload: Record<string, unknown> = { number: t.number, file: imageUrl, type: "sticker" };
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
@@ -320,9 +318,8 @@ export async function uazapiSendAudio(
   if (!audioUrl) throw new Error("Audio URL ausente");
 
   const t = buildUazapiTarget(target);
-  const baseBody: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId }
-    : { number: t.number };
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const baseBody: Record<string, unknown> = { number: t.number };
 
   const attempts = [
     { path: "/send/media", body: { ...baseBody, file: audioUrl, type: "audio", ptt: true } },
@@ -358,15 +355,11 @@ export async function uazapiSendLocation(
   name: string,
 ): Promise<any> {
   const t = buildUazapiTarget(target);
-  const attempts = t.isLid
-    ? [
-        { path: "/send/location", body: { chatId: t.chatId, lat, lng, name, address: name } },
-        { path: "/message/sendLocation", body: { chatId: t.chatId, lat, lng, name, address: name } },
-      ]
-    : [
-        { path: "/send/location", body: { number: t.number, lat, lng, name, address: name } },
-        { path: "/message/sendLocation", body: { chatId: t.chatId, lat, lng, name, address: name } },
-      ];
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const attempts = [
+    { path: "/send/location", body: { number: t.number, lat, lng, name, address: name } },
+    { path: "/message/sendLocation", body: { number: t.number, lat, lng, name, address: name } },
+  ];
 
   let lastErr = "";
   for (const at of attempts) {
