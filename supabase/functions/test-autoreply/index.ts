@@ -130,13 +130,26 @@ async function sendMessage(
   const payload: Record<string, unknown> = { number: cleanPhone, text };
 
   if (buttons?.length) {
+    // UAZAPIGO V2: send media first, then menu separately. `imageButton` causes
+    // "WhatsApp version not compatible" on modern clients.
+    if (imageUrl) {
+      console.log(`[test-autoreply] Sending image (pre-menu) to ${cleanPhone}`);
+      const mediaResp = await fetch(`${baseUrl}/send/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token },
+        body: JSON.stringify({ number: cleanPhone, type: "image", file: imageUrl, compress: false }),
+      });
+      const mediaBody = await mediaResp.text();
+      console.log(`[test-autoreply] Pre-menu image response: ${mediaResp.status} ${mediaBody.slice(0, 200)}`);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
     const menuPayload: Record<string, unknown> = {
       number: cleanPhone,
       type: "button",
       text,
       choices: buttons.slice(0, 3).map((b) => `${b.label}|${b.id}`),
     };
-    if (imageUrl) menuPayload.imageButton = imageUrl;
     console.log(`[test-autoreply] Sending menu/buttons to ${cleanPhone}`);
     const resp = await fetch(`${baseUrl}/send/menu`, {
       method: "POST",
