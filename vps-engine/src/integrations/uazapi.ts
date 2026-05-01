@@ -381,6 +381,73 @@ export async function uazapiSendLocation(
   throw new Error(`Location send failed: ${lastErr}`);
 }
 
+export async function uazapiSendContact(
+  baseUrl: string,
+  token: string,
+  target: string,
+  fullName: string,
+  phoneNumber: string,
+): Promise<any> {
+  const t = buildUazapiTarget(target);
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number, kind: "contact" });
+  const attempts = [
+    { path: "/send/contact", body: { number: t.number, fullName, phoneNumber } },
+    { path: "/send/contact", body: { number: t.number, name: fullName, phone: phoneNumber } },
+    { path: "/message/sendContact", body: { number: t.number, fullName, phoneNumber } },
+  ];
+  let lastErr = "";
+  for (const at of attempts) {
+    try {
+      const res = await fetch(`${baseUrl}${at.path}`, {
+        method: "POST",
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
+        body: JSON.stringify(at.body),
+      });
+      const raw = await res.text();
+      if (res.ok) {
+        try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+      }
+      lastErr = `${res.status} @ ${at.path}: ${raw.substring(0, 240)}`;
+    } catch (e: any) {
+      lastErr = `${at.path}: ${e?.message || String(e)}`;
+    }
+  }
+  throw new Error(`Contact send failed: ${lastErr}`);
+}
+
+export async function uazapiSendStatus(
+  baseUrl: string,
+  token: string,
+  payload: { type: "text" | "image"; text?: string; file?: string },
+): Promise<any> {
+  console.log("UAZAPI SEND", { kind: "status", type: payload.type });
+  const body: Record<string, any> = { type: payload.type };
+  if (payload.text) body.text = payload.text;
+  if (payload.file) body.file = payload.file;
+  const attempts = [
+    { path: "/send/status", body },
+    { path: "/message/sendStatus", body },
+  ];
+  let lastErr = "";
+  for (const at of attempts) {
+    try {
+      const res = await fetch(`${baseUrl}${at.path}`, {
+        method: "POST",
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiSend" }),
+        body: JSON.stringify(at.body),
+      });
+      const raw = await res.text();
+      if (res.ok) {
+        try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+      }
+      lastErr = `${res.status} @ ${at.path}: ${raw.substring(0, 240)}`;
+    } catch (e: any) {
+      lastErr = `${at.path}: ${e?.message || String(e)}`;
+    }
+  }
+  throw new Error(`Status send failed: ${lastErr}`);
+}
+
 export async function uazapiCheckPhone(
   baseUrl: string,
   token: string,

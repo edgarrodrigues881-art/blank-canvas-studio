@@ -264,6 +264,38 @@ export function pickFakeLocation(): { lat: number; lng: number; name: string } {
   };
 }
 
+// Pool of safe, generic contact cards used for warmup vcard sends.
+// Numbers are intentionally non-resolvable / informational.
+export const FAKE_CONTACTS: Array<{ fullName: string; phoneNumber: string }> = [
+  { fullName: "João Silva", phoneNumber: "+55 11 90000-0001" },
+  { fullName: "Maria Souza", phoneNumber: "+55 21 90000-0002" },
+  { fullName: "Carlos Pereira", phoneNumber: "+55 31 90000-0003" },
+  { fullName: "Ana Oliveira", phoneNumber: "+55 41 90000-0004" },
+  { fullName: "Pedro Santos", phoneNumber: "+55 51 90000-0005" },
+  { fullName: "Juliana Costa", phoneNumber: "+55 61 90000-0006" },
+  { fullName: "Rafael Lima", phoneNumber: "+55 71 90000-0007" },
+  { fullName: "Fernanda Alves", phoneNumber: "+55 81 90000-0008" },
+];
+
+export function pickFakeContact(): { fullName: string; phoneNumber: string } {
+  return pickRandom(FAKE_CONTACTS);
+}
+
+export const STATUS_TEXTS = [
+  "Bom dia! ☀️", "Bora pra cima! 💪", "Foco no que importa.",
+  "Dia produtivo 🚀", "Gratidão sempre 🙏", "Vamos que vamos!",
+  "Trabalhando forte hoje", "Sextou! 🎉", "Energia boa ✨",
+  "Café e mais café ☕", "Tamo junto!", "Hoje vai ser ótimo",
+];
+
+export function pickStatusPayload(imagePool: string[]): { type: "text" | "image"; text?: string; file?: string } {
+  // ~30% image status, ~70% text status (more natural)
+  if (Math.random() < 0.3 && imagePool.length > 0) {
+    return { type: "image", file: pickRandom(imagePool), text: pickRandom(STATUS_TEXTS) };
+  }
+  return { type: "text", text: pickRandom(STATUS_TEXTS) };
+}
+
 export const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80",
   "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80",
