@@ -731,6 +731,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   // Pre-send step: save contact in address book (direct chat only, dedupe 24h, fail-safe)
   await saveContactIfNeeded(baseUrl, token, job.device_id, target._phone);
 
+  // Human-like pre-send delay (after save, before API). Fail-safe.
+  await applyHumanDelay(msg);
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
   } catch {
