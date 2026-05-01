@@ -458,8 +458,16 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   const hasButtons = buttons && buttons.length > 0;
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter(Boolean) as string[] : [];
   const normalizedCards = normalizeCarouselCards(carouselCards);
-  // Use original `to` so downstream helpers can rebuild the target consistently.
   const target = to;
+
+  // UAZAPI V2: `type: "button"` only renders REPLY buttons.
+  // For URL/phone (call) buttons, use `type: "list"` so the client renders them as actions
+  // instead of falling back to plain "Texto|url:..." strings.
+  const hasInteractiveAction = hasButtons && (buttons || []).some((b: any) => {
+    const type = (b?.type || "").toLowerCase();
+    return type === "url" || type === "phone" || type === "call";
+  });
+  const menuType = hasInteractiveAction ? "list" : "button";
 
   if (messageType === "carousel") return await sendCarouselMessage(baseUrl, token, target, text, normalizedCards);
 
@@ -468,21 +476,19 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
-    const base = mediaBaseFields(t); // { number } — universal V2 field
-    console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
-    log.info(`[campaign-worker] send_menu_payload number=${t.number.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+    const base = mediaBaseFields(t);
+    console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number, menuType, hasInteractiveAction });
+    log.info(`[campaign-worker] send_menu_payload number=${t.number.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} menuType=${menuType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
       if (t.isGroup) {
-        // Grupos: estratégia validada — imagem + menu de botões em mensagens separadas (funciona 100%).
-        log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (buttons) separately`);
+        log.info(`[campaign-worker] group target -> /send/media (image) + /send/menu (${menuType}) separately`);
         await uazapiRequest(baseUrl, token, "/send/media", { ...base, type: mediaType || "image", file: mediaUrl });
         await sleep(800 + Math.random() * 800);
-        await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: "button", text, choices });
+        await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: menuType, text, choices });
       } else {
-        // 1:1 (privado / LID): mídia limpa + menu separadamente.
-        log.info(`[campaign-worker] 1:1 target -> plain media + menu buttons separately`);
-        await sendPrivateMediaThenMenu(baseUrl, token, target, mediaUrl, mediaType || "image", text, choices);
+        log.info(`[campaign-worker] 1:1 target -> plain media + menu (${menuType}) separately`);
+        await sendPrivateMediaThenMenu(baseUrl, token, target, mediaUrl, mediaType || "image", text, choices, menuType);
       }
       return;
     }
@@ -497,7 +503,7 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
       }
       return;
     }
-    await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: "button", text, choices });
+    await uazapiRequest(baseUrl, token, "/send/menu", { ...base, type: menuType, text, choices });
     if (isAudio && mediaUrl) {
       await sleep(1500 + Math.random() * 1500);
       await uazapiRequest(baseUrl, token, "/send/media", { ...base, type: "ptt", file: mediaUrl });
