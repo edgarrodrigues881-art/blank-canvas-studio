@@ -12,7 +12,7 @@ import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../u
 import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-coordinator";
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
 import { pickActionType } from "../utils/warmup-action-mix";
-import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
+import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
