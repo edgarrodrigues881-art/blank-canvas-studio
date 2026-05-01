@@ -103,20 +103,39 @@ const CONTACT_VARIANT_KEYS = ["var1", "var2", "var3", "var4", "var5", "var6", "v
 
 const normalizeNumberValue = (value: string) => value.replace(/\D/g, "");
 
+// CRITICAL: normalizeLidValue MUST preserve the @lid suffix.
+// Previous behavior stripped @lid early, causing the original identifier to be
+// lost across deduplication / import / mapping flows. Now it only cleans
+// whitespace + leading '@', and always returns the canonical "<digits>@lid"
+// form when the input looks like a LID. Returns "" for empty input.
 const normalizeLidValue = (value: string) => {
-  const trimmed = value.trim();
+  const trimmed = String(value ?? "").trim();
   if (!trimmed) return "";
-
-  return trimmed.replace(/\s+/g, "").replace(/^@+/, "").replace(/@lid$/i, "");
+  const cleaned = trimmed.replace(/\s+/g, "").replace(/^@+/, "");
+  if (!cleaned) return "";
+  // Strip suffix only to extract digits, then reattach canonical @lid.
+  const digits = cleaned.replace(/@lid$/i, "");
+  if (!digits) return "";
+  return `${digits}@lid`;
 };
 
+// Read-only helper for callers that genuinely need the raw digits portion of a
+// LID (e.g. length checks, comparisons). NEVER use this to mutate stored data.
+const extractDigitsFromLid = (value: string) => {
+  const trimmed = String(value ?? "").trim().replace(/\s+/g, "").replace(/^@+/, "");
+  return trimmed.replace(/@lid$/i, "");
+};
+
+// Used ONLY for comparison / dedupe keys. Must not be used to overwrite the
+// original identifier stored in `contact.numero`. For LID mode it returns the
+// full canonical "<digits>@lid" so dedupe keys still preserve the suffix.
 const normalizeContactIdentifier = (value: string, mode: "number" | "lid") =>
   mode === "lid" ? normalizeLidValue(value).toLowerCase() : normalizeNumberValue(value);
 
 const buildCampaignRecipient = (value: string, mode: "number" | "lid") => {
   if (mode === "lid") {
-    const normalized = normalizeLidValue(value);
-    return normalized ? `${normalized}@lid` : "";
+    // normalizeLidValue already returns "<digits>@lid" — preserve as-is.
+    return normalizeLidValue(value);
   }
 
   return normalizeNumberValue(value);
