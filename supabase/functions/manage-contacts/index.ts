@@ -55,14 +55,19 @@ Deno.serve(async (req) => {
         .select("phone")
         .eq("user_id", userId);
 
-      const existingPhones = new Set((existing || []).map((c: any) => c.phone.replace(/\D/g, "")));
+      const existingPhones = new Set((existing || []).map((c: any) => {
+        const stored = String(c.phone || "").trim();
+        return isLidTarget(stored) ? toLidChatId(stored) : onlyDigits(stored);
+      }));
 
       const validated: any[] = [];
       const skipped: string[] = [];
 
       for (const c of contacts) {
-        const phone = (c.phone || "").replace(/\D/g, "");
-        if (phone.length < 10) {
+        const rawPhone = String(c.phone || "").trim();
+        const isLid = isLidTarget(rawPhone);
+        const phone = isLid ? toLidChatId(rawPhone) : onlyDigits(rawPhone);
+        if (!isLid && phone.length < 10) {
           skipped.push(`${c.name || "?"}: número inválido`);
           continue;
         }
