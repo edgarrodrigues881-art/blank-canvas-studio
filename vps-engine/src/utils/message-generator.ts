@@ -340,3 +340,106 @@ export const FALLBACK_STICKERS = [
   "https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&q=80",
   "https://images.unsplash.com/photo-1560807707-8cc77767d783?w=400&q=80",
 ];
+
+// ══════════════════════════════════════════════════════════
+// Decision Engine — randomized next-action selector
+// Replaces fixed action patterns with weighted random choice.
+// Returns { actionType, payloadType }. Existing API call sites
+// remain authoritative — they map payloadType to the actual send.
+// ══════════════════════════════════════════════════════════
+
+export type WarmupActionType = "group" | "chat" | "status";
+export type WarmupPayloadType =
+  | "text"
+  | "image"
+  | "audio"
+  | "sticker"
+  | "vcard"
+  | "location"
+  | "menu";
+
+export interface WarmupChipState {
+  dayIndex?: number;
+  chipState?: string;
+}
+
+export interface WarmupDecisionContext {
+  /** "group" → send into a WhatsApp group; "chat" → 1:1 (community/autosave); "status" → broadcast */
+  channel?: "group" | "chat";
+  /** Allow status broadcast as a possible result (default: true) */
+  allowStatus?: boolean;
+  /** Restrict payload types (e.g. community supports no sticker; group has no location) */
+  allowedPayloads?: WarmupPayloadType[];
+}
+
+type WeightedTable = Array<[WarmupPayloadType | "status", number]>;
+
+// Early stage (day <= 2)
+const EARLY_TABLE: WeightedTable = [
+  ["text", 50],
+  ["image", 20],
+  ["audio", 10],
+  ["sticker", 5],
+  ["status", 10],
+  ["vcard", 2],
+  ["location", 2],
+  ["menu", 1],
+];
+
+// Later stage (day >= 3)
+const LATER_TABLE: WeightedTable = [
+  ["text", 30],
+  ["image", 20],
+  ["audio", 15],
+  ["sticker", 10],
+  ["status", 10],
+  ["vcard", 5],
+  ["location", 5],
+  ["menu", 5],
+];
+
+function weightedPick<T extends string>(table: Array<[T, number]>): T {
+  const total = table.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * total;
+  for (const [k, w] of table) {
+    r -= w;
+    if (r <= 0) return k;
+  }
+  return table[0][0];
+}
+
+export function decideNextAction(
+  chipState: WarmupChipState,
+  context: WarmupDecisionContext = {}
+): { actionType: WarmupActionType; payloadType: WarmupPayloadType } {
+  const day = Number(chipState?.dayIndex ?? 0);
+  const baseTable = day <= 2 ? EARLY_TABLE : LATER_TABLE;
+
+  // Filter table based on context constraints
+  const allowStatus = context.allowStatus !== false;
+  const allowed = new Set<string>(
+    context.allowedPayloads ?? ["text", "image", "audio", "sticker", "vcard", "location", "menu"]
+  );
+
+  const filtered = baseTable.filter(([k]) => {
+    if (k === "status") return allowStatus;
+    return allowed.has(k);
+  });
+
+  const safeTable: WeightedTable =
+    filtered.length > 0 ? filtered : [["text", 1]];
+
+  const pick = weightedPick(safeTable);
+
+  if (pick === "status") {
+    // status broadcast — payload still text-like by default
+    return { actionType: "status", payloadType: "text" };
+  }
+
+  const channel = context.channel ?? "chat";
+  return {
+    actionType: channel === "group" ? "group" : "chat",
+    payloadType: pick as WarmupPayloadType,
+  };
+}
+

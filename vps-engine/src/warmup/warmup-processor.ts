@@ -7,7 +7,7 @@ import { createLogger } from "../core/logger";
 
 import { config } from "../core/config";
 import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/brt";
-import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation } from "../utils/message-generator";
+import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation, decideNextAction } from "../utils/message-generator";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
@@ -552,7 +552,16 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const longCachedMsgs = cachedMsgs?.filter((m: string) => m.length >= 60) || [];
   const getMsg = () => longCachedMsgs.length > 0 && Math.random() < 0.3 ? pickRandom(longCachedMsgs) : generateNaturalMessage("group");
 
-  const mediaType = pickMediaTypeGroup(cycle.daily_interaction_budget_used || 0);
+  // ── Decision engine: weighted random action selection ──
+  const fallbackMediaType = pickMediaTypeGroup(cycle.daily_interaction_budget_used || 0);
+  const decision = decideNextAction(
+    { dayIndex: cycle.day_index, chipState: ctx.chipState },
+    { channel: "group", allowStatus: false, allowedPayloads: ["text", "image", "audio", "sticker"] }
+  );
+  // Map unsupported payloads (vcard/menu/location/status) → existing legacy picker for safe routing
+  const supported = new Set(["text", "image", "audio", "sticker"]);
+  const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
+  console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
   let message = getMsg();
 
   try {
@@ -750,7 +759,15 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
     if (!nextCycle) return false;
   }
 
-  const mediaType = pickMediaTypeCommunity(cycle.daily_interaction_budget_used || 0);
+  // ── Decision engine: weighted random action selection (community 1:1) ──
+  const fallbackMediaTypeC = pickMediaTypeCommunity(cycle.daily_interaction_budget_used || 0);
+  const decisionC = decideNextAction(
+    { dayIndex: cycle.day_index, chipState: ctx.chipState },
+    { channel: "chat", allowStatus: false, allowedPayloads: ["text", "image", "audio", "location"] }
+  );
+  const supportedC = new Set(["text", "image", "audio", "location"]);
+  const mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
+  console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
   let msg = generateNaturalMessage("community");
 
   try {
