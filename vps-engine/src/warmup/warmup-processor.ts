@@ -868,6 +868,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   // Presence (typing) — direct chat, fail-safe
   await applyPresence(baseUrl, token, target._phone, "text");
 
+  // Recovery tracking — updates streak counters before defer/throttle decisions.
+  tickRecovery(job.device_id);
+
   // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
   if (await tryDeferForHealth(db, job.id, job.device_id, "autosave")) return false;
 
