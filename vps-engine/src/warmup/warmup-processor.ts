@@ -819,6 +819,7 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   };
 
   await db.from("community_pairs").update({ meta: nextMeta }).eq("id", selectedPair.id);
+  markContactUsed(peerPhone, job.device_id);
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
 
   if (hasNextTurn && nextCycle) {
