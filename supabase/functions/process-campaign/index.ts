@@ -1481,6 +1481,7 @@ Deno.serve(async (req) => {
               isLid: isLidContact,
               finalTarget: normalizedPhone,
             }));
+            console.log("VALIDATION CHECK", { target: normalizedPhone, isLid: isLidContact });
 
             if (heartbeatCounter % 3 === 1) {
               const { data: deviceStatus } = await serviceClient.from("devices").select("status").eq("id", activeDevice.id).single();
