@@ -1059,6 +1059,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
   await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
 
+  // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
+  if (await tryDeferForHealth(db, job.id, job.device_id, "community")) return false;
+
   // Adaptive throttle based on instance health score (never blocks send).
   await applyAdaptiveThrottle(job.device_id, "community");
 
