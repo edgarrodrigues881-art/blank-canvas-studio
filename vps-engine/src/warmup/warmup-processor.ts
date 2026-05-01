@@ -690,11 +690,19 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       endpointUsed = "/send/text";
     }
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group" });
+    trackSendResult(job.device_id, true);
   } catch (err: any) {
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group", failed: true, error: err?.message });
+    trackSendResult(job.device_id, false);
     // Fail-safe: only fallback to text on actual API error.
     message = getMsg();
-    await uazapiSendText(baseUrl, token, groupJid, message, true);
+    try {
+      await uazapiSendText(baseUrl, token, groupJid, message, true);
+      trackSendResult(job.device_id, true);
+    } catch (fbErr: any) {
+      trackSendResult(job.device_id, false);
+      throw fbErr;
+    }
     console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "group", fallback: true });
   }
 
