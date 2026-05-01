@@ -13,6 +13,7 @@ import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
 import { pickActionType } from "../utils/warmup-action-mix";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
+import { saveContactIfNeeded } from "../utils/contact-saver";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
@@ -723,6 +724,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   const msg = generateNaturalMessage("autosave");
 
+  // Pre-send step: save contact in address book (direct chat only, dedupe 24h, fail-safe)
+  await saveContactIfNeeded(baseUrl, token, job.device_id, target._phone);
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
   } catch {
@@ -910,8 +914,10 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
     }
   }
 
+  // Pre-send step: save contact (peer is a direct phone, not a group). Dedupe 24h, fail-safe.
+  await saveContactIfNeeded(baseUrl, token, job.device_id, peerPhone);
+
   try {
-    if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
       const caption = pickRandom(IMAGE_CAPTIONS);
       await uazapiSendImage(baseUrl, token, peerPhone, imgUrl, "");
