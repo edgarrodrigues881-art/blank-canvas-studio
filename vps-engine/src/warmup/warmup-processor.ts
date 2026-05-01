@@ -11,7 +11,7 @@ import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMe
 import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../utils/contact-tracker";
 import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-coordinator";
 import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
-import { pickActionType } from "../utils/warmup-action-mix";
+import { pickActionType, canSendStatus, registerStatusSend } from "../utils/warmup-action-mix";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
@@ -621,13 +621,18 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   let endpointUsed = "/send/text";
 
   // Independent status side-action (not sent to chat). Fail-safe: never blocks main send.
+  // Gated by daily cap, BRT 07:00–22:30 window and 90–180min anti-burst spacing.
   if (sendStatusAlongside) {
-    try {
-      const sp = pickStatusPayload(ctx.imagePool || []);
-      await uazapiSendStatus(baseUrl, token, sp);
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group" });
-    } catch (e: any) {
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group", failed: true, error: e?.message });
+    const statusCtx = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1 };
+    if (canSendStatus(statusCtx)) {
+      try {
+        const sp = pickStatusPayload(ctx.imagePool || []);
+        await uazapiSendStatus(baseUrl, token, sp);
+        registerStatusSend(statusCtx);
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group" });
+      } catch (e: any) {
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group", failed: true, error: e?.message });
+      }
     }
   }
 
@@ -915,13 +920,18 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   let endpointUsedC = "/send/text";
 
   // Independent status side-action (not sent to peer chat). Fail-safe.
+  // Gated by daily cap, BRT 07:00–22:30 window and 90–180min anti-burst spacing.
   if (sendStatusAlongsideC) {
-    try {
-      const sp = pickStatusPayload(ctx.imagePool || []);
-      await uazapiSendStatus(baseUrl, token, sp);
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community" });
-    } catch (e: any) {
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community", failed: true, error: e?.message });
+    const statusCtxC = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1 };
+    if (canSendStatus(statusCtxC)) {
+      try {
+        const sp = pickStatusPayload(ctx.imagePool || []);
+        await uazapiSendStatus(baseUrl, token, sp);
+        registerStatusSend(statusCtxC);
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community" });
+      } catch (e: any) {
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community", failed: true, error: e?.message });
+      }
     }
   }
 

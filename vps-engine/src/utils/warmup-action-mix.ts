@@ -25,6 +25,10 @@ interface ActionState {
   statusSentToday: number;
   // Cap chosen for status today (random within the stage range)
   statusCapToday: number;
+  // Per-instance anti-burst spacing (ms epoch)
+  lastStatusAt: number;
+  // Required gap between status posts, frozen per day (ms)
+  statusGapMs: number;
 }
 
 const perInstanceActionState = new Map<string, ActionState>();
@@ -64,21 +68,31 @@ const WEIGHTS: Record<Stage, Array<[Exclude<WarmupActionType, "status">, number]
   ],
 };
 
-// Status daily caps per stage (random within range, frozen per day)
+// Status daily caps per stage — random within range, frozen per day.
+// Spec: max 2–3 status per instance per day overall.
 const STATUS_CAPS: Record<Stage, [number, number]> = {
-  early: [1, 1],     // up to 1/day
-  mid: [1, 2],       // 1–2/day
+  early: [1, 2],     // 1–2/day
+  mid: [2, 2],       // 2/day
   advanced: [2, 3],  // 2–3/day
 };
 
-// Status frequency vs. regular sends. We let status occur opportunistically
-// during the day with this small per-call probability — not blocking other
-// actions and naturally spaced. Cap still enforced.
+// Per-call probability of injecting a status during a regular tick.
+// Spec: early 3%, mid 6%, advanced 10%.
 const STATUS_OPPORTUNITY_P: Record<Stage, number> = {
-  early: 0.02,
-  mid: 0.04,
-  advanced: 0.06,
+  early: 0.03,
+  mid: 0.06,
+  advanced: 0.10,
 };
+
+// Anti-burst minimum gap between two status posts (ms).
+const STATUS_MIN_GAP_MS = 90 * 60 * 1000;   // 90 min
+const STATUS_MAX_GAP_MS = 180 * 60 * 1000;  // 180 min
+
+// Allowed BRT time window for posting status.
+const STATUS_WINDOW_START_HOUR = 7;     // 07:00
+const STATUS_WINDOW_END_HOUR = 22;
+const STATUS_WINDOW_END_MINUTE = 30;    // 22:30
+
 
 function randInRange(lo: number, hi: number): number {
   if (hi <= lo) return lo;
@@ -105,6 +119,8 @@ function ensureState(instanceId: string, dayKey: string, stage: Stage): ActionSt
       lastActions: [],
       statusSentToday: 0,
       statusCapToday: randInRange(lo, hi),
+      lastStatusAt: 0,
+      statusGapMs: randInRange(STATUS_MIN_GAP_MS, STATUS_MAX_GAP_MS),
     };
     perInstanceActionState.set(instanceId, fresh);
     return fresh;
@@ -119,6 +135,52 @@ function isRepeating(state: ActionState, candidate: WarmupActionType): boolean {
   return last[last.length - 1] === candidate && last[last.length - 2] === candidate;
 }
 
+// Current BRT minutes-of-day (0..1439). Self-contained to keep this util pure.
+function brtMinutesOfDay(): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const h = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+  const m = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
+  return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
+}
+
+function isInsideStatusWindow(): boolean {
+  const mins = brtMinutesOfDay();
+  const startMin = STATUS_WINDOW_START_HOUR * 60;
+  const endMin = STATUS_WINDOW_END_HOUR * 60 + STATUS_WINDOW_END_MINUTE;
+  return mins >= startMin && mins <= endMin;
+}
+
+/**
+ * Combined eligibility for posting a status NOW.
+ * Returns the decision plus reason and (when blocked by spacing) the next allowed timestamp.
+ */
+function evaluateStatusEligibility(state: ActionState): {
+  allowed: boolean;
+  reason: string;
+  nextAllowedAt: number | null;
+} {
+  if (!isInsideStatusWindow()) {
+    return { allowed: false, reason: "outside_window_07_22h30_brt", nextAllowedAt: null };
+  }
+  if (state.statusSentToday >= state.statusCapToday) {
+    return { allowed: false, reason: "daily_cap_reached", nextAllowedAt: null };
+  }
+  const now = Date.now();
+  if (state.lastStatusAt > 0 && now - state.lastStatusAt < state.statusGapMs) {
+    return {
+      allowed: false,
+      reason: "min_gap_not_elapsed",
+      nextAllowedAt: state.lastStatusAt + state.statusGapMs,
+    };
+  }
+  return { allowed: true, reason: "ok", nextAllowedAt: null };
+}
+
 export interface ActionMixContext {
   instanceId: string;
   cycleKey: string;   // e.g. cycle.id (resets state on QR reconnect)
@@ -127,13 +189,22 @@ export interface ActionMixContext {
   supported?: WarmupActionType[];
 }
 
-/** Returns true if this instance still has room for a status today. */
+/** Returns true if this instance still has room for a status today AND respects spacing/window. */
 export function canSendStatus(ctx: ActionMixContext): boolean {
   try {
     const stage = getStage(ctx.day);
     const dayKey = `${ctx.cycleKey}:${Math.max(1, Math.floor(ctx.day || 1))}`;
     const state = ensureState(ctx.instanceId, dayKey, stage);
-    return state.statusSentToday < state.statusCapToday;
+    const ev = evaluateStatusEligibility(state);
+    console.log("WARMUP_STATUS_DECISION", {
+      instanceId: ctx.instanceId,
+      allowed: ev.allowed,
+      reason: ev.reason,
+      nextAllowedAt: ev.nextAllowedAt,
+      sentToday: state.statusSentToday,
+      cap: state.statusCapToday,
+    });
+    return ev.allowed;
   } catch {
     return false;
   }
@@ -146,6 +217,7 @@ export function registerStatusSend(ctx: ActionMixContext): void {
     const dayKey = `${ctx.cycleKey}:${Math.max(1, Math.floor(ctx.day || 1))}`;
     const state = ensureState(ctx.instanceId, dayKey, stage);
     state.statusSentToday += 1;
+    state.lastStatusAt = Date.now();
   } catch {
     // ignore
   }
@@ -170,15 +242,28 @@ export function pickActionType(ctx: ActionMixContext): WarmupActionType {
         : ["text", "image", "audio", "sticker", "vcard", "location", "status"]
     );
 
-    // 1) Opportunistic status injection (does NOT block regular actions)
+    // 1) Opportunistic status injection (does NOT block regular actions).
+    //    Now also enforces: BRT time window (07:00–22:30), daily cap, and
+    //    90–180min anti-burst spacing between status posts.
     if (
       supported.has("status") &&
-      state.statusSentToday < state.statusCapToday &&
       Math.random() < STATUS_OPPORTUNITY_P[stage] &&
       !isRepeating(state, "status")
     ) {
-      pushHistory(state, "status");
-      return "status";
+      const ev = evaluateStatusEligibility(state);
+      console.log("WARMUP_STATUS_DECISION", {
+        instanceId: ctx.instanceId,
+        allowed: ev.allowed,
+        reason: ev.reason,
+        nextAllowedAt: ev.nextAllowedAt,
+        sentToday: state.statusSentToday,
+        cap: state.statusCapToday,
+        context: "pick",
+      });
+      if (ev.allowed) {
+        pushHistory(state, "status");
+        return "status";
+      }
     }
 
     // 2) Weighted pick from stage table, filtered by supported + non-repeat

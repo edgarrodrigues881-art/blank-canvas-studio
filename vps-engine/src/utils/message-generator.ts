@@ -282,18 +282,36 @@ export function pickFakeContact(): { fullName: string; phoneNumber: string } {
 }
 
 export const STATUS_TEXTS = [
-  "Bom dia! ☀️", "Bora pra cima! 💪", "Foco no que importa.",
-  "Dia produtivo 🚀", "Gratidão sempre 🙏", "Vamos que vamos!",
-  "Trabalhando forte hoje", "Sextou! 🎉", "Energia boa ✨",
-  "Café e mais café ☕", "Tamo junto!", "Hoje vai ser ótimo",
+  "Bom dia! ☀️ Bora pra cima hoje 💪",
+  "Foco no que importa hoje, gratidão sempre 🙏",
+  "Dia produtivo começando agora 🚀",
+  "Trabalhando forte por aqui hoje, vamos juntos 💼",
+  "Sextou! Fim de semana chegando 🎉",
+  "Energia boa pra todo mundo hoje ✨",
+  "Café e mais café, dia longo pela frente ☕",
+  "Tamo junto, qualquer coisa só chamar 🤝",
+  "Hoje vai ser ótimo, sigam firmes!",
+  "Quem tá ativo aí hoje? 👀",
+  "Domingo de descanso e família ❤️",
+  "Segunda chegando com tudo, bora!",
+  "Rotina puxada hoje, mas tô firme 💪",
+  "Bom feriado pra quem vai aproveitar 🌴",
+  "Café da manhã reforçado e bora trabalhar ☕🍞",
 ];
 
+// Caption length helper — keep within 20–120 chars (spec).
+function pickStatusCaption(): string {
+  const pool = STATUS_TEXTS.filter((t) => t.length >= 20 && t.length <= 120);
+  const safe = pool.length > 0 ? pool : STATUS_TEXTS;
+  return pickRandom(safe);
+}
+
 export function pickStatusPayload(imagePool: string[]): { type: "text" | "image"; text?: string; file?: string } {
-  // ~30% image status, ~70% text status (more natural)
-  if (Math.random() < 0.3 && imagePool.length > 0) {
-    return { type: "image", file: pickRandom(imagePool), text: pickRandom(STATUS_TEXTS) };
+  // Spec: 60% image (with caption), 40% text. Falls back to text when no image pool.
+  if (Math.random() < 0.6 && imagePool.length > 0) {
+    return { type: "image", file: pickRandom(imagePool), text: pickStatusCaption() };
   }
-  return { type: "text", text: pickRandom(STATUS_TEXTS) };
+  return { type: "text", text: pickStatusCaption() };
 }
 
 export const FALLBACK_IMAGES = [
