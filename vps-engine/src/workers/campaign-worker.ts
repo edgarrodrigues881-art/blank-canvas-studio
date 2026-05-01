@@ -468,9 +468,9 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
-    const base = mediaBaseFields(t); // { chatId } for LID, { number } otherwise
-
-    log.info(`[campaign-worker] send_menu_payload chatId=${t.chatId.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+    const base = mediaBaseFields(t); // { number } — universal V2 field
+    console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+    log.info(`[campaign-worker] send_menu_payload number=${t.number.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
       if (t.isGroup) {
