@@ -10,6 +10,7 @@ import { createLogger } from "../core/logger";
 import { DeviceLockManager } from "../core/device-lock-manager";
 import { acquireGlobalSlot, releaseGlobalSlot } from "../core/global-semaphore";
 import { buildUazapiHeaders } from "../integrations/uazapi-headers";
+import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
 
 const log = createLogger("campaign");
 
@@ -206,19 +207,15 @@ interface CampaignTarget {
 function buildCampaignTarget(target: string): CampaignTarget {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
-  const isLid = lower.includes("@lid");
+  const isLid = isLidTarget(raw);
   const isGroup = lower.includes("@g.us");
-  const digits = raw.replace(/\D/g, "");
+  const digits = onlyDigits(raw);
 
   let chatId: string;
   if (isLid) {
-    chatId = `${digits}@lid`;
+    chatId = toLidChatId(raw);
   } else if (raw.includes("@")) {
     chatId = raw;
-  } else if (isLikelyLid(digits)) {
-    // Long numeric string with no suffix — treat as LID per spec
-    chatId = `${digits}@lid`;
-    return { chatId, number: digits, isLid: true, isGroup: false };
   } else {
     chatId = `${digits}@s.whatsapp.net`;
   }
