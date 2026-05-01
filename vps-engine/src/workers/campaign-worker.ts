@@ -278,11 +278,11 @@ async function sendPrivateMediaThenText(baseUrl: string, token: string, target: 
   }
 }
 
-async function sendPrivateMediaThenMenu(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
+async function sendPrivateMediaThenMenu(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string, choices: string[], menuType: string = "button") {
   await sendPlainMedia(baseUrl, token, target, mediaUrl, mediaType || "image");
   await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
   const t = buildCampaignTarget(target);
-  return await uazapiRequest(baseUrl, token, "/send/menu", { ...mediaBaseFields(t), type: "button", text, choices });
+  return await uazapiRequest(baseUrl, token, "/send/menu", { ...mediaBaseFields(t), type: menuType, text, choices });
 }
 
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
