@@ -18,6 +18,7 @@ import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, ua
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
 import { applyPresence } from "../utils/presence";
+import { trackSendResult } from "../utils/warmup-health";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
@@ -689,11 +690,19 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       endpointUsed = "/send/text";
     }
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group" });
+    trackSendResult(job.device_id, true);
   } catch (err: any) {
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group", failed: true, error: err?.message });
+    trackSendResult(job.device_id, false);
     // Fail-safe: only fallback to text on actual API error.
     message = getMsg();
-    await uazapiSendText(baseUrl, token, groupJid, message, true);
+    try {
+      await uazapiSendText(baseUrl, token, groupJid, message, true);
+      trackSendResult(job.device_id, true);
+    } catch (fbErr: any) {
+      trackSendResult(job.device_id, false);
+      throw fbErr;
+    }
     console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "group", fallback: true });
   }
 
@@ -767,9 +776,17 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
+    trackSendResult(job.device_id, true);
   } catch {
+    trackSendResult(job.device_id, false);
     await new Promise(r => setTimeout(r, 2000));
-    await uazapiSendText(baseUrl, token, target._phone, msg);
+    try {
+      await uazapiSendText(baseUrl, token, target._phone, msg);
+      trackSendResult(job.device_id, true);
+    } catch (e) {
+      trackSendResult(job.device_id, false);
+      throw e;
+    }
   }
 
   await db.rpc("increment_warmup_budget", {
@@ -1007,11 +1024,19 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
       endpointUsedC = "/send/text";
     }
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community" });
+    trackSendResult(job.device_id, true);
   } catch (err: any) {
     console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed: endpointUsedC, context: "community", failed: true, error: err?.message });
+    trackSendResult(job.device_id, false);
     // Fail-safe: only fallback to text on actual API error.
     msg = generateNaturalMessage("community");
-    await uazapiSendText(baseUrl, token, peerPhone, msg);
+    try {
+      await uazapiSendText(baseUrl, token, peerPhone, msg);
+      trackSendResult(job.device_id, true);
+    } catch (fbErr: any) {
+      trackSendResult(job.device_id, false);
+      throw fbErr;
+    }
     console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "community", fallback: true });
   }
 
