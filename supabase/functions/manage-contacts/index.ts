@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isLidTarget, onlyDigits, toLidChatId } from "../_shared/lid.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,7 +152,12 @@ Deno.serve(async (req) => {
 
       const invalid: any[] = [];
       for (const c of allContacts || []) {
-        const phone = c.phone.replace(/\D/g, "");
+        const target = String(c.phone || "").trim();
+        const isLid = isLidTarget(target);
+        console.log("VALIDATION CHECK", { target, isLid });
+        if (isLid) continue;
+
+        const phone = onlyDigits(target);
         if (phone.length < 10 || phone.length > 15) {
           invalid.push({ id: c.id, name: c.name, phone: c.phone, reason: "Tamanho inválido" });
         }
