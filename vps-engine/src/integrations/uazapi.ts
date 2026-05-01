@@ -5,6 +5,7 @@
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
 import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
+import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
@@ -169,13 +170,13 @@ export function buildUazapiTarget(target: string, forceGroup = false): {
 } {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
-  const isLid = lower.includes("@lid");
+  const isLid = isLidTarget(raw);
   const isGroup = forceGroup || lower.includes("@g.us");
-  const digits = raw.replace(/\D/g, "");
+  const digits = onlyDigits(raw);
 
   let chatId: string;
   if (isLid) {
-    chatId = `${digits}@lid`;
+    chatId = toLidChatId(raw);
   } else if (raw.includes("@")) {
     chatId = raw;
   } else if (isGroup) {
@@ -394,11 +395,10 @@ export async function uazapiCheckPhone(
   token: string,
   phone: string,
 ): Promise<boolean> {
-  // LIDs cannot be validated via checkPhones — UAZAPI only supports digit-based phone validation.
-  // Treat as "exists" so the caller does not block LID dispatches.
-  if (String(phone || "").toLowerCase().includes("@lid")) return true;
+  // LIDs are not phone numbers. Never validate them via /chat/check or any number-check endpoint.
+  if (isLidTarget(phone)) return true;
 
-  const digitsOnly = String(phone || "").replace(/\D/g, "");
+  const digitsOnly = onlyDigits(phone);
   if (!digitsOnly) return false;
 
   const endpoints = [
