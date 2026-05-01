@@ -242,7 +242,7 @@ async function processSchedule(schedule: any) {
         // Tentar enviar para números sem WA é o gatilho clássico para banir chips novos
         let hasWhatsapp = true;
         try {
-          hasWhatsapp = isLid ? true : await uazapiCheckPhone(baseUrl, tokenStr, finalTarget);
+          hasWhatsapp = isLid ? true : (await uazapiCheckPhone(baseUrl, tokenStr, finalTarget)).exists;
         } catch {
           hasWhatsapp = true; // se a checagem falha, tenta enviar mesmo assim
         }
