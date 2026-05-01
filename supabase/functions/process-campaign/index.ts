@@ -333,10 +333,11 @@ async function sendCampaignAlertToWa(serviceClient: any, userId: string, campaig
     if (!msg) return;
 
     const headers: Record<string, string> = { token: dev.uazapi_token, Accept: "application/json", "Content-Type": "application/json" };
-    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, {
+    console.log("UAZAPI SEND", { original: targetGroup, finalNumber: targetGroup });
+    const res = await fetch(`${dev.uazapi_base_url}/send/text`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ chatId: targetGroup, text: msg }),
+      body: JSON.stringify({ number: targetGroup, text: msg }),
     });
     await res.text(); // consume body
     if (res.ok) {
@@ -407,14 +408,15 @@ function detectMediaType(url: string): string {
 
 async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
   const normalizedCaption = typeof caption === "string" ? caption.trim() : "";
-  // LID → chatId; otherwise digits-only `number`. Original value is never mutated.
+  // UAZAPIGO V2: universal `number` field for ALL targets (numbers, LID, groups, newsletters).
   const t = buildSendTarget(target);
-  const base: Record<string, unknown> = t.isLid ? { chatId: t.chatId } : { number: t.number };
+  const base: Record<string, unknown> = { number: t.number };
 
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
   console.log(JSON.stringify({
     event: "send_media_dispatch",
     originalValue: t.original,
-    finalUsedValue: t.isLid ? t.chatId : t.number,
+    finalUsedValue: t.number,
     isLid: t.isLid,
     mediaType,
   }));
@@ -434,7 +436,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, target: string
   try {
     return await uazapiRequest(baseUrl, token, "/send/media", primaryPayload);
   } catch (error) {
-    console.warn(`Primary /send/media failed for ${t.chatId || t.original}: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(`Primary /send/media failed for ${t.number || t.original}: ${error instanceof Error ? error.message : String(error)}`);
 
     try {
       return await uazapiRequest(baseUrl, token, "/send/media", {
@@ -464,49 +466,53 @@ function resolveDirectNumber(target: string): string {
 }
 
 function resolveTargetChatId(target: string): string {
-  const raw = String(target || "").trim();
-  if (!raw) return "";
-  // Preserva @lid / @g.us / @s.whatsapp.net intactos.
-  if (raw.includes("@")) return raw;
-
-  const digits = resolveDirectNumber(raw);
-  return digits ? `${digits}@s.whatsapp.net` : raw;
+  // Legacy name preserved for callers; returns the V2 universal `number` value.
+  return buildSendTarget(target).number;
 }
 
 // ── Target classification ──
-// CRITICAL: UAZAPI rule — `@lid` MUST travel in `chatId`. The `number` field
-// must always be digits-only (or `@s.whatsapp.net` / `@g.us`). Sending
-// `<digits>@lid` inside `number` causes silent drops / "número inválido".
+// UAZAPIGO V2 RULE: `number` is the UNIVERSAL target field for every payload.
+//   - normal numbers   → "5511999999999"
+//   - LID              → "123456789@lid"
+//   - groups           → "123@g.us"
+//   - newsletters      → "123@newsletter"
+// `chatId` MUST NOT appear in any send payload.
 // Converter is read-only: we ALWAYS use the original target value here.
 interface CampaignSendTarget {
   original: string;
-  chatId: string;       // full identifier (with @lid / @s.whatsapp.net / @g.us)
-  number: string;       // digits-only — safe for `number` field
+  number: string;        // UNIVERSAL — sent verbatim into UAZAPI `number` field
   isLid: boolean;
   isGroup: boolean;
+  isNewsletter: boolean;
 }
 
 function buildSendTarget(target: string): CampaignSendTarget {
   const original = String(target || "").trim();
+  const lower = original.toLowerCase();
   const isLid = isLidTarget(original);
-  const isGroup = original.toLowerCase().includes("@g.us");
+  const isGroup = lower.includes("@g.us");
+  const isNewsletter = lower.includes("@newsletter");
   const digits = onlyDigits(original);
 
-  let chatId: string;
+  let number: string;
   if (isLid) {
-    chatId = toLidChatId(original);
+    number = `${digits}@lid`;
+  } else if (isNewsletter) {
+    number = original;
+  } else if (isGroup) {
+    number = original.includes("@") ? original : `${digits}@g.us`;
   } else if (original.includes("@")) {
-    chatId = original;
+    number = digits || original;
   } else {
-    chatId = digits ? `${digits}@s.whatsapp.net` : original;
+    number = digits;
   }
 
-  return { original, chatId, number: digits, isLid, isGroup };
+  return { original, number, isLid, isGroup, isNewsletter };
 }
 
-// LID → { chatId }; otherwise → { number } (digits-only).
+// UAZAPIGO V2: ALWAYS `number`. Never `chatId`.
 function baseSendFields(t: CampaignSendTarget): Record<string, unknown> {
-  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+  return { number: t.number };
 }
 
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
@@ -515,34 +521,20 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 
   const t = buildSendTarget(target);
 
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
   console.log(JSON.stringify({
     event: "send_text_dispatch",
     originalValue: t.original,
-    finalUsedValue: t.isLid ? t.chatId : t.number,
+    finalUsedValue: t.number,
     isLid: t.isLid,
     isGroup: t.isGroup,
   }));
 
-  // LID: ONLY chatId-based attempts. NEVER place "@lid" in `number`.
-  const attempts = t.isLid
-    ? [
-        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-      ]
-    : t.isGroup
-    ? [
-        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-        { endpoint: "/send/text", payload: { number: t.chatId, text } },
-      ]
-    : [
-        {
-          endpoint: "/chat/send-text",
-          payload: { number: t.number, to: t.number, chatId: t.chatId, body: text, text },
-        },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-        { endpoint: "/send/text", payload: { number: t.number, text } },
-      ];
+  // UAZAPIGO V2: ALL targets via `number`. No `chatId` anywhere.
+  const attempts = [
+    { endpoint: "/send/text", payload: { number: t.number, text } },
+    { endpoint: "/message/sendText", payload: { number: t.number, text } },
+  ];
 
   let lastError: Error | null = null;
 
@@ -551,7 +543,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.endpoint, attempt.payload);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${t.chatId || t.original}: ${lastError.message}`);
+      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${t.number || t.original}: ${lastError.message}`);
     }
   }
 
@@ -565,11 +557,12 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
   const normalizedCarouselCards = normalizeCarouselCards(carouselCards);
 
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
   console.log(JSON.stringify({
     event: "payload_built",
     origin: "campaign",
     originalValue: t.original,
-    finalUsedValue: t.isLid ? t.chatId : t.number,
+    finalUsedValue: t.number,
     isLid: t.isLid,
     isGroup: t.isGroup,
     messageType: messageType || null,
@@ -581,11 +574,10 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     textPreview: text.substring(0, 80),
   }));
 
-  // Carousel keeps legacy signature (uses `number` field). LIDs aren't
-  // supported by /send/carousel server-side, so we forward the original digits
-  // for non-LID and the chatId for LID; sendCarouselMessage will branch.
+  // Carousel: pass the universal V2 `number` value. sendCarouselMessage
+  // builds payloads using the same `number` field internally.
   if (messageType === "carousel") {
-    return await sendCarouselMessage(baseUrl, token, t.isLid ? t.chatId : t.number, text, normalizedCarouselCards);
+    return await sendCarouselMessage(baseUrl, token, t.number, text, normalizedCarouselCards);
   }
 
   if (choices.length > 0) {

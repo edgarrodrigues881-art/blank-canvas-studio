@@ -5,7 +5,7 @@
 import { config } from "../core/config";
 import { canRequest, recordSuccess, recordFailure } from "../core/circuit-breaker";
 import { buildUazapiHeaders, assertUazapiToken } from "./uazapi-headers";
-import { isLidTarget, onlyDigits, toLidChatId } from "../utils/lid";
+import { isLidTarget, onlyDigits } from "../utils/lid";
 
 export interface UazapiCredentialValidation {
   status: "valid" | "invalid" | "unknown";
@@ -159,33 +159,41 @@ export async function uazapiRequest(
 }
 
 // ── Target classification helpers ──
-// CRITICAL: UAZAPI requires `@lid` in `chatId`, NEVER inside `number`.
-// `number` must be digits-only (or include `@s.whatsapp.net` / `@g.us`),
-// while LID destinations must travel through `chatId`.
+// UAZAPIGO V2 RULE: the `number` field is UNIVERSAL. It carries:
+//   - normal numbers   → "5511999999999"
+//   - LID              → "123456789@lid"
+//   - groups           → "123@g.us"
+//   - newsletters      → "123@newsletter"
+// `chatId` MUST NOT be used in any send payload anymore.
 export function buildUazapiTarget(target: string, forceGroup = false): {
-  chatId: string;
-  number: string;        // digits-only — safe for `number` field
+  number: string;        // UNIVERSAL field for UAZAPIGO V2 (digits | @lid | @g.us | @newsletter)
   isLid: boolean;
   isGroup: boolean;
+  isNewsletter: boolean;
+  original: string;
 } {
   const raw = String(target || "").trim();
   const lower = raw.toLowerCase();
   const isLid = isLidTarget(raw);
   const isGroup = forceGroup || lower.includes("@g.us");
+  const isNewsletter = lower.includes("@newsletter");
   const digits = onlyDigits(raw);
 
-  let chatId: string;
+  let number: string;
   if (isLid) {
-    chatId = toLidChatId(raw);
-  } else if (raw.includes("@")) {
-    chatId = raw;
+    number = `${digits}@lid`;
+  } else if (isNewsletter) {
+    number = raw;
   } else if (isGroup) {
-    chatId = `${digits}@g.us`;
+    number = raw.includes("@") ? raw : `${digits}@g.us`;
+  } else if (raw.includes("@")) {
+    // any other JID (e.g. @s.whatsapp.net) — keep digits-only per V2.
+    number = digits || raw;
   } else {
-    chatId = `${digits}@s.whatsapp.net`;
+    number = digits;
   }
 
-  return { chatId, number: digits, isLid, isGroup };
+  return { number, isLid, isGroup, isNewsletter, original: raw };
 }
 
 export async function uazapiSendText(
@@ -206,23 +214,13 @@ export async function uazapiSendText(
 
   const t = buildUazapiTarget(target, isGroup);
 
-  // LID: only chatId-based attempts. NEVER place "@lid" in `number`.
-  const attempts = t.isLid
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text: safeText, body: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ]
-    : t.isGroup
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text: safeText } },
-        { path: "/send/text", body: { number: t.chatId, text: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ]
-    : [
-        { path: "/send/text", body: { number: t.number, text: safeText } },
-        { path: "/chat/send-text", body: { number: t.number, to: t.number, chatId: t.chatId, body: safeText, text: safeText } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text: safeText } },
-      ];
+  // UAZAPIGO V2: always use `number` (universal field).
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+
+  const attempts = [
+    { path: "/send/text", body: { number: t.number, text: safeText } },
+    { path: "/message/sendText", body: { number: t.number, text: safeText } },
+  ];
 
   let lastErr = "";
   for (const at of attempts) {
@@ -271,10 +269,9 @@ export async function uazapiSendImage(
   const safeCaption = (caption || "📸").trim() || "📸";
 
   const t = buildUazapiTarget(target);
-  // LID → chatId; otherwise digits-only `number`.
-  const payload: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId, file: imageUrl, type: "image", caption: safeCaption }
-    : { number: t.number, file: imageUrl, type: "image", caption: safeCaption };
+  // UAZAPIGO V2: universal `number` field.
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const payload: Record<string, unknown> = { number: t.number, file: imageUrl, type: "image", caption: safeCaption };
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
@@ -297,9 +294,8 @@ export async function uazapiSendSticker(
   if (!imageUrl) throw new Error("Sticker URL ausente");
 
   const t = buildUazapiTarget(target);
-  const payload: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId, file: imageUrl, type: "sticker" }
-    : { number: t.number, file: imageUrl, type: "sticker" };
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const payload: Record<string, unknown> = { number: t.number, file: imageUrl, type: "sticker" };
 
   const res = await fetch(`${baseUrl}/send/media`, {
     method: "POST",
@@ -322,9 +318,8 @@ export async function uazapiSendAudio(
   if (!audioUrl) throw new Error("Audio URL ausente");
 
   const t = buildUazapiTarget(target);
-  const baseBody: Record<string, unknown> = t.isLid
-    ? { chatId: t.chatId }
-    : { number: t.number };
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const baseBody: Record<string, unknown> = { number: t.number };
 
   const attempts = [
     { path: "/send/media", body: { ...baseBody, file: audioUrl, type: "audio", ptt: true } },
@@ -360,15 +355,11 @@ export async function uazapiSendLocation(
   name: string,
 ): Promise<any> {
   const t = buildUazapiTarget(target);
-  const attempts = t.isLid
-    ? [
-        { path: "/send/location", body: { chatId: t.chatId, lat, lng, name, address: name } },
-        { path: "/message/sendLocation", body: { chatId: t.chatId, lat, lng, name, address: name } },
-      ]
-    : [
-        { path: "/send/location", body: { number: t.number, lat, lng, name, address: name } },
-        { path: "/message/sendLocation", body: { chatId: t.chatId, lat, lng, name, address: name } },
-      ];
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+  const attempts = [
+    { path: "/send/location", body: { number: t.number, lat, lng, name, address: name } },
+    { path: "/message/sendLocation", body: { number: t.number, lat, lng, name, address: name } },
+  ];
 
   let lastErr = "";
   for (const at of attempts) {

@@ -194,14 +194,18 @@ function detectMediaType(url: string): string {
 }
 
 // ── Target classification ──
-// CRITICAL: UAZAPI rule — `@lid` MUST be carried in `chatId`. The `number`
-// field must always be digits-only (or contain `@s.whatsapp.net` / `@g.us`).
-// Sending `<digits>@lid` inside `number` causes silent drops / "server rejected".
+// UAZAPIGO V2 RULE: `number` is the UNIVERSAL field for every send payload.
+//   - normal numbers   → "5511999999999"
+//   - LID              → "123456789@lid"
+//   - groups           → "123@g.us"
+//   - newsletters      → "123@newsletter"
+// `chatId` MUST NOT appear in any send payload.
 interface CampaignTarget {
-  chatId: string;       // full chat identifier (with @lid / @s.whatsapp.net / @g.us)
-  number: string;       // digits-only — safe for `number` field
+  number: string;        // UNIVERSAL identifier passed to UAZAPI `number` field
   isLid: boolean;
   isGroup: boolean;
+  isNewsletter: boolean;
+  original: string;
 }
 
 function buildCampaignTarget(target: string): CampaignTarget {
@@ -209,23 +213,28 @@ function buildCampaignTarget(target: string): CampaignTarget {
   const lower = raw.toLowerCase();
   const isLid = isLidTarget(raw);
   const isGroup = lower.includes("@g.us");
+  const isNewsletter = lower.includes("@newsletter");
   const digits = onlyDigits(raw);
 
-  let chatId: string;
+  let number: string;
   if (isLid) {
-    chatId = toLidChatId(raw);
+    number = `${digits}@lid`;
+  } else if (isNewsletter) {
+    number = raw;
+  } else if (isGroup) {
+    number = raw.includes("@") ? raw : `${digits}@g.us`;
   } else if (raw.includes("@")) {
-    chatId = raw;
+    number = digits || raw;
   } else {
-    chatId = `${digits}@s.whatsapp.net`;
+    number = digits;
   }
 
-  return { chatId, number: digits, isLid, isGroup };
+  return { number, isLid, isGroup, isNewsletter, original: raw };
 }
 
-// ── Media senders — accept the raw target; route LID via `chatId`, others via `number`. ──
+// ── Media senders — UAZAPIGO V2: ALL targets via `number`. ──
 function mediaBaseFields(t: CampaignTarget): Record<string, unknown> {
-  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+  return { number: t.number };
 }
 
 async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
@@ -411,7 +420,8 @@ function resolveDirectNumber(target: string): string {
 }
 
 function resolveTargetChatId(target: string): string {
-  return buildCampaignTarget(target).chatId;
+  // Legacy name kept for callers; returns the universal `number` value (V2).
+  return buildCampaignTarget(target).number;
 }
 
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
@@ -420,25 +430,13 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 
   const t = buildCampaignTarget(target);
 
-  // CRITICAL UAZAPI rule:
-  //   - LID destinations → MUST use `chatId` field (never `number`)
-  //   - Number destinations → digits-only `number` (or `@s.whatsapp.net` chatId fallback)
-  const attempts = t.isLid
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-      ]
-    : t.isGroup
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-        { path: "/send/text", body: { number: t.chatId, text } },
-      ]
-    : [
-        { path: "/chat/send-text", body: { number: t.number, to: t.number, chatId: t.chatId, body: text, text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-        { path: "/send/text", body: { number: t.number, text } },
-      ];
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+
+  // UAZAPIGO V2: ALL targets (LID / number / group / newsletter) use `number`.
+  const attempts = [
+    { path: "/send/text", body: { number: t.number, text } },
+    { path: "/message/sendText", body: { number: t.number, text } },
+  ];
 
   let lastErr = "";
 
@@ -447,7 +445,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.path, attempt.body);
     } catch (err: any) {
       lastErr = err?.message || String(err);
-      log.warn(`Text send fallback failed on ${attempt.path} for ${t.chatId}: ${lastErr}`);
+      log.warn(`Text send fallback failed on ${attempt.path} for ${t.number}: ${lastErr}`);
     }
   }
 
@@ -470,9 +468,9 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     const mediaType = mediaUrl ? detectMediaType(mediaUrl) : null;
     const isAudio = mediaType === "audio";
     const hasVisual = !!mediaUrl && !isAudio;
-    const base = mediaBaseFields(t); // { chatId } for LID, { number } otherwise
-
-    log.info(`[campaign-worker] send_menu_payload chatId=${t.chatId.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
+    const base = mediaBaseFields(t); // { number } — universal V2 field
+    console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+    log.info(`[campaign-worker] send_menu_payload number=${t.number.slice(0,12)}*** isLid=${t.isLid} isGroup=${t.isGroup} hasVisual=${hasVisual} mediaType=${mediaType} mediaUrlPreview="${mediaUrl ? mediaUrl.slice(0, 80) : 'null'}" choices=${choices.length} textLen=${text.length}`);
 
     if (hasVisual && mediaUrl) {
       if (t.isGroup) {
@@ -695,7 +693,8 @@ async function sendCampaignAlertToWa(sb: any, userId: string, campaignName: stri
     else if (status === "canceled") msg = `🚫 CAMPANHA CANCELADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     else if (status === "completed") msg = `📣 CAMPANHA FINALIZADA\n\nCampanha: ${campaignName}\n👥 Total: ${s.total || 0}\n✅ Enviadas: ${s.sent || 0}\n📬 Entregues: ${s.delivered || 0}\n❌ Falhas: ${s.failed || 0}\n⏱ ${nowBRT}`;
     if (!msg) return;
-    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, { method: "POST", headers: buildUazapiHeaders(dev.uazapi_token, { json: true, context: "campaign-worker" }), body: JSON.stringify({ chatId: targetGroup, text: msg }) });
+    console.log("UAZAPI SEND", { original: targetGroup, finalNumber: targetGroup });
+    const res = await fetch(`${dev.uazapi_base_url}/send/text`, { method: "POST", headers: buildUazapiHeaders(dev.uazapi_token, { json: true, context: "campaign-worker" }), body: JSON.stringify({ number: targetGroup, text: msg }) });
     await res.text();
   } catch {}
 }
