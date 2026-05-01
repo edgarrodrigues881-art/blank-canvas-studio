@@ -405,11 +405,22 @@ function detectMediaType(url: string): string {
   return "image";
 }
 
-async function sendCaptionedMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, caption: string) {
+async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
   const normalizedCaption = typeof caption === "string" ? caption.trim() : "";
+  // LID → chatId; otherwise digits-only `number`. Original value is never mutated.
+  const t = buildSendTarget(target);
+  const base: Record<string, unknown> = t.isLid ? { chatId: t.chatId } : { number: t.number };
+
+  console.log(JSON.stringify({
+    event: "send_media_dispatch",
+    originalValue: t.original,
+    finalUsedValue: t.isLid ? t.chatId : t.number,
+    isLid: t.isLid,
+    mediaType,
+  }));
 
   const primaryPayload: Record<string, unknown> = {
-    number: phone,
+    ...base,
     file: mediaUrl,
     type: mediaType,
     text: normalizedCaption,
@@ -423,11 +434,11 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
   try {
     return await uazapiRequest(baseUrl, token, "/send/media", primaryPayload);
   } catch (error) {
-    console.warn(`Primary /send/media failed for ${phone}: ${error instanceof Error ? error.message : String(error)}`);
+    console.warn(`Primary /send/media failed for ${t.chatId || t.original}: ${error instanceof Error ? error.message : String(error)}`);
 
     try {
       return await uazapiRequest(baseUrl, token, "/send/media", {
-        number: phone,
+        ...base,
         media: mediaUrl,
         type: mediaType,
         text: normalizedCaption,
@@ -437,7 +448,7 @@ async function sendCaptionedMedia(baseUrl: string, token: string, phone: string,
     } catch (fallbackError) {
       if (mediaType === "image") {
         return await uazapiRequest(baseUrl, token, "/send/image", {
-          number: phone,
+          ...base,
           image: mediaUrl,
           caption: normalizedCaption,
           viewOnce: false,
