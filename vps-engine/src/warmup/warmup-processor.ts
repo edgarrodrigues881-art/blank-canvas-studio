@@ -43,6 +43,46 @@ async function applyAdaptiveThrottle(instanceId: string, context: "group" | "com
     }
   } catch {}
 }
+
+// Safe-mode deferral: if instance health is critical, postpone the job rather than send.
+function shouldDeferSend(instanceId: string): boolean {
+  try {
+    return getHealthScore(instanceId) < 35;
+  } catch {
+    return false;
+  }
+}
+
+function getDeferTime(): number {
+  // 30s–90s
+  return Math.floor(Math.random() * 60000) + 30000;
+}
+
+async function tryDeferForHealth(
+  db: any,
+  jobId: string,
+  instanceId: string,
+  context: "group" | "community" | "autosave",
+): Promise<boolean> {
+  try {
+    if (!shouldDeferSend(instanceId)) return false;
+    const deferMs = getDeferTime();
+    const runAt = new Date(Date.now() + deferMs).toISOString();
+    console.log("WARMUP_DEFER", {
+      instanceId,
+      score: getHealthScore(instanceId),
+      deferMs,
+      context,
+    });
+    try {
+      await db.from("warmup_jobs").update({ run_at: runAt }).eq("id", jobId);
+    } catch {}
+    return true;
+  } catch {
+    // Fail-safe: never block a send on deferral logic errors.
+    return false;
+  }
+}
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
@@ -685,6 +725,9 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   // Human-like pre-send delay (single, content-aware). Skips status/join.
   await applyHumanDelay(mediaType === "text" ? message : { length: 0 });
 
+  // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
+  if (await tryDeferForHealth(db, job.id, job.device_id, "group")) return false;
+
   // Adaptive throttle based on instance health score (never blocks send).
   await applyAdaptiveThrottle(job.device_id, "group");
 
@@ -800,6 +843,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   // Presence (typing) — direct chat, fail-safe
   await applyPresence(baseUrl, token, target._phone, "text");
+
+  // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
+  if (await tryDeferForHealth(db, job.id, job.device_id, "autosave")) return false;
 
   // Adaptive throttle based on instance health score (never blocks send).
   await applyAdaptiveThrottle(job.device_id, "autosave");
@@ -1012,6 +1058,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
 
   // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
   await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
+
+  // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
+  if (await tryDeferForHealth(db, job.id, job.device_id, "community")) return false;
 
   // Adaptive throttle based on instance health score (never blocks send).
   await applyAdaptiveThrottle(job.device_id, "community");
