@@ -43,6 +43,46 @@ async function applyAdaptiveThrottle(instanceId: string, context: "group" | "com
     }
   } catch {}
 }
+
+// Safe-mode deferral: if instance health is critical, postpone the job rather than send.
+function shouldDeferSend(instanceId: string): boolean {
+  try {
+    return getHealthScore(instanceId) < 35;
+  } catch {
+    return false;
+  }
+}
+
+function getDeferTime(): number {
+  // 30s–90s
+  return Math.floor(Math.random() * 60000) + 30000;
+}
+
+async function tryDeferForHealth(
+  db: any,
+  jobId: string,
+  instanceId: string,
+  context: "group" | "community" | "autosave",
+): Promise<boolean> {
+  try {
+    if (!shouldDeferSend(instanceId)) return false;
+    const deferMs = getDeferTime();
+    const runAt = new Date(Date.now() + deferMs).toISOString();
+    console.log("WARMUP_DEFER", {
+      instanceId,
+      score: getHealthScore(instanceId),
+      deferMs,
+      context,
+    });
+    try {
+      await db.from("warmup_jobs").update({ run_at: runAt }).eq("id", jobId);
+    } catch {}
+    return true;
+  } catch {
+    // Fail-safe: never block a send on deferral logic errors.
+    return false;
+  }
+}
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
