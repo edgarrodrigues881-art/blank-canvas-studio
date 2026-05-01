@@ -621,13 +621,18 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   let endpointUsed = "/send/text";
 
   // Independent status side-action (not sent to chat). Fail-safe: never blocks main send.
+  // Gated by daily cap, BRT 07:00–22:30 window and 90–180min anti-burst spacing.
   if (sendStatusAlongside) {
-    try {
-      const sp = pickStatusPayload(ctx.imagePool || []);
-      await uazapiSendStatus(baseUrl, token, sp);
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group" });
-    } catch (e: any) {
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group", failed: true, error: e?.message });
+    const statusCtx = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1 };
+    if (canSendStatus(statusCtx)) {
+      try {
+        const sp = pickStatusPayload(ctx.imagePool || []);
+        await uazapiSendStatus(baseUrl, token, sp);
+        registerStatusSend(statusCtx);
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group" });
+      } catch (e: any) {
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group", failed: true, error: e?.message });
+      }
     }
   }
 
