@@ -420,7 +420,8 @@ function resolveDirectNumber(target: string): string {
 }
 
 function resolveTargetChatId(target: string): string {
-  return buildCampaignTarget(target).chatId;
+  // Legacy name kept for callers; returns the universal `number` value (V2).
+  return buildCampaignTarget(target).number;
 }
 
 async function sendTextWithFallback(baseUrl: string, token: string, target: string, body: string) {
@@ -429,25 +430,13 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 
   const t = buildCampaignTarget(target);
 
-  // CRITICAL UAZAPI rule:
-  //   - LID destinations → MUST use `chatId` field (never `number`)
-  //   - Number destinations → digits-only `number` (or `@s.whatsapp.net` chatId fallback)
-  const attempts = t.isLid
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-      ]
-    : t.isGroup
-    ? [
-        { path: "/chat/send-text", body: { chatId: t.chatId, text, body: text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-        { path: "/send/text", body: { number: t.chatId, text } },
-      ]
-    : [
-        { path: "/chat/send-text", body: { number: t.number, to: t.number, chatId: t.chatId, body: text, text } },
-        { path: "/message/sendText", body: { chatId: t.chatId, text } },
-        { path: "/send/text", body: { number: t.number, text } },
-      ];
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
+
+  // UAZAPIGO V2: ALL targets (LID / number / group / newsletter) use `number`.
+  const attempts = [
+    { path: "/send/text", body: { number: t.number, text } },
+    { path: "/message/sendText", body: { number: t.number, text } },
+  ];
 
   let lastErr = "";
 
@@ -456,7 +445,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.path, attempt.body);
     } catch (err: any) {
       lastErr = err?.message || String(err);
-      log.warn(`Text send fallback failed on ${attempt.path} for ${t.chatId}: ${lastErr}`);
+      log.warn(`Text send fallback failed on ${attempt.path} for ${t.number}: ${lastErr}`);
     }
   }
 
