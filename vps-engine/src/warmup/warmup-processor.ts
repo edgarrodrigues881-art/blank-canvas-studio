@@ -18,6 +18,7 @@ import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, ua
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
 import { applyPresence } from "../utils/presence";
+import { trackSendResult } from "../utils/warmup-health";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
