@@ -194,14 +194,18 @@ function detectMediaType(url: string): string {
 }
 
 // ── Target classification ──
-// CRITICAL: UAZAPI rule — `@lid` MUST be carried in `chatId`. The `number`
-// field must always be digits-only (or contain `@s.whatsapp.net` / `@g.us`).
-// Sending `<digits>@lid` inside `number` causes silent drops / "server rejected".
+// UAZAPIGO V2 RULE: `number` is the UNIVERSAL field for every send payload.
+//   - normal numbers   → "5511999999999"
+//   - LID              → "123456789@lid"
+//   - groups           → "123@g.us"
+//   - newsletters      → "123@newsletter"
+// `chatId` MUST NOT appear in any send payload.
 interface CampaignTarget {
-  chatId: string;       // full chat identifier (with @lid / @s.whatsapp.net / @g.us)
-  number: string;       // digits-only — safe for `number` field
+  number: string;        // UNIVERSAL identifier passed to UAZAPI `number` field
   isLid: boolean;
   isGroup: boolean;
+  isNewsletter: boolean;
+  original: string;
 }
 
 function buildCampaignTarget(target: string): CampaignTarget {
@@ -209,23 +213,28 @@ function buildCampaignTarget(target: string): CampaignTarget {
   const lower = raw.toLowerCase();
   const isLid = isLidTarget(raw);
   const isGroup = lower.includes("@g.us");
+  const isNewsletter = lower.includes("@newsletter");
   const digits = onlyDigits(raw);
 
-  let chatId: string;
+  let number: string;
   if (isLid) {
-    chatId = toLidChatId(raw);
+    number = `${digits}@lid`;
+  } else if (isNewsletter) {
+    number = raw;
+  } else if (isGroup) {
+    number = raw.includes("@") ? raw : `${digits}@g.us`;
   } else if (raw.includes("@")) {
-    chatId = raw;
+    number = digits || raw;
   } else {
-    chatId = `${digits}@s.whatsapp.net`;
+    number = digits;
   }
 
-  return { chatId, number: digits, isLid, isGroup };
+  return { number, isLid, isGroup, isNewsletter, original: raw };
 }
 
-// ── Media senders — accept the raw target; route LID via `chatId`, others via `number`. ──
+// ── Media senders — UAZAPIGO V2: ALL targets via `number`. ──
 function mediaBaseFields(t: CampaignTarget): Record<string, unknown> {
-  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+  return { number: t.number };
 }
 
 async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
