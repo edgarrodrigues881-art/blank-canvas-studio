@@ -7,6 +7,7 @@
 import { getDb } from "../core/db";
 import { createLogger } from "../core/logger";
 import { buildUazapiHeaders } from "../integrations/uazapi-headers";
+import { isLidTarget, onlyDigits } from "../utils/lid";
 
 const log = createLogger("verify");
 
@@ -48,31 +49,37 @@ interface DeviceInfo {
 }
 
 async function checkBatchNumbers(baseUrl: string, token: string, phones: string[]): Promise<VerifyResult[]> {
+  const lidResults = phones
+    .filter(isLidTarget)
+    .map(phone => ({ phone, status: "success" as const, detail: "LID — validação de número ignorada" }));
+  const numberPhones = phones.filter(phone => !isLidTarget(phone));
+  if (numberPhones.length === 0) return lidResults;
+
   const url = `${baseUrl}/chat/check`;
   try {
     const res = await fetchWithTimeout(url, {
       method: "POST",
       headers: buildUazapiHeaders(token, { json: true, context: "verify-worker" }),
-      body: JSON.stringify({ numbers: phones }),
+      body: JSON.stringify({ numbers: numberPhones }),
     });
     const text = await res.text();
     if (res.status === 401 || res.status === 403) {
-      return phones.map(phone => ({ phone, status: "error" as const, detail: "Token inválido" }));
+      return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail: "Token inválido" }))];
     }
     if (!res.ok) {
-      return phones.map(phone => ({ phone, status: "error" as const, detail: `HTTP ${res.status}` }));
+      return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail: `HTTP ${res.status}` }))];
     }
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch { /* ignore */ }
     const items = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
     const resultMap = new Map<string, any>();
     for (const item of items) {
-      const query = String(item?.query || item?.phone || item?.number || "").replace(/\D/g, "");
+      const query = onlyDigits(item?.query || item?.phone || item?.number || "");
       if (query) resultMap.set(query, item);
     }
-    return phones.map(phone => {
+    return [...lidResults, ...numberPhones.map(phone => {
       const item = resultMap.get(phone) || items.find((it: any) => {
-        const q = String(it?.query || it?.phone || it?.number || "").replace(/\D/g, "");
+        const q = onlyDigits(it?.query || it?.phone || it?.number || "");
         return q === phone;
       });
       if (!item) return { phone, status: "error" as const, detail: "Sem resposta da API" };
@@ -100,10 +107,10 @@ async function checkBatchNumbers(baseUrl: string, token: string, phones: string[
       // a UAZAPI gera esse endereço para qualquer consulta. Se chegou aqui, a resposta
       // não foi conclusiva → marca como erro pra reprocessamento (evita falso positivo).
       return { phone, status: "error" as const, detail: "Resposta inconclusiva da API" };
-    });
+    })];
   } catch (err: any) {
     const detail = err?.name === "AbortError" ? "Timeout" : "Erro de conexão";
-    return phones.map(phone => ({ phone, status: "error" as const, detail }));
+    return [...lidResults, ...numberPhones.map(phone => ({ phone, status: "error" as const, detail }))];
   }
 }
 
