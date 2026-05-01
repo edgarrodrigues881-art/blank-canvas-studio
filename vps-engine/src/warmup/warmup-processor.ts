@@ -591,6 +591,7 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     await uazapiSendText(baseUrl, token, groupJid, message, true);
   }
 
+  markContactUsed(groupJid, job.device_id);
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
   bufferAudit(ctx, { user_id: job.user_id, device_id: job.device_id, cycle_id: job.cycle_id, level: "info", event_type: "group_msg_sent", message: `Msg no grupo ${groupName}: "${message.substring(0, 50)}"`, meta: { group_jid: groupJid, media_type: mediaType } });
   return true;
