@@ -565,27 +565,28 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const fallbackMediaType = pickMediaTypeGroup(cycle.daily_interaction_budget_used || 0);
   const decision = decideNextAction(
     { dayIndex: cycle.day_index, chipState: ctx.chipState },
-    { channel: "group", allowStatus: false, allowedPayloads: ["text", "image", "audio", "sticker"] }
+    { channel: "group", allowStatus: true, allowedPayloads: ["text", "image", "audio", "sticker", "vcard"] }
   );
-  // Map unsupported payloads (vcard/menu/location/status) → existing legacy picker for safe routing
-  const supported = new Set(["text", "image", "audio", "sticker"]);
-  let mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
+  // Group dispatcher supports: text/image/audio/sticker/vcard (+status as independent action).
+  // location is intentionally avoided in groups for safety.
+  const supported = new Set(["text", "image", "audio", "sticker", "vcard"]);
+  let mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as
+    "text" | "image" | "audio" | "sticker" | "vcard";
 
   // ── Action mix override (human-like distribution, anti-repeat) ──
-  // status/vcard not yet implemented in this dispatcher → safe-fallback to "text".
   const mixPick = pickActionType({
     instanceId: job.device_id,
     cycleKey: cycle.id,
     day: cycle.day_index || 1,
-    supported: ["text", "image", "audio", "sticker", "status"],
+    supported: ["text", "image", "audio", "sticker", "vcard", "status"],
   });
-  const mixResolved = (mixPick === "status" || mixPick === "vcard" || mixPick === "location")
-    ? "text"
-    : mixPick;
-  if (["text", "image", "audio", "sticker"].includes(mixResolved)) {
-    mediaType = mixResolved as "text" | "image" | "audio" | "sticker";
+  // status is independent (not sent to chat). location not used in groups → fallback to text.
+  const mixResolved = (mixPick === "location") ? "text" : mixPick;
+  if (["text", "image", "audio", "sticker", "vcard"].includes(mixResolved)) {
+    mediaType = mixResolved as "text" | "image" | "audio" | "sticker" | "vcard";
   }
-  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPick, resolved: mediaType, context: "group" });
+  const sendStatusAlongside = (mixPick === "status");
+  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPick, resolved: mediaType, statusAlongside: sendStatusAlongside, context: "group" });
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
 
   // ── Per-instance daily volume gate (chip-type aware ramp) ──
@@ -614,29 +615,54 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   }
 
   let message = getMsg();
+  let endpointUsed = "/send/text";
+
+  // Independent status side-action (not sent to chat). Fail-safe: never blocks main send.
+  if (sendStatusAlongside) {
+    try {
+      const sp = pickStatusPayload(ctx.imagePool || []);
+      await uazapiSendStatus(baseUrl, token, sp);
+      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group" });
+    } catch (e: any) {
+      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "group", failed: true, error: e?.message });
+    }
+  }
 
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
       const caption = pickRandom(IMAGE_CAPTIONS);
       await uazapiSendImage(baseUrl, token, groupJid, imgUrl, "");
+      endpointUsed = "/send/media(image)";
       await new Promise(r => setTimeout(r, randInt(1000, 3000)));
       await uazapiSendText(baseUrl, token, groupJid, caption, true);
       message = `[IMG+TXT] ${caption}`;
     } else if (mediaType === "sticker") {
       const imgUrl = pickRandom(ctx.imagePool);
       await uazapiSendSticker(baseUrl, token, groupJid, imgUrl);
+      endpointUsed = "/send/sticker";
       message = "[STICKER] 🎭";
     } else if (mediaType === "audio") {
       const audioUrl = pickRandom(ctx.audioPool);
       await uazapiSendAudio(baseUrl, token, groupJid, audioUrl);
+      endpointUsed = "/send/audio";
       message = "[AUDIO] 🎤";
+    } else if (mediaType === "vcard") {
+      const vc = pickFakeContact();
+      await uazapiSendContact(baseUrl, token, groupJid, vc.fullName, vc.phoneNumber);
+      endpointUsed = "/send/contact";
+      message = `[VCARD] ${vc.fullName}`;
     } else {
       await uazapiSendText(baseUrl, token, groupJid, message, true);
+      endpointUsed = "/send/text";
     }
-  } catch {
+    console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group" });
+  } catch (err: any) {
+    console.log("WARMUP_DISPATCH", { actionType: mediaType, endpointUsed, context: "group", failed: true, error: err?.message });
+    // Fail-safe: only fallback to text on actual API error.
     message = getMsg();
     await uazapiSendText(baseUrl, token, groupJid, message, true);
+    console.log("WARMUP_DISPATCH", { actionType: "text", endpointUsed: "/send/text", context: "group", fallback: true });
   }
 
   markContactUsed(groupJid, job.device_id);
