@@ -567,6 +567,19 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
     throw new Error("Nenhum grupo com JID resolvido");
   }
 
+  // ── Group join-grace: defer FIRST message in this group by 2–10 min ──
+  // Subsequent messages skip this check (markGroupInitialized after first send).
+  if (chosenGroupId) {
+    const grace = checkGroupJoinGrace({ instanceId: job.device_id, groupId: chosenGroupId, joinedAtIso: chosenJoinedAt });
+    if (!grace.allowed) {
+      // Requeue the job with a small delay; do NOT mutate scheduling otherwise.
+      try {
+        await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + grace.waitMs).toISOString() }).eq("id", job.id);
+      } catch {}
+      return false;
+    }
+  }
+
   // Send message
   const cachedMsgs = ctx.userMsgsMap[job.user_id];
   const longCachedMsgs = cachedMsgs?.filter((m: string) => m.length >= 60) || [];
