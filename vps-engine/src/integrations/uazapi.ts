@@ -448,6 +448,45 @@ export async function uazapiSendStatus(
   throw new Error(`Status send failed: ${lastErr}`);
 }
 
+// ── Presence (composing/recording) ─────────────────────────
+// UAZAPI: POST /message/presence with { number, presence, delay }
+// Fail-safe wrapper — caller handles its own try/catch if desired.
+export async function uazapiSendPresence(
+  baseUrl: string,
+  token: string,
+  target: string,
+  presence: "composing" | "recording" | "paused" | "available",
+  delayMs: number,
+  isGroup = false,
+): Promise<any> {
+  const t = buildUazapiTarget(target, isGroup);
+  const body = { number: t.number, presence, delay: Math.max(0, Math.floor(delayMs)) };
+  const attempts = [
+    { path: "/message/presence", body },
+    { path: "/presence", body },
+    { path: "/chat/presence", body },
+  ];
+  let lastErr = "";
+  for (const at of attempts) {
+    try {
+      const res = await fetch(`${baseUrl}${at.path}`, {
+        method: "POST",
+        headers: buildUazapiHeaders(token, { json: true, context: "uazapiPresence" }),
+        body: JSON.stringify(at.body),
+      });
+      const raw = await res.text();
+      if (res.ok) {
+        try { return JSON.parse(raw); } catch { return { ok: true, raw }; }
+      }
+      if (res.status === 404 || res.status === 405) { lastErr = `${res.status} @ ${at.path}`; continue; }
+      lastErr = `${res.status} @ ${at.path}: ${raw.substring(0, 200)}`;
+    } catch (e: any) {
+      lastErr = `${at.path}: ${e?.message || String(e)}`;
+    }
+  }
+  throw new Error(`Presence failed: ${lastErr}`);
+}
+
 export async function uazapiCheckPhone(
   baseUrl: string,
   token: string,
