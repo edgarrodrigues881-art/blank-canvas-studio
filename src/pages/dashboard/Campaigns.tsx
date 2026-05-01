@@ -582,8 +582,8 @@ const Campaigns = () => {
   const invalidContacts = useMemo(() => {
     if (contactMode === "lid") {
       return contacts.filter(c => {
-        const normalized = normalizeLidValue(c.numero);
-        return normalized.length > 0 && normalized.length < 3;
+        const digits = extractDigitsFromLid(c.numero);
+        return digits.length > 0 && digits.length < 3;
       });
     }
     return contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, "")));
