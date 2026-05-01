@@ -15,6 +15,7 @@ import { pickActionType } from "../utils/warmup-action-mix";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiSendContact, uazapiSendStatus, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
+import { applyPresence } from "../utils/presence";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
@@ -734,6 +735,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   // Human-like pre-send delay (after save, before API). Fail-safe.
   await applyHumanDelay(msg);
 
+  // Presence (typing) — direct chat, fail-safe
+  await applyPresence(baseUrl, token, target._phone, "text");
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
   } catch {
@@ -926,6 +930,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
 
   // Human-like pre-send delay (after save, before API). Fail-safe.
   await applyHumanDelay(mediaType === "text" ? msg : { length: 0 });
+
+  // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
+  await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
 
   try {
     if (mediaType === "image") {
