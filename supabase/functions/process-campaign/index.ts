@@ -721,7 +721,9 @@ async function sendWithRetry(
 }
 
 async function checkNumberExists(baseUrl: string, token: string, phone: string): Promise<{ exists: boolean; error?: string }> {
-  if (isLidTarget(phone)) return { exists: true };
+  const isLid = isLidTarget(phone);
+  console.log("VALIDATION CHECK", { target: phone, isLid });
+  if (isLid) return { exists: true };
 
   try {
     const result = await uazapiRequest(baseUrl, token, "/check/exist", { number: phone });
