@@ -103,20 +103,39 @@ const CONTACT_VARIANT_KEYS = ["var1", "var2", "var3", "var4", "var5", "var6", "v
 
 const normalizeNumberValue = (value: string) => value.replace(/\D/g, "");
 
+// CRITICAL: normalizeLidValue MUST preserve the @lid suffix.
+// Previous behavior stripped @lid early, causing the original identifier to be
+// lost across deduplication / import / mapping flows. Now it only cleans
+// whitespace + leading '@', and always returns the canonical "<digits>@lid"
+// form when the input looks like a LID. Returns "" for empty input.
 const normalizeLidValue = (value: string) => {
-  const trimmed = value.trim();
+  const trimmed = String(value ?? "").trim();
   if (!trimmed) return "";
-
-  return trimmed.replace(/\s+/g, "").replace(/^@+/, "").replace(/@lid$/i, "");
+  const cleaned = trimmed.replace(/\s+/g, "").replace(/^@+/, "");
+  if (!cleaned) return "";
+  // Strip suffix only to extract digits, then reattach canonical @lid.
+  const digits = cleaned.replace(/@lid$/i, "");
+  if (!digits) return "";
+  return `${digits}@lid`;
 };
 
+// Read-only helper for callers that genuinely need the raw digits portion of a
+// LID (e.g. length checks, comparisons). NEVER use this to mutate stored data.
+const extractDigitsFromLid = (value: string) => {
+  const trimmed = String(value ?? "").trim().replace(/\s+/g, "").replace(/^@+/, "");
+  return trimmed.replace(/@lid$/i, "");
+};
+
+// Used ONLY for comparison / dedupe keys. Must not be used to overwrite the
+// original identifier stored in `contact.numero`. For LID mode it returns the
+// full canonical "<digits>@lid" so dedupe keys still preserve the suffix.
 const normalizeContactIdentifier = (value: string, mode: "number" | "lid") =>
   mode === "lid" ? normalizeLidValue(value).toLowerCase() : normalizeNumberValue(value);
 
 const buildCampaignRecipient = (value: string, mode: "number" | "lid") => {
   if (mode === "lid") {
-    const normalized = normalizeLidValue(value);
-    return normalized ? `${normalized}@lid` : "";
+    // normalizeLidValue already returns "<digits>@lid" — preserve as-is.
+    return normalizeLidValue(value);
   }
 
   return normalizeNumberValue(value);
@@ -563,8 +582,8 @@ const Campaigns = () => {
   const invalidContacts = useMemo(() => {
     if (contactMode === "lid") {
       return contacts.filter(c => {
-        const normalized = normalizeLidValue(c.numero);
-        return normalized.length > 0 && normalized.length < 3;
+        const digits = extractDigitsFromLid(c.numero);
+        return digits.length > 0 && digits.length < 3;
       });
     }
     return contacts.filter(c => c.numero.trim() && !/^\d{10,15}$/.test(c.numero.replace(/\D/g, "")));
@@ -709,7 +728,14 @@ const Campaigns = () => {
       buttons: normalizedMessage.buttons.map(b => ({ type: b.type, text: b.text, value: b.value })),
       carousel_cards: contentType === "carousel" ? serializeCarouselCards(carouselCards) : undefined,
       contacts: validContacts.map(c => {
-        const phoneValue = buildCampaignRecipient(c.numero, contactMode);
+        const original = c.numero;
+        const phoneValue = buildCampaignRecipient(original, contactMode);
+        // Debug: confirms @lid is preserved end-to-end before backend dispatch.
+        console.log("[Campaign:send]", {
+          original,
+          isLid: typeof original === "string" && original.toLowerCase().includes("@lid"),
+          finalPayload: phoneValue,
+        });
         return { phone: phoneValue, name: c.nome || undefined, var1: c.var1 || "", var2: c.var2 || "", var3: c.var3 || "", var4: c.var4 || "", var5: c.var5 || "", var6: c.var6 || "", var7: c.var7 || "", var8: c.var8 || "", var9: c.var9 || "", var10: c.var10 || "" };
       }),
       scheduled_at: scheduleEnabled && scheduleDate ? new Date(scheduleDate).toISOString() : undefined,
@@ -2275,7 +2301,7 @@ const Campaigns = () => {
             {showContactTable && contacts.length > 0 && (() => {
               const varKeys = CONTACT_VARIANT_KEYS.slice(0, detectedVariantCount);
               const isNumValid = (n: string) => contactMode === "lid"
-                ? normalizeLidValue(n).length >= 3
+                ? extractDigitsFromLid(n).length >= 3
                 : /^\d{10,15}$/.test(n.replace(/\D/g, ""));
               return (
               <SurfaceCard className="p-0 overflow-hidden">
