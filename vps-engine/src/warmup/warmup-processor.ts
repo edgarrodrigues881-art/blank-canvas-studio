@@ -569,6 +569,20 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   const supported = new Set(["text", "image", "audio", "sticker"]);
   const mediaType = (supported.has(decision.payloadType) ? decision.payloadType : fallbackMediaType) as "text" | "image" | "audio" | "sticker";
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decision, resolvedPayload: mediaType, context: "group" } });
+
+  // ── Cross-instance coordination: avoid simultaneous sends ──
+  const allowedNow = canSendNow(job.device_id);
+  const targetBlocked = isTargetRecentlyUsed(groupJid);
+  console.log("WARMUP_COORD", { instanceId: job.device_id, allowed: allowedNow, targetBlocked, target: groupJid, context: "group" });
+  if (!allowedNow) {
+    // Skip this cycle without retrying immediately — defer the job by 8–20s.
+    const deferMs = 8000 + Math.floor(Math.random() * 12000);
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMs).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   let message = getMsg();
 
   try {
