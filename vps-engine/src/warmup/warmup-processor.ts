@@ -881,6 +881,7 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   await db.from("community_pairs").update({ meta: nextMeta }).eq("id", selectedPair.id);
   markContactUsed(peerPhone, job.device_id);
   registerSend(job.device_id, peerPhone);
+  registerDailySend({ instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1, chipState: ctx.chipState });
   console.log("WARMUP_SENT", { instanceId: job.device_id, targetJid: peerPhone, context: "community" });
   await db.rpc("increment_warmup_budget", { p_cycle_id: cycle.id, p_increment: 1, p_unique_recipient: false });
 
