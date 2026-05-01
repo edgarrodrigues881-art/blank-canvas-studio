@@ -821,7 +821,23 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
     { channel: "chat", allowStatus: false, allowedPayloads: ["text", "image", "audio", "location"] }
   );
   const supportedC = new Set(["text", "image", "audio", "location"]);
-  const mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
+  let mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
+
+  // ── Action mix override (human-like distribution, anti-repeat) ──
+  // sticker/vcard/status not implemented in community 1:1 dispatcher → fallback to "text".
+  const mixPickC = pickActionType({
+    instanceId: job.device_id,
+    cycleKey: cycle.id,
+    day: cycle.day_index || 1,
+    supported: ["text", "image", "audio", "location"],
+  });
+  const mixResolvedC = (mixPickC === "status" || mixPickC === "vcard" || mixPickC === "sticker")
+    ? "text"
+    : mixPickC;
+  if (["text", "image", "audio", "location"].includes(mixResolvedC)) {
+    mediaType = mixResolvedC as "text" | "image" | "audio" | "location";
+  }
+  console.log("WARMUP_ACTION", { instanceId: job.device_id, day: cycle.day_index, actionType: mixPickC, resolved: mediaType, context: "community" });
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
   // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
   // so we always proceed (fail-safe), but log cooldown state for observability.
