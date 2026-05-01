@@ -924,7 +924,11 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Pre-send step: save contact (peer is a direct phone, not a group). Dedupe 24h, fail-safe.
   await saveContactIfNeeded(baseUrl, token, job.device_id, peerPhone);
 
+  // Human-like pre-send delay (after save, before API). Fail-safe.
+  await applyHumanDelay(mediaType === "text" ? msg : { length: 0 });
+
   try {
+    if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
       const caption = pickRandom(IMAGE_CAPTIONS);
       await uazapiSendImage(baseUrl, token, peerPhone, imgUrl, "");
