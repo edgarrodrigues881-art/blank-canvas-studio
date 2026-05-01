@@ -554,6 +554,8 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
       refreshedResolved.sort((a, b) => a.count - b.count || (Math.random() - 0.5));
       const chosen = refreshedResolved[0];
       groupJid = chosen.jid;
+      chosenGroupId = chosen.target.group_id || null;
+      chosenJoinedAt = chosen.target.joined_at || null;
       const grpRef = ctx.groupsMap[chosen.target.group_id];
       groupName = grpRef?.name || chosen.target.group_name || "Grupo";
     }
