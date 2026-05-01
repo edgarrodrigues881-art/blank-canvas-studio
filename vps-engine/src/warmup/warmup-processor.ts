@@ -801,6 +801,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
   // Presence (typing) — direct chat, fail-safe
   await applyPresence(baseUrl, token, target._phone, "text");
 
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "autosave");
+
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
     trackSendResult(job.device_id, true);
