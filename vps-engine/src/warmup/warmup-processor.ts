@@ -776,9 +776,17 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
+    trackSendResult(job.device_id, true);
   } catch {
+    trackSendResult(job.device_id, false);
     await new Promise(r => setTimeout(r, 2000));
-    await uazapiSendText(baseUrl, token, target._phone, msg);
+    try {
+      await uazapiSendText(baseUrl, token, target._phone, msg);
+      trackSendResult(job.device_id, true);
+    } catch (e) {
+      trackSendResult(job.device_id, false);
+      throw e;
+    }
   }
 
   await db.rpc("increment_warmup_budget", {
