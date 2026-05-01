@@ -333,10 +333,11 @@ async function sendCampaignAlertToWa(serviceClient: any, userId: string, campaig
     if (!msg) return;
 
     const headers: Record<string, string> = { token: dev.uazapi_token, Accept: "application/json", "Content-Type": "application/json" };
-    const res = await fetch(`${dev.uazapi_base_url}/chat/send-text`, {
+    console.log("UAZAPI SEND", { original: targetGroup, finalNumber: targetGroup });
+    const res = await fetch(`${dev.uazapi_base_url}/send/text`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ chatId: targetGroup, text: msg }),
+      body: JSON.stringify({ number: targetGroup, text: msg }),
     });
     await res.text(); // consume body
     if (res.ok) {
