@@ -772,6 +772,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   const supportedC = new Set(["text", "image", "audio", "location"]);
   const mediaType = (supportedC.has(decisionC.payloadType) ? decisionC.payloadType : fallbackMediaTypeC) as "text" | "image" | "audio" | "sticker" | "location";
   console.log("WARMUP_DECISION", { chipId: job.device_id, action: { ...decisionC, resolvedPayload: mediaType, context: "community" } });
+  // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
+  // so we always proceed (fail-safe), but log cooldown state for observability.
+  isContactOnCooldown(peerPhone, job.device_id);
   let msg = generateNaturalMessage("community");
 
   try {
