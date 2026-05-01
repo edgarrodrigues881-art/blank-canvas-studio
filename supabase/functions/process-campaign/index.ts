@@ -592,23 +592,41 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
 
     const base = baseSendFields(t);
 
-    // IMAGE + TEXT + BUTTONS via /send/menu with imageButton.
+    // IMAGE + TEXT + BUTTONS — UAZAPIGO V2 compatibility.
+    // `imageButton` inside /send/menu causes "WhatsApp version not compatible" on modern clients.
+    // Strategy aligned with vps-engine/campaign-worker.ts: send media FIRST, then menu separately.
     if (hasVisualMedia && mediaUrl) {
+      const visualType = mediaType || "image";
       console.log(JSON.stringify({
-        event: "send_menu_image_button",
+        event: "send_media_then_menu",
         origin: "campaign",
+        isGroup: t.isGroup,
+        isLid: t.isLid,
+        mediaType: visualType,
         buttonCount: choices.length,
         captionLength: text.length,
       }));
 
+      // Step 1: send the media as a standalone message (no caption — caption goes in the menu).
+      await uazapiRequest(baseUrl, token, "/send/media", {
+        ...base,
+        type: visualType,
+        file: mediaUrl,
+        ...(visualType === "image" ? { compress: false } : {}),
+      });
+
+      // Step 2: small jitter delay, mirroring VPS behavior (800–1600ms).
+      await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
+
+      // Step 3: send the menu (text + buttons) as a separate message.
       await uazapiRequest(baseUrl, token, "/send/menu", {
         ...base,
         type: "button",
         text,
-        imageButton: mediaUrl,
         choices,
       });
-      console.log(JSON.stringify({ event: "send_menu_image_button_success" }));
+
+      console.log(JSON.stringify({ event: "send_media_then_menu_success" }));
       return;
     }
 
