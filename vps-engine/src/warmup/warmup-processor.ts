@@ -810,6 +810,18 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // so we always proceed (fail-safe), but log cooldown state for observability.
   isContactOnCooldown(peerPhone, job.device_id);
 
+  // ── Per-instance daily volume gate (chip-type aware ramp) ──
+  const volCtxC = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1, chipState: ctx.chipState };
+  const volC = canSendToday(volCtxC);
+  console.log("WARMUP_VOLUME", { instanceId: job.device_id, day: volC.day, chipKind: mapChipKind(ctx.chipState), sentToday: volC.sentToday, limit: volC.limit, allowed: volC.allowed, context: "community" });
+  if (!volC.allowed) {
+    const deferMsV = 30_000 + Math.floor(Math.random() * 60_000);
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMsV).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   // ── Cross-instance coordination: avoid simultaneous sends ──
   const allowedNowC = canSendNow(job.device_id);
   const targetBlockedC = isTargetRecentlyUsed(peerPhone);
