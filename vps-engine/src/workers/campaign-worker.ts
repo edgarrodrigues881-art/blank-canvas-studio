@@ -192,45 +192,91 @@ function detectMediaType(url: string): string {
   return "image";
 }
 
-async function sendCaptionedMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, caption: string) {
+// ── Target classification ──
+// CRITICAL: UAZAPI rule — `@lid` MUST be carried in `chatId`. The `number`
+// field must always be digits-only (or contain `@s.whatsapp.net` / `@g.us`).
+// Sending `<digits>@lid` inside `number` causes silent drops / "server rejected".
+interface CampaignTarget {
+  chatId: string;       // full chat identifier (with @lid / @s.whatsapp.net / @g.us)
+  number: string;       // digits-only — safe for `number` field
+  isLid: boolean;
+  isGroup: boolean;
+}
+
+function buildCampaignTarget(target: string): CampaignTarget {
+  const raw = String(target || "").trim();
+  const lower = raw.toLowerCase();
+  const isLid = lower.includes("@lid");
+  const isGroup = lower.includes("@g.us");
+  const digits = raw.replace(/\D/g, "");
+
+  let chatId: string;
+  if (isLid) {
+    chatId = `${digits}@lid`;
+  } else if (raw.includes("@")) {
+    chatId = raw;
+  } else if (isLikelyLid(digits)) {
+    // Long numeric string with no suffix — treat as LID per spec
+    chatId = `${digits}@lid`;
+    return { chatId, number: digits, isLid: true, isGroup: false };
+  } else {
+    chatId = `${digits}@s.whatsapp.net`;
+  }
+
+  return { chatId, number: digits, isLid, isGroup };
+}
+
+// ── Media senders — accept the raw target; route LID via `chatId`, others via `number`. ──
+function mediaBaseFields(t: CampaignTarget): Record<string, unknown> {
+  return t.isLid ? { chatId: t.chatId } : { number: t.number };
+}
+
+async function sendCaptionedMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, caption: string) {
+  const t = buildCampaignTarget(target);
+  const base = mediaBaseFields(t);
+  const compressFlag = mediaType === "image" ? { compress: false } : {};
   try {
-    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
+    return await uazapiRequest(baseUrl, token, "/send/media", { ...base, file: mediaUrl, type: mediaType, caption, ...compressFlag });
   } catch {
     try {
-      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, caption, ...(mediaType === "image" ? { compress: false } : {}) });
+      return await uazapiRequest(baseUrl, token, "/send/media", { ...base, media: mediaUrl, type: mediaType, caption, ...compressFlag });
     } catch (e2) {
-      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, caption, viewOnce: false });
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { ...base, image: mediaUrl, caption, viewOnce: false });
       throw e2;
     }
   }
 }
 
-async function sendPlainMedia(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string) {
+async function sendPlainMedia(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string) {
+  const t = buildCampaignTarget(target);
+  const base = mediaBaseFields(t);
+  const compressFlag = mediaType === "image" ? { compress: false } : {};
   try {
-    return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, file: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+    return await uazapiRequest(baseUrl, token, "/send/media", { ...base, file: mediaUrl, type: mediaType, ...compressFlag });
   } catch {
     try {
-      return await uazapiRequest(baseUrl, token, "/send/media", { number: phone, media: mediaUrl, type: mediaType, ...(mediaType === "image" ? { compress: false } : {}) });
+      return await uazapiRequest(baseUrl, token, "/send/media", { ...base, media: mediaUrl, type: mediaType, ...compressFlag });
     } catch (e2) {
-      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { number: phone, image: mediaUrl, viewOnce: false });
+      if (mediaType === "image") return await uazapiRequest(baseUrl, token, "/send/image", { ...base, image: mediaUrl, viewOnce: false });
       throw e2;
     }
   }
 }
 
-async function sendPrivateMediaThenText(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string) {
-  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+async function sendPrivateMediaThenText(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string) {
+  await sendPlainMedia(baseUrl, token, target, mediaUrl, mediaType || "image");
   const plainText = typeof text === "string" ? text.trim() : "";
   if (plainText) {
     await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-    await sendTextWithFallback(baseUrl, token, phone, plainText);
+    await sendTextWithFallback(baseUrl, token, target, plainText);
   }
 }
 
-async function sendPrivateMediaThenMenu(baseUrl: string, token: string, phone: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
-  await sendPlainMedia(baseUrl, token, phone, mediaUrl, mediaType || "image");
+async function sendPrivateMediaThenMenu(baseUrl: string, token: string, target: string, mediaUrl: string, mediaType: string, text: string, choices: string[]) {
+  await sendPlainMedia(baseUrl, token, target, mediaUrl, mediaType || "image");
   await sleep(PRIVATE_MEDIA_TEXT_DELAY_MS);
-  return await uazapiRequest(baseUrl, token, "/send/menu", { number: phone, type: "button", text, choices });
+  const t = buildCampaignTarget(target);
+  return await uazapiRequest(baseUrl, token, "/send/menu", { ...mediaBaseFields(t), type: "button", text, choices });
 }
 
 interface CampaignButton { type: "reply" | "url" | "phone"; text: string; value?: string; }
