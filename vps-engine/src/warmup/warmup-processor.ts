@@ -1086,6 +1086,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
   await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
 
+  // Recovery tracking — updates streak counters before defer/throttle decisions.
+  tickRecovery(job.device_id);
+
   // Safe-mode: defer if instance health is critical (fail-safe; falls through on error).
   if (await tryDeferForHealth(db, job.id, job.device_id, "community")) return false;
 
