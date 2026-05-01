@@ -10,6 +10,7 @@ import { isWithinOperatingWindow, getBrtTodayAt, getBrtDateKey } from "../utils/
 import { randInt, pickRandom, generateNaturalMessage, pickMediaTypeGroup, pickMediaTypeCommunity, IMAGE_CAPTIONS, LOCATION_CAPTIONS, FALLBACK_IMAGES, FALLBACK_AUDIOS, pickFakeLocation, decideNextAction } from "../utils/message-generator";
 import { pickAvailableContact, markContactUsed, isContactOnCooldown } from "../utils/contact-tracker";
 import { canSendNow, registerSend, isTargetRecentlyUsed } from "../utils/warmup-coordinator";
+import { canSendToday, registerDailySend, mapChipKind } from "../utils/warmup-volume";
 import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, uazapiSendLocation, uazapiCheckPhone, fetchLiveGroups } from "../integrations/uazapi";
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
