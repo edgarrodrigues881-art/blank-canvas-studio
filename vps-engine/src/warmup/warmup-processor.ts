@@ -1013,6 +1013,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
   await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
 
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "community");
+
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
