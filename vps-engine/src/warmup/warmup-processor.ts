@@ -960,13 +960,22 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
       endpointUsedC = "/send/audio";
       msg = "[AUDIO] 🎤";
     } else if (mediaType === "location") {
-      const loc = pickFakeLocation();
-      const locCaption = pickRandom(LOCATION_CAPTIONS);
-      await uazapiSendLocation(baseUrl, token, peerPhone, loc.lat, loc.lng, loc.name);
-      endpointUsedC = "/send/location";
-      await new Promise(r => setTimeout(r, randInt(1000, 2000)));
-      await uazapiSendText(baseUrl, token, peerPhone, locCaption);
-      msg = `[LOC+TXT] ${loc.name}: ${locCaption}`;
+      // Policy gate — direct chat only, daily cap, stage probability, 48h per-contact cooldown
+      const decision = shouldSendLocation({ instanceId: job.device_id, day: cycle.day_index || 1, target: peerPhone, context: "community" });
+      if (decision.allowed && decision.location) {
+        const loc = decision.location;
+        const locCaption = pickRandom(LOCATION_CAPTIONS);
+        await uazapiSendLocation(baseUrl, token, peerPhone, loc.latitude, loc.longitude, loc.name);
+        registerLocationSend(job.device_id, peerPhone, cycle.day_index || 1);
+        endpointUsedC = "/send/location";
+        await new Promise(r => setTimeout(r, randInt(1000, 2000)));
+        await uazapiSendText(baseUrl, token, peerPhone, locCaption);
+        msg = `[LOC+TXT] ${loc.name}: ${locCaption}`;
+      } else {
+        // Denied → safe text fallback (preserves cadence, no API change)
+        await uazapiSendText(baseUrl, token, peerPhone, msg);
+        endpointUsedC = "/send/text";
+      }
     } else if (mediaType === "vcard") {
       const vc = pickFakeContact();
       await uazapiSendContact(baseUrl, token, peerPhone, vc.fullName, vc.phoneNumber);
