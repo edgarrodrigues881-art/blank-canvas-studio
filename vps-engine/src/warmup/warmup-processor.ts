@@ -18,7 +18,31 @@ import { uazapiSendText, uazapiSendImage, uazapiSendSticker, uazapiSendAudio, ua
 import { saveContactIfNeeded } from "../utils/contact-saver";
 import { applyHumanDelay } from "../utils/human-delay";
 import { applyPresence } from "../utils/presence";
-import { trackSendResult } from "../utils/warmup-health";
+import { trackSendResult, getHealthScore } from "../utils/warmup-health";
+
+// Adaptive throttle based on instance health (observability-driven, never blocks).
+function getAdaptiveDelay(instanceId: string): number {
+  const score = getHealthScore(instanceId);
+  if (score >= 80) return 0;
+  if (score >= 60) return 500;
+  if (score >= 40) return 1500;
+  return 3000;
+}
+
+async function applyAdaptiveThrottle(instanceId: string, context: "group" | "community" | "autosave"): Promise<void> {
+  try {
+    const extraDelay = getAdaptiveDelay(instanceId);
+    console.log("WARMUP_THROTTLE", {
+      instanceId,
+      score: getHealthScore(instanceId),
+      appliedDelay: extraDelay,
+      context,
+    });
+    if (extraDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, extraDelay));
+    }
+  } catch {}
+}
 import {
   getPhaseForDay, isCommunityPhase, hasWarmupAccess,
   getAutosaveContactsForDay, getAutosaveRoundsPerContact, getCommunityStartDayForChip,
@@ -661,6 +685,9 @@ async function processGroupInteraction(db: any, job: any, ctx: ProcessJobContext
   // Human-like pre-send delay (single, content-aware). Skips status/join.
   await applyHumanDelay(mediaType === "text" ? message : { length: 0 });
 
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "group");
+
   try {
     if (mediaType === "image") {
       const imgUrl = pickRandom(ctx.imagePool);
@@ -773,6 +800,9 @@ async function processAutosaveInteraction(db: any, job: any, ctx: ProcessJobCont
 
   // Presence (typing) — direct chat, fail-safe
   await applyPresence(baseUrl, token, target._phone, "text");
+
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "autosave");
 
   try {
     await uazapiSendText(baseUrl, token, target._phone, msg);
@@ -982,6 +1012,9 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
 
   // Presence (typing/recording) — direct chat, fail-safe. Audio → recording, else → composing.
   await applyPresence(baseUrl, token, peerPhone, mediaType === "audio" ? "audio" : "text");
+
+  // Adaptive throttle based on instance health score (never blocks send).
+  await applyAdaptiveThrottle(job.device_id, "community");
 
   try {
     if (mediaType === "image") {
