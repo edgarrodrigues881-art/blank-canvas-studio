@@ -520,34 +520,20 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
 
   const t = buildSendTarget(target);
 
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
   console.log(JSON.stringify({
     event: "send_text_dispatch",
     originalValue: t.original,
-    finalUsedValue: t.isLid ? t.chatId : t.number,
+    finalUsedValue: t.number,
     isLid: t.isLid,
     isGroup: t.isGroup,
   }));
 
-  // LID: ONLY chatId-based attempts. NEVER place "@lid" in `number`.
-  const attempts = t.isLid
-    ? [
-        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-      ]
-    : t.isGroup
-    ? [
-        { endpoint: "/chat/send-text", payload: { chatId: t.chatId, text, body: text } },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-        { endpoint: "/send/text", payload: { number: t.chatId, text } },
-      ]
-    : [
-        {
-          endpoint: "/chat/send-text",
-          payload: { number: t.number, to: t.number, chatId: t.chatId, body: text, text },
-        },
-        { endpoint: "/message/sendText", payload: { chatId: t.chatId, text } },
-        { endpoint: "/send/text", payload: { number: t.number, text } },
-      ];
+  // UAZAPIGO V2: ALL targets via `number`. No `chatId` anywhere.
+  const attempts = [
+    { endpoint: "/send/text", payload: { number: t.number, text } },
+    { endpoint: "/message/sendText", payload: { number: t.number, text } },
+  ];
 
   let lastError: Error | null = null;
 
@@ -556,7 +542,7 @@ async function sendTextWithFallback(baseUrl: string, token: string, target: stri
       return await uazapiRequest(baseUrl, token, attempt.endpoint, attempt.payload);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${t.chatId || t.original}: ${lastError.message}`);
+      console.warn(`Text send fallback failed on ${attempt.endpoint} for ${t.number || t.original}: ${lastError.message}`);
     }
   }
 
@@ -570,11 +556,12 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
   const choices = hasButtons ? buttons.map((b, i) => buildMenuChoice(b, i)).filter((choice): choice is string => Boolean(choice)) : [];
   const normalizedCarouselCards = normalizeCarouselCards(carouselCards);
 
+  console.log("UAZAPI SEND", { original: t.original, finalNumber: t.number });
   console.log(JSON.stringify({
     event: "payload_built",
     origin: "campaign",
     originalValue: t.original,
-    finalUsedValue: t.isLid ? t.chatId : t.number,
+    finalUsedValue: t.number,
     isLid: t.isLid,
     isGroup: t.isGroup,
     messageType: messageType || null,
@@ -586,11 +573,10 @@ async function sendUazapiMessage(baseUrl: string, token: string, to: string, bod
     textPreview: text.substring(0, 80),
   }));
 
-  // Carousel keeps legacy signature (uses `number` field). LIDs aren't
-  // supported by /send/carousel server-side, so we forward the original digits
-  // for non-LID and the chatId for LID; sendCarouselMessage will branch.
+  // Carousel: pass the universal V2 `number` value. sendCarouselMessage
+  // builds payloads using the same `number` field internally.
   if (messageType === "carousel") {
-    return await sendCarouselMessage(baseUrl, token, t.isLid ? t.chatId : t.number, text, normalizedCarouselCards);
+    return await sendCarouselMessage(baseUrl, token, t.number, text, normalizedCarouselCards);
   }
 
   if (choices.length > 0) {
