@@ -920,13 +920,18 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   let endpointUsedC = "/send/text";
 
   // Independent status side-action (not sent to peer chat). Fail-safe.
+  // Gated by daily cap, BRT 07:00–22:30 window and 90–180min anti-burst spacing.
   if (sendStatusAlongsideC) {
-    try {
-      const sp = pickStatusPayload(ctx.imagePool || []);
-      await uazapiSendStatus(baseUrl, token, sp);
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community" });
-    } catch (e: any) {
-      console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community", failed: true, error: e?.message });
+    const statusCtxC = { instanceId: job.device_id, cycleKey: cycle.id, day: cycle.day_index || 1 };
+    if (canSendStatus(statusCtxC)) {
+      try {
+        const sp = pickStatusPayload(ctx.imagePool || []);
+        await uazapiSendStatus(baseUrl, token, sp);
+        registerStatusSend(statusCtxC);
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community" });
+      } catch (e: any) {
+        console.log("WARMUP_DISPATCH", { actionType: "status", endpointUsed: "/send/status", context: "community", failed: true, error: e?.message });
+      }
     }
   }
 
