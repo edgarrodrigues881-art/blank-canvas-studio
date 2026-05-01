@@ -1454,8 +1454,8 @@ Deno.serve(async (req) => {
           const activeToken = activeDevice.uazapi_token;
           const activeBaseUrl = (activeDevice.uazapi_base_url || "").replace(/\/+$/, "");
 
-          const isLidContact = contact.phone.includes("@lid");
-          const phone = isLidContact ? contact.phone.replace(/@lid/i, "") : contact.phone.replace(/\D/g, "");
+          const isLidContact = isLidTarget(contact.phone);
+          const phone = isLidContact ? onlyDigits(contact.phone) : onlyDigits(contact.phone);
           if (!isLidContact && phone.length < 10) {
                 await recordCampaignOutcome(serviceClient, { userId: campaign.user_id, campaignId, campaignName: campaign.name, contactId: contact.id, phone, status: "failed", deviceId: activeDevice.id, errorMessage: "Número inválido" });
             failedCount++;
@@ -1471,7 +1471,14 @@ Deno.serve(async (req) => {
             const chosenMessage = messageVariants[msgIndex % messageVariants.length];
             if (sequentialMode) sequentialIndex = (sequentialIndex + 1) % messageVariants.length;
             const personalizedMessage = replaceVariables(chosenMessage, contact, rand4, rand3);
-            const normalizedPhone = isLidContact ? `${phone}@lid` : normalizeBrazilianPhone(phone);
+            const normalizedPhone = isLidContact ? toLidChatId(contact.phone) : normalizeBrazilianPhone(phone);
+
+            console.log(JSON.stringify({
+              event: "campaign_destination_classified",
+              original: contact.phone,
+              isLid: isLidContact,
+              finalTarget: normalizedPhone,
+            }));
 
             if (heartbeatCounter % 3 === 1) {
               const { data: deviceStatus } = await serviceClient.from("devices").select("status").eq("id", activeDevice.id).single();
