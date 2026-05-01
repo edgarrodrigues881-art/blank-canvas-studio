@@ -795,6 +795,20 @@ async function processCommunityTurn(db: any, job: any, ctx: ProcessJobContext, s
   // Contact reuse check (informational): community pair peer is fixed by scheduling contract,
   // so we always proceed (fail-safe), but log cooldown state for observability.
   isContactOnCooldown(peerPhone, job.device_id);
+
+  // ── Cross-instance coordination: avoid simultaneous sends ──
+  const allowedNowC = canSendNow(job.device_id);
+  const targetBlockedC = isTargetRecentlyUsed(peerPhone);
+  console.log("WARMUP_COORD", { instanceId: job.device_id, allowed: allowedNowC, targetBlocked: targetBlockedC, target: peerPhone, context: "community" });
+  if (!allowedNowC) {
+    // Defer this turn — community pair is fixed, so we can't pick another target.
+    const deferMsC = 8000 + Math.floor(Math.random() * 12000);
+    try {
+      await db.from("warmup_jobs").update({ run_at: new Date(Date.now() + deferMsC).toISOString() }).eq("id", job.id);
+    } catch {}
+    return false;
+  }
+
   let msg = generateNaturalMessage("community");
 
   try {
