@@ -494,7 +494,6 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const })}
                   {renderNavItem({ title: "Templates", url: "/dashboard/templates", icon: FileText })}
                   {renderNavItem({ title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers })}
-                  {renderNavItem({ title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -773,6 +772,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
                   
                   {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
+                  {renderNavItem({ title: "Grupos de Aquecimento", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Agendamento Auto Save", url: "/dashboard/autosave-schedule", icon: CalendarClock })}
                   {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}

@@ -26,7 +26,6 @@ const sections: Section[] = [
       { title: "Campanhas", description: "Acompanhe o status e métricas das suas campanhas ativas.", url: "/dashboard/campaign-list", icon: Megaphone, color: "text-orange-400" },
       { title: "Templates", description: "Modelos de mensagens prontos para reutilização.", url: "/dashboard/templates", icon: FileText, color: "text-cyan-400" },
       { title: "Template Carrossel", description: "Crie sequências de cards para envio em carrossel.", url: "/dashboard/carousel-templates", icon: Layers, color: "text-fuchsia-400" },
-      { title: "Grupos", description: "Visualize e gerencie todos os grupos capturados.", url: "/dashboard/group-crm/groups", icon: UsersRound, color: "text-indigo-400" },
     ],
   },
   {
