@@ -570,6 +570,7 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+            {renderSupportSection()}
           </>
         )}
 
