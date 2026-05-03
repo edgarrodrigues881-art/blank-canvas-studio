@@ -320,6 +320,13 @@ const App = () => (
                 <Route path="/dashboard/crm-integrations" element={<ProtectedRoute><DashboardLayout><CrmIntegrations /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/affiliates" element={<ProtectedRoute><DashboardLayout><Affiliates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-dashboard" element={<ProtectedRoute><DashboardLayout><GroupDashboard /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-reports" element={<ProtectedRoute><DashboardLayout><GroupReports /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-import" element={<ProtectedRoute><DashboardLayout><GroupImport /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-members" element={<ProtectedRoute><DashboardLayout><GroupMembers /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-campaigns" element={<ProtectedRoute><DashboardLayout><GroupCampaigns /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-templates" element={<ProtectedRoute><DashboardLayout><GroupTemplates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-settings" element={<ProtectedRoute><DashboardLayout><GroupSettings /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/notes" element={<ProtectedRoute><DashboardLayout><Notes /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
