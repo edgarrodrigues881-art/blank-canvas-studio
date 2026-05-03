@@ -753,14 +753,10 @@ export function AppSidebar() {
               )}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
                   {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
-                  {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
                   {renderNavItem({ title: "Conversor de @LID", url: "/dashboard/lid-converter", icon: ArrowRightLeft })}
-                  {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
                   {renderNavItem({ title: "Postar Status", url: "/dashboard/status-post", icon: PlayCircle })}
                   {beta.has("mass_inject") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
-                  {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
                   {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
                 </SidebarMenu>
               </SidebarGroupContent>
