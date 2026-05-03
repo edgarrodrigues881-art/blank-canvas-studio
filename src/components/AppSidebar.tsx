@@ -101,13 +101,6 @@ const menuGroups = [
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
     ],
   },
-  {
-    label: "CRM de Grupo",
-    items: [
-      { title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers },
-      { title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound },
-    ],
-  },
 ];
 
 const developmentItems: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: any; locked?: boolean }[] = [
@@ -189,7 +182,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const { workspace, setWorkspace, isCRM } = useWorkspace();
+  const { workspace, setWorkspace, isCRM, isGroupCRM } = useWorkspace();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
@@ -365,10 +358,9 @@ export function AppSidebar() {
   const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply", "/dashboard/tasks", "/dashboard/notes"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    // Only auto-switch TO crm when entering a CRM route. Do NOT auto-switch back
-    // to "automacao" just because the user navigated to a shared route (like
-    // /dashboard/auto-reply/:id) — that would kick them out of the CRM workspace.
-    if (isCRMRoute && !isCRM) setWorkspace("crm");
+    const isGroupCRMRoute = location.pathname === "/dashboard/group-crm" || location.pathname.startsWith("/dashboard/group-crm/");
+    if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
+    else if (isCRMRoute && !isCRM) setWorkspace("crm");
   }, [location.pathname]);
 
   return (
@@ -437,9 +429,64 @@ export function AppSidebar() {
                   )}
                 </button>
               </SidebarMenuItem>
+
+              {/* ===== CRM DE GRUPO WORKSPACE SWITCH BUTTON ===== */}
+              <SidebarMenuItem>
+                <button
+                  onClick={() => {
+                    if (isGroupCRM) {
+                      setWorkspace("automacao");
+                      navigate("/dashboard");
+                    } else {
+                      setWorkspace("group-crm");
+                      navigate("/dashboard/group-crm");
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
+                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
+                    isGroupCRM
+                      ? 'bg-muted/40 text-foreground font-semibold'
+                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
+                  )}
+                >
+                  {isGroupCRM ? (
+                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
+                  ) : (
+                    <UsersRound className={cn("w-[17px] h-[17px] shrink-0", isGroupCRM && "text-foreground")} strokeWidth={isGroupCRM ? 2 : 1.4} />
+                  )}
+                  {!collapsed && <span className="truncate flex-1 text-left">CRM de Grupo</span>}
+                  {!collapsed && isGroupCRM && (
+                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
+                      SAIR
+                    </span>
+                  )}
+                  {!collapsed && !isGroupCRM && (
+                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
+                  )}
+                </button>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* ===== GROUP CRM MODE: dedicated sidebar ===== */}
+        {isGroupCRM && (
+          <SidebarGroup className="py-0 mt-1">
+            {!collapsed && (
+              <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                CRM de Grupo
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
+                {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers })}
+                {renderNavItem({ title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* ===== CRM MODE: show only CRM items ===== */}
         {isCRM && (
@@ -536,7 +583,7 @@ export function AppSidebar() {
         )}
 
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && (
+        {!isCRM && !isGroupCRM && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
