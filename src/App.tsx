@@ -96,6 +96,14 @@ const CrmIntegrations = lazyWithPreload(() => import("@/pages/dashboard/CrmInteg
 const Affiliates = lazyWithPreload(() => import("@/pages/dashboard/Affiliates"));
 const Tasks = lazyWithPreload(() => import("@/pages/dashboard/Tasks"));
 const Notes = lazyWithPreload(() => import("@/pages/dashboard/Notes"));
+const GroupDashboard = lazyWithPreload(() => import("@/pages/dashboard/GroupDashboard"));
+const GroupExtraPages = import("@/pages/dashboard/GroupExtraPages");
+const GroupReports = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupReports })));
+const GroupImport = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupImport })));
+const GroupMembers = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupMembers })));
+const GroupCampaigns = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupCampaigns })));
+const GroupTemplates = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupTemplates })));
+const GroupSettings = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupSettings })));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
