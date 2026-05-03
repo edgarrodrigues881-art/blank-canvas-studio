@@ -583,7 +583,7 @@ export function AppSidebar() {
         )}
 
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && (
+        {!isCRM && !isGroupCRM && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
