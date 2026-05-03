@@ -101,21 +101,6 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
             <SidebarTrigger className="text-muted-foreground hover:text-foreground w-7 h-7 sm:w-8 sm:h-8" />
             <img src={logo} alt="DG Contingência Pro" className="w-6 h-6 rounded-md sm:hidden" />
 
-            {isCRM && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setWorkspace("automacao");
-                  navigate("/dashboard");
-                }}
-                className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground h-8 px-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/40"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-xs font-medium">Sair do CRM</span>
-              </Button>
-            )}
-
             {/* Spacer */}
             <div className="flex-1" />
 
