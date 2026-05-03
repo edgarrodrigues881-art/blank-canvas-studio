@@ -96,10 +96,16 @@ const menuGroups = [
       { title: "Instâncias", url: "/dashboard/devices", icon: Smartphone },
       { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
-      { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
+    ],
+  },
+  {
+    label: "CRM de Grupo",
+    items: [
+      { title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers },
+      { title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound },
     ],
   },
 ];
