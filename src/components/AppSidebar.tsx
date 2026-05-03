@@ -134,6 +134,8 @@ const NAV_ICON_COLORS: Record<string, string> = {
   "/dashboard/devices": "text-blue-400",
   "/dashboard/campaigns": "text-emerald-400",
   "/dashboard/group-carousel": "text-violet-400",
+  "/dashboard/group-crm/group-send": "text-violet-400",
+  "/dashboard/group-crm/groups": "text-indigo-400",
   "/dashboard/campaign-list": "text-orange-400",
   "/dashboard/templates": "text-cyan-400",
   "/dashboard/carousel-templates": "text-fuchsia-400",
