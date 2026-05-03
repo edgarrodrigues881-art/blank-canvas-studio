@@ -13,10 +13,10 @@ const GroupDashboard = () => {
     { label: "Grupos Ativos", value: 842, icon: CheckCircle2, tone: "emerald" as const },
     { label: "Grupos com Falha", value: 12, icon: XCircle, tone: "red" as const },
     { label: "Links Importados", value: 4500, icon: Link2, tone: "orange" as const },
-    { label: "Entradas Realizadas", value: 320, icon: LogIn, tone: "indigo" as const },
+    { label: "Entradas Realizadas", value: 320, icon: LogIn, tone: "sky" as const },
     { label: "Pedidos Pendentes", value: 45, icon: Clock, tone: "amber" as const },
     { label: "Mensagens Enviadas", value: 12400, icon: Send, tone: "violet" as const },
-    { label: "Boas-vindas Enviadas", value: 185, icon: Heart, tone: "pink" as const },
+    { label: "Boas-vindas Enviadas", value: 185, icon: Heart, tone: "fuchsia" as const },
   ];
 
   const quickActions = [
