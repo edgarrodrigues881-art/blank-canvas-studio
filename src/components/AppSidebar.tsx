@@ -137,6 +137,14 @@ const NAV_ICON_COLORS: Record<string, string> = {
   "/dashboard/reports/whatsapp": "text-emerald-400",
   "/dashboard/chip-conversation": "text-pink-400",
   "/dashboard/group-interaction": "text-violet-400",
+  // Gestão de Grupos
+  "/dashboard/groups-dashboard": "text-sky-400",
+  "/dashboard/groups-reports": "text-emerald-400",
+  "/dashboard/groups-import": "text-orange-400",
+  "/dashboard/group-members": "text-violet-400",
+  "/dashboard/group-campaigns": "text-pink-400",
+  "/dashboard/group-templates": "text-cyan-400",
+  "/dashboard/groups-settings": "text-amber-400",
   // CRM
   "/dashboard/crm": "text-sky-400",
   "/dashboard/conversations": "text-emerald-400",
