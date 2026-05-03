@@ -26,6 +26,7 @@ import { ptBR } from "date-fns/locale";
 import { useFeatureControls } from "@/hooks/useFeatureControls";
 import { MaintenanceModal } from "@/components/MaintenanceModal";
 import { HeaderProfileMenu } from "@/components/HeaderProfileMenu";
+import { ModuleSwitcher } from "@/components/ModuleSwitcher";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
