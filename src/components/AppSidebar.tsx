@@ -194,7 +194,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const { workspace, setWorkspace, isCRM } = useWorkspace();
+  const { workspace, setWorkspace, isCRM, isGroups, isAutomacao } = useWorkspace();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
@@ -368,12 +368,12 @@ export function AppSidebar() {
 
   // Auto-switch workspace based on current route
   const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply", "/dashboard/tasks", "/dashboard/notes"];
+  const GROUPS_ROUTES = ["/dashboard/groups-dashboard", "/dashboard/groups", "/dashboard/group-members", "/dashboard/groups-import", "/dashboard/group-invite-extractor", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/welcome", "/dashboard/group-carousel", "/dashboard/group-campaigns", "/dashboard/group-templates", "/dashboard/group-interaction", "/dashboard/groups-settings", "/dashboard/groups-reports"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    // Only auto-switch TO crm when entering a CRM route. Do NOT auto-switch back
-    // to "automacao" just because the user navigated to a shared route (like
-    // /dashboard/auto-reply/:id) — that would kick them out of the CRM workspace.
-    if (isCRMRoute && !isCRM) setWorkspace("crm");
+    const isGroupsRoute = GROUPS_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
+    if (isCRMRoute && workspace !== "crm") setWorkspace("crm");
+    else if (isGroupsRoute && workspace !== "groups") setWorkspace("groups");
   }, [location.pathname]);
 
   return (
@@ -403,48 +403,44 @@ export function AppSidebar() {
         }}
       >
 
-        {/* ===== CRM WORKSPACE SWITCH BUTTON ===== */}
+        {/* ===== MODULE SWITCHER ===== */}
         <SidebarGroup className="py-0">
           <SidebarGroupContent>
             <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              <SidebarMenuItem>
-                <button
-                  onClick={() => {
-                    if (isCRM) {
-                      setWorkspace("automacao");
-                      navigate("/dashboard");
-                    } else {
-                      setWorkspace("crm");
-                      navigate("/dashboard/crm");
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
-                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
-                    isCRM
-                      ? 'bg-muted/40 text-foreground font-semibold'
-                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
-                  )}
-                >
-                  {isCRM ? (
-                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
-                  ) : (
-                    <Headset className={cn("w-[17px] h-[17px] shrink-0", isCRM && "text-foreground")} strokeWidth={isCRM ? 2 : 1.4} />
-                  )}
-                  {!collapsed && <span className="truncate flex-1 text-left">CRM</span>}
-                  {!collapsed && isCRM && (
-                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
-                      SAIR
-                    </span>
-                  )}
-                  {!collapsed && !isCRM && (
-                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
-                  )}
-                </button>
-              </SidebarMenuItem>
+              {[
+                { key: "crm" as const, label: "CRM", icon: Headset, route: "/dashboard/crm" },
+                { key: "groups" as const, label: "Gestão de Grupos", icon: UsersRound, route: "/dashboard/groups-dashboard" },
+                { key: "automacao" as const, label: "Aquecimento", icon: Flame, route: "/dashboard/warmup-v2" },
+              ].map((m) => {
+                const active = workspace === m.key;
+                return (
+                  <SidebarMenuItem key={m.key}>
+                    <button
+                      onClick={() => {
+                        setWorkspace(m.key);
+                        navigate(m.route);
+                      }}
+                      className={cn(
+                        "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
+                        collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
+                        active
+                          ? 'bg-primary/15 text-foreground font-semibold'
+                          : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
+                      )}
+                    >
+                      <m.icon className={cn("w-[17px] h-[17px] shrink-0", active ? "text-primary" : "")} strokeWidth={active ? 2.2 : 1.6} />
+                      {!collapsed && <span className="truncate flex-1 text-left">{m.label}</span>}
+                      {!collapsed && active && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      )}
+                    </button>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <div className="mx-3 my-2 border-t border-sidebar-border/50" />
 
         {/* ===== CRM MODE: show only CRM items ===== */}
         {isCRM && (
@@ -541,7 +537,7 @@ export function AppSidebar() {
         )}
 
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && (
+        {isAutomacao && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
@@ -564,19 +560,6 @@ export function AppSidebar() {
               </SidebarGroup>
               );
             })}
-            
-            {(!shouldHideSection || hasRoutePermission(groupsModule.url)) && (
-              <SidebarGroup className="py-0 mt-1">
-                {collapsed && (
-                  <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-                )}
-                <SidebarGroupContent>
-                  <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                    {renderNavItem({ title: groupsModule.label, url: groupsModule.url, icon: groupsModule.icon })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
             <SidebarGroup className="py-0 mt-1">
@@ -800,7 +783,91 @@ export function AppSidebar() {
             )}
           </>
         )}
+
+        {/* ===== GROUPS MODE: only group-related items ===== */}
+        {isGroups && (
+          <>
+            <SidebarGroup className="py-0 mt-1">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Geral
+                </SidebarGroupLabel>
+              )}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Dashboard", url: "/dashboard/groups-dashboard", icon: LayoutDashboard, exact: true })}
+                  {renderNavItem({ title: "Meus Grupos", url: "/dashboard/groups", icon: UsersRound })}
+                  {renderNavItem({ title: "Membros", url: "/dashboard/group-members", icon: BookUser })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Captação
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Importar Grupos", url: "/dashboard/groups-import", icon: Download })}
+                  {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
+                  {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
+                  {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Operação
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
+                  {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers })}
+                  {renderNavItem({ title: "Campanhas", url: "/dashboard/group-campaigns", icon: Megaphone })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Automação
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Templates", url: "/dashboard/group-templates", icon: FileText })}
+                  {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: BotMessageSquare })}
+                  {renderNavItem({ title: "Configurações", url: "/dashboard/groups-settings", icon: Settings })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup className="py-0 mt-3">
+              {!collapsed && (
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                  Relatórios
+                </SidebarGroupLabel>
+              )}
+              {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
+              <SidebarGroupContent>
+                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Relatórios", url: "/dashboard/groups-reports", icon: BarChart3 })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
+
 
       {/* Footer profile moved to top header (HeaderProfileMenu) */}
 
