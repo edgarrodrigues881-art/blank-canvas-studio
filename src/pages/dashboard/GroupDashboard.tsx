@@ -1,4 +1,4 @@
-import { Users, CheckCircle2, XCircle, Link2, LogIn, Clock, Send, Heart, Plus, Search, Megaphone, FileText, Settings2 } from "lucide-react";
+import { Users, CheckCircle2, XCircle, Link2, LogIn, Clock, Send, Heart, Plus, Search, Megaphone, FileText, Settings2, Zap } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -126,5 +126,3 @@ const GroupDashboard = () => {
 };
 
 export default GroupDashboard;
-
-import { Zap } from \"lucide-react\";
