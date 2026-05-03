@@ -355,7 +355,8 @@ export function AppSidebar() {
   const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply", "/dashboard/tasks", "/dashboard/notes"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    const isGroupCRMRoute = location.pathname === "/dashboard/group-crm" || location.pathname.startsWith("/dashboard/group-crm/");
+    const GROUP_CRM_ROUTES = ["/dashboard/group-crm", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/lid-converter", "/dashboard/welcome"];
+    const isGroupCRMRoute = GROUP_CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isCRMRoute && !isCRM) setWorkspace("crm");
   }, [location.pathname]);
