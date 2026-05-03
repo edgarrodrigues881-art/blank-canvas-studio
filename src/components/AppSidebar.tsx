@@ -537,7 +537,7 @@ export function AppSidebar() {
         )}
 
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && (
+        {isAutomacao && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
@@ -560,19 +560,6 @@ export function AppSidebar() {
               </SidebarGroup>
               );
             })}
-            
-            {(!shouldHideSection || hasRoutePermission(groupsModule.url)) && (
-              <SidebarGroup className="py-0 mt-1">
-                {collapsed && (
-                  <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
-                )}
-                <SidebarGroupContent>
-                  <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                    {renderNavItem({ title: groupsModule.label, url: groupsModule.url, icon: groupsModule.icon })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            )}
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
             <SidebarGroup className="py-0 mt-1">
