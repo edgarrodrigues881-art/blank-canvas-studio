@@ -700,10 +700,7 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
             )}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            )}
+
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/group-invite-extractor", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
             <SidebarGroup className="py-0 mt-1">
