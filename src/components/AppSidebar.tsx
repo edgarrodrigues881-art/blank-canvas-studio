@@ -565,31 +565,14 @@ export function AppSidebar() {
               );
             })}
             
-            {(!shouldHideSection || hasAnyPermission(groupsModule.sections.flatMap(s => s.items.map(i => i.url)))) && (
+            {(!shouldHideSection || hasRoutePermission(groupsModule.url)) && (
               <SidebarGroup className="py-0 mt-1">
-                {!collapsed && (
-                  <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
-                    {groupsModule.label}
-                  </SidebarGroupLabel>
-                )}
                 {collapsed && (
                   <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
                 )}
                 <SidebarGroupContent>
                   <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                    {groupsModule.sections.map((section, si) => (
-                      <div key={si} className={si > 0 ? "mt-3" : ""}>
-                        {!collapsed && (
-                          <div className="px-4 mb-1.5 flex items-center gap-2">
-                            <span className="text-[9px] font-bold text-muted-foreground/30 tracking-tighter uppercase whitespace-nowrap">
-                              {section.label}
-                            </span>
-                            <div className="h-[1px] w-full bg-border/30" />
-                          </div>
-                        )}
-                        {section.items.map((item) => renderNavItem(item as any))}
-                      </div>
-                    ))}
+                    {renderNavItem({ title: groupsModule.label, url: groupsModule.url, icon: groupsModule.icon })}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
