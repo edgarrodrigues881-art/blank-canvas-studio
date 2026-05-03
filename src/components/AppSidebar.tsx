@@ -106,41 +106,7 @@ const menuGroups = [
 const groupsModule = {
   label: "Gestão de Grupos",
   url: "/dashboard/groups-dashboard",
-  sections: [
-    {
-      label: "VISÃO GERAL",
-      items: [
-        { title: "Dashboard de Grupos", url: "/dashboard/groups-dashboard", icon: LayoutDashboard },
-        { title: "Relatórios de Grupos", url: "/dashboard/groups-reports", icon: BarChart3 },
-      ]
-    },
-    {
-      label: "CAPTAÇÃO",
-      items: [
-        { title: "Importar Grupos", url: "/dashboard/groups-import", icon: Download },
-        { title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 },
-        { title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users },
-        { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn },
-      ]
-    },
-    {
-      label: "OPERAÇÃO",
-      items: [
-        { title: "Meus Grupos", url: "/dashboard/groups", icon: UsersRound },
-        { title: "Membros dos Grupos", url: "/dashboard/group-members", icon: BookUser },
-        { title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart },
-        { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
-      ]
-    },
-    {
-      label: "AUTOMAÇÃO",
-      items: [
-        { title: "Campanhas de Grupo", url: "/dashboard/group-campaigns", icon: Megaphone },
-        { title: "Templates de Grupo", url: "/dashboard/group-templates", icon: FileText },
-        { title: "Configurações de Grupos", url: "/dashboard/groups-settings", icon: Settings },
-      ]
-    }
-  ]
+  icon: UsersRound
 };
 
 const developmentItems: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: any; locked?: boolean }[] = [
