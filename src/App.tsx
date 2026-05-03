@@ -149,6 +149,13 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/crm-dispatches": () => { (CrmDispatches as any).__preload?.(); },
   "/dashboard/crm-campaign-list": () => { (CrmCampaignList as any).__preload?.(); },
   "/dashboard/crm-templates": () => { (CrmTemplates as any).__preload?.(); },
+  "/dashboard/groups-dashboard": () => { (GroupDashboard as any).__preload?.(); },
+  "/dashboard/groups-reports": () => { (GroupReports as any).__preload?.(); },
+  "/dashboard/groups-import": () => { (GroupImport as any).__preload?.(); },
+  "/dashboard/group-members": () => { (GroupMembers as any).__preload?.(); },
+  "/dashboard/group-campaigns": () => { (GroupCampaigns as any).__preload?.(); },
+  "/dashboard/group-templates": () => { (GroupTemplates as any).__preload?.(); },
+  "/dashboard/groups-settings": () => { (GroupSettings as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
