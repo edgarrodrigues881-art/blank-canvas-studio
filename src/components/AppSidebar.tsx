@@ -96,10 +96,16 @@ const menuGroups = [
       { title: "Instâncias", url: "/dashboard/devices", icon: Smartphone },
       { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
-      { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
+    ],
+  },
+  {
+    label: "CRM de Grupo",
+    items: [
+      { title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers },
+      { title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound },
     ],
   },
 ];
@@ -128,6 +134,8 @@ const NAV_ICON_COLORS: Record<string, string> = {
   "/dashboard/devices": "text-blue-400",
   "/dashboard/campaigns": "text-emerald-400",
   "/dashboard/group-carousel": "text-violet-400",
+  "/dashboard/group-crm/group-send": "text-violet-400",
+  "/dashboard/group-crm/groups": "text-indigo-400",
   "/dashboard/campaign-list": "text-orange-400",
   "/dashboard/templates": "text-cyan-400",
   "/dashboard/carousel-templates": "text-fuchsia-400",
@@ -687,7 +695,6 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
                   
                   {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
-                  {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Agendamento Auto Save", url: "/dashboard/autosave-schedule", icon: CalendarClock })}
                   {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
@@ -695,6 +702,7 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
             )}
+
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/group-invite-extractor", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
             <SidebarGroup className="py-0 mt-1">
