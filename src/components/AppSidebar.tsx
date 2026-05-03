@@ -734,10 +734,8 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
                   
                   {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
-                  {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Agendamento Auto Save", url: "/dashboard/autosave-schedule", icon: CalendarClock })}
-                  {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
