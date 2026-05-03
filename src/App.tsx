@@ -96,6 +96,14 @@ const CrmIntegrations = lazyWithPreload(() => import("@/pages/dashboard/CrmInteg
 const Affiliates = lazyWithPreload(() => import("@/pages/dashboard/Affiliates"));
 const Tasks = lazyWithPreload(() => import("@/pages/dashboard/Tasks"));
 const Notes = lazyWithPreload(() => import("@/pages/dashboard/Notes"));
+const GroupDashboard = lazyWithPreload(() => import("@/pages/dashboard/GroupDashboard"));
+const GroupExtraPages = import("@/pages/dashboard/GroupExtraPages");
+const GroupReports = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupReports })));
+const GroupImport = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupImport })));
+const GroupMembers = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupMembers })));
+const GroupCampaigns = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupCampaigns })));
+const GroupTemplates = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupTemplates })));
+const GroupSettings = lazyWithPreload(() => GroupExtraPages.then(m => ({ default: m.GroupSettings })));
 
 // Backoffice pages
 const BOCampaigns = lazyWithPreload(() => import("@/pages/backoffice/BOCampaigns"));
@@ -141,6 +149,13 @@ export const routePreloadMap: Record<string, () => void> = {
   "/dashboard/crm-dispatches": () => { (CrmDispatches as any).__preload?.(); },
   "/dashboard/crm-campaign-list": () => { (CrmCampaignList as any).__preload?.(); },
   "/dashboard/crm-templates": () => { (CrmTemplates as any).__preload?.(); },
+  "/dashboard/groups-dashboard": () => { (GroupDashboard as any).__preload?.(); },
+  "/dashboard/groups-reports": () => { (GroupReports as any).__preload?.(); },
+  "/dashboard/groups-import": () => { (GroupImport as any).__preload?.(); },
+  "/dashboard/group-members": () => { (GroupMembers as any).__preload?.(); },
+  "/dashboard/group-campaigns": () => { (GroupCampaigns as any).__preload?.(); },
+  "/dashboard/group-templates": () => { (GroupTemplates as any).__preload?.(); },
+  "/dashboard/groups-settings": () => { (GroupSettings as any).__preload?.(); },
 };
 
 const queryClient = new QueryClient({
@@ -312,6 +327,13 @@ const App = () => (
                 <Route path="/dashboard/crm-integrations" element={<ProtectedRoute><DashboardLayout><CrmIntegrations /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/affiliates" element={<ProtectedRoute><DashboardLayout><Affiliates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/tasks" element={<ProtectedRoute><DashboardLayout><Tasks /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-dashboard" element={<ProtectedRoute><DashboardLayout><GroupDashboard /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-reports" element={<ProtectedRoute><DashboardLayout><GroupReports /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-import" element={<ProtectedRoute><DashboardLayout><GroupImport /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-members" element={<ProtectedRoute><DashboardLayout><GroupMembers /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-campaigns" element={<ProtectedRoute><DashboardLayout><GroupCampaigns /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-templates" element={<ProtectedRoute><DashboardLayout><GroupTemplates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/groups-settings" element={<ProtectedRoute><DashboardLayout><GroupSettings /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/notes" element={<ProtectedRoute><DashboardLayout><Notes /></DashboardLayout></ProtectedRoute>} />
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}

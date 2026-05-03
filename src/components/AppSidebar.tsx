@@ -96,13 +96,52 @@ const menuGroups = [
       { title: "Instâncias", url: "/dashboard/devices", icon: Smartphone },
       { title: "Meus Contatos", url: "/dashboard/contacts", icon: BookUser },
       { title: "Enviar Mensagem", url: "/dashboard/campaigns", icon: Send },
-      { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
       { title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const },
       { title: "Template", url: "/dashboard/templates", icon: FileText },
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
     ],
   },
 ];
+
+const groupsModule = {
+  label: "Gestão de Grupos",
+  url: "/dashboard/groups-dashboard",
+  sections: [
+    {
+      label: "VISÃO GERAL",
+      items: [
+        { title: "Dashboard de Grupos", url: "/dashboard/groups-dashboard", icon: LayoutDashboard },
+        { title: "Relatórios de Grupos", url: "/dashboard/groups-reports", icon: BarChart3 },
+      ]
+    },
+    {
+      label: "CAPTAÇÃO",
+      items: [
+        { title: "Importar Grupos", url: "/dashboard/groups-import", icon: Download },
+        { title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 },
+        { title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users },
+        { title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn },
+      ]
+    },
+    {
+      label: "OPERAÇÃO",
+      items: [
+        { title: "Meus Grupos", url: "/dashboard/groups", icon: UsersRound },
+        { title: "Membros dos Grupos", url: "/dashboard/group-members", icon: BookUser },
+        { title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart },
+        { title: "Disparo em Grupo", url: "/dashboard/group-carousel", icon: Layers },
+      ]
+    },
+    {
+      label: "AUTOMAÇÃO",
+      items: [
+        { title: "Campanhas de Grupo", url: "/dashboard/group-campaigns", icon: Megaphone },
+        { title: "Templates de Grupo", url: "/dashboard/group-templates", icon: FileText },
+        { title: "Configurações de Grupos", url: "/dashboard/groups-settings", icon: Settings },
+      ]
+    }
+  ]
+};
 
 const developmentItems: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: any; locked?: boolean }[] = [
 ];
@@ -138,6 +177,14 @@ const NAV_ICON_COLORS: Record<string, string> = {
   "/dashboard/reports/whatsapp": "text-emerald-400",
   "/dashboard/chip-conversation": "text-pink-400",
   "/dashboard/group-interaction": "text-violet-400",
+  // Gestão de Grupos
+  "/dashboard/groups-dashboard": "text-sky-400",
+  "/dashboard/groups-reports": "text-emerald-400",
+  "/dashboard/groups-import": "text-orange-400",
+  "/dashboard/group-members": "text-violet-400",
+  "/dashboard/group-campaigns": "text-pink-400",
+  "/dashboard/group-templates": "text-cyan-400",
+  "/dashboard/groups-settings": "text-amber-400",
   // CRM
   "/dashboard/crm": "text-sky-400",
   "/dashboard/conversations": "text-emerald-400",
@@ -551,6 +598,36 @@ export function AppSidebar() {
               </SidebarGroup>
               );
             })}
+            
+            {(!shouldHideSection || hasAnyPermission(groupsModule.sections.flatMap(s => s.items.map(i => i.url)))) && (
+              <SidebarGroup className="py-0 mt-1">
+                {!collapsed && (
+                  <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
+                    {groupsModule.label}
+                  </SidebarGroupLabel>
+                )}
+                {collapsed && (
+                  <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                    {groupsModule.sections.map((section, si) => (
+                      <div key={si} className={si > 0 ? "mt-3" : ""}>
+                        {!collapsed && (
+                          <div className="px-4 mb-1.5 flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-muted-foreground/30 tracking-tighter uppercase whitespace-nowrap">
+                              {section.label}
+                            </span>
+                            <div className="h-[1px] w-full bg-border/30" />
+                          </div>
+                        )}
+                        {section.items.map((item) => renderNavItem(item as any))}
+                      </div>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
             <SidebarGroup className="py-0 mt-1">
@@ -687,10 +764,8 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Proxy", url: "/dashboard/proxy", icon: Shield })}
                   
                   {renderNavItem({ title: "Conversa entre Chips", url: "/dashboard/chip-conversation", icon: ArrowRightLeft })}
-                  {renderNavItem({ title: "Grupos", url: "/dashboard/groups", icon: UsersRound })}
                   {renderNavItem({ title: "Auto Save", url: "/dashboard/autosave", icon: SaveAll })}
                   {renderNavItem({ title: "Agendamento Auto Save", url: "/dashboard/autosave-schedule", icon: CalendarClock })}
-                  {renderNavItem({ title: "Interação de Grupos", url: "/dashboard/group-interaction", icon: UsersRound })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -708,14 +783,10 @@ export function AppSidebar() {
               )}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Extrator de Grupos", url: "/dashboard/group-extractor", icon: Users })}
                   {renderNavItem({ title: "Verificador WhatsApp", url: "/dashboard/whatsapp-verifier", icon: Phone })}
-                  {renderNavItem({ title: "Entrada em Grupos", url: "/dashboard/group-join", icon: LogIn })}
                   {renderNavItem({ title: "Conversor de @LID", url: "/dashboard/lid-converter", icon: ArrowRightLeft })}
-                  {renderNavItem({ title: "Extrator de Links", url: "/dashboard/group-invite-extractor", icon: Link2 })}
                   {renderNavItem({ title: "Postar Status", url: "/dashboard/status-post", icon: PlayCircle })}
                   {beta.has("mass_inject") && renderNavItem({ title: "Adição em Massa", url: "/dashboard/mass-inject", icon: UserPlus })}
-                  {renderNavItem({ title: "Boas-vindas", url: "/dashboard/welcome", icon: Heart })}
                   {renderNavItem({ title: "Relatório Via WhatsApp", url: "/dashboard/reports/whatsapp", icon: ScrollText })}
                 </SidebarMenu>
               </SidebarGroupContent>
