@@ -1,37 +1,16 @@
-import { 
-  Users, 
-  CheckCircle2, 
-  XCircle, 
-  Link2, 
-  LogIn, 
-  Clock, 
-  Send, 
-  Heart, 
-  Plus, 
-  Search, 
-  Megaphone, 
-  FileText, 
-  Settings2, 
-  Zap,
-  LayoutDashboard,
-  BarChart3,
-  Download,
-  UsersRound,
-  BookUser,
-  Layers,
-  Settings,
-  ChevronRight
+import {
+  Users,
+  CheckCircle2,
+  Link2,
+  LogIn,
+  Send,
+  Megaphone,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
 
 const GroupDashboard = () => {
-  const navigate = useNavigate();
-
   const stats = [
     { label: "Total de Grupos", value: 1250, icon: Users, tone: "blue" as const },
     { label: "Grupos Ativos", value: 842, icon: CheckCircle2, tone: "emerald" as const },
@@ -41,48 +20,24 @@ const GroupDashboard = () => {
     { label: "Mensagens Enviadas", value: 12400, icon: Send, tone: "violet" as const },
   ];
 
-  const sections = [
-    {
-      label: "Visão Geral",
-      items: [
-        { title: "Dashboard de Grupos", description: "Visão geral e métricas de desempenho dos seus grupos.", url: "/dashboard/groups-dashboard", icon: LayoutDashboard, iconColor: "text-sky-400" },
-        { title: "Relatórios de Grupos", description: "Relatórios detalhados de envios e interações.", url: "/dashboard/groups-reports", icon: BarChart3, iconColor: "text-emerald-400" },
-      ]
-    },
-    {
-      label: "Captação",
-      items: [
-        { title: "Importar Grupos", description: "Importe novas listas de grupos para sua base.", url: "/dashboard/groups-import", icon: Download, iconColor: "text-orange-400" },
-        { title: "Extrator de Links", description: "Extraia links de convite de grupos automaticamente.", url: "/dashboard/group-invite-extractor", icon: Link2, iconColor: "text-blue-400" },
-        { title: "Extrator de Grupos", description: "Extraia membros e informações de grupos existentes.", url: "/dashboard/group-extractor", icon: Users, iconColor: "text-indigo-400" },
-        { title: "Entrada em Grupos", description: "Gerencie o processo de entrada em novos grupos.", url: "/dashboard/group-join", icon: LogIn, iconColor: "text-sky-400" },
-      ]
-    },
-    {
-      label: "Operação",
-      items: [
-        { title: "Meus Grupos", description: "Lista completa e gerenciamento dos seus grupos.", url: "/dashboard/groups", icon: UsersRound, iconColor: "text-violet-400" },
-        { title: "Membros dos Grupos", description: "Gerencie os membros dos grupos captados.", url: "/dashboard/group-members", icon: BookUser, iconColor: "text-emerald-400" },
-        { title: "Boas-vindas", description: "Configure mensagens automáticas de boas-vindas.", url: "/dashboard/welcome", icon: Heart, iconColor: "text-pink-400" },
-        { title: "Disparo em Grupo", description: "Envie mensagens em massa para diversos grupos.", url: "/dashboard/group-carousel", icon: Layers, iconColor: "text-fuchsia-400" },
-      ]
-    },
-    {
-      label: "Automação",
-      items: [
-        { title: "Campanhas de Grupo", description: "Crie campanhas estruturadas para grupos.", url: "/dashboard/group-campaigns", icon: Megaphone, iconColor: "text-orange-400" },
-        { title: "Templates de Grupo", description: "Gerencie modelos de mensagens para grupos.", url: "/dashboard/group-templates", icon: FileText, iconColor: "text-cyan-400" },
-        { title: "Configurações de Grupos", description: "Ajustes gerais do módulo de grupos.", url: "/dashboard/groups-settings", icon: Settings, iconColor: "text-amber-400" },
-      ]
-    }
-  ];
-
   const recentActivities = [
     { id: 1, group: "Vendas Automotivas SP", action: "Envio de Campanha", instance: "Chip 01", status: "Concluído", date: "Hoje, 14:30" },
     { id: 2, group: "Marketing Digital Brasil", action: "Entrada em Grupo", instance: "Chip 03", status: "Pendente", date: "Hoje, 14:15" },
     { id: 3, group: "Networking Empresarial", action: "Extração de Membros", instance: "Chip 02", status: "Falhou", date: "Hoje, 13:50" },
     { id: 4, group: "Promoções Diárias", action: "Mensagem de Boas-vindas", instance: "Chip 01", status: "Em execução", date: "Hoje, 13:45" },
     { id: 5, group: "Grupo de Estudos", action: "Envio de Campanha", instance: "Chip 04", status: "Pausado", date: "Ontem, 18:20" },
+  ];
+
+  const campaignStatus = [
+    { name: "Promo Black Friday", sent: 8420, total: 10000, status: "Em execução" },
+    { name: "Lançamento Curso", sent: 3200, total: 3200, status: "Concluído" },
+    { name: "Reativação Leads", sent: 0, total: 1500, status: "Pausado" },
+  ];
+
+  const joinStatus = [
+    { name: "Lote SP - Janeiro", joined: 142, total: 200, status: "Em execução" },
+    { name: "Networking RJ", joined: 80, total: 80, status: "Concluído" },
+    { name: "Grupos Educação", joined: 12, total: 100, status: "Pendente" },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -97,10 +52,12 @@ const GroupDashboard = () => {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-10">
+    <div className="space-y-6 sm:space-y-8">
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Gestão de Grupos</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">Gerencie listas, entradas, disparos, campanhas, membros e automações de grupos em um só lugar.</p>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Controle seus grupos, membros, entradas, campanhas e automações em um único painel.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -116,80 +73,80 @@ const GroupDashboard = () => {
         ))}
       </div>
 
-      <div className="space-y-12">
-        {sections.map((section) => (
-          <div key={section.label} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold text-foreground uppercase tracking-widest text-muted-foreground/50">
-                {section.label}
-              </h2>
-              <div className="h-px flex-1 bg-border/50" />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {section.items.map((item) => (
-                <Card 
-                  key={item.title}
-                  className="group relative overflow-hidden border-border/50 bg-card/50 hover:bg-muted/30 transition-all duration-300 cursor-pointer rounded-xl flex flex-col"
-                  onClick={() => navigate(item.url)}
-                >
-                  <div className="p-5 flex flex-col flex-1 gap-4">
-                    <div className="flex items-start justify-between">
-                      <div className={cn("p-2.5 rounded-xl bg-background/50 border border-border/50 transition-colors group-hover:bg-background group-hover:scale-110 duration-300", item.iconColor)}>
-                        <item.icon className="w-6 h-6" strokeWidth={1.5} />
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                        {item.description}
-                      </p>
-                    </div>
-                    
-                    <div className="mt-auto pt-4 flex items-center text-[11px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">
-                      Acessar funcionalidade
-                    </div>
-                  </div>
-                  
-                  {/* Hover accent */}
-                  <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary group-hover:w-full transition-all duration-500" />
-                </Card>
-              ))}
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="border-border/50 bg-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Status das Campanhas</h2>
           </div>
-        ))}
+          <div className="space-y-3">
+            {campaignStatus.map((c) => {
+              const pct = Math.round((c.sent / c.total) * 100);
+              return (
+                <div key={c.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-foreground truncate">{c.name}</span>
+                    {getStatusBadge(c.status)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{c.sent}/{c.total}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="border-border/50 bg-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Status das Entradas</h2>
+          </div>
+          <div className="space-y-3">
+            {joinStatus.map((c) => {
+              const pct = Math.round((c.joined / c.total) * 100);
+              return (
+                <div key={c.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-foreground truncate">{c.name}</span>
+                    {getStatusBadge(c.status)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted/50 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground tabular-nums">{c.joined}/{c.total}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       </div>
 
-      <div className="space-y-4 pt-4">
-        <h2 className="text-lg font-semibold text-foreground">Últimas Atividades de Grupos</h2>
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-foreground">Últimas Atividades</h2>
         <Card className="border-border/50 bg-card overflow-hidden rounded-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border/50">
+              <thead className="bg-muted/40 text-muted-foreground font-medium border-b border-border/50">
                 <tr>
-                  <th className="px-6 py-4">Grupo</th>
-                  <th className="px-6 py-4">Tipo de Ação</th>
-                  <th className="px-6 py-4">Instância</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Data</th>
-                  <th className="px-6 py-4">Ações</th>
+                  <th className="px-5 py-3">Grupo</th>
+                  <th className="px-5 py-3">Ação</th>
+                  <th className="px-5 py-3">Instância</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {recentActivities.map((activity) => (
                   <tr key={activity.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-6 py-4 font-medium text-foreground">{activity.group}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{activity.action}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{activity.instance}</td>
-                    <td className="px-6 py-4">{getStatusBadge(activity.status)}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{activity.date}</td>
-                    <td className="px-6 py-4">
-                      <Button variant="ghost" size="sm" className="h-8 text-xs">Ver Detalhes</Button>
-                    </td>
+                    <td className="px-5 py-3 font-medium text-foreground">{activity.group}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{activity.action}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{activity.instance}</td>
+                    <td className="px-5 py-3">{getStatusBadge(activity.status)}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{activity.date}</td>
                   </tr>
                 ))}
               </tbody>
