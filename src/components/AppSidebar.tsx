@@ -101,13 +101,6 @@ const menuGroups = [
       { title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers },
     ],
   },
-  {
-    label: "CRM de Grupo",
-    items: [
-      { title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers },
-      { title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound },
-    ],
-  },
 ];
 
 const developmentItems: { title: string; url: string; icon: any; exact?: boolean; badgeKey?: any; locked?: boolean }[] = [
