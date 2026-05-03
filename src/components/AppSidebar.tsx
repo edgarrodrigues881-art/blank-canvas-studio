@@ -368,12 +368,12 @@ export function AppSidebar() {
 
   // Auto-switch workspace based on current route
   const CRM_ROUTES = ["/dashboard/crm", "/dashboard/conversations", "/dashboard/service-contacts", "/dashboard/leads", "/dashboard/pipeline", "/dashboard/schedules", "/dashboard/ai-settings", "/dashboard/crm-reports", "/dashboard/prospeccao", "/dashboard/crm-agendamentos", "/dashboard/crm-agenda", "/dashboard/crm-followups", "/dashboard/crm-dispatches", "/dashboard/crm-campaign-list", "/dashboard/crm-templates", "/dashboard/crm-learning", "/dashboard/crm-integrations", "/dashboard/flows", "/dashboard/quick-replies", "/dashboard/auto-reply", "/dashboard/autoreply", "/dashboard/tasks", "/dashboard/notes"];
+  const GROUPS_ROUTES = ["/dashboard/groups-dashboard", "/dashboard/groups", "/dashboard/group-members", "/dashboard/groups-import", "/dashboard/group-invite-extractor", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/welcome", "/dashboard/group-carousel", "/dashboard/group-campaigns", "/dashboard/group-templates", "/dashboard/group-interaction", "/dashboard/groups-settings", "/dashboard/groups-reports"];
   useEffect(() => {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    // Only auto-switch TO crm when entering a CRM route. Do NOT auto-switch back
-    // to "automacao" just because the user navigated to a shared route (like
-    // /dashboard/auto-reply/:id) — that would kick them out of the CRM workspace.
-    if (isCRMRoute && !isCRM) setWorkspace("crm");
+    const isGroupsRoute = GROUPS_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
+    if (isCRMRoute && workspace !== "crm") setWorkspace("crm");
+    else if (isGroupsRoute && workspace !== "groups") setWorkspace("groups");
   }, [location.pathname]);
 
   return (
