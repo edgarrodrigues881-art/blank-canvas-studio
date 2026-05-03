@@ -430,9 +430,64 @@ export function AppSidebar() {
                   )}
                 </button>
               </SidebarMenuItem>
+
+              {/* ===== CRM DE GRUPO WORKSPACE SWITCH BUTTON ===== */}
+              <SidebarMenuItem>
+                <button
+                  onClick={() => {
+                    if (isGroupCRM) {
+                      setWorkspace("automacao");
+                      navigate("/dashboard");
+                    } else {
+                      setWorkspace("group-crm");
+                      navigate("/dashboard/group-crm");
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
+                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
+                    isGroupCRM
+                      ? 'bg-muted/40 text-foreground font-semibold'
+                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
+                  )}
+                >
+                  {isGroupCRM ? (
+                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
+                  ) : (
+                    <UsersRound className={cn("w-[17px] h-[17px] shrink-0", isGroupCRM && "text-foreground")} strokeWidth={isGroupCRM ? 2 : 1.4} />
+                  )}
+                  {!collapsed && <span className="truncate flex-1 text-left">CRM de Grupo</span>}
+                  {!collapsed && isGroupCRM && (
+                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
+                      SAIR
+                    </span>
+                  )}
+                  {!collapsed && !isGroupCRM && (
+                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
+                  )}
+                </button>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* ===== GROUP CRM MODE: dedicated sidebar ===== */}
+        {isGroupCRM && (
+          <SidebarGroup className="py-0 mt-1">
+            {!collapsed && (
+              <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                CRM de Grupo
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
+                {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers })}
+                {renderNavItem({ title: "Grupos", url: "/dashboard/group-crm/groups", icon: UsersRound })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* ===== CRM MODE: show only CRM items ===== */}
         {isCRM && (
