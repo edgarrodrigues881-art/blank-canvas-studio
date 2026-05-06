@@ -522,6 +522,43 @@ export function AppSidebar() {
                   )}
                 </button>
               </SidebarMenuItem>
+
+              {/* ===== GERENCIADOR DE GRUPO WORKSPACE SWITCH BUTTON ===== */}
+              <SidebarMenuItem>
+                <button
+                  onClick={() => {
+                    if (isGroupManager) {
+                      setWorkspace("automacao");
+                      navigate("/dashboard");
+                    } else {
+                      setWorkspace("group-manager");
+                      navigate("/dashboard/group-manager");
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
+                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
+                    isGroupManager
+                      ? 'bg-muted/40 text-foreground font-semibold'
+                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
+                  )}
+                >
+                  {isGroupManager ? (
+                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
+                  ) : (
+                    <Layers className={cn("w-[17px] h-[17px] shrink-0", isGroupManager && "text-foreground")} strokeWidth={isGroupManager ? 2 : 1.4} />
+                  )}
+                  {!collapsed && <span className="truncate flex-1 text-left">Gerenciador de Grupo</span>}
+                  {!collapsed && isGroupManager && (
+                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
+                      SAIR
+                    </span>
+                  )}
+                  {!collapsed && !isGroupManager && (
+                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
+                  )}
+                </button>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
