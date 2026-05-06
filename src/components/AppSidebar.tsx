@@ -179,7 +179,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const { workspace, setWorkspace, isCRM, isGroupCRM, isGroupManager } = useWorkspace();
+  const { workspace, setWorkspace, isCRM, isGroupCRM } = useWorkspace();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
@@ -412,9 +412,7 @@ export function AppSidebar() {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     const GROUP_CRM_ROUTES = ["/dashboard/group-crm", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/lid-converter", "/dashboard/welcome"];
     const isGroupCRMRoute = GROUP_CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    const GROUP_MANAGER_ROUTES = ["/dashboard/group-manager"];
-    const isGroupManagerRoute = GROUP_MANAGER_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    if (isGroupManagerRoute && !isGroupManager) setWorkspace("group-manager");
+    if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isCRMRoute && !isCRM) setWorkspace("crm");
   }, [location.pathname]);
