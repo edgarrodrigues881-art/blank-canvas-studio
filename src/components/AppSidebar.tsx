@@ -443,49 +443,6 @@ export function AppSidebar() {
         }}
       >
 
-        {/* ===== CRM WORKSPACE SWITCH BUTTON ===== */}
-        <SidebarGroup className="py-0">
-          <SidebarGroupContent>
-            <SidebarMenu className={cn("space-y-[2px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-              <SidebarMenuItem>
-                <button
-                  onClick={() => {
-                    if (isGroupCRM) {
-                      setWorkspace("automacao");
-                      navigate("/dashboard");
-                    } else {
-                      setWorkspace("group-crm");
-                      navigate("/dashboard/group-crm");
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
-                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
-                    isGroupCRM
-                      ? 'bg-muted/40 text-foreground font-semibold'
-                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
-                  )}
-                >
-                  {isGroupCRM ? (
-                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
-                  ) : (
-                    <UsersRound className={cn("w-[17px] h-[17px] shrink-0", isGroupCRM && "text-foreground")} strokeWidth={isGroupCRM ? 2 : 1.4} />
-                  )}
-                  {!collapsed && <span className="truncate flex-1 text-left">CRM de Grupo</span>}
-                  {!collapsed && isGroupCRM && (
-                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
-                      SAIR
-                    </span>
-                  )}
-                  {!collapsed && !isGroupCRM && (
-                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
-                  )}
-                </button>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
         {/* ===== GROUP CRM MODE: dedicated sidebar ===== */}
         {isGroupCRM && (
           <>
