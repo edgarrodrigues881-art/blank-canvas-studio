@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
-import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon, ArrowLeft, Headset } from "lucide-react";
+import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon, ArrowLeft, Headset, UsersRound } from "lucide-react";
 import { useTheme } from "next-themes";
 import { WorkspaceProvider, useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
   const blockedFeature = isFeatureBlocked(location.pathname);
   const showMaintenance = !!blockedFeature;
 
-  const { isCRM, setWorkspace } = useWorkspace();
+  const { isCRM, isGroupCRM, setWorkspace } = useWorkspace();
 
   return (
     <SidebarProvider>
@@ -128,6 +128,32 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
                 <Headset className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
               )}
               <span className="sr-only">{isCRM ? "Sair do CRM" : "Acessar CRM"}</span>
+            </button>
+
+            {/* Group CRM quick toggle */}
+            <button
+              onClick={() => {
+                if (isGroupCRM) {
+                  setWorkspace("automacao");
+                  navigate("/dashboard");
+                } else {
+                  setWorkspace("group-crm");
+                  navigate("/dashboard/group-crm");
+                }
+              }}
+              title={isGroupCRM ? "Sair do CRM de Grupo" : "Acessar CRM de Grupo"}
+              className={`relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all duration-150 ${
+                isGroupCRM
+                  ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
+                  : "bg-muted/40 border-border/30 text-muted-foreground hover:bg-muted/70 hover:border-border/50 hover:text-foreground"
+              }`}
+            >
+              {isGroupCRM ? (
+                <ArrowLeft className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.8} />
+              ) : (
+                <UsersRound className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
+              )}
+              <span className="sr-only">{isGroupCRM ? "Sair do CRM de Grupo" : "Acessar CRM de Grupo"}</span>
             </button>
 
             {/* Theme toggle */}
