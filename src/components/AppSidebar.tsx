@@ -672,22 +672,8 @@ export function AppSidebar() {
           </>
         )}
 
-        {/* ===== GROUP MANAGER MODE: dedicated sidebar ===== */}
-        {isGroupManager && (
-          <>
-            <SidebarGroup className="py-0 mt-1">
-              <SidebarGroupContent>
-                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Dashboard", url: "/dashboard/group-manager", icon: LayoutDashboard, exact: true })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            {renderSupportSection()}
-          </>
-        )}
-
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && !isGroupCRM && !isGroupManager && (
+        {!isCRM && !isGroupCRM && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
