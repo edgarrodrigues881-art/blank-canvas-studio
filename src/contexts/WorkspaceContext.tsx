@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
-export type Workspace = "automacao" | "crm" | "group-crm";
+export type Workspace = "automacao" | "crm" | "group-crm" | "group-manager";
 
 interface WorkspaceContextValue {
   workspace: Workspace;
   setWorkspace: (ws: Workspace) => void;
   isCRM: boolean;
   isGroupCRM: boolean;
+  isGroupManager: boolean;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue>({
@@ -14,6 +15,7 @@ const WorkspaceContext = createContext<WorkspaceContextValue>({
   setWorkspace: () => {},
   isCRM: false,
   isGroupCRM: false,
+  isGroupManager: false,
 });
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
@@ -33,6 +35,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setWorkspace,
         isCRM: workspace === "crm",
         isGroupCRM: workspace === "group-crm",
+        isGroupManager: workspace === "group-manager",
       }}
     >
       {children}

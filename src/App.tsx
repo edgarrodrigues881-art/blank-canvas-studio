@@ -81,6 +81,7 @@ const ConversationQueue = lazyWithPreload(() => import("@/pages/dashboard/Conver
 const ServiceReports = lazyWithPreload(() => import("@/pages/dashboard/ServiceReports"));
 const GroupCarouselDispatch = lazyWithPreload(() => import("@/pages/dashboard/GroupCarouselDispatch"));
 const GroupCrmDashboard = lazyWithPreload(() => import("@/pages/dashboard/GroupCrmDashboard"));
+const GroupManagerDashboard = lazyWithPreload(() => import("@/pages/dashboard/GroupManagerDashboard"));
 const CRMDashboard = lazyWithPreload(() => import("@/pages/dashboard/CRMDashboard"));
 const Leads = lazyWithPreload(() => import("@/pages/dashboard/Leads"));
 const Pipeline = lazyWithPreload(() => import("@/pages/dashboard/Pipeline"));
@@ -302,6 +303,7 @@ const App = () => (
                 <Route path="/dashboard/group-crm" element={<ProtectedRoute><DashboardLayout><GroupCrmDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/group-send" element={<ProtectedRoute><DashboardLayout><GroupCarouselDispatch /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-manager" element={<ProtectedRoute><DashboardLayout><GroupManagerDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/pipeline" element={<ProtectedRoute><DashboardLayout><Pipeline /></DashboardLayout></ProtectedRoute>} />
