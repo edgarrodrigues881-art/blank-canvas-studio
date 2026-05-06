@@ -179,7 +179,7 @@ export function AppSidebar() {
   const { folders, createFolder, updateFolder, deleteFolder, addDevices, removeDevice } = useWarmupFolders();
   const { isFeatureBlocked } = useFeatureControls();
   const { hasRoutePermission, permissionMode, isOwner } = usePermissions();
-  const { workspace, setWorkspace, isCRM, isGroupCRM, isGroupManager } = useWorkspace();
+  const { workspace, setWorkspace, isCRM, isGroupCRM } = useWorkspace();
   const [maintenanceModal, setMaintenanceModal] = useState<{ name: string; message: string | null; variant?: "maintenance" | "permission" } | null>(null);
 
   const [profileData, setProfileData] = useState<{ company: string | null; avatar_url: string | null; full_name: string | null } | null>(null);
@@ -412,10 +412,7 @@ export function AppSidebar() {
     const isCRMRoute = CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     const GROUP_CRM_ROUTES = ["/dashboard/group-crm", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/lid-converter", "/dashboard/welcome"];
     const isGroupCRMRoute = GROUP_CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    const GROUP_MANAGER_ROUTES = ["/dashboard/group-manager"];
-    const isGroupManagerRoute = GROUP_MANAGER_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
-    if (isGroupManagerRoute && !isGroupManager) setWorkspace("group-manager");
-    else if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
+    if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isCRMRoute && !isCRM) setWorkspace("crm");
   }, [location.pathname]);
 
@@ -518,43 +515,6 @@ export function AppSidebar() {
                     </span>
                   )}
                   {!collapsed && !isGroupCRM && (
-                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
-                  )}
-                </button>
-              </SidebarMenuItem>
-
-              {/* ===== GERENCIADOR DE GRUPO WORKSPACE SWITCH BUTTON ===== */}
-              <SidebarMenuItem>
-                <button
-                  onClick={() => {
-                    if (isGroupManager) {
-                      setWorkspace("automacao");
-                      navigate("/dashboard");
-                    } else {
-                      setWorkspace("group-manager");
-                      navigate("/dashboard/group-manager");
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
-                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
-                    isGroupManager
-                      ? 'bg-muted/40 text-foreground font-semibold'
-                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
-                  )}
-                >
-                  {isGroupManager ? (
-                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
-                  ) : (
-                    <Layers className={cn("w-[17px] h-[17px] shrink-0", isGroupManager && "text-foreground")} strokeWidth={isGroupManager ? 2 : 1.4} />
-                  )}
-                  {!collapsed && <span className="truncate flex-1 text-left">Gerenciador de Grupo</span>}
-                  {!collapsed && isGroupManager && (
-                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
-                      SAIR
-                    </span>
-                  )}
-                  {!collapsed && !isGroupManager && (
                     <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
                   )}
                 </button>
@@ -709,22 +669,8 @@ export function AppSidebar() {
           </>
         )}
 
-        {/* ===== GROUP MANAGER MODE: dedicated sidebar ===== */}
-        {isGroupManager && (
-          <>
-            <SidebarGroup className="py-0 mt-1">
-              <SidebarGroupContent>
-                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Dashboard", url: "/dashboard/group-manager", icon: LayoutDashboard, exact: true })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            {renderSupportSection()}
-          </>
-        )}
-
         {/* ===== AUTOMAÇÃO MODE: show all original sections except CRM ===== */}
-        {!isCRM && !isGroupCRM && !isGroupManager && (
+        {!isCRM && !isGroupCRM && (
           <>
             {menuGroups.map((group, gi) => {
               const groupRoutes = group.items.map(i => i.url);
