@@ -413,7 +413,6 @@ export function AppSidebar() {
     const GROUP_CRM_ROUTES = ["/dashboard/group-crm", "/dashboard/group-extractor", "/dashboard/group-join", "/dashboard/lid-converter", "/dashboard/welcome"];
     const isGroupCRMRoute = GROUP_CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
-    else if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isCRMRoute && !isCRM) setWorkspace("crm");
   }, [location.pathname]);
 
