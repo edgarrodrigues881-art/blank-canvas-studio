@@ -104,56 +104,38 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* CRM quick toggle */}
+            {/* CRM quick access */}
             <button
               onClick={() => {
-                if (isCRM) {
-                  setWorkspace("automacao");
-                  navigate("/dashboard");
-                } else {
-                  setWorkspace("crm");
-                  navigate("/dashboard/crm");
-                }
+                setWorkspace("crm");
+                navigate("/dashboard/crm");
               }}
-              title={isCRM ? "Sair do CRM" : "Acessar CRM"}
+              title="Acessar CRM"
               className={`relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all duration-150 ${
                 isCRM
                   ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
                   : "bg-muted/40 border-border/30 text-muted-foreground hover:bg-muted/70 hover:border-border/50 hover:text-foreground"
               }`}
             >
-              {isCRM ? (
-                <ArrowLeft className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.8} />
-              ) : (
-                <Headset className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
-              )}
-              <span className="sr-only">{isCRM ? "Sair do CRM" : "Acessar CRM"}</span>
+              <Headset className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
+              <span className="sr-only">Acessar CRM</span>
             </button>
 
-            {/* Group CRM quick toggle */}
+            {/* Group CRM quick access */}
             <button
               onClick={() => {
-                if (isGroupCRM) {
-                  setWorkspace("automacao");
-                  navigate("/dashboard");
-                } else {
-                  setWorkspace("group-crm");
-                  navigate("/dashboard/group-crm");
-                }
+                setWorkspace("group-crm");
+                navigate("/dashboard/group-crm");
               }}
-              title={isGroupCRM ? "Sair do CRM de Grupo" : "Acessar CRM de Grupo"}
+              title="Acessar CRM de Grupo"
               className={`relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all duration-150 ${
                 isGroupCRM
                   ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
                   : "bg-muted/40 border-border/30 text-muted-foreground hover:bg-muted/70 hover:border-border/50 hover:text-foreground"
               }`}
             >
-              {isGroupCRM ? (
-                <ArrowLeft className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.8} />
-              ) : (
-                <UsersRound className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
-              )}
-              <span className="sr-only">{isGroupCRM ? "Sair do CRM de Grupo" : "Acessar CRM de Grupo"}</span>
+              <UsersRound className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
+              <span className="sr-only">Acessar CRM de Grupo</span>
             </button>
 
             {/* Aquecimento quick access */}
