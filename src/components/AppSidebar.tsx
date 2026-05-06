@@ -446,25 +446,17 @@ export function AppSidebar() {
         {/* ===== GROUP CRM MODE: dedicated sidebar ===== */}
         {isGroupCRM && (
           <>
-            {/* DASHBOARD */}
-            <SidebarGroup className="!p-0 !pt-1 px-2">
-              <SidebarGroupContent>
-                <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
-                  {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* OPERAÇÃO */}
+            {/* DASHBOARD + OPERAÇÃO (juntos) */}
             <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-4">
                   Operação
                 </SidebarGroupLabel>
               )}
               {collapsed && <div className="mx-3 my-1.5 border-t border-sidebar-border/50" />}
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
+                  {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
                   {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers })}
                   {renderNavItem({ title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const })}
                   {renderNavItem({ title: "Templates", url: "/dashboard/templates", icon: FileText })}
