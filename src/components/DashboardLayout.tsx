@@ -104,6 +104,32 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
             {/* Spacer */}
             <div className="flex-1" />
 
+            {/* CRM quick toggle */}
+            <button
+              onClick={() => {
+                if (isCRM) {
+                  setWorkspace("automacao");
+                  navigate("/dashboard");
+                } else {
+                  setWorkspace("crm");
+                  navigate("/dashboard/crm");
+                }
+              }}
+              title={isCRM ? "Sair do CRM" : "Acessar CRM"}
+              className={`relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all duration-150 ${
+                isCRM
+                  ? "bg-primary/15 border-primary/30 text-primary hover:bg-primary/20"
+                  : "bg-muted/40 border-border/30 text-muted-foreground hover:bg-muted/70 hover:border-border/50 hover:text-foreground"
+              }`}
+            >
+              {isCRM ? (
+                <ArrowLeft className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.8} />
+              ) : (
+                <Headset className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
+              )}
+              <span className="sr-only">{isCRM ? "Sair do CRM" : "Acessar CRM"}</span>
+            </button>
+
             {/* Theme toggle */}
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
