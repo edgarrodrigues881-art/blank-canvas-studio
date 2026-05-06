@@ -450,43 +450,6 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <button
                   onClick={() => {
-                    if (isCRM) {
-                      setWorkspace("automacao");
-                      navigate("/dashboard");
-                    } else {
-                      setWorkspace("crm");
-                      navigate("/dashboard/crm");
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center rounded-[10px] text-[13px] w-full transition-all duration-150 group",
-                    collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]',
-                    isCRM
-                      ? 'bg-muted/40 text-foreground font-semibold'
-                      : 'text-muted-foreground font-normal hover:text-foreground hover:bg-muted/25'
-                  )}
-                >
-                  {isCRM ? (
-                    <ArrowLeft className="w-[17px] h-[17px] shrink-0 text-foreground" strokeWidth={2.5} />
-                  ) : (
-                    <Headset className={cn("w-[17px] h-[17px] shrink-0", isCRM && "text-foreground")} strokeWidth={isCRM ? 2 : 1.4} />
-                  )}
-                  {!collapsed && <span className="truncate flex-1 text-left">CRM</span>}
-                  {!collapsed && isCRM && (
-                    <span className="text-[10px] font-bold text-muted-foreground/60 group-hover:text-foreground transition-colors mr-1">
-                      SAIR
-                    </span>
-                  )}
-                  {!collapsed && !isCRM && (
-                    <ChevronRight className="ml-auto w-3 h-3 text-muted-foreground/40" />
-                  )}
-                </button>
-              </SidebarMenuItem>
-
-              {/* ===== CRM DE GRUPO WORKSPACE SWITCH BUTTON ===== */}
-              <SidebarMenuItem>
-                <button
-                  onClick={() => {
                     if (isGroupCRM) {
                       setWorkspace("automacao");
                       navigate("/dashboard");
