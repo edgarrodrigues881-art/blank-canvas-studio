@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
-import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon, ArrowLeft, Headset, UsersRound } from "lucide-react";
+import { Bell, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, Trash2, Sun, Moon, ArrowLeft, Headset, UsersRound, Flame } from "lucide-react";
 import { useTheme } from "next-themes";
 import { WorkspaceProvider, useWorkspace } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
