@@ -156,6 +156,20 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
               <span className="sr-only">{isGroupCRM ? "Sair do CRM de Grupo" : "Acessar CRM de Grupo"}</span>
             </button>
 
+            {/* Aquecimento quick access */}
+            <button
+              onClick={() => navigate("/dashboard/warmup-v2")}
+              title="Aquecimento"
+              className={`relative shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition-all duration-150 ${
+                location.pathname.startsWith("/dashboard/warmup-v2")
+                  ? "bg-orange-500/15 border-orange-500/30 text-orange-500 hover:bg-orange-500/20"
+                  : "bg-muted/40 border-border/30 text-muted-foreground hover:bg-muted/70 hover:border-border/50 hover:text-foreground"
+              }`}
+            >
+              <Flame className="w-4 h-4 sm:w-[17px] sm:h-[17px]" strokeWidth={1.6} />
+              <span className="sr-only">Aquecimento</span>
+            </button>
+
             {/* Theme toggle */}
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
