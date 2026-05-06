@@ -264,7 +264,7 @@ export function AppSidebar() {
     if (shouldHideSection && !hasAnyPermission(["/dashboard/my-plan", "/dashboard/affiliates", "/dashboard/community", "/dashboard/tutorials", "/dashboard/custom-module"])) return null;
     const planPermBlocked = !isOwner && !hasRoutePermission("/dashboard/my-plan");
     return (
-      <SidebarGroup className="py-0 mt-1">
+      <SidebarGroup className="!p-0 !pt-1 px-2">
         {!collapsed && (
           <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
             Suporte
@@ -447,7 +447,7 @@ export function AppSidebar() {
         {isGroupCRM && (
           <>
             {/* DASHBOARD */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
@@ -456,9 +456,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* OPERAÇÃO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Operação
                 </SidebarGroupLabel>
               )}
@@ -474,9 +474,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* AQUISIÇÃO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Aquisição
                 </SidebarGroupLabel>
               )}
@@ -498,9 +498,9 @@ export function AppSidebar() {
         {isCRM && (
           <>
             {/* OPERAÇÃO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Operação
                 </SidebarGroupLabel>
               )}
@@ -516,9 +516,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
              {/* AUTOMAÇÃO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Automação
                 </SidebarGroupLabel>
               )}
@@ -536,9 +536,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* AQUISIÇÃO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Aquisição
                 </SidebarGroupLabel>
               )}
@@ -556,9 +556,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* PRODUTIVIDADE */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Produtividade
                 </SidebarGroupLabel>
               )}
@@ -572,9 +572,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* APRENDIZADO */}
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold !h-5 px-2">
                   Aprendizado
                 </SidebarGroupLabel>
               )}
@@ -615,7 +615,7 @@ export function AppSidebar() {
             })}
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/warmup-v2", "/dashboard/proxy", "/dashboard/chip-conversation", "/dashboard/group-interaction"])) && (
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
                 <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
                   Aquecimento
@@ -760,7 +760,7 @@ export function AppSidebar() {
 
 
             {(!shouldHideSection || hasAnyPermission(["/dashboard/contacts", "/dashboard/group-capture", "/dashboard/whatsapp-verifier", "/dashboard/prospeccao", "/dashboard/group-join", "/dashboard/mass-inject", "/dashboard/group-invite-extractor", "/dashboard/welcome", "/dashboard/groups", "/dashboard/autosave", "/dashboard/reports/whatsapp"])) && (
-            <SidebarGroup className="py-0 mt-1">
+            <SidebarGroup className="!p-0 !pt-1 px-2">
               {!collapsed && (
                 <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/50 font-semibold mb-0.5">
                   Ferramentas
