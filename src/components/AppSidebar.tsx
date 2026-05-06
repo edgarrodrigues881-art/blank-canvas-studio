@@ -456,9 +456,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* OPERAÇÃO */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Operação
                 </SidebarGroupLabel>
               )}
@@ -474,9 +474,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* AQUISIÇÃO */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Aquisição
                 </SidebarGroupLabel>
               )}
@@ -500,7 +500,7 @@ export function AppSidebar() {
             {/* OPERAÇÃO */}
             <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Operação
                 </SidebarGroupLabel>
               )}
@@ -516,9 +516,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
              {/* AUTOMAÇÃO */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Automação
                 </SidebarGroupLabel>
               )}
@@ -536,9 +536,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* AQUISIÇÃO */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Aquisição
                 </SidebarGroupLabel>
               )}
@@ -556,9 +556,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* PRODUTIVIDADE */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Produtividade
                 </SidebarGroupLabel>
               )}
@@ -572,9 +572,9 @@ export function AppSidebar() {
             </SidebarGroup>
 
             {/* APRENDIZADO */}
-            <SidebarGroup className="py-0 mt-3">
+            <SidebarGroup className="py-0 mt-1">
               {!collapsed && (
-                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0.5">
+                <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest text-muted-foreground/40 font-semibold mb-0 py-1 h-auto">
                   Aprendizado
                 </SidebarGroupLabel>
               )}
