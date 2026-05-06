@@ -228,7 +228,13 @@ const GroupCapture = () => {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [isStarting, setIsStarting] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>("custom");
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("warmup_groups_tab");
+      if (saved === "custom" || saved === "system") return saved;
+    } catch {}
+    return "custom";
+  });
 
   // Carrega aba salva no perfil do usuário (persistente entre logins/dispositivos).
   useEffect(() => {
@@ -243,13 +249,17 @@ const GroupCapture = () => {
       if (cancelled) return;
       const prefs = (data?.ui_preferences as Record<string, any> | null) ?? {};
       const saved = prefs?.warmup_groups_tab;
-      if (saved === "custom" || saved === "system") setActiveTab(saved);
+      if (saved === "custom" || saved === "system") {
+        setActiveTab(saved);
+        try { localStorage.setItem("warmup_groups_tab", saved); } catch {}
+      }
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
 
   const handleTabChange = useCallback(async (val: string) => {
     setActiveTab(val);
+    try { localStorage.setItem("warmup_groups_tab", val); } catch {}
     if (!user?.id) return;
     const { data } = await supabase
       .from("profiles")
