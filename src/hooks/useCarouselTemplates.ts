@@ -7,18 +7,22 @@ export interface CarouselTemplate {
   name: string;
   message: string;
   cards: any[];
+  source?: string;
   created_at: string;
   updated_at: string;
 }
 
-export function useCarouselTemplates() {
+export type CarouselSource = "main" | "group";
+
+export function useCarouselTemplates(source: CarouselSource = "main") {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["carousel_templates", user?.id],
+    queryKey: ["carousel_templates", user?.id, source],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("carousel_templates")
-        .select("id, name, message, cards, created_at, updated_at")
+        .select("id, name, message, cards, source, created_at, updated_at")
+        .eq("source", source)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as CarouselTemplate[];
@@ -28,15 +32,15 @@ export function useCarouselTemplates() {
   });
 }
 
-export function useCreateCarouselTemplate() {
+export function useCreateCarouselTemplate(source: CarouselSource = "main") {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
     mutationFn: async (t: { name: string; message: string; cards: any[] }) => {
       const { data, error } = await supabase
         .from("carousel_templates")
-        .insert({ ...t, user_id: user!.id })
-        .select("id, name, message, cards, created_at, updated_at")
+        .insert({ ...t, user_id: user!.id, source })
+        .select("id, name, message, cards, source, created_at, updated_at")
         .single();
       if (error) throw error;
       return data;
@@ -53,7 +57,7 @@ export function useUpdateCarouselTemplate() {
         .from("carousel_templates")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .select("id, name, message, cards, created_at, updated_at")
+        .select("id, name, message, cards, source, created_at, updated_at")
         .single();
       if (error) throw error;
       return data;
