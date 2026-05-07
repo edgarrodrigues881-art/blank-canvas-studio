@@ -52,12 +52,6 @@ const DashboardHome = () => {
       icon: Flame,
       tone: "orange",
     },
-    {
-      label: "Aquecimento Automático",
-      value: periodTotals?.warmup ?? 0,
-      icon: Flame,
-      tone: "orange",
-    },
   ];
 
   return (
