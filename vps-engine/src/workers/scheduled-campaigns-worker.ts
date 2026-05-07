@@ -109,6 +109,24 @@ export async function scheduledCampaignsTick(): Promise<void> {
       promoted++;
       log.info(`Campaign ${campaign.id.slice(0, 8)} promoted scheduled → running`);
 
+      // ── Trigger the group dispatch edge function (handles buttons/carousel/text on groups) ──
+      try {
+        const supaUrl = process.env.SUPABASE_URL!;
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+        fetch(`${supaUrl}/functions/v1/process-group-dispatch`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+            "apikey": serviceKey,
+          },
+          body: JSON.stringify({ campaignId: campaign.id }),
+        }).catch((e) => log.warn(`invoke process-group-dispatch failed (worker may self-recover): ${e?.message || e}`));
+        log.info(`Campaign ${campaign.id.slice(0, 8)} → process-group-dispatch invoked`);
+      } catch (e: any) {
+        log.error(`Failed to invoke process-group-dispatch for ${campaign.id.slice(0, 8)}: ${e?.message || e}`);
+      }
+
       // ── Daily recurrence: clone campaign for next day ──
       if (campaign.recurrence_type === "daily") {
         try {
