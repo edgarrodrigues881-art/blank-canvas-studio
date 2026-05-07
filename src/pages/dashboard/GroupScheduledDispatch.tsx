@@ -192,6 +192,8 @@ export default function GroupScheduledDispatch() {
   const [previewMode, setPreviewMode] = useState<"sent" | "received">("sent");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
   const [mentionAll, setMentionAll] = useState(draft.current?.mentionAll ?? false);
+  const [scheduledDate, setScheduledDate] = useState<string>(draft.current?.scheduledDate || "");
+  const [scheduledTime, setScheduledTime] = useState<string>(draft.current?.scheduledTime || "");
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
