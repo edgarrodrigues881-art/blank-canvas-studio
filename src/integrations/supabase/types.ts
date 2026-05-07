@@ -1725,6 +1725,7 @@ export type Database = {
           pause_on_disconnect: boolean
           recurrence_time: string | null
           recurrence_type: string
+          recurrence_weekdays: number[]
           scheduled_at: string | null
           sent_count: number | null
           started_at: string | null
@@ -1759,6 +1760,7 @@ export type Database = {
           pause_on_disconnect?: boolean
           recurrence_time?: string | null
           recurrence_type?: string
+          recurrence_weekdays?: number[]
           scheduled_at?: string | null
           sent_count?: number | null
           started_at?: string | null
@@ -1793,6 +1795,7 @@ export type Database = {
           pause_on_disconnect?: boolean
           recurrence_time?: string | null
           recurrence_type?: string
+          recurrence_weekdays?: number[]
           scheduled_at?: string | null
           sent_count?: number | null
           started_at?: string | null
