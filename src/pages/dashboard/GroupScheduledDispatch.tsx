@@ -195,6 +195,7 @@ export default function GroupScheduledDispatch() {
   const [scheduledDate, setScheduledDate] = useState<string>(draft.current?.scheduledDate || "");
   const [scheduledTime, setScheduledTime] = useState<string>(draft.current?.scheduledTime || "");
   const [recurrenceType, setRecurrenceType] = useState<"once" | "daily">(draft.current?.recurrenceType || "once");
+  const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>(draft.current?.recurrenceWeekdays || []);
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
