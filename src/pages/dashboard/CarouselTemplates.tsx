@@ -21,10 +21,14 @@ import { CarouselCard, createEmptyCard } from "@/components/campaigns/carousel-t
 
 const EMOJI_LIST = ["😀","😂","😍","🔥","✅","❌","👋","🎉","💰","📢","⚡","🚀","💬","📌","🏆","👏","💡","📲","🤝","⭐"];
 
-const CarouselTemplates = () => {
+interface CarouselTemplatesProps {
+  source?: "main" | "group";
+}
+
+const CarouselTemplates = ({ source = "main" }: CarouselTemplatesProps) => {
   const { toast } = useToast();
-  const { data: templates = [], isLoading } = useCarouselTemplates();
-  const createTemplate = useCreateCarouselTemplate();
+  const { data: templates = [], isLoading } = useCarouselTemplates(source);
+  const createTemplate = useCreateCarouselTemplate(source);
   const updateTemplate = useUpdateCarouselTemplate();
   const deleteTemplate = useDeleteCarouselTemplate();
 
