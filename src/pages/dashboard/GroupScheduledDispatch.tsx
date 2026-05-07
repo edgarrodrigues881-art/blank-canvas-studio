@@ -1033,6 +1033,53 @@ export default function GroupScheduledDispatch() {
         {/* ===== STEP 3: Parâmetros (identical to Campaigns) ===== */}
         {step === 3 && (
           <div className="space-y-8">
+            {/* Schedule Card */}
+            <SurfaceCard className="p-6 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Clock className="w-4.5 h-4.5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-bold text-foreground">Quando disparar</p>
+                  <p className="text-[10px] text-muted-foreground/50 mt-0.5">Defina a data e o horário do envio automático</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Data</Label>
+                  <Input
+                    type="date"
+                    value={scheduledDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Horário</Label>
+                  <Input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums"
+                  />
+                </div>
+              </div>
+              {scheduledDate && scheduledTime && (
+                <div className="flex items-center gap-2 text-[12px] text-primary bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    Disparo agendado para{" "}
+                    <strong>
+                      {new Date(`${scheduledDate}T${scheduledTime}:00`).toLocaleString("pt-BR", {
+                        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                      })}
+                    </strong>
+                  </span>
+                </div>
+              )}
+            </SurfaceCard>
+
             {/* Send Control Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {/* Delay */}
