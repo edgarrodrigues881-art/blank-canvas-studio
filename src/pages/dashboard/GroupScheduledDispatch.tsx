@@ -1048,9 +1048,48 @@ export default function GroupScheduledDispatch() {
                   <p className="text-[10px] text-muted-foreground/50 mt-0.5">Defina a data e o horário do envio automático</p>
                 </div>
               </div>
+
+              {/* Recurrence selector */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRecurrenceType("once")}
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all",
+                    recurrenceType === "once"
+                      ? "border-primary bg-primary/10"
+                      : "border-border/20 hover:border-border/40"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Send className={cn("w-4 h-4", recurrenceType === "once" ? "text-primary" : "text-muted-foreground/50")} />
+                    <span className={cn("text-[12px] font-bold", recurrenceType === "once" ? "text-primary" : "text-foreground")}>Apenas 1 disparo</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">Envia uma única vez na data e horário definidos</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecurrenceType("daily")}
+                  className={cn(
+                    "p-3 rounded-xl border text-left transition-all",
+                    recurrenceType === "daily"
+                      ? "border-primary bg-primary/10"
+                      : "border-border/20 hover:border-border/40"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Activity className={cn("w-4 h-4", recurrenceType === "daily" ? "text-primary" : "text-muted-foreground/50")} />
+                    <span className={cn("text-[12px] font-bold", recurrenceType === "daily" ? "text-primary" : "text-foreground")}>Todo dia</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">Repete o disparo automaticamente todos os dias no mesmo horário</p>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Data</Label>
+                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
+                    {recurrenceType === "daily" ? "Data do 1º envio" : "Data"}
+                  </Label>
                   <Input
                     type="date"
                     value={scheduledDate}
@@ -1073,12 +1112,13 @@ export default function GroupScheduledDispatch() {
                 <div className="flex items-center gap-2 text-[12px] text-primary bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
                   <Clock className="w-3.5 h-3.5" />
                   <span>
-                    Disparo agendado para{" "}
+                    {recurrenceType === "daily" ? "Inicia em " : "Disparo agendado para "}
                     <strong>
                       {new Date(`${scheduledDate}T${scheduledTime}:00`).toLocaleString("pt-BR", {
                         day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
                       })}
                     </strong>
+                    {recurrenceType === "daily" && <span> e repete todos os dias às <strong>{scheduledTime}</strong></span>}
                   </span>
                 </div>
               )}
