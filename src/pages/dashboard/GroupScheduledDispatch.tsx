@@ -376,10 +376,30 @@ export default function GroupScheduledDispatch() {
     if (!campaignName.trim()) { toast.error("Dê um nome para a campanha"); setStep(1); return; }
     if (!selectedDevice) { toast.error("Selecione uma instância"); setStep(2); return; }
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
-    if (!scheduledDate || !scheduledTime) { toast.error("Defina a data e o horário do agendamento"); setStep(3); return; }
-    const scheduledAtDate = new Date(`${scheduledDate}T${scheduledTime}:00`);
-    if (isNaN(scheduledAtDate.getTime())) { toast.error("Data/horário inválido"); setStep(3); return; }
-    if (scheduledAtDate.getTime() < Date.now() - 60_000) { toast.error("O agendamento precisa ser no futuro"); setStep(3); return; }
+    if (!scheduledTime) { toast.error("Defina o horário do agendamento"); setStep(3); return; }
+    let scheduledAtDate: Date;
+    if (recurrenceType === "daily") {
+      if (recurrenceWeekdays.length === 0) { toast.error("Selecione pelo menos um dia da semana"); setStep(3); return; }
+      // Compute next occurrence matching one of the selected weekdays at scheduledTime
+      const [hh, mm] = scheduledTime.split(":").map((n) => parseInt(n, 10));
+      const now = new Date();
+      const sortedDays = [...recurrenceWeekdays].sort((a, b) => a - b);
+      let next: Date | null = null;
+      for (let offset = 0; offset < 8; offset++) {
+        const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, hh, mm, 0, 0);
+        if (sortedDays.includes(candidate.getDay()) && candidate.getTime() > now.getTime()) {
+          next = candidate;
+          break;
+        }
+      }
+      if (!next) { toast.error("Não foi possível calcular o próximo envio"); setStep(3); return; }
+      scheduledAtDate = next;
+    } else {
+      if (!scheduledDate) { toast.error("Defina a data do agendamento"); setStep(3); return; }
+      scheduledAtDate = new Date(`${scheduledDate}T${scheduledTime}:00`);
+      if (isNaN(scheduledAtDate.getTime())) { toast.error("Data/horário inválido"); setStep(3); return; }
+      if (scheduledAtDate.getTime() < Date.now() - 60_000) { toast.error("O agendamento precisa ser no futuro"); setStep(3); return; }
+    }
 
     const storedHeaderText = dispatchType === "carousel"
       ? carouselMessage.trim()
