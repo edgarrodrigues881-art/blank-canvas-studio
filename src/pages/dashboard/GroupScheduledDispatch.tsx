@@ -406,15 +406,15 @@ export default function GroupScheduledDispatch() {
     try {
       const hasActiveButtons = activeButtons.length > 0;
       const msgType = dispatchType === "carousel" ? "carousel" : hasActiveButtons ? "buttons" : "text";
-      const startedAt = new Date().toISOString();
+      const scheduledIso = scheduledAtDate.toISOString();
       const { data: campaign, error: campErr } = await supabase.from("campaigns")
         .insert({
           user_id: user!.id, name: campaignName.trim(), message_type: msgType,
           message_content: storedHeaderText.trim() || null, media_url: trimmedMediaUrl || null,
           buttons: hasActiveButtons ? activeButtons as any : null,
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
-          device_id: selectedDevice, status: "pending", total_contacts: selectedGroups.length,
-          started_at: startedAt,
+          device_id: selectedDevice, status: "scheduled", total_contacts: selectedGroups.length,
+          scheduled_at: scheduledIso,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
           pause_duration_min: pauseDurationMin, pause_duration_max: pauseDurationMax,
@@ -433,26 +433,13 @@ export default function GroupScheduledDispatch() {
       );
       if (targetsErr) throw targetsErr;
 
-      // Trigger the SERVER-SIDE worker (true fire-and-forget).
-      // The worker runs in the background and respects pause/cancel
-      // even if the user closes the browser tab. We don't await the
-      // response — a 503/timeout from cold-boot doesn't mean failure.
-      supabase.functions
-        .invoke("process-group-dispatch", { body: { campaignId: campaign.id } })
-        .catch((err) => {
-          // Silently log — the worker will be picked up by the watchdog/self-continue loop
-          console.warn("[group-dispatch] invoke returned non-200 (worker likely already running):", err);
-        });
-
       const campaignRoute = `/dashboard/campaign/${campaign.id}`;
+      const scheduleLabel = scheduledAtDate.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
       toast.success(
-        `${selectedGroups.length} grupo(s). Envio iniciado em segundo plano.`,
+        `Campanha agendada para ${scheduleLabel}`,
         {
-          description: "A campanha continua mesmo se você fechar a aba.",
-          action: {
-            label: "Ver campanha",
-            onClick: () => navigate(campaignRoute),
-          },
+          description: `${selectedGroups.length} grupo(s). Será disparada automaticamente no horário definido.`,
+          action: { label: "Ver campanha", onClick: () => navigate(campaignRoute) },
           duration: 10000,
         }
       );
