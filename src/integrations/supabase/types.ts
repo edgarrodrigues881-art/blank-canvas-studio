@@ -1722,6 +1722,8 @@ export type Database = {
           pause_every_max: number
           pause_every_min: number
           pause_on_disconnect: boolean
+          recurrence_time: string | null
+          recurrence_type: string
           scheduled_at: string | null
           sent_count: number | null
           started_at: string | null
@@ -1753,6 +1755,8 @@ export type Database = {
           pause_every_max?: number
           pause_every_min?: number
           pause_on_disconnect?: boolean
+          recurrence_time?: string | null
+          recurrence_type?: string
           scheduled_at?: string | null
           sent_count?: number | null
           started_at?: string | null
@@ -1784,6 +1788,8 @@ export type Database = {
           pause_every_max?: number
           pause_every_min?: number
           pause_on_disconnect?: boolean
+          recurrence_time?: string | null
+          recurrence_type?: string
           scheduled_at?: string | null
           sent_count?: number | null
           started_at?: string | null
