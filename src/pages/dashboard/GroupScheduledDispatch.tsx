@@ -1285,41 +1285,6 @@ export default function GroupScheduledDispatch() {
               </SurfaceCard>
             </div>
 
-            {/* Estimated Time */}
-            <SurfaceCard className="relative p-5 flex flex-col items-center justify-center text-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.06] to-transparent pointer-events-none" />
-              <div className="relative z-10 flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                  <Timer className="w-5 h-5 text-accent-foreground/70" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-semibold mb-1.5">Tempo estimado</p>
-                  <p className="text-3xl font-black text-foreground tabular-nums tracking-tight">
-                    {(() => {
-                      const count = selectedGroups.length;
-                      if (count === 0) return "—";
-                      const avgDelay = (minDelay + maxDelay) / 2;
-                      const avgPauseEvery = (pauseEveryMin + pauseEveryMax) / 2;
-                      const avgPauseDur = (pauseDurationMin + pauseDurationMax) / 2;
-                      const numPauses = avgPauseEvery > 0 ? Math.floor(count / avgPauseEvery) : 0;
-                      const totalSeconds = (count * avgDelay) + (numPauses * avgPauseDur);
-                      const hours = Math.floor(totalSeconds / 3600);
-                      const minutes = Math.floor((totalSeconds % 3600) / 60);
-                      const days = Math.floor(hours / 24);
-                      const remainingHours = hours % 24;
-                      if (days > 0) return `≈ ${days}d ${remainingHours}h ${minutes}min`;
-                      if (hours > 0) return `≈ ${hours}h ${minutes}min`;
-                      if (minutes > 0) return `≈ ${minutes}min`;
-                      return "≈ < 1min";
-                    })()}
-                  </p>
-                </div>
-                {selectedGroups.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground/40">{selectedGroups.length} grupo{selectedGroups.length !== 1 ? "s" : ""} • 1 instância</p>
-                )}
-              </div>
-            </SurfaceCard>
-
             {/* Mention All Toggle */}
             <SurfaceCard className="p-6">
               <div className="flex items-center justify-between">
