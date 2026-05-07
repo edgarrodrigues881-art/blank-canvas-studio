@@ -483,6 +483,7 @@ export default function GroupScheduledDispatch() {
       setScheduledDate("");
       setScheduledTime("");
       setRecurrenceType("once");
+      setRecurrenceWeekdays([]);
       setDispatchType("buttons");
       setStep(1);
       setSendResults([]);
