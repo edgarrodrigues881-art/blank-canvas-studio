@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wifi, WifiOff, Flame, MessagesSquare, Users } from "lucide-react";
+import { Wifi, WifiOff, Flame, MessagesSquare, Users, UsersRound } from "lucide-react";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useMessagesByPeriod, MessagesPeriod, PERIOD_OPTIONS } from "@/hooks/useMessagesByPeriod";
 import { useActivitySeries } from "@/hooks/useActivitySeries";
@@ -51,6 +51,12 @@ const DashboardHome = () => {
       value: periodTotals?.warmup ?? 0,
       icon: Flame,
       tone: "orange",
+    },
+    {
+      label: "Interação de Grupos",
+      value: periodTotals?.group ?? 0,
+      icon: UsersRound,
+      tone: "violet",
     },
   ];
 
