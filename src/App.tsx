@@ -48,7 +48,7 @@ const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/Grou
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
 const AutosaveSchedule = lazyWithPreload(() => import("@/pages/dashboard/AutosaveSchedule"));
-const GroupSchedulePage = lazyWithPreload(() => import("@/pages/dashboard/GroupSchedule"));
+const GroupSchedulePage = lazyWithPreload(() => import("@/pages/dashboard/GroupScheduledDispatch"));
 const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyList"));
 const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
