@@ -134,6 +134,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
     }
 
     // Build send body
+    const mentionAll = campaign.mention_all === true;
     let body: Record<string, any>;
     if (dispatchType === "buttons" && activeButtons.length > 0) {
       body = {
@@ -142,12 +143,13 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
         content: baseText,
         type: "buttons",
         buttons: activeButtons,
+        mentionAll,
         ...(mediaUrl ? { mediaUrl } : {}),
       };
     } else if (dispatchType === "carousel") {
       body = cards.length > 0
-        ? { deviceId: campaign.device_id, groupJid: gid, headerText: baseText || undefined, cards }
-        : { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text" };
+        ? { deviceId: campaign.device_id, groupJid: gid, headerText: baseText || undefined, cards, mentionAll }
+        : { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text", mentionAll };
     } else {
       if (mediaUrl) {
         body = {
@@ -156,9 +158,10 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
           content: mediaUrl,
           caption: baseText || undefined,
           type: "image",
+          mentionAll,
         };
       } else {
-        body = { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text" };
+        body = { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text", mentionAll };
       }
     }
 
