@@ -307,6 +307,8 @@ const App = () => (
                 <Route path="/dashboard/group-crm/group-send" element={<ProtectedRoute><DashboardLayout><GroupCarouselDispatch /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/schedule" element={<ProtectedRoute><DashboardLayout><GroupSchedulePage /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-crm/templates" element={<ProtectedRoute><DashboardLayout><GroupTemplates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-crm/carousel-templates" element={<ProtectedRoute><DashboardLayout><GroupCarouselTemplates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-manager" element={<ProtectedRoute><DashboardLayout><GroupManagerDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
