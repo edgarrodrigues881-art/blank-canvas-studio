@@ -249,9 +249,9 @@ export default function GroupScheduledDispatch() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime,
+      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
