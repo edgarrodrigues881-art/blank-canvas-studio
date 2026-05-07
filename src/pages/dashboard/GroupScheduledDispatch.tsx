@@ -416,6 +416,8 @@ export default function GroupScheduledDispatch() {
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
           device_id: selectedDevice, status: "scheduled", total_contacts: selectedGroups.length,
           scheduled_at: scheduledIso,
+          recurrence_type: recurrenceType,
+          recurrence_time: scheduledTime,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
           pause_duration_min: pauseDurationMin, pause_duration_max: pauseDurationMax,
