@@ -146,7 +146,7 @@ function rand(min: number, max: number) { return Math.floor(Math.random() * (max
 // ═══════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════
-export default function GroupCarouselDispatch() {
+export default function GroupScheduledDispatch() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
   const draft = useRef(loadDraft());
