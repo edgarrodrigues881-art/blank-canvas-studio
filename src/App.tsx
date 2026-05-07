@@ -62,6 +62,8 @@ const StatusPost = lazyWithPreload(() => import("@/pages/dashboard/StatusPost"))
 const WhatsAppVerifier = lazyWithPreload(() => import("@/pages/dashboard/WhatsAppVerifierCampaigns"));
 const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
 const CarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/CarouselTemplates"));
+const GroupTemplates = lazyWithPreload(() => import("@/pages/dashboard/GroupTemplates"));
+const GroupCarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/GroupCarouselTemplates"));
 const AutoSave = lazyWithPreload(() => import("@/pages/dashboard/AutoSave"));
 const Reports = lazyWithPreload(() => import("@/pages/dashboard/Reports"));
 const ReportWhatsApp = lazyWithPreload(() => import("@/pages/dashboard/ReportWhatsApp"));
