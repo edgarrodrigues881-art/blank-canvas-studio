@@ -461,6 +461,7 @@ export function AppSidebar() {
                   {renderNavItem({ title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const })}
                   {renderNavItem({ title: "Templates", url: "/dashboard/templates", icon: FileText })}
                   {renderNavItem({ title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers })}
+                  {renderNavItem({ title: "Agendamento de Grupo", url: "/dashboard/group-crm/schedule", icon: CalendarClock })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

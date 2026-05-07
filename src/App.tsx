@@ -48,6 +48,7 @@ const GroupJoinComingSoon = lazyWithPreload(() => import("@/pages/dashboard/Grou
 const ChipConversation = lazyWithPreload(() => import("@/pages/dashboard/ChipConversation"));
 const ChipConversationComingSoon = lazyWithPreload(() => import("@/pages/dashboard/ChipConversationComingSoon"));
 const AutosaveSchedule = lazyWithPreload(() => import("@/pages/dashboard/AutosaveSchedule"));
+const GroupSchedulePage = lazyWithPreload(() => import("@/pages/dashboard/GroupSchedule"));
 const AutoReplyList = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyList"));
 const AutoReply = lazyWithPreload(() => import("@/pages/dashboard/AutoReply"));
 const AutoReplyComingSoon = lazyWithPreload(() => import("@/pages/dashboard/AutoReplyComingSoon"));
@@ -303,6 +304,7 @@ const App = () => (
                 <Route path="/dashboard/group-crm" element={<ProtectedRoute><DashboardLayout><GroupCrmDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/group-send" element={<ProtectedRoute><DashboardLayout><GroupCarouselDispatch /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-crm/schedule" element={<ProtectedRoute><DashboardLayout><GroupSchedulePage /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-manager" element={<ProtectedRoute><DashboardLayout><GroupManagerDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />
