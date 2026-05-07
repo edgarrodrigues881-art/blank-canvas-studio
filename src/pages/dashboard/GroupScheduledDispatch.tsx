@@ -195,6 +195,7 @@ export default function GroupScheduledDispatch() {
   const [scheduledDate, setScheduledDate] = useState<string>(draft.current?.scheduledDate || "");
   const [scheduledTime, setScheduledTime] = useState<string>(draft.current?.scheduledTime || "");
   const [recurrenceType, setRecurrenceType] = useState<"once" | "daily">(draft.current?.recurrenceType || "once");
+  const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>(draft.current?.recurrenceWeekdays || []);
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
@@ -249,9 +250,9 @@ export default function GroupScheduledDispatch() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
       selectedDevice, selectedGroups, dispatchType, campaignName, message,
       mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax,
-      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType,
+      pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType, recurrenceWeekdays,
     }));
-  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType]);
+  }, [selectedDevice, selectedGroups, dispatchType, campaignName, message, mediaUrl, mediaFileName, buttons, cards, minDelay, maxDelay, pauseEveryMin, pauseEveryMax, pauseDurationMin, pauseDurationMax, carouselMessage, mentionAll, scheduledDate, scheduledTime, recurrenceType, recurrenceWeekdays]);
 
   useEffect(() => {
     if (!user || !isAllowed) return;
@@ -375,10 +376,30 @@ export default function GroupScheduledDispatch() {
     if (!campaignName.trim()) { toast.error("Dê um nome para a campanha"); setStep(1); return; }
     if (!selectedDevice) { toast.error("Selecione uma instância"); setStep(2); return; }
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
-    if (!scheduledDate || !scheduledTime) { toast.error("Defina a data e o horário do agendamento"); setStep(3); return; }
-    const scheduledAtDate = new Date(`${scheduledDate}T${scheduledTime}:00`);
-    if (isNaN(scheduledAtDate.getTime())) { toast.error("Data/horário inválido"); setStep(3); return; }
-    if (scheduledAtDate.getTime() < Date.now() - 60_000) { toast.error("O agendamento precisa ser no futuro"); setStep(3); return; }
+    if (!scheduledTime) { toast.error("Defina o horário do agendamento"); setStep(3); return; }
+    let scheduledAtDate: Date;
+    if (recurrenceType === "daily") {
+      if (recurrenceWeekdays.length === 0) { toast.error("Selecione pelo menos um dia da semana"); setStep(3); return; }
+      // Compute next occurrence matching one of the selected weekdays at scheduledTime
+      const [hh, mm] = scheduledTime.split(":").map((n) => parseInt(n, 10));
+      const now = new Date();
+      const sortedDays = [...recurrenceWeekdays].sort((a, b) => a - b);
+      let next: Date | null = null;
+      for (let offset = 0; offset < 8; offset++) {
+        const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, hh, mm, 0, 0);
+        if (sortedDays.includes(candidate.getDay()) && candidate.getTime() > now.getTime()) {
+          next = candidate;
+          break;
+        }
+      }
+      if (!next) { toast.error("Não foi possível calcular o próximo envio"); setStep(3); return; }
+      scheduledAtDate = next;
+    } else {
+      if (!scheduledDate) { toast.error("Defina a data do agendamento"); setStep(3); return; }
+      scheduledAtDate = new Date(`${scheduledDate}T${scheduledTime}:00`);
+      if (isNaN(scheduledAtDate.getTime())) { toast.error("Data/horário inválido"); setStep(3); return; }
+      if (scheduledAtDate.getTime() < Date.now() - 60_000) { toast.error("O agendamento precisa ser no futuro"); setStep(3); return; }
+    }
 
     const storedHeaderText = dispatchType === "carousel"
       ? carouselMessage.trim()
@@ -418,6 +439,7 @@ export default function GroupScheduledDispatch() {
           scheduled_at: scheduledIso,
           recurrence_type: recurrenceType,
           recurrence_time: scheduledTime,
+          recurrence_weekdays: recurrenceType === "daily" ? recurrenceWeekdays : [],
           mention_all: mentionAll,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
@@ -461,6 +483,7 @@ export default function GroupScheduledDispatch() {
       setScheduledDate("");
       setScheduledTime("");
       setRecurrenceType("once");
+      setRecurrenceWeekdays([]);
       setDispatchType("buttons");
       setStep(1);
       setSendResults([]);
@@ -1086,42 +1109,98 @@ export default function GroupScheduledDispatch() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">
-                    {recurrenceType === "daily" ? "Data do 1º envio" : "Data"}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={scheduledDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setScheduledDate(e.target.value)}
-                    className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Horário</Label>
-                  <Input
-                    type="time"
-                    value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
-                    className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums"
-                  />
-                </div>
-              </div>
-              {scheduledDate && scheduledTime && (
-                <div className="flex items-center gap-2 text-[12px] text-primary bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>
-                    {recurrenceType === "daily" ? "Inicia em " : "Disparo agendado para "}
-                    <strong>
-                      {new Date(`${scheduledDate}T${scheduledTime}:00`).toLocaleString("pt-BR", {
-                        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+              {recurrenceType === "daily" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Dias da semana</Label>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {[
+                        { v: 0, l: "Dom" },
+                        { v: 1, l: "Seg" },
+                        { v: 2, l: "Ter" },
+                        { v: 3, l: "Qua" },
+                        { v: 4, l: "Qui" },
+                        { v: 5, l: "Sex" },
+                        { v: 6, l: "Sáb" },
+                      ].map((d) => {
+                        const active = recurrenceWeekdays.includes(d.v);
+                        return (
+                          <button
+                            key={d.v}
+                            type="button"
+                            onClick={() =>
+                              setRecurrenceWeekdays((prev) =>
+                                prev.includes(d.v) ? prev.filter((x) => x !== d.v) : [...prev, d.v].sort((a, b) => a - b)
+                              )
+                            }
+                            className={cn(
+                              "h-11 rounded-xl border text-[12px] font-bold transition-all",
+                              active
+                                ? "border-primary bg-primary/15 text-primary"
+                                : "border-border/20 text-muted-foreground hover:border-border/40"
+                            )}
+                          >
+                            {d.l}
+                          </button>
+                        );
                       })}
-                    </strong>
-                    {recurrenceType === "daily" && <span> e repete todos os dias às <strong>{scheduledTime}</strong></span>}
-                  </span>
-                </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Horário</Label>
+                    <Input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums max-w-[200px]"
+                    />
+                  </div>
+                  {recurrenceWeekdays.length > 0 && scheduledTime && (
+                    <div className="flex items-center gap-2 text-[12px] text-primary bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        Dispara toda <strong>{recurrenceWeekdays.map((v) => ["dom","seg","ter","qua","qui","sex","sáb"][v]).join(", ")}</strong> às <strong>{scheduledTime}</strong>
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Data</Label>
+                      <Input
+                        type="date"
+                        value={scheduledDate}
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground/70 font-medium uppercase tracking-wider">Horário</Label>
+                      <Input
+                        type="time"
+                        value={scheduledTime}
+                        onChange={(e) => setScheduledTime(e.target.value)}
+                        className="h-11 bg-muted/15 dark:bg-muted/8 border-border/15 tabular-nums"
+                      />
+                    </div>
+                  </div>
+                  {scheduledDate && scheduledTime && (
+                    <div className="flex items-center gap-2 text-[12px] text-primary bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>
+                        Disparo agendado para{" "}
+                        <strong>
+                          {new Date(`${scheduledDate}T${scheduledTime}:00`).toLocaleString("pt-BR", {
+                            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                          })}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </SurfaceCard>
 
@@ -1205,41 +1284,6 @@ export default function GroupScheduledDispatch() {
                 </div>
               </SurfaceCard>
             </div>
-
-            {/* Estimated Time */}
-            <SurfaceCard className="relative p-5 flex flex-col items-center justify-center text-center overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.06] to-transparent pointer-events-none" />
-              <div className="relative z-10 flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center">
-                  <Timer className="w-5 h-5 text-accent-foreground/70" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider font-semibold mb-1.5">Tempo estimado</p>
-                  <p className="text-3xl font-black text-foreground tabular-nums tracking-tight">
-                    {(() => {
-                      const count = selectedGroups.length;
-                      if (count === 0) return "—";
-                      const avgDelay = (minDelay + maxDelay) / 2;
-                      const avgPauseEvery = (pauseEveryMin + pauseEveryMax) / 2;
-                      const avgPauseDur = (pauseDurationMin + pauseDurationMax) / 2;
-                      const numPauses = avgPauseEvery > 0 ? Math.floor(count / avgPauseEvery) : 0;
-                      const totalSeconds = (count * avgDelay) + (numPauses * avgPauseDur);
-                      const hours = Math.floor(totalSeconds / 3600);
-                      const minutes = Math.floor((totalSeconds % 3600) / 60);
-                      const days = Math.floor(hours / 24);
-                      const remainingHours = hours % 24;
-                      if (days > 0) return `≈ ${days}d ${remainingHours}h ${minutes}min`;
-                      if (hours > 0) return `≈ ${hours}h ${minutes}min`;
-                      if (minutes > 0) return `≈ ${minutes}min`;
-                      return "≈ < 1min";
-                    })()}
-                  </p>
-                </div>
-                {selectedGroups.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground/40">{selectedGroups.length} grupo{selectedGroups.length !== 1 ? "s" : ""} • 1 instância</p>
-                )}
-              </div>
-            </SurfaceCard>
 
             {/* Mention All Toggle */}
             <SurfaceCard className="p-6">

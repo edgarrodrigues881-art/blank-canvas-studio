@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS recurrence_weekdays integer[] NOT NULL DEFAULT '{}';
