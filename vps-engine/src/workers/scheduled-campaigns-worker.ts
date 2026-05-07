@@ -79,7 +79,7 @@ export async function scheduledCampaignsTick(): Promise<void> {
 
   // ── C. Promote scheduled campaigns whose time has come ──
   const { data: dueCampaigns } = await db.from("campaigns")
-    .select("id, user_id, device_id, device_ids, scheduled_at")
+    .select("id, user_id, device_id, device_ids, scheduled_at, recurrence_type, recurrence_time, name, message_type, message_content, media_url, buttons, carousel_cards, total_contacts, min_delay_seconds, max_delay_seconds, pause_every_min, pause_every_max, pause_duration_min, pause_duration_max")
     .eq("status", "scheduled")
     .lte("scheduled_at", nowIso);
 
@@ -108,6 +108,71 @@ export async function scheduledCampaignsTick(): Promise<void> {
     if (updated && updated.length > 0) {
       promoted++;
       log.info(`Campaign ${campaign.id.slice(0, 8)} promoted scheduled → running`);
+
+      // ── Daily recurrence: clone campaign for next day ──
+      if (campaign.recurrence_type === "daily") {
+        try {
+          const baseTime = campaign.recurrence_time && /^\d{2}:\d{2}$/.test(campaign.recurrence_time)
+            ? campaign.recurrence_time
+            : null;
+
+          // Compute next run = current scheduled_at + 1 day (preserves user's chosen time)
+          const baseDate = new Date(campaign.scheduled_at);
+          const nextRun = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+          if (baseTime) {
+            const [hh, mm] = baseTime.split(":").map(Number);
+            // Adjust hours/minutes in UTC equivalent of BRT — keep same instant-of-day
+            nextRun.setUTCHours(baseDate.getUTCHours(), baseDate.getUTCMinutes(), 0, 0);
+          }
+
+          // Clone the campaign as a new scheduled entry
+          const { data: cloned, error: cloneErr } = await db.from("campaigns").insert({
+            user_id: campaign.user_id,
+            name: campaign.name,
+            message_type: campaign.message_type,
+            message_content: campaign.message_content,
+            media_url: campaign.media_url,
+            buttons: campaign.buttons,
+            carousel_cards: campaign.carousel_cards,
+            device_id: campaign.device_id,
+            device_ids: campaign.device_ids,
+            status: "scheduled",
+            total_contacts: campaign.total_contacts,
+            scheduled_at: nextRun.toISOString(),
+            recurrence_type: "daily",
+            recurrence_time: campaign.recurrence_time,
+            min_delay_seconds: campaign.min_delay_seconds,
+            max_delay_seconds: campaign.max_delay_seconds,
+            pause_every_min: campaign.pause_every_min,
+            pause_every_max: campaign.pause_every_max,
+            pause_duration_min: campaign.pause_duration_min,
+            pause_duration_max: campaign.pause_duration_max,
+          }).select("id").single();
+
+          if (cloneErr) throw cloneErr;
+
+          // Copy contacts (groups) from original campaign to the new one
+          const { data: origContacts } = await db.from("campaign_contacts")
+            .select("phone, name, device_id")
+            .eq("campaign_id", campaign.id);
+
+          if (origContacts && origContacts.length > 0) {
+            await db.from("campaign_contacts").insert(
+              origContacts.map((c: any) => ({
+                campaign_id: cloned.id,
+                phone: c.phone,
+                name: c.name,
+                status: "pending",
+                device_id: c.device_id,
+              }))
+            );
+          }
+
+          log.info(`Campaign ${campaign.id.slice(0, 8)} (daily) cloned → ${cloned.id.slice(0, 8)} for ${nextRun.toISOString()}`);
+        } catch (err: any) {
+          log.error(`Failed to clone daily campaign ${campaign.id.slice(0, 8)}: ${err?.message || err}`);
+        }
+      }
     }
   }
 
