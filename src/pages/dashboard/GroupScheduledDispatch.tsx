@@ -1326,11 +1326,11 @@ export default function GroupScheduledDispatch() {
             ) : (
               <Button
                 onClick={handleSend}
-                disabled={sending || !selectedDevice || selectedGroups.length === 0 || !campaignName.trim()}
+                disabled={sending || !selectedDevice || selectedGroups.length === 0 || !campaignName.trim() || !scheduledDate || !scheduledTime}
                 className="gap-1.5 sm:gap-2.5 h-10 sm:h-11 flex-1 sm:flex-none sm:px-10 text-xs sm:text-sm font-bold tracking-wide shadow-lg shadow-primary/25 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                ENVIAR AGORA
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                AGENDAR DISPARO
               </Button>
             )}
           </div>
