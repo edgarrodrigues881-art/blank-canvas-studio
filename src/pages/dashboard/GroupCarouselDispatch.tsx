@@ -193,8 +193,8 @@ export default function GroupCarouselDispatch() {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("nova");
   const [mentionAll, setMentionAll] = useState(draft.current?.mentionAll ?? false);
 
-  const { data: savedTemplates = [] } = useTemplates();
-  const { data: carouselTemplates = [] } = useCarouselTemplates();
+  const { data: savedTemplates = [] } = useTemplates("group");
+  const { data: carouselTemplates = [] } = useCarouselTemplates("group");
   const isAllowed = !!user;
 
   const applyImportedTextTemplate = useCallback((template: any) => {
