@@ -641,9 +641,9 @@ export default function GroupScheduledDispatch() {
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div>
           <h1 className="text-lg sm:text-2xl font-bold text-foreground tracking-tight leading-tight">
-            Configuração de Campanha
+            Disparo Agendado em Grupo
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground/60 mt-1 sm:mt-1.5">Controle total sobre sua entrega e performance.</p>
+          <p className="text-xs sm:text-sm text-muted-foreground/60 mt-1 sm:mt-1.5">Programe disparos em grupos para uma data e horário específicos.</p>
         </div>
       </div>
 
