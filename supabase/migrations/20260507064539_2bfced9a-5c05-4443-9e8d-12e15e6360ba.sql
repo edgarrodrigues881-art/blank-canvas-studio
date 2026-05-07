@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS mention_all boolean NOT NULL DEFAULT false;

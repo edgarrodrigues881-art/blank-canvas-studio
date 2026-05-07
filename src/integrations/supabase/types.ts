@@ -1712,6 +1712,7 @@ export type Database = {
           id: string
           max_delay_seconds: number
           media_url: string | null
+          mention_all: boolean
           message_content: string | null
           message_type: string
           messages_per_instance: number | null
@@ -1745,6 +1746,7 @@ export type Database = {
           id?: string
           max_delay_seconds?: number
           media_url?: string | null
+          mention_all?: boolean
           message_content?: string | null
           message_type: string
           messages_per_instance?: number | null
@@ -1778,6 +1780,7 @@ export type Database = {
           id?: string
           max_delay_seconds?: number
           media_url?: string | null
+          mention_all?: boolean
           message_content?: string | null
           message_type?: string
           messages_per_instance?: number | null
