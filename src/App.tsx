@@ -62,6 +62,8 @@ const StatusPost = lazyWithPreload(() => import("@/pages/dashboard/StatusPost"))
 const WhatsAppVerifier = lazyWithPreload(() => import("@/pages/dashboard/WhatsAppVerifierCampaigns"));
 const Templates = lazyWithPreload(() => import("@/pages/dashboard/Templates"));
 const CarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/CarouselTemplates"));
+const GroupTemplates = lazyWithPreload(() => import("@/pages/dashboard/GroupTemplates"));
+const GroupCarouselTemplates = lazyWithPreload(() => import("@/pages/dashboard/GroupCarouselTemplates"));
 const AutoSave = lazyWithPreload(() => import("@/pages/dashboard/AutoSave"));
 const Reports = lazyWithPreload(() => import("@/pages/dashboard/Reports"));
 const ReportWhatsApp = lazyWithPreload(() => import("@/pages/dashboard/ReportWhatsApp"));
@@ -305,6 +307,8 @@ const App = () => (
                 <Route path="/dashboard/group-crm/group-send" element={<ProtectedRoute><DashboardLayout><GroupCarouselDispatch /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/groups" element={<ProtectedRoute><DashboardLayout><GroupCapture /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-crm/schedule" element={<ProtectedRoute><DashboardLayout><GroupSchedulePage /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-crm/templates" element={<ProtectedRoute><DashboardLayout><GroupTemplates /></DashboardLayout></ProtectedRoute>} />
+                <Route path="/dashboard/group-crm/carousel-templates" element={<ProtectedRoute><DashboardLayout><GroupCarouselTemplates /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/group-manager" element={<ProtectedRoute><DashboardLayout><GroupManagerDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/crm" element={<ProtectedRoute><DashboardLayout><CRMDashboard /></DashboardLayout></ProtectedRoute>} />
                 <Route path="/dashboard/leads" element={<ProtectedRoute><DashboardLayout><Leads /></DashboardLayout></ProtectedRoute>} />

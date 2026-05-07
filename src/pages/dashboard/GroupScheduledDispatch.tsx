@@ -197,8 +197,8 @@ export default function GroupScheduledDispatch() {
   const [recurrenceType, setRecurrenceType] = useState<"once" | "daily">(draft.current?.recurrenceType || "once");
   const [recurrenceWeekdays, setRecurrenceWeekdays] = useState<number[]>(draft.current?.recurrenceWeekdays || []);
 
-  const { data: savedTemplates = [] } = useTemplates();
-  const { data: carouselTemplates = [] } = useCarouselTemplates();
+  const { data: savedTemplates = [] } = useTemplates("group");
+  const { data: carouselTemplates = [] } = useCarouselTemplates("group");
   const isAllowed = !!user;
 
   const applyImportedTextTemplate = useCallback((template: any) => {

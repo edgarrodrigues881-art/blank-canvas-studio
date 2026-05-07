@@ -9,20 +9,24 @@ export interface Template {
   type: string;
   media_url: string | null;
   buttons: any[];
+  source?: string;
   created_at: string;
   updated_at: string;
 }
 
-export function useTemplates() {
+export type TemplateSource = "main" | "group";
+
+export function useTemplates(source: TemplateSource = "main") {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ["templates", user?.id],
+    queryKey: ["templates", user?.id, source],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("templates")
-        .select("id, name, content, type, media_url, buttons, created_at, updated_at")
+        .select("id, name, content, type, media_url, buttons, source, created_at, updated_at")
         .eq("user_id", user!.id)
+        .eq("source", source)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Template[];
@@ -32,7 +36,7 @@ export function useTemplates() {
   });
 }
 
-export function useCreateTemplate() {
+export function useCreateTemplate(source: TemplateSource = "main") {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -40,8 +44,8 @@ export function useCreateTemplate() {
     mutationFn: async (template: { name: string; content: string; type: string; media_url?: string; buttons?: any[] }) => {
       const { data, error } = await supabase
         .from("templates")
-        .insert({ ...template, user_id: user!.id, buttons: template.buttons || [] })
-        .select("id, name, content, type, media_url, buttons, created_at, updated_at")
+        .insert({ ...template, user_id: user!.id, buttons: template.buttons || [], source })
+        .select("id, name, content, type, media_url, buttons, source, created_at, updated_at")
         .single();
       if (error) throw error;
       return data;
@@ -59,7 +63,7 @@ export function useUpdateTemplate() {
         .from("templates")
         .update(updates)
         .eq("id", id)
-        .select("id, name, content, type, media_url, buttons, created_at, updated_at")
+        .select("id, name, content, type, media_url, buttons, source, created_at, updated_at")
         .single();
       if (error) throw error;
 

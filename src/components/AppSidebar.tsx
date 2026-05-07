@@ -458,10 +458,10 @@ export function AppSidebar() {
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
                   {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers })}
-                  {renderNavItem({ title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const })}
-                  {renderNavItem({ title: "Templates", url: "/dashboard/templates", icon: FileText })}
-                  {renderNavItem({ title: "Template Carrossel", url: "/dashboard/carousel-templates", icon: Layers })}
                   {renderNavItem({ title: "Disparo Agendado", url: "/dashboard/group-crm/schedule", icon: CalendarClock })}
+                  {renderNavItem({ title: "Templates", url: "/dashboard/group-crm/templates", icon: FileText })}
+                  {renderNavItem({ title: "Template Carrossel", url: "/dashboard/group-crm/carousel-templates", icon: Layers })}
+                  {renderNavItem({ title: "Campanhas", url: "/dashboard/campaign-list", icon: Megaphone, badgeKey: "activeCampaigns" as const })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

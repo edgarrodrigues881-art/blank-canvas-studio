@@ -1836,6 +1836,7 @@ export type Database = {
           id: string
           message: string
           name: string
+          source: string
           updated_at: string
           user_id: string
         }
@@ -1845,6 +1846,7 @@ export type Database = {
           id?: string
           message?: string
           name: string
+          source?: string
           updated_at?: string
           user_id: string
         }
@@ -1854,6 +1856,7 @@ export type Database = {
           id?: string
           message?: string
           name?: string
+          source?: string
           updated_at?: string
           user_id?: string
         }
@@ -6547,6 +6550,7 @@ export type Database = {
           id: string
           media_url: string | null
           name: string
+          source: string
           type: string
           updated_at: string
           user_id: string
@@ -6558,6 +6562,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           name: string
+          source?: string
           type: string
           updated_at?: string
           user_id: string
@@ -6569,6 +6574,7 @@ export type Database = {
           id?: string
           media_url?: string | null
           name?: string
+          source?: string
           type?: string
           updated_at?: string
           user_id?: string
