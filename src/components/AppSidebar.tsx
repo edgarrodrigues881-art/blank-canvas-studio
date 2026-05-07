@@ -414,6 +414,7 @@ export function AppSidebar() {
     const isGroupCRMRoute = GROUP_CRM_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(r + "/"));
     if (isGroupCRMRoute && !isGroupCRM) setWorkspace("group-crm");
     else if (isCRMRoute && !isCRM) setWorkspace("crm");
+    else if (!isCRMRoute && !isGroupCRMRoute && (isCRM || isGroupCRM)) setWorkspace("automacao");
   }, [location.pathname]);
 
   return (
