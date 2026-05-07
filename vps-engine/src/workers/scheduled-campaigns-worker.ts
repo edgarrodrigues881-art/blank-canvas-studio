@@ -116,12 +116,24 @@ export async function scheduledCampaignsTick(): Promise<void> {
             ? campaign.recurrence_time
             : null;
 
-          // Compute next run = current scheduled_at + 1 day (preserves user's chosen time)
+          const weekdays: number[] = Array.isArray(campaign.recurrence_weekdays) ? campaign.recurrence_weekdays : [];
+
+          // Compute next run:
+          //  - If weekdays were chosen → next future date matching one of them at the same time of day
+          //  - Otherwise (legacy) → +1 day
           const baseDate = new Date(campaign.scheduled_at);
-          const nextRun = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+          let nextRun: Date;
+          if (weekdays.length > 0) {
+            let candidate = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+            for (let i = 0; i < 8; i++) {
+              if (weekdays.includes(candidate.getUTCDay())) break;
+              candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
+            }
+            nextRun = candidate;
+          } else {
+            nextRun = new Date(baseDate.getTime() + 24 * 60 * 60 * 1000);
+          }
           if (baseTime) {
-            const [hh, mm] = baseTime.split(":").map(Number);
-            // Adjust hours/minutes in UTC equivalent of BRT — keep same instant-of-day
             nextRun.setUTCHours(baseDate.getUTCHours(), baseDate.getUTCMinutes(), 0, 0);
           }
 
@@ -141,6 +153,8 @@ export async function scheduledCampaignsTick(): Promise<void> {
             scheduled_at: nextRun.toISOString(),
             recurrence_type: "daily",
             recurrence_time: campaign.recurrence_time,
+            recurrence_weekdays: weekdays,
+            mention_all: campaign.mention_all === true,
             min_delay_seconds: campaign.min_delay_seconds,
             max_delay_seconds: campaign.max_delay_seconds,
             pause_every_min: campaign.pause_every_min,
