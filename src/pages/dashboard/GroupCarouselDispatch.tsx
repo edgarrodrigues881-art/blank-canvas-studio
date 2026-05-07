@@ -409,6 +409,7 @@ export default function GroupCarouselDispatch() {
           carousel_cards: dispatchType === "carousel" ? serializeCarouselCards(touchedCards) as any : null,
           device_id: selectedDevice, status: "pending", total_contacts: selectedGroups.length,
           started_at: startedAt,
+          mention_all: mentionAll,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
           pause_duration_min: pauseDurationMin, pause_duration_max: pauseDurationMax,
