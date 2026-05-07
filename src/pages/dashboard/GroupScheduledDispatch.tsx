@@ -439,6 +439,7 @@ export default function GroupScheduledDispatch() {
           scheduled_at: scheduledIso,
           recurrence_type: recurrenceType,
           recurrence_time: scheduledTime,
+          recurrence_weekdays: recurrenceType === "daily" ? recurrenceWeekdays : [],
           mention_all: mentionAll,
           min_delay_seconds: minDelay, max_delay_seconds: maxDelay,
           pause_every_min: pauseEveryMin, pause_every_max: pauseEveryMax,
