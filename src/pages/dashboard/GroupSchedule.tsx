@@ -446,7 +446,7 @@ export default function GroupSchedule() {
 
             {step === 3 && (
               <>
-                <div className="space-y-3"> setForm({ ...form, type: v as ScheduleType })}>
+                <div className="space-y-3">
                   <div className={cn("border rounded-lg p-4 cursor-pointer transition-colors", form.type === "once" && "border-primary bg-primary/5")} onClick={() => setForm({ ...form, type: "once" })}>
                     <div className="flex items-center gap-3">
                       
