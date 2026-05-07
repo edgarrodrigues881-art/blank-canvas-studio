@@ -1505,18 +1505,14 @@ Deno.serve(async (req) => {
       await fn();
     };
 
-    // Fetch participants if mentionAll is enabled — but do NOT fail if we can't get them.
-    // Many groups allow sending with mentions:"all" flag without knowing exact participants.
+    // BLIND MENTION ONLY: user explicitly wants the notification ("@todos" ping) WITHOUT
+    // any visible @<number> tokens in the message body. We skip fetching participants so
+    // the body stays clean and rely on UAZAPI's mentions:"all" flag + blind mention fields
+    // to trigger the WhatsApp ping silently.
     let mentionPhones: string[] = [];
     let mentionMode: "participants" | "blind" = "blind";
     if (mentionAll) {
-      mentionPhones = await fetchGroupParticipants(baseUrl, headers, groupJid);
-      if (mentionPhones.length > 0) {
-        mentionMode = "participants";
-        console.log(`[group-carousel] Fetched ${mentionPhones.length} participants for explicit mentions`);
-      } else {
-        console.log(`[group-carousel] Could not fetch participants — will use blind mentions:"all" strategy`);
-      }
+      console.log(`[group-carousel] mentionAll=true — using BLIND mode (no @<num> tokens, only notification flag)`);
     }
 
     const normalizedCarouselCards = normalizeCarouselCards(cards || []);
