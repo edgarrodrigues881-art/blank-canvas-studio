@@ -454,6 +454,8 @@ export default function GroupScheduledDispatch() {
       setButtons([{ id: Date.now(), type: "reply" as const, text: "", value: "" }]);
       setCards([createEmptyCard(0)]);
       setSelectedGroups([]);
+      setScheduledDate("");
+      setScheduledTime("");
       setDispatchType("buttons");
       setStep(1);
       setSendResults([]);
