@@ -47,10 +47,10 @@ const DashboardHome = () => {
       tone: "blue",
     },
     {
-      label: "Interação de Grupos",
-      value: periodTotals?.group ?? 0,
-      icon: Users,
-      tone: "violet",
+      label: "Aquecimento Automático",
+      value: periodTotals?.warmup ?? 0,
+      icon: Flame,
+      tone: "orange",
     },
     {
       label: "Aquecimento Automático",
