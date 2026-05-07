@@ -34,7 +34,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth";
 
 // ---- Mock fallback data (until backend is fully wired) ----
 const MOCK_CHART_7 = [
