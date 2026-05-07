@@ -63,13 +63,17 @@ const commonEmojis: Record<string, string[]> = {
   "Símbolos": ["❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "🔥", "💥", "⚠️", "🔔", "🎉", "🎊", "💯", "🆕"],
 };
 
-const Templates = () => {
+interface TemplatesProps {
+  source?: "main" | "group";
+}
+
+const Templates = ({ source = "main" }: TemplatesProps) => {
   const { toast } = useToast();
   const { session } = useAuth();
   const { resolvedTheme } = useTheme();
   const isLight = resolvedTheme === "light";
-  const { data: templates = [], isLoading } = useTemplates();
-  const createTemplate = useCreateTemplate();
+  const { data: templates = [], isLoading } = useTemplates(source);
+  const createTemplate = useCreateTemplate(source);
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
 
