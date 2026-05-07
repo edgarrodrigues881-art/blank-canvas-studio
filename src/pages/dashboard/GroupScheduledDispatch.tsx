@@ -36,7 +36,7 @@ import {
   validateCarouselCards,
 } from "@/components/campaigns/carousel-types";
 
-const STORAGE_KEY = "group-dispatch-draft";
+const STORAGE_KEY = "group-scheduled-dispatch-draft";
 
 type DispatchType = "text" | "buttons" | "carousel";
 type ButtonItem = { id: number; type: "reply" | "url" | "phone"; text: string; value: string };
