@@ -194,6 +194,7 @@ export default function GroupScheduledDispatch() {
   const [mentionAll, setMentionAll] = useState(draft.current?.mentionAll ?? false);
   const [scheduledDate, setScheduledDate] = useState<string>(draft.current?.scheduledDate || "");
   const [scheduledTime, setScheduledTime] = useState<string>(draft.current?.scheduledTime || "");
+  const [recurrenceType, setRecurrenceType] = useState<"once" | "daily">(draft.current?.recurrenceType || "once");
 
   const { data: savedTemplates = [] } = useTemplates();
   const { data: carouselTemplates = [] } = useCarouselTemplates();
