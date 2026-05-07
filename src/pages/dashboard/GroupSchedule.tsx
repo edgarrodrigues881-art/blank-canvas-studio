@@ -446,10 +446,10 @@ export default function GroupSchedule() {
 
             {step === 3 && (
               <>
-                <RadioGroup value={form.type} onValueChange={(v) => setForm({ ...form, type: v as ScheduleType })}>
+                <div className="space-y-3"> setForm({ ...form, type: v as ScheduleType })}>
                   <div className={cn("border rounded-lg p-4 cursor-pointer transition-colors", form.type === "once" && "border-primary bg-primary/5")} onClick={() => setForm({ ...form, type: "once" })}>
                     <div className="flex items-center gap-3">
-                      <RadioGroupItem value="once" id="once" />
+                      
                       <Label htmlFor="once" className="cursor-pointer flex items-center gap-2 font-medium">
                         <Calendar className="h-4 w-4" /> Disparar só uma vez
                       </Label>
@@ -470,7 +470,7 @@ export default function GroupSchedule() {
 
                   <div className={cn("border rounded-lg p-4 cursor-pointer transition-colors", form.type === "weekly" && "border-primary bg-primary/5")} onClick={() => setForm({ ...form, type: "weekly" })}>
                     <div className="flex items-center gap-3">
-                      <RadioGroupItem value="weekly" id="weekly" />
+                      
                       <Label htmlFor="weekly" className="cursor-pointer flex items-center gap-2 font-medium">
                         <Repeat className="h-4 w-4" /> Disparar toda semana
                       </Label>
@@ -506,7 +506,7 @@ export default function GroupSchedule() {
                       </div>
                     )}
                   </div>
-                </RadioGroup>
+                </div>
               </>
             )}
 
