@@ -374,6 +374,10 @@ export default function GroupScheduledDispatch() {
     if (!campaignName.trim()) { toast.error("Dê um nome para a campanha"); setStep(1); return; }
     if (!selectedDevice) { toast.error("Selecione uma instância"); setStep(2); return; }
     if (selectedGroups.length === 0) { toast.error("Selecione ao menos um grupo"); setStep(2); return; }
+    if (!scheduledDate || !scheduledTime) { toast.error("Defina a data e o horário do agendamento"); setStep(3); return; }
+    const scheduledAtDate = new Date(`${scheduledDate}T${scheduledTime}:00`);
+    if (isNaN(scheduledAtDate.getTime())) { toast.error("Data/horário inválido"); setStep(3); return; }
+    if (scheduledAtDate.getTime() < Date.now() - 60_000) { toast.error("O agendamento precisa ser no futuro"); setStep(3); return; }
 
     const storedHeaderText = dispatchType === "carousel"
       ? carouselMessage.trim()
