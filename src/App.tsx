@@ -328,6 +328,7 @@ const App = () => (
 
                 {/* Backoffice — BackOffice.tsx manages its own auth + admin login internally */}
                 <Route path="/backoffice" element={<BackOffice />} />
+                <Route path="/backoffice/backoffice" element={<Navigate to="/backoffice" replace />} />
                 <Route path="/backoffice/campaigns" element={<AdminRoute><BOCampaigns /></AdminRoute>} />
                 <Route path="/backoffice/campaign-list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
                 <Route path="/backoffice/campaigns/list" element={<AdminRoute><BOCampaignList /></AdminRoute>} />
