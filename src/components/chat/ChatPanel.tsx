@@ -898,10 +898,7 @@ export function ChatPanel({
                     <FileText className="w-4 h-4" /> Arquivo
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openCamera("environment")}>
-                    <Camera className="w-4 h-4" /> Câmera (traseira)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openCamera("user")}>
-                    <SwitchCamera className="w-4 h-4" /> Câmera (frontal)
+                    <Camera className="w-4 h-4" /> Câmera
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

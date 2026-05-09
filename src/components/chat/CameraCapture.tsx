@@ -28,20 +28,34 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
   const startStream = useCallback(async (mode: "user" | "environment") => {
     setLoading(true);
     stopStream();
+    const tryGet = (constraints: MediaStreamConstraints) =>
+      navigator.mediaDevices.getUserMedia(constraints);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
+      let stream: MediaStream | null = null;
+      // 1) tenta com facingMode ideal
+      try {
+        stream = await tryGet({
+          video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
+        });
+      } catch {
+        // 2) fallback: sem facingMode (pega qualquer câmera disponível, ex.: webcam de notebook)
+        stream = await tryGet({ video: true, audio: false });
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
     } catch (err: any) {
-      toast.error("Não foi possível acessar a câmera", {
-        description: err?.message || "Verifique as permissões do navegador.",
-      });
+      const name = err?.name || "";
+      const desc =
+        name === "NotAllowedError"
+          ? "Permissão negada. Habilite a câmera nas configurações do navegador."
+          : name === "NotFoundError"
+          ? "Nenhuma câmera encontrada neste dispositivo."
+          : err?.message || "Verifique as permissões do navegador.";
+      toast.error("Não foi possível acessar a câmera", { description: desc });
       onClose();
     } finally {
       setLoading(false);
