@@ -252,9 +252,9 @@ Deno.serve(async (req) => {
       buttonResponseId,
     } = parsed;
 
-    // Use a readable label for media messages instead of [mensagem]
+    // Use a readable label: real text → media label → special subtype (reaction/poll/etc.) → generic.
     const mediaLabel = getMediaLabel(mediaType);
-    const displayContent = content || mediaLabel || "[mensagem]";
+    const displayContent = content || mediaLabel || (parsed as any).specialLabel || "[mensagem]";
 
     console.log(`Parsed: type=${mediaType}, url=${mediaUrl?.substring(0,60)}, duration=${audioDuration}, content="${content.substring(0,40)}", display="${displayContent.substring(0,40)}"`);
 
