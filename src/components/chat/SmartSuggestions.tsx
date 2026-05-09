@@ -262,19 +262,31 @@ export function SmartSuggestions({ text, onApply }: Props) {
                 type="button"
                 onClick={() => onApply(applySuggestion(text, s))}
                 className={[
-                  "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
-                  "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
+                  "group/chip shrink-0 inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-xs font-medium",
+                  "border transition-all duration-150 active:scale-[0.97]",
                   isCorrection
-                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
-                    : "bg-muted/60 border-border text-foreground hover:bg-muted",
-                  isSelected
-                    ? "ring-2 ring-[hsl(var(--chat-accent))]/60 scale-[1.03]"
-                    : "",
+                    ? isSelected
+                      ? "bg-gradient-to-r from-amber-500/25 to-amber-500/10 border-amber-500/60 text-amber-600 dark:text-amber-300 shadow-sm shadow-amber-500/20"
+                      : "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/50"
+                    : isSelected
+                      ? "bg-gradient-to-r from-[hsl(var(--chat-accent))]/25 to-[hsl(var(--chat-accent))]/5 border-[hsl(var(--chat-accent))]/60 text-foreground shadow-sm shadow-[hsl(var(--chat-accent))]/15"
+                      : "bg-background/60 border-border/70 text-foreground/85 hover:bg-muted hover:border-border hover:text-foreground",
                 ].join(" ")}
                 title={`Confirmar com ${triggerLabel}`}
               >
-                {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
-                <span className="max-w-[260px] truncate">{s.label}</span>
+                <span
+                  className={[
+                    "flex items-center justify-center w-4 h-4 rounded-full shrink-0 transition-colors",
+                    isCorrection
+                      ? "bg-amber-500/20 text-amber-600 dark:text-amber-300"
+                      : isSelected
+                        ? "bg-[hsl(var(--chat-accent))]/25 text-[hsl(var(--chat-accent))]"
+                        : "bg-muted text-muted-foreground group-hover/chip:text-[hsl(var(--chat-accent))]",
+                  ].join(" ")}
+                >
+                  {isCorrection ? <Check className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
+                </span>
+                <span className="max-w-[200px] truncate leading-none">{s.label}</span>
               </button>
             );
           })
