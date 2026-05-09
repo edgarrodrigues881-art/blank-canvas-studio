@@ -250,6 +250,10 @@ export function ChatPanel({
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
 
+  // Inputs ocultos para abrir câmera (traseira / frontal) no celular
+  const cameraRearRef = useRef<HTMLInputElement>(null);
+  const cameraFrontRef = useRef<HTMLInputElement>(null);
+
   // Mostra "digitando..." / "gravando áudio..." no WhatsApp do contato
   // enquanto o atendente edita ou grava.
   useChatPresence({
