@@ -156,6 +156,15 @@ export const ChatHeader = memo(function ChatHeader({
               </DropdownMenuContent>
             </DropdownMenu>
             <span className={cn("text-[10px] text-muted-foreground/40 truncate hidden sm:inline", hideIdentity && "privacy-blur")}>{conversation.phone}</span>
+            {conversation.deviceName && (
+              <span
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shrink-0"
+                title={`Instância em uso: ${conversation.deviceName}`}
+              >
+                <Smartphone className="w-2.5 h-2.5" />
+                {conversation.deviceName}
+              </span>
+            )}
           </div>
           {/* Presence / Typing subtitle */}
           <div className="h-[14px]">
