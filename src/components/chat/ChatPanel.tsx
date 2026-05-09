@@ -502,7 +502,7 @@ export function ChatPanel({
       }
     };
     tryScroll(8);
-  }, [messages]);
+  }, []);
 
   return (
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden relative">
@@ -599,7 +599,7 @@ export function ChatPanel({
               )}
               <MessageBubble
                 msg={msg}
-                allMessages={messages}
+                getQuotedMessage={getQuotedMessage}
                 showDeviceLabel={showDevice}
                 onReply={handleReply}
                 onImageClick={setLightboxUrl}
