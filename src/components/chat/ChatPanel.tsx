@@ -445,6 +445,11 @@ export function ChatPanel({
   const filteredQuickReplies = getFilteredQuickReplies(allQuickReplies);
   useEffect(() => { setShowQuickReplies(input.startsWith("/") && filteredQuickReplies.length > 0); }, [input, filteredQuickReplies.length]);
 
+  // Navegação por teclado nas respostas rápidas
+  const [qrIndex, setQrIndex] = useState(0);
+  useEffect(() => { setQrIndex(0); }, [filteredQuickReplies.map(q => q.id).join("|")]);
+  const qrQuery = useMemo(() => (input.startsWith("/") ? input.slice(1).toLowerCase() : ""), [input]);
+
   const handleStatusChangeInternal = useCallback((status: AttendingStatus) => {
     setCurrentStatus(status);
     onStatusChange?.(conversation.id, status);
