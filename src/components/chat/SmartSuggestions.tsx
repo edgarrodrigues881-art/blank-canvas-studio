@@ -1,19 +1,45 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSuggestions, applySuggestion, type Suggestion } from "@/lib/ptSuggestions";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles, Check, Settings2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   text: string;
   onApply: (newText: string) => void;
 }
 
+const LS_SPACE_CONFIRM = "smartSuggestions.spaceConfirms";
+
+function readSpaceConfirms(): boolean {
+  try {
+    return localStorage.getItem(LS_SPACE_CONFIRM) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Barra estilo teclado de celular.
  * Navegação: ← / → para mover seleção, Tab para aplicar.
+ * Opcional: Espaço confirma a sugestão selecionada (configurável).
  */
 export function SmartSuggestions({ text, onApply }: Props) {
   const { suggestions } = useMemo(() => getSuggestions(text), [text]);
   const [selected, setSelected] = useState(0);
+  const [spaceConfirms, setSpaceConfirms] = useState<boolean>(() => readSpaceConfirms());
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_SPACE_CONFIRM, spaceConfirms ? "1" : "0");
+    } catch {}
+  }, [spaceConfirms]);
 
   // Reseta seleção quando o conjunto de sugestões muda
   useEffect(() => {
@@ -24,7 +50,6 @@ export function SmartSuggestions({ text, onApply }: Props) {
   useEffect(() => {
     if (suggestions.length === 0) return;
     const handler = (e: KeyboardEvent) => {
-      // Só atua se o foco estiver num input/textarea (não atrapalha resto da app)
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag !== "TEXTAREA" && tag !== "INPUT") return;
 
@@ -32,6 +57,13 @@ export function SmartSuggestions({ text, onApply }: Props) {
         e.preventDefault();
         const s = suggestions[selected] ?? suggestions[0];
         if (s) onApply(applySuggestion(text, s));
+      } else if (e.key === " " && spaceConfirms && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // Espaço confirma a sugestão selecionada (se ativado)
+        const s = suggestions[selected] ?? suggestions[0];
+        if (s) {
+          e.preventDefault();
+          onApply(applySuggestion(text, s));
+        }
       } else if (e.key === "ArrowRight" && e.altKey) {
         e.preventDefault();
         setSelected((i) => Math.min(suggestions.length - 1, i + 1));
@@ -39,7 +71,6 @@ export function SmartSuggestions({ text, onApply }: Props) {
         e.preventDefault();
         setSelected((i) => Math.max(0, i - 1));
       } else if (e.key === "ArrowUp") {
-        // Up/Down navegam (não conflita com textarea de 1 linha)
         e.preventDefault();
         setSelected((i) => Math.max(0, i - 1));
       } else if (e.key === "ArrowDown") {
@@ -49,8 +80,9 @@ export function SmartSuggestions({ text, onApply }: Props) {
     };
     document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
-  }, [suggestions, selected, text, onApply]);
+  }, [suggestions, selected, text, onApply, spaceConfirms]);
 
+  // Mostra o gear mesmo sem sugestões? Não — só quando aparece a barra.
   if (suggestions.length === 0) return null;
 
   return (
@@ -78,11 +110,40 @@ export function SmartSuggestions({ text, onApply }: Props) {
             {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
             <span className="max-w-[260px] truncate">{s.label}</span>
             {isSelected && (
-              <span className="ml-1 text-[9px] uppercase opacity-60">Tab</span>
+              <span className="ml-1 text-[9px] uppercase opacity-60">
+                {spaceConfirms ? "Espaço" : "Tab"}
+              </span>
             )}
           </button>
         );
       })}
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full border border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            title="Configurações de sugestões"
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Settings2 className="w-3 h-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="top" className="w-64">
+          <DropdownMenuLabel>Sugestões</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            checked={spaceConfirms}
+            onCheckedChange={(v) => setSpaceConfirms(!!v)}
+          >
+            Espaço confirma sugestão
+          </DropdownMenuCheckboxItem>
+          <div className="px-2 py-1.5 text-[11px] text-muted-foreground leading-snug">
+            Quando ativo, ao apertar a barra de espaço a palavra selecionada
+            é aplicada automaticamente. Tab sempre funciona.
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
