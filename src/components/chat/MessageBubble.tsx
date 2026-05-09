@@ -856,3 +856,20 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
     </div>
   );
 }
+
+export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
+  return (
+    prev.msg === next.msg &&
+    prev.showDeviceLabel === next.showDeviceLabel &&
+    prev.selectionMode === next.selectionMode &&
+    prev.isSelected === next.isSelected &&
+    prev.getQuotedMessage === next.getQuotedMessage &&
+    prev.onReply === next.onReply &&
+    prev.onImageClick === next.onImageClick &&
+    prev.onRetry === next.onRetry &&
+    prev.onDelete === next.onDelete &&
+    prev.onEdit === next.onEdit &&
+    prev.onToggleSelect === next.onToggleSelect &&
+    prev.onScrollToQuoted === next.onScrollToQuoted
+  );
+});
