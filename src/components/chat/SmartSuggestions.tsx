@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSuggestions, applySuggestion, type Suggestion } from "@/lib/ptSuggestions";
-import { Sparkles, Check, MoreVertical } from "lucide-react";
+import { Sparkles, Check, MoreVertical, Keyboard, ArrowDownToLine, CornerDownLeft, Space as SpaceIcon, Type } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
