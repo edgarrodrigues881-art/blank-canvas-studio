@@ -794,17 +794,19 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
-            "min-w-[48px] max-w-full rounded-xl relative overflow-hidden",
+            "min-w-[48px] max-w-full relative overflow-hidden",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? "w-fit p-1 bg-transparent border-0 shadow-none"
               : msg.mediaType === "image" && msg.mediaUrl
-                ? "w-full max-w-[320px] p-1.5"
+                ? "w-full max-w-[320px] p-0 bg-transparent"
                 : "w-fit px-3 py-2",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
-              : isSent
-                ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
-                : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
+              : msg.mediaType === "image" && msg.mediaUrl
+                ? "rounded-md"
+                : isSent
+                  ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
+                  : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
             msg.status === "failed" && "opacity-70",
             hideMessages && "privacy-blur"
           )}
