@@ -463,7 +463,7 @@ function QuotedBlock({ msg, onScrollToQuoted, getQuotedMessage }: { msg: Message
 
 export interface MessageBubbleProps {
   msg: Message;
-  allMessages?: Message[];
+  getQuotedMessage?: (id: string) => Message | undefined;
   showDeviceLabel?: boolean;
   onReply?: (msg: Message) => void;
   onImageClick?: (url: string) => void;
@@ -483,7 +483,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect, onScrollToQuoted }: MessageBubbleProps) {
+function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect, onScrollToQuoted }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
