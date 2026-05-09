@@ -54,6 +54,7 @@ interface ChatPanelProps {
   onSendFile?: (conversationId: string, file: File, caption?: string) => void;
   onRetryMessage?: (messageId: string) => void;
   onDeleteMessage?: (msg: Message) => void;
+  onBulkDeleteMessages?: (msgs: Message[]) => void;
   onEditMessage?: (msg: Message) => void;
   onArchive?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
@@ -210,7 +211,7 @@ const defaultQuickReplies = [
 
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
-  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage, onEditMessage,
+  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage, onBulkDeleteMessages, onEditMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
   instances, selectedInstanceId, onInstanceChange,
@@ -224,6 +225,10 @@ export function ChatPanel({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(200);
+
+  // Reset window when switching conversation
+  useEffect(() => { setVisibleCount(200); }, [conversation.id]);
 
   // Stable lookup for quoted messages — avoids re-rendering all bubbles per keystroke
   const messagesRef = useRef(messages);
@@ -464,11 +469,16 @@ export function ChatPanel({
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    if (!onDeleteMessage) return;
-    const selectedMessages = messages.filter((m) => selectedMsgIds.has(m.id));
-    selectedMessages.forEach((m) => onDeleteMessage(m));
+    const selectedMessages = messagesRef.current.filter((m) => selectedMsgIds.has(m.id));
+    if (selectedMessages.length === 0) return;
+    if (onBulkDeleteMessages) {
+      onBulkDeleteMessages(selectedMessages);
+    } else if (onDeleteMessage) {
+      // Fallback: only deletes one (legacy behavior)
+      onDeleteMessage(selectedMessages[0]);
+    }
     exitSelectionMode();
-  }, [messages, selectedMsgIds, onDeleteMessage, exitSelectionMode]);
+  }, [selectedMsgIds, onBulkDeleteMessages, onDeleteMessage, exitSelectionMode]);
 
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
@@ -565,55 +575,75 @@ export function ChatPanel({
         className="absolute inset-0 overflow-y-auto px-3 py-4 space-y-0.5 chat-surface"
         style={{ scrollBehavior: "smooth" }}
       >
-        {messages.map((msg, i) => {
-          const msgDate = new Date(msg.timestamp);
-          const prevDate = i > 0 ? new Date(messages[i - 1].timestamp) : null;
-          const showDate = i === 0 || (prevDate && format(prevDate, "dd/MM/yyyy") !== format(msgDate, "dd/MM/yyyy"));
-          const prevMsg = i > 0 ? messages[i - 1] : null;
-          const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
-          const directionChanged = prevMsg && prevMsg.type !== msg.type;
-
-          // Date label: Hoje / Ontem / full date
-          let dateLabel = "";
-          if (showDate) {
-            const today = new Date();
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            if (format(msgDate, "dd/MM/yyyy") === format(today, "dd/MM/yyyy")) {
-              dateLabel = "Hoje";
-            } else if (format(msgDate, "dd/MM/yyyy") === format(yesterday, "dd/MM/yyyy")) {
-              dateLabel = "Ontem";
-            } else {
-              dateLabel = format(msgDate, "dd 'de' MMMM", { locale: ptBR });
-            }
-          }
-
+        {/* Render only the last N messages for performance on long conversations */}
+        {(() => {
+          const total = messages.length;
+          const sliceStart = Math.max(0, total - visibleCount);
+          const visible = sliceStart === 0 ? messages : messages.slice(sliceStart);
           return (
-            <div key={msg.id} id={`msg-${msg.id}`} className={cn("transition-all duration-500 ease-out", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "quoted-highlight rounded-xl")}>
-              {showDate && (
-                <div className="flex justify-center my-4">
-                  <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/40 dark:bg-muted/20 px-3 py-1 rounded-full select-none">
-                    {dateLabel}
-                  </span>
+            <>
+              {sliceStart > 0 && (
+                <div className="flex justify-center my-3">
+                  <button
+                    onClick={() => setVisibleCount((v) => v + 200)}
+                    className="text-[11px] px-3 py-1.5 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40 transition"
+                  >
+                    Carregar mensagens anteriores ({sliceStart})
+                  </button>
                 </div>
               )}
-              <MessageBubble
-                msg={msg}
-                getQuotedMessage={getQuotedMessage}
-                showDeviceLabel={showDevice}
-                onReply={handleReply}
-                onImageClick={setLightboxUrl}
-                onRetry={onRetryMessage}
-                onDelete={onDeleteMessage}
-                onEdit={onEditMessage}
-                selectionMode={selectionMode}
-                isSelected={selectedMsgIds.has(msg.id)}
-                onToggleSelect={toggleSelectMsg}
-                onScrollToQuoted={handleScrollToQuoted}
-              />
-            </div>
+              {visible.map((msg, vi) => {
+                const i = sliceStart + vi;
+                const msgDate = new Date(msg.timestamp);
+                const prevDate = i > 0 ? new Date(messages[i - 1].timestamp) : null;
+                const showDate = i === 0 || (prevDate && format(prevDate, "dd/MM/yyyy") !== format(msgDate, "dd/MM/yyyy"));
+                const prevMsg = i > 0 ? messages[i - 1] : null;
+                const showDevice = !!(instances && instances.length > 1) && msg.deviceName !== prevMsg?.deviceName;
+                const directionChanged = prevMsg && prevMsg.type !== msg.type;
+
+                let dateLabel = "";
+                if (showDate) {
+                  const today = new Date();
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  if (format(msgDate, "dd/MM/yyyy") === format(today, "dd/MM/yyyy")) {
+                    dateLabel = "Hoje";
+                  } else if (format(msgDate, "dd/MM/yyyy") === format(yesterday, "dd/MM/yyyy")) {
+                    dateLabel = "Ontem";
+                  } else {
+                    dateLabel = format(msgDate, "dd 'de' MMMM", { locale: ptBR });
+                  }
+                }
+
+                return (
+                  <div key={msg.id} id={`msg-${msg.id}`} className={cn("transition-all duration-500 ease-out", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "quoted-highlight rounded-xl")}>
+                    {showDate && (
+                      <div className="flex justify-center my-4">
+                        <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/40 dark:bg-muted/20 px-3 py-1 rounded-full select-none">
+                          {dateLabel}
+                        </span>
+                      </div>
+                    )}
+                    <MessageBubble
+                      msg={msg}
+                      getQuotedMessage={getQuotedMessage}
+                      showDeviceLabel={showDevice}
+                      onReply={handleReply}
+                      onImageClick={setLightboxUrl}
+                      onRetry={onRetryMessage}
+                      onDelete={onDeleteMessage}
+                      onEdit={onEditMessage}
+                      selectionMode={selectionMode}
+                      isSelected={selectedMsgIds.has(msg.id)}
+                      onToggleSelect={toggleSelectMsg}
+                      onScrollToQuoted={handleScrollToQuoted}
+                    />
+                  </div>
+                );
+              })}
+            </>
           );
-        })}
+        })()}
 
         {/* Typing indicator */}
         {conversation.status === "typing" && (
