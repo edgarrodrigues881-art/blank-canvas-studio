@@ -577,9 +577,8 @@ const BrowserMockupStatic = ({ src, alt }: { src: string; alt: string }) => (
       <img
         src={src}
         alt={alt}
-        loading="eager"
+        loading="lazy"
         decoding="async"
-        fetchPriority="high"
         className="block w-full h-auto"
       />
     </div>
