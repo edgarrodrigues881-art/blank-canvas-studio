@@ -492,6 +492,9 @@ export function ChatPanel({
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden relative">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
+      {/* Câmera traseira (environment) e frontal (user). O navegador abre a câmera no mobile. */}
+      <input ref={cameraRearRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageInput} />
+      <input ref={cameraFrontRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleImageInput} />
 
       <ChatHeader
         conversation={conversation}
