@@ -207,7 +207,7 @@ export function SmartSuggestions({ text, onApply }: Props) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="flex-1 flex flex-wrap items-center gap-1.5 min-h-[28px]">
+      <div className="flex-1 flex flex-nowrap items-center gap-1.5 min-h-[28px] overflow-x-auto scrollbar-none">
         {suggestions.length === 0 ? (
           <span className="text-[11px] text-muted-foreground/60 italic px-1">
             Comece a digitar para ver sugestões…
