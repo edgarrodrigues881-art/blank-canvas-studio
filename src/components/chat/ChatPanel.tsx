@@ -26,6 +26,7 @@ import {
   Square,
 } from "lucide-react";
 import { EmojiPicker } from "./EmojiPicker";
+import { SmartSuggestions } from "./SmartSuggestions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -772,6 +773,15 @@ export function ChatPanel({
             </DropdownMenu>
 
             <div className="flex-1 relative">
+              <div className="absolute -top-9 left-0 right-0">
+                <SmartSuggestions
+                  text={input}
+                  onApply={(newText) => {
+                    setInput(newText);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                />
+              </div>
               <textarea
                 ref={textareaRef}
                 placeholder="Digite / para respostas rápidas..."
