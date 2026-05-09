@@ -595,21 +595,32 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
       // Extract display caption: strip leading [image] / [document] prefix if present
       const rawCaption = msg.content || "";
       const displayCaption = rawCaption.replace(/^\[(image|foto|document|documento)\]\s*/i, "").trim();
+      const hasCaption = displayCaption && !isMediaPlaceholder(displayCaption);
 
       return (
         <div className="w-full">
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
-          <button
-            type="button"
-            onClick={() => onImageClick?.(msg.mediaUrl!)}
-            className="block w-full overflow-hidden rounded-[18px] border border-border/20 bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
-          </button>
-          {displayCaption && !isMediaPlaceholder(displayCaption) && (
-            <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => onImageClick?.(msg.mediaUrl!)}
+              className="block w-full overflow-hidden rounded-md bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
+            </button>
+            {!hasCaption && (
+              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/45 backdrop-blur-sm text-white/95 text-[10px] flex items-center gap-1 pointer-events-none">
+                <span>{format(new Date(msg.timestamp), "HH:mm")}</span>
+                {msg.type === "sent" && <StatusIcon status={msg.status} />}
+              </div>
+            )}
+          </div>
+          {hasCaption && (
+            <>
+              <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5 px-1" />
+              <div className="px-1"><MsgFooter msg={msg} /></div>
+            </>
           )}
-          <MsgFooter msg={msg} />
         </div>
       );
     }
@@ -794,17 +805,19 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
           onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => { e.preventDefault(); setShowActions(true); }}
           className={cn(
-            "min-w-[48px] max-w-full rounded-xl relative overflow-hidden",
+            "min-w-[48px] max-w-full relative overflow-hidden",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? "w-fit p-1 bg-transparent border-0 shadow-none"
               : msg.mediaType === "image" && msg.mediaUrl
-                ? "w-full max-w-[320px] p-1.5"
+                ? "w-full max-w-[320px] p-0 bg-transparent"
                 : "w-fit px-3 py-2",
             msg.mediaType === "sticker" && msg.mediaUrl
               ? ""
-              : isSent
-                ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
-                : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
+              : msg.mediaType === "image" && msg.mediaUrl
+                ? "rounded-md"
+                : isSent
+                  ? "chat-bubble-sent rounded-2xl rounded-br-md transition-colors duration-200"
+                  : "chat-bubble-received rounded-2xl rounded-bl-md transition-colors duration-200",
             msg.status === "failed" && "opacity-70",
             hideMessages && "privacy-blur"
           )}
