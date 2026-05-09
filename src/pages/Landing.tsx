@@ -8,14 +8,14 @@ import {
   ChevronDown, Star, Lock, UsersRound, MessageCircle, ShieldCheck, Megaphone, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo-new.png";
-import heroCrmMobile from "@/assets/hero-crm-mobile.png";
-import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.png";
-import howtoStep1 from "@/assets/howto-step-1.png";
-import howtoStep2 from "@/assets/howto-step-2.png";
-import howtoStep3 from "@/assets/howto-step-3.png";
-import howtoStep4 from "@/assets/howto-step-4.png";
-import howtoStep5 from "@/assets/howto-step-5.png";
+import logo from "@/assets/logo-new.webp";
+import heroCrmMobile from "@/assets/hero-crm-mobile.webp";
+import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.webp";
+import howtoStep1 from "@/assets/howto-step-1.webp";
+import howtoStep2 from "@/assets/howto-step-2.webp";
+import howtoStep3 from "@/assets/howto-step-3.webp";
+import howtoStep4 from "@/assets/howto-step-4.webp";
+import howtoStep5 from "@/assets/howto-step-5.webp";
 import HeroDataViz from "@/components/landing/HeroDataViz";
 import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
 import { TiltCard } from "@/components/ui/tilt-card";
