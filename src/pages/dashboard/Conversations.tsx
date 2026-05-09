@@ -765,6 +765,36 @@ const Conversations = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Bulk delete dialog */}
+      <Dialog open={!!bulkDeleteTarget} onOpenChange={(open) => { if (!open) setBulkDeleteTarget(null); }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              Apagar {bulkDeleteTarget?.length ?? 0} mensage{(bulkDeleteTarget?.length ?? 0) === 1 ? "m" : "ns"}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Escolha como deseja apagar as mensagens selecionadas. Mensagens recebidas serão apagadas apenas para você.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {bulkDeleteTarget?.some((m) => m.isSent) && (
+              <Button variant="destructive" className="w-full" onClick={() => confirmBulkDelete(true)}>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Apagar para todos
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => confirmBulkDelete(false)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Apagar para mim
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit message dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
         <DialogContent className="max-w-[400px]">
