@@ -549,14 +549,21 @@ export function useConversationActions({
 
   const bulkArchiveConversations = useCallback(async (convIds: string[]) => {
     if (convIds.length === 0) return;
+    // Expand to include all duplicate instances of the same contact (multi-device).
+    const expanded = new Set<string>();
+    for (const id of convIds) {
+      for (const sibling of getConversationIdsForSameContact(id)) expanded.add(sibling);
+      expanded.add(id);
+    }
+    const allIds = Array.from(expanded);
     const convs = conversations
-      .filter((c) => convIds.includes(c.id))
+      .filter((c) => allIds.includes(c.id))
       .map((c) => ({ ...c, status: "archived" } as any));
-    setConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
-    setArchivedConversations((prev) => [...convs, ...prev.filter((c) => !convIds.includes(c.id))]);
-    await supabase.from("conversations").update({ status: "archived" } as any).in("id", convIds);
+    setConversations((prev) => prev.filter((c) => !allIds.includes(c.id)));
+    setArchivedConversations((prev) => [...convs, ...prev.filter((c) => !allIds.includes(c.id))]);
+    await supabase.from("conversations").update({ status: "archived" } as any).in("id", allIds);
     toast.success(`${convIds.length} conversa${convIds.length > 1 ? "s" : ""} arquivada${convIds.length > 1 ? "s" : ""}`);
-  }, [conversations, setConversations, setArchivedConversations]);
+  }, [conversations, setConversations, setArchivedConversations, getConversationIdsForSameContact]);
 
   const bulkDeleteConversations = useCallback(async (convIds: string[]) => {
     if (convIds.length === 0) return;
