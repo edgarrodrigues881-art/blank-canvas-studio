@@ -14,6 +14,8 @@ import {
   Send,
   Image as ImageIcon,
   FileText,
+  Camera,
+  SwitchCamera,
   ChevronDown,
   Zap,
   Mic,
