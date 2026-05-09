@@ -9,7 +9,7 @@ import { type Message } from "./types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/utils/formatters";
-import { getFileIcon, isMediaPlaceholder } from "@/utils/fileHelpers";
+import { getFileIcon, isMediaPlaceholder, getMessagePreview } from "@/utils/fileHelpers";
 import { useChatPrivacy } from "@/hooks/chat/useChatPrivacy";
 
 export { isMediaPlaceholder };
@@ -682,8 +682,24 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
       );
     }
 
-    // Plain text
-    const displayText = isMediaPlaceholder(msg.content) && !msg.mediaType ? msg.content : msg.content;
+    // Plain text — if it's a placeholder (e.g. "[mensagem]"), render as a friendly media-style preview
+    const placeholderPreview = !msg.mediaType && isMediaPlaceholder(msg.content) ? getMessagePreview(msg.content) : null;
+    if (placeholderPreview) {
+      return (
+        <>
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
+          <div className="flex items-end gap-2">
+            <div className="flex items-center gap-1.5 italic opacity-80">
+              <span className="text-base leading-none">{placeholderPreview.icon}</span>
+              <span className="text-[13px]">{placeholderPreview.text}</span>
+            </div>
+            <MsgFooter msg={msg} inline />
+          </div>
+        </>
+      );
+    }
+
+    const displayText = msg.content;
     const textIsShort = displayText && !displayText.includes("\n") && displayText.length <= 42;
     
     return (
