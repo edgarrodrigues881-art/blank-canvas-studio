@@ -143,7 +143,7 @@ export const SmartSuggestions = memo(function SmartSuggestions({ text, onApply }
 
   return (
     <div className="w-full rounded-md border border-border bg-background/95 dark:bg-card/95 backdrop-blur shadow-sm px-2 py-1.5 flex items-start gap-2">
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
