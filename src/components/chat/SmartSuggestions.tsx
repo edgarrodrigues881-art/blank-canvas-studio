@@ -143,7 +143,7 @@ export function SmartSuggestions({ text, onApply }: Props) {
             type="button"
             onClick={() => onApply(applySuggestion(text, s))}
             className={[
-              "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs",
+              "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
               "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
               isCorrection
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
@@ -156,11 +156,6 @@ export function SmartSuggestions({ text, onApply }: Props) {
           >
             {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
             <span className="max-w-[260px] truncate">{s.label}</span>
-            {isSelected && (
-              <span className="ml-1 text-[9px] uppercase opacity-60">
-                {triggerLabel}
-              </span>
-            )}
           </button>
         );
       })}
