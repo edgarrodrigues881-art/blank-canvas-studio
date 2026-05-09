@@ -225,6 +225,13 @@ export function ChatPanel({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
 
+  // Stable lookup for quoted messages — avoids re-rendering all bubbles per keystroke
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const getQuotedMessage = useCallback((id: string) => {
+    return messagesRef.current.find((m) => m.whatsappMessageId === id || m.id === id);
+  }, []);
+
   const scrollToBottomAfterSend = useCallback(() => {
     setIsNearBottom(true);
     forceScrollOnNextMessageRef.current = true;
@@ -471,7 +478,7 @@ export function ChatPanel({
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScrollToQuoted = useCallback((quotedWaId: string) => {
-    const target = messages.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
+    const target = messagesRef.current.find((m) => m.whatsappMessageId === quotedWaId || m.id === quotedWaId);
     if (!target) return;
 
     const applyHighlight = (targetId: string) => {
