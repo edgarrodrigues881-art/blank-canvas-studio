@@ -92,7 +92,7 @@ export function getMessagePreview(msg: string | undefined | null): { icon: strin
     "👤 contato": { icon: "👤", text: "Contato" },
     "📍 localização": { icon: "📍", text: "Localização" },
     "📍 localizacao": { icon: "📍", text: "Localização" },
-    "[mensagem]": { icon: "💬", text: "Mensagem (não suportada por este app)" },
+    "[mensagem]": { icon: "", text: "Mensagem (não suportada por este app)" },
     "[mensagem apagada]": { icon: "🚫", text: "Mensagem apagada" },
     "[mensagem editada]": { icon: "✏️", text: "Mensagem editada" },
     "[mensagem temporária]": { icon: "⏳", text: "Mensagem temporária" },
