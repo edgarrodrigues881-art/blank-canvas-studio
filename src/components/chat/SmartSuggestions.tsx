@@ -25,12 +25,12 @@ interface ConfirmConfig {
 
 function readConfig(): ConfirmConfig {
   try {
-    const raw = localStorage.getItem(LS_KEY) ?? "tab";
+    const raw = localStorage.getItem(LS_KEY) ?? "space";
     if (raw.startsWith("char:")) return { mode: "char", char: raw.slice(5, 6) };
     if (raw === "space" || raw === "enter" || raw === "tab")
       return { mode: raw as ConfirmMode };
   } catch {}
-  return { mode: "tab" };
+  return { mode: "space" };
 }
 
 function writeConfig(cfg: ConfirmConfig) {
