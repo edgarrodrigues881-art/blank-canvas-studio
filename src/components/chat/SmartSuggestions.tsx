@@ -54,7 +54,7 @@ export function SmartSuggestions({ text, onApply }: Props) {
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5 px-2 pb-1.5 overflow-x-auto scrollbar-none">
+    <div className="flex items-center gap-1.5 px-2 py-1 flex-nowrap overflow-visible">
       {suggestions.map((s: Suggestion, i) => {
         const isCorrection = s.kind === "correction";
         const isSelected = i === selected;
