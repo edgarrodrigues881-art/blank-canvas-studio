@@ -359,7 +359,7 @@ export function ConversationList({
                     .map((w) => w[0]?.toUpperCase() ?? "")
                     .join("") || displayName.slice(0, 2).toUpperCase()
                 : null;
-              const mediaPreview = getMessagePreview(c.lastMessage);
+              const mediaPreview = getMessagePreview(c.lastMessage) || (!c.lastMessage || c.lastMessage.trim() === "" ? { icon: "", text: "Mensagem (não suportada por este app)" } : null);
               const matchedTags = trimmedQuery
                 ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
                 : [];
@@ -439,7 +439,7 @@ export function ConversationList({
                             {c.status === "typing" ? (
                               <span className="text-foreground/70 italic">digitando...</span>
                             ) : mediaPreview ? (
-                              <span>{mediaPreview.icon} {mediaPreview.text}</span>
+                              <span className="italic">{mediaPreview.icon ? `${mediaPreview.icon} ` : ""}{mediaPreview.text}</span>
                             ) : trimmedQuery && c.lastMessage ? (
                               <HighlightText text={c.lastMessage} query={trimmedQuery} />
                             ) : (
