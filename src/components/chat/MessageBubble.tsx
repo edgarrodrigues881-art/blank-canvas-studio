@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, ReactNode, memo } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User, Mic,
@@ -417,14 +417,12 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   );
 }
 
-function QuotedBlock({ msg, onScrollToQuoted, allMessages }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void; allMessages?: Message[] }) {
+function QuotedBlock({ msg, onScrollToQuoted, getQuotedMessage }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void; getQuotedMessage?: (id: string) => Message | undefined }) {
   if (!msg.quotedContent && !msg.quotedMessageId) return null;
   const isClickable = !!msg.quotedMessageId && !!onScrollToQuoted;
 
-  // Find quoted message to show media thumbnail
-  const quotedMsg = allMessages?.find(
-    (m) => m.whatsappMessageId === msg.quotedMessageId || m.id === msg.quotedMessageId
-  );
+  // Find quoted message to show media thumbnail (via stable lookup)
+  const quotedMsg = msg.quotedMessageId ? getQuotedMessage?.(msg.quotedMessageId) : undefined;
   const quotedMediaUrl = quotedMsg?.mediaUrl;
   const quotedMediaType = quotedMsg?.mediaType;
   const hasMediaThumb = quotedMediaUrl && (quotedMediaType === "image" || quotedMediaType === "video" || quotedMediaType === "sticker");
@@ -465,7 +463,7 @@ function QuotedBlock({ msg, onScrollToQuoted, allMessages }: { msg: Message; onS
 
 export interface MessageBubbleProps {
   msg: Message;
-  allMessages?: Message[];
+  getQuotedMessage?: (id: string) => Message | undefined;
   showDeviceLabel?: boolean;
   onReply?: (msg: Message) => void;
   onImageClick?: (url: string) => void;
@@ -485,7 +483,7 @@ function getWaveform(id: string) {
   return waveformCache[id];
 }
 
-export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect, onScrollToQuoted }: MessageBubbleProps) {
+function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, onImageClick, onRetry, onDelete, onEdit, selectionMode, isSelected, onToggleSelect, onScrollToQuoted }: MessageBubbleProps) {
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
@@ -524,7 +522,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
     if (isViewOnce && msg.type === "received") {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <div className="flex items-center gap-2 py-1">
             <Eye className="w-4 h-4 shrink-0 text-muted-foreground/70" />
             <span className="text-[13px] italic text-muted-foreground/80">
@@ -548,7 +546,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
     if (isAudio && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <AudioPlayer src={msg.mediaUrl} duration={msg.audioDuration} isSent={msg.type === "sent"} />
           <MsgFooter msg={msg} />
         </div>
@@ -600,7 +598,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
 
       return (
         <div className="w-full">
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <button
             type="button"
             onClick={() => onImageClick?.(msg.mediaUrl!)}
@@ -619,7 +617,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
     if (isVideo && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <VideoPlayer src={msg.mediaUrl} />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
@@ -633,7 +631,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
       const fileName = msg.fileName || msg.mediaUrl.split("/").pop() || "Arquivo";
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <a
             href={msg.mediaUrl}
             target="_blank"
@@ -671,7 +669,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
       const info = iconMap[msg.mediaType!] || { icon: <FileText className="w-5 h-5" />, label: msg.mediaType || "Mídia" };
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-primary-foreground/60" : "text-muted-foreground")}>
             {info.icon}
             <span className="text-[12px] font-medium">{info.label}</span>
@@ -690,7 +688,7 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
     
     return (
       <>
-        <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+        <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
         {textIsShort ? (
           <div className="flex items-end gap-0">
             <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
@@ -858,3 +856,20 @@ export function MessageBubble({ msg, allMessages, showDeviceLabel, onReply, onIm
     </div>
   );
 }
+
+export const MessageBubble = memo(MessageBubbleInner, (prev, next) => {
+  return (
+    prev.msg === next.msg &&
+    prev.showDeviceLabel === next.showDeviceLabel &&
+    prev.selectionMode === next.selectionMode &&
+    prev.isSelected === next.isSelected &&
+    prev.getQuotedMessage === next.getQuotedMessage &&
+    prev.onReply === next.onReply &&
+    prev.onImageClick === next.onImageClick &&
+    prev.onRetry === next.onRetry &&
+    prev.onDelete === next.onDelete &&
+    prev.onEdit === next.onEdit &&
+    prev.onToggleSelect === next.onToggleSelect &&
+    prev.onScrollToQuoted === next.onScrollToQuoted
+  );
+});
