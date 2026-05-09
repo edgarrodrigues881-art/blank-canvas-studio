@@ -113,6 +113,7 @@ const VOCAB = [
   "solicitação", "solicitar", "segue", "semana", "seguinte", "sempre", "saber", "sim",
   "tudo", "também", "talvez", "tarde", "tipo", "tem", "tenho", "tente", "teste", "testar", "testando", "testado",
   "trabalho", "trabalhar", "trabalhando",
+  "entender", "entendeu", "entendi", "entendo", "entende", "entendemos", "entendido", "entendida",
   "você", "vocês", "vamos", "verdade", "vai",
   "perfeito", "perfeita", "ótimo", "ótima", "excelente", "incrível", "maravilhoso", "maravilhosa",
   "claro", "combinado", "certo", "certeza", "correto", "certinho",
@@ -168,6 +169,11 @@ export function getSuggestions(text: string): { suggestions: Suggestion[]; lastW
 
   const lower = lastWord.toLowerCase();
   const norm = stripDiacritics(lower);
+  // Colapsa letras repetidas 3+ vezes para 1 (voceaaaaa -> vocea, oiiiiii -> oi)
+  const collapsed = norm.replace(/(.)\1{2,}/g, "$1");
+  // Versão sem letras duplicadas no final (oii -> oi)
+  const collapsedAll = norm.replace(/(.)\1+/g, "$1");
+
   const out: Suggestion[] = [];
   const seen = new Set<string>();
 
@@ -177,10 +183,25 @@ export function getSuggestions(text: string): { suggestions: Suggestion[]; lastW
     out.push(s);
   };
 
-  // 1) Correção exata (alta prioridade)
-  const corr = CORRECTIONS[lower] ?? CORRECTIONS[norm];
+  // 1) Correção exata
+  const corr =
+    CORRECTIONS[lower] ??
+    CORRECTIONS[norm] ??
+    CORRECTIONS[collapsed] ??
+    CORRECTIONS[collapsedAll];
   if (corr && corr.toLowerCase() !== lower) {
     push({ insert: corr, label: corr, kind: "correction" });
+  }
+
+  // 1b) Correção fuzzy: se a forma "colapsada" bate exatamente com uma palavra do vocab
+  if (collapsed !== norm || collapsedAll !== norm) {
+    for (const w of VOCAB) {
+      const wn = stripDiacritics(w.toLowerCase());
+      if ((wn === collapsed || wn === collapsedAll) && wn !== norm) {
+        push({ insert: w, label: w, kind: "correction" });
+        break;
+      }
+    }
   }
 
   // 2) Frases prontas pelo prefixo
@@ -189,16 +210,17 @@ export function getSuggestions(text: string): { suggestions: Suggestion[]; lastW
     for (const p of phrases) push({ insert: p, label: p, kind: "phrase" });
   }
 
-  // 3) Autocompletar do vocabulário (startsWith por prefixo normalizado)
+  // 3) Autocompletar do vocabulário (startsWith por prefixo normalizado ou colapsado)
   for (const w of VOCAB) {
-    if (out.length >= 4) break;
+    if (out.length >= 5) break;
     const wn = stripDiacritics(w.toLowerCase());
-    if (wn.startsWith(norm) && wn !== norm) {
+    if (wn === norm) continue;
+    if (wn.startsWith(norm) || wn.startsWith(collapsed) || wn.startsWith(collapsedAll)) {
       push({ insert: w, label: w, kind: "completion" });
     }
   }
 
-  return { suggestions: out.slice(0, 3), lastWord };
+  return { suggestions: out.slice(0, 5), lastWord };
 }
 
 /** Substitui a última palavra do texto pela sugestão e adiciona um espaço. */
