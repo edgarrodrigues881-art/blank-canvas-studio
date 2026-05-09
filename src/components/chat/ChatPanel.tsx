@@ -860,7 +860,22 @@ export function ChatPanel({
                   placeholder="Digite / para respostas rápidas..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={(e) => {
+                    if (showQuickReplies && filteredQuickReplies.length > 0) {
+                      if (e.key === "ArrowDown") { e.preventDefault(); setQrIndex((i) => Math.min(filteredQuickReplies.length - 1, i + 1)); return; }
+                      if (e.key === "ArrowUp") { e.preventDefault(); setQrIndex((i) => Math.max(0, i - 1)); return; }
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        const qr = filteredQuickReplies[qrIndex] ?? filteredQuickReplies[0];
+                        const hasBlocks = Array.isArray((qr as any).blocks) && (qr as any).blocks.length > 0;
+                        if (hasBlocks) sendQuickReplySequence(qr as QuickReply);
+                        else handleQuickReply(qr.content);
+                        return;
+                      }
+                      if (e.key === "Escape") { e.preventDefault(); setShowQuickReplies(false); return; }
+                    }
+                    handleKeyDown(e);
+                  }}
                   onPaste={handlePaste}
                   rows={1}
                   className="w-full resize-none rounded-xl bg-background dark:bg-card border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--chat-accent))]/25 focus:border-[hsl(var(--chat-accent))]/40 shadow-sm transition-all duration-200"
