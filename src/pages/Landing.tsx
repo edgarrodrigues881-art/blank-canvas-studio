@@ -223,6 +223,7 @@ const Hero = () => {
           {/* CTAs */}
           <motion.div variants={fadeScale} className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
             <Button
+              id="hero-cta"
               size="lg"
               onClick={() => navigate("/auth?mode=signup")}
               className="group w-full sm:w-auto h-[52px] px-7 rounded-full gap-2
