@@ -359,7 +359,7 @@ export function ConversationList({
                     .map((w) => w[0]?.toUpperCase() ?? "")
                     .join("") || displayName.slice(0, 2).toUpperCase()
                 : null;
-              const mediaPreview = getMessagePreview(c.lastMessage);
+              const mediaPreview = getMessagePreview(c.lastMessage) || (!c.lastMessage || c.lastMessage.trim() === "" ? { icon: "", text: "Mensagem (não suportada por este app)" } : null);
               const matchedTags = trimmedQuery
                 ? (c.tags || []).filter((t) => t.toLowerCase().includes(trimmedQuery.toLowerCase()))
                 : [];
