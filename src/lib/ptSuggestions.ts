@@ -113,6 +113,7 @@ const VOCAB = [
   "solicitação", "solicitar", "segue", "semana", "seguinte", "sempre", "saber", "sim",
   "tudo", "também", "talvez", "tarde", "tipo", "tem", "tenho", "tente", "teste", "testar", "testando", "testado",
   "trabalho", "trabalhar", "trabalhando",
+  "entender", "entendeu", "entendi", "entendo", "entende", "entendemos", "entendido", "entendida",
   "você", "vocês", "vamos", "verdade", "vai",
   "perfeito", "perfeita", "ótimo", "ótima", "excelente", "incrível", "maravilhoso", "maravilhosa",
   "claro", "combinado", "certo", "certeza", "correto", "certinho",
