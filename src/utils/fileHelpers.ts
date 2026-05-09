@@ -65,19 +65,42 @@ export function getMessagePreview(msg: string | undefined | null): { icon: strin
     return { icon: "🔒", text: "Mensagem criptografada" };
   }
 
-  if (lower.includes("[image]") || lower.includes("[foto]") || lower === "image" || lower === "foto")
+  // Exact emoji+word placeholders the backend writes (e.g. "🏷️ Figurinha", "📷 Foto").
+  // We match on equality (after lower+trim) so we do NOT mistake real text like
+  // "Manda essa figurinha aí depois" for a media message.
+  const emojiPlaceholders: Record<string, { icon: string; text: string }> = {
+    "🏷️ figurinha": { icon: "🏷️", text: "Figurinha" },
+    "🏷 figurinha": { icon: "🏷️", text: "Figurinha" },
+    "📷 foto": { icon: "📷", text: "Foto" },
+    "🖼️ imagem": { icon: "📷", text: "Foto" },
+    "🖼 imagem": { icon: "📷", text: "Foto" },
+    "🎬 vídeo": { icon: "🎬", text: "Vídeo" },
+    "🎬 video": { icon: "🎬", text: "Vídeo" },
+    "🎧 áudio": { icon: "🎧", text: "Áudio" },
+    "🎧 audio": { icon: "🎧", text: "Áudio" },
+    "🎤 áudio": { icon: "🎧", text: "Áudio" },
+    "📎 arquivo": { icon: "📎", text: "Arquivo" },
+    "📄 documento": { icon: "📎", text: "Documento" },
+    "👤 contato": { icon: "👤", text: "Contato" },
+    "📍 localização": { icon: "📍", text: "Localização" },
+    "📍 localizacao": { icon: "📍", text: "Localização" },
+    "[mensagem]": { icon: "💬", text: "Mensagem" },
+  };
+  if (emojiPlaceholders[lower]) return emojiPlaceholders[lower];
+
+  if (lower === "[image]" || lower === "[foto]" || lower === "image" || lower === "foto")
     return { icon: "📷", text: "Foto" };
-  if (lower.includes("[audio]") || lower.includes("[áudio]") || lower === "audio" || lower === "áudio" || lower.includes("[ptt]"))
+  if (lower === "[audio]" || lower === "[áudio]" || lower === "audio" || lower === "áudio" || lower === "[ptt]")
     return { icon: "🎧", text: "Áudio" };
-  if (lower.includes("[video]") || lower.includes("[vídeo]") || lower === "video" || lower === "vídeo")
+  if (lower === "[video]" || lower === "[vídeo]" || lower === "video" || lower === "vídeo")
     return { icon: "🎬", text: "Vídeo" };
-  if (lower.includes("[document]") || lower.includes("[documento]") || lower.includes("[arquivo]") || lower === "document" || lower === "documento")
+  if (lower === "[document]" || lower === "[documento]" || lower === "[arquivo]" || lower === "document" || lower === "documento")
     return { icon: "📎", text: "Arquivo" };
-  if (lower.includes("[sticker]") || lower.includes("[figurinha]") || lower === "sticker")
+  if (lower === "[sticker]" || lower === "[figurinha]" || lower === "sticker")
     return { icon: "🏷️", text: "Figurinha" };
-  if (lower.includes("[contact]") || lower.includes("[contato]"))
+  if (lower === "[contact]" || lower === "[contato]")
     return { icon: "👤", text: "Contato" };
-  if (lower.includes("[location]") || lower.includes("[localização]"))
+  if (lower === "[location]" || lower === "[localização]")
     return { icon: "📍", text: "Localização" };
   return null;
 }

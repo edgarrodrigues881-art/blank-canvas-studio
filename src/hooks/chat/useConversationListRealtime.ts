@@ -79,7 +79,13 @@ export function useConversationListRealtime({
 
           return {
             ...c,
-            last_message: row.last_message ?? c.last_message,
+            // Don't overwrite a known last_message with an empty string from
+            // a stale conversation row (the message itself already updated
+            // this field via useMessagesRealtime with the real content like
+            // "🏷️ Figurinha" or "📷 Foto").
+            last_message: row.last_message && row.last_message.length > 0
+              ? row.last_message
+              : c.last_message,
             last_message_at: row.last_message_at ?? c.last_message_at,
             unread_count: keepUnreadZero ? 0 : (row.unread_count ?? c.unread_count),
             name: row.name ?? c.name,

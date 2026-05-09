@@ -181,8 +181,16 @@ const Conversations = () => {
       return {
         ...rep,
         // Aggregate unread count from all instances
+        // Aggregate unread count from all instances.
+        // Ignore counters that are clearly stale or belong to a conversation
+        // whose last message was sent BY US — otherwise we count our own
+        // outgoing stickers/photos as if they were incoming notifications.
         unreadCount: group.reduce((sum, c) => {
-          const effectiveUnread = c.lastMessageDirection === "sent" ? 0 : c.unreadCount;
+          const sentByMe = c.lastMessageDirection === "sent";
+          // Stale row: backend left a counter but the conversation has no
+          // visible last message text and no known direction — ignore it.
+          const isStale = !c.lastMessage && !c.lastMessageDirection;
+          const effectiveUnread = sentByMe || isStale ? 0 : c.unreadCount;
           if (effectiveUnread < 0) return sum < 0 ? sum : effectiveUnread;
           return sum < 0 ? (effectiveUnread > 0 ? effectiveUnread : sum) : sum + effectiveUnread;
         }, 0),
