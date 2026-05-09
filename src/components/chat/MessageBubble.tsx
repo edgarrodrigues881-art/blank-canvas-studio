@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, ReactNode, memo } from "react";
 import {
   Play, Pause, Check, CheckCheck, Loader2,
   Download, FileText, Video, MapPin, User, Mic,
@@ -417,14 +417,12 @@ function MsgFooter({ msg, inline }: { msg: Message; inline?: boolean }) {
   );
 }
 
-function QuotedBlock({ msg, onScrollToQuoted, allMessages }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void; allMessages?: Message[] }) {
+function QuotedBlock({ msg, onScrollToQuoted, getQuotedMessage }: { msg: Message; onScrollToQuoted?: (quotedId: string) => void; getQuotedMessage?: (id: string) => Message | undefined }) {
   if (!msg.quotedContent && !msg.quotedMessageId) return null;
   const isClickable = !!msg.quotedMessageId && !!onScrollToQuoted;
 
-  // Find quoted message to show media thumbnail
-  const quotedMsg = allMessages?.find(
-    (m) => m.whatsappMessageId === msg.quotedMessageId || m.id === msg.quotedMessageId
-  );
+  // Find quoted message to show media thumbnail (via stable lookup)
+  const quotedMsg = msg.quotedMessageId ? getQuotedMessage?.(msg.quotedMessageId) : undefined;
   const quotedMediaUrl = quotedMsg?.mediaUrl;
   const quotedMediaType = quotedMsg?.mediaType;
   const hasMediaThumb = quotedMediaUrl && (quotedMediaType === "image" || quotedMediaType === "video" || quotedMediaType === "sticker");
