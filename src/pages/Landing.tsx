@@ -89,7 +89,7 @@ const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={goToApp} className="hidden sm:inline-flex text-[13px] font-medium text-white/65 hover:text-white hover:bg-white/[0.04] h-8 px-3">
+            <Button variant="ghost" size="sm" onClick={goToApp} className="inline-flex text-[13px] font-medium text-white/70 hover:text-white hover:bg-white/[0.04] h-8 px-3">
               {session ? "Ir para o app" : "Entrar"}
             </Button>
             {!session && !heroCtaVisible && (
