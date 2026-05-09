@@ -595,21 +595,32 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
       // Extract display caption: strip leading [image] / [document] prefix if present
       const rawCaption = msg.content || "";
       const displayCaption = rawCaption.replace(/^\[(image|foto|document|documento)\]\s*/i, "").trim();
+      const hasCaption = displayCaption && !isMediaPlaceholder(displayCaption);
 
       return (
         <div className="w-full">
           <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
-          <button
-            type="button"
-            onClick={() => onImageClick?.(msg.mediaUrl!)}
-            className="block w-full overflow-hidden rounded-[18px] border border-border/20 bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          >
-            <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
-          </button>
-          {displayCaption && !isMediaPlaceholder(displayCaption) && (
-            <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => onImageClick?.(msg.mediaUrl!)}
+              className="block w-full overflow-hidden rounded-md bg-muted/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <img src={msg.mediaUrl} alt="Imagem" className="w-full max-h-[320px] object-cover" />
+            </button>
+            {!hasCaption && (
+              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/45 backdrop-blur-sm text-white/95 text-[10px] flex items-center gap-1 pointer-events-none">
+                <span>{format(new Date(msg.timestamp), "HH:mm")}</span>
+                {msg.type === "sent" && <StatusIcon status={msg.status} />}
+              </div>
+            )}
+          </div>
+          {hasCaption && (
+            <>
+              <FormattedText text={displayCaption} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5 px-1" />
+              <div className="px-1"><MsgFooter msg={msg} /></div>
+            </>
           )}
-          <MsgFooter msg={msg} />
         </div>
       );
     }
