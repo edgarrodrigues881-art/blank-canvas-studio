@@ -21,10 +21,18 @@ export function isMediaPlaceholder(content: string | undefined | null): boolean 
     "[video]", "[vídeo]", "[document]", "[documento]", "[arquivo]",
     "[sticker]", "[figurinha]", "[contact]", "[contato]",
     "[location]", "[localização]", "[mensagem]",
+    "[mensagem apagada]", "[mensagem editada]", "[mensagem temporária]",
+    "[mensagem de visualização única]", "[evento do whatsapp]",
+    "[enquete]", "[voto em enquete]", "[reação removida]",
+    "[localização ao vivo]", "[convite de grupo]", "[chamada]",
+    "[configuração de mensagens temporárias]",
     "🎧 áudio", "📷 foto", "🎬 vídeo", "📎 arquivo",
     "🏷️ figurinha", "👤 contato", "📍 localização",
   ];
-  return exactPlaceholders.some(p => lower === p);
+  if (exactPlaceholders.some(p => lower === p)) return true;
+  // Reaction with emoji: "[reação] 👍"
+  if (lower.startsWith("[reação]") || lower.startsWith("[reacao]")) return true;
+  return false;
 }
 
 /** Extract icon + label for media message previews */
