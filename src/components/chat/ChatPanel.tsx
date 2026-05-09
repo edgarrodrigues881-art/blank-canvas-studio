@@ -54,6 +54,7 @@ interface ChatPanelProps {
   onSendFile?: (conversationId: string, file: File, caption?: string) => void;
   onRetryMessage?: (messageId: string) => void;
   onDeleteMessage?: (msg: Message) => void;
+  onBulkDeleteMessages?: (msgs: Message[]) => void;
   onEditMessage?: (msg: Message) => void;
   onArchive?: (conversationId: string) => void;
   onMarkUnread?: (conversationId: string) => void;
@@ -210,7 +211,7 @@ const defaultQuickReplies = [
 
 export function ChatPanel({
   conversation, messages, showDetails, onToggleDetails, onBack,
-  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage, onEditMessage,
+  onStatusChange, onSendMessage, onSendAudio, onSendFile, onRetryMessage, onDeleteMessage, onBulkDeleteMessages, onEditMessage,
   onArchive, onMarkUnread,
   currentUserId, onAssign, onRelease,
   instances, selectedInstanceId, onInstanceChange,
@@ -464,11 +465,16 @@ export function ChatPanel({
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    if (!onDeleteMessage) return;
-    const selectedMessages = messages.filter((m) => selectedMsgIds.has(m.id));
-    selectedMessages.forEach((m) => onDeleteMessage(m));
+    const selectedMessages = messagesRef.current.filter((m) => selectedMsgIds.has(m.id));
+    if (selectedMessages.length === 0) return;
+    if (onBulkDeleteMessages) {
+      onBulkDeleteMessages(selectedMessages);
+    } else if (onDeleteMessage) {
+      // Fallback: only deletes one (legacy behavior)
+      onDeleteMessage(selectedMessages[0]);
+    }
     exitSelectionMode();
-  }, [messages, selectedMsgIds, onDeleteMessage, exitSelectionMode]);
+  }, [selectedMsgIds, onBulkDeleteMessages, onDeleteMessage, exitSelectionMode]);
 
   // Exit selection mode on conversation change
   useEffect(() => { exitSelectionMode(); }, [conversation.id]);
