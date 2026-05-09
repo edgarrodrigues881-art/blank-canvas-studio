@@ -685,6 +685,13 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     }
   }
 
+  // If no text and no media, try to detect a special sub-type so the UI
+  // can show *why* the bubble is empty instead of a generic "[mensagem]".
+  let specialLabel: string | null = null;
+  if (!content && !mediaType) {
+    specialLabel = detectSpecialMessageLabel(body, messageNodes);
+  }
+
   return {
     remoteJid,
     phone,
@@ -705,5 +712,6 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     buttonResponseId,
     isForwarded,
     forwardingScore,
+    specialLabel,
   };
 }
