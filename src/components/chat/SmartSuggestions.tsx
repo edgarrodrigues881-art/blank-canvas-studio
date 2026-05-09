@@ -305,4 +305,5 @@ export const SmartSuggestions = memo(function SmartSuggestions({ text, onApply }
       </div>
     </div>
   );
-}
+});
+
