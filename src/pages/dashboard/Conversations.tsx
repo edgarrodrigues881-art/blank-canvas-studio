@@ -668,6 +668,7 @@ const Conversations = () => {
           {selectedConversation ? (
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <ChatPanel
+                key={selectedConvId}
                 conversation={selectedConversation}
                 messages={messages}
                 showDetails={showDetails}

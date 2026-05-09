@@ -302,7 +302,11 @@ export function useConversationSync() {
       return;
     }
 
-    // When switching conversations, load local messages immediately (don't clear first)
+    // Quando troca para uma conversa diferente, limpa imediatamente as mensagens
+    // antigas para não exibir conteúdo de outro contato enquanto as novas carregam.
+    if (prev !== convId) {
+      setMessages([]);
+    }
     fetchMessages(convId);
 
     // Background: pull fresh messages from UAZAPI (non-blocking)
