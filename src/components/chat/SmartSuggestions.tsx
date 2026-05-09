@@ -128,7 +128,7 @@ export function SmartSuggestions({ text, onApply }: Props) {
     return () => document.removeEventListener("keydown", handler, true);
   }, [suggestions, selected, text, onApply, config]);
 
-  if (suggestions.length === 0) return null;
+  // Sempre renderiza o painel (mesmo vazio) para ficar permanentemente visível.
 
   const triggerLabel = labelFor(config);
 
