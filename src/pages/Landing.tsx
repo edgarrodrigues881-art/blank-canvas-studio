@@ -74,8 +74,8 @@ const Navbar = () => {
 
   return (
     <header className="fixed top-0 inset-x-0 z-50">
-      <div className={`mx-auto transition-all duration-300 ${scrolled ? "max-w-[1100px] mt-3 px-3" : "max-w-[1320px] mt-0 px-5"}`}>
-        <div className={`flex items-center justify-between h-14 px-3 md:px-4 transition-all duration-300 ${scrolled ? "rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/85 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)]" : "border-b border-white/[0.04] bg-[hsl(222,22%,5%)]/70 backdrop-blur-xl"}`}>
+      <div className="mx-auto transition-all duration-300 max-w-[1100px] mt-3 px-3">
+        <div className={`flex items-center justify-between h-14 px-3 md:px-4 rounded-2xl border border-white/[0.06] bg-[hsl(222,22%,5%)]/85 backdrop-blur-xl transition-shadow duration-300 ${scrolled ? "shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)]" : ""}`}>
           <button onClick={() => scroll("top")} className="flex items-center gap-2.5 min-w-0">
             <img src={logo} alt="DG" width={28} height={28} className="rounded-md flex-shrink-0" />
             <span className="hidden sm:inline text-[13px] font-semibold text-white tracking-tight whitespace-nowrap">DG Contingência Pro</span>
@@ -92,8 +92,8 @@ const Navbar = () => {
             <Button variant="ghost" size="sm" onClick={goToApp} className="hidden sm:inline-flex text-[13px] font-medium text-white/65 hover:text-white hover:bg-white/[0.04] h-8 px-3">
               {session ? "Ir para o app" : "Entrar"}
             </Button>
-            {!session && (
-              <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12.5px] font-semibold bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500 text-emerald-950 h-8 px-3.5 rounded-full shadow-[0_4px_14px_-4px_rgba(16,185,129,0.55)] hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.7)] transition-all">
+            {!session && !heroCtaVisible && (
+              <Button size="sm" onClick={() => navigate("/auth?mode=signup")} className="text-[12.5px] font-semibold bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-500 text-emerald-950 h-8 px-3.5 rounded-full shadow-[0_4px_14px_-4px_rgba(16,185,129,0.55)] hover:shadow-[0_8px_20px_-4px_rgba(16,185,129,0.7)] transition-all animate-in fade-in slide-in-from-top-1 duration-300">
                 Começar grátis
               </Button>
             )}
