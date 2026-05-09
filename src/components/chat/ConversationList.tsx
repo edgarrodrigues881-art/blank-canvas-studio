@@ -439,7 +439,7 @@ export function ConversationList({
                             {c.status === "typing" ? (
                               <span className="text-foreground/70 italic">digitando...</span>
                             ) : mediaPreview ? (
-                              <span>{mediaPreview.icon} {mediaPreview.text}</span>
+                              <span className="italic">{mediaPreview.icon ? `${mediaPreview.icon} ` : ""}{mediaPreview.text}</span>
                             ) : trimmedQuery && c.lastMessage ? (
                               <HighlightText text={c.lastMessage} query={trimmedQuery} />
                             ) : (
