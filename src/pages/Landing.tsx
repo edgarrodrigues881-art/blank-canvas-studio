@@ -48,6 +48,7 @@ const Navbar = () => {
   const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const scroll = (id: string) => { setOpen(false); document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); };
   const goToApp = () => navigate(session ? "/app" : "/login");
 
@@ -56,6 +57,17 @@ const Navbar = () => {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const el = document.getElementById("hero-cta");
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setHeroCtaVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   const items: [string, string][] = [["produto", "Produto"], ["recursos", "Recursos"], ["uso", "Como funciona"], ["planos", "Planos"], ["faq", "FAQ"]];
