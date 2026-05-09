@@ -560,13 +560,26 @@ export function useConversationActions({
 
   const bulkDeleteConversations = useCallback(async (convIds: string[]) => {
     if (convIds.length === 0) return;
-    setConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
-    setArchivedConversations((prev) => prev.filter((c) => !convIds.includes(c.id)));
+    // Expand each selected conversation to include ALL sibling rows that share
+    // the same contact (different device instances of the same phone). The list
+    // UI groups duplicates under one rep id, so deleting only the rep would
+    // leave the other instances behind and they'd reappear on next sync.
+    const expanded = new Set<string>();
+    for (const id of convIds) {
+      for (const sibling of getConversationIdsForSameContact(id)) {
+        expanded.add(sibling);
+      }
+      expanded.add(id);
+    }
+    const allIds = Array.from(expanded);
+    setConversations((prev) => prev.filter((c) => !allIds.includes(c.id)));
+    setArchivedConversations((prev) => prev.filter((c) => !allIds.includes(c.id)));
     // Delete messages first, then conversations
-    await supabase.from("conversation_messages").delete().in("conversation_id", convIds);
-    await supabase.from("conversations").delete().in("id", convIds);
+    await supabase.from("conversation_messages").delete().in("conversation_id", allIds);
+    await supabase.from("conversations").delete().in("id", allIds);
     toast.success(`${convIds.length} conversa${convIds.length > 1 ? "s" : ""} apagada${convIds.length > 1 ? "s" : ""}`);
-  }, [setConversations, setArchivedConversations]);
+  }, [setConversations, setArchivedConversations, getConversationIdsForSameContact]);
+
 
   return {
     markConversationGroupAsRead,
