@@ -11,6 +11,7 @@ import {
   X,
   CheckSquare,
   Mic,
+  Smartphone,
 } from "lucide-react";
 import { PanelRightOpen, PanelRightClose } from "lucide-react";
 import { Button } from "@/components/ui/button";
