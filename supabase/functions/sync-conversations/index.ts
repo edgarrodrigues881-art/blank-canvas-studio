@@ -73,7 +73,7 @@ async function upsertConversationForEquivalentJid(
   const candidates = buildEquivalentChatIds(payload.remoteJid);
   const { data: existingMatches } = await admin
     .from("conversations")
-    .select("id, remote_jid, phone, name, created_at")
+    .select("id, remote_jid, phone, name, created_at, last_message_at, unread_count")
     .eq("user_id", userId)
     .eq("device_id", deviceId)
     .in("remote_jid", candidates)
@@ -86,6 +86,15 @@ async function upsertConversationForEquivalentJid(
       ? existing.name
       : payload.name.substring(0, 255);
 
+    // Only overwrite unread_count when there is genuinely a NEW message upstream
+    // (i.e. the upstream last_message_at advanced beyond what we already have).
+    // Otherwise the user may have already opened/read the chat in our app and
+    // we must NOT resurrect a stale unread count from UAZAPI.
+    const existingTs = existing.last_message_at ? new Date(existing.last_message_at).getTime() : 0;
+    const incomingTs = payload.lastMessageAt ? new Date(payload.lastMessageAt).getTime() : 0;
+    const hasNewerUpstream = incomingTs > existingTs;
+    const nextUnread = hasNewerUpstream ? payload.unreadCount : (existing.unread_count ?? 0);
+
     const { error } = await admin
       .from("conversations")
       .update({
@@ -94,7 +103,7 @@ async function upsertConversationForEquivalentJid(
         avatar_url: payload.avatar,
         last_message: payload.lastMessage.substring(0, 500),
         last_message_at: payload.lastMessageAt,
-        unread_count: payload.unreadCount,
+        unread_count: nextUnread,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
