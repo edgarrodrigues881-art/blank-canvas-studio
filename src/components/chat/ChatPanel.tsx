@@ -14,6 +14,8 @@ import {
   Send,
   Image as ImageIcon,
   FileText,
+  Camera,
+  SwitchCamera,
   ChevronDown,
   Zap,
   Mic,
@@ -249,6 +251,10 @@ export function ChatPanel({
     handleImageInput, handleDocInput, cancelPendingFile, sendPendingFile,
     isRecording, recordingTime, sendingAudio, startRecording, stopAndSend, cancelRecording,
   } = send;
+
+  // Inputs ocultos para abrir câmera (traseira / frontal) no celular
+  const cameraRearRef = useRef<HTMLInputElement>(null);
+  const cameraFrontRef = useRef<HTMLInputElement>(null);
 
   // Mostra "digitando..." / "gravando áudio..." no WhatsApp do contato
   // enquanto o atendente edita ou grava.
@@ -488,6 +494,9 @@ export function ChatPanel({
     <div className="flex flex-col h-full min-w-0 max-w-full overflow-hidden relative">
       <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageInput} />
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.txt" className="hidden" onChange={handleDocInput} />
+      {/* Câmera traseira (environment) e frontal (user). O navegador abre a câmera no mobile. */}
+      <input ref={cameraRearRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageInput} />
+      <input ref={cameraFrontRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleImageInput} />
 
       <ChatHeader
         conversation={conversation}
@@ -770,6 +779,12 @@ export function ChatPanel({
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <FileText className="w-4 h-4" /> Arquivo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => cameraRearRef.current?.click()}>
+                    <Camera className="w-4 h-4" /> Câmera (traseira)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => cameraFrontRef.current?.click()}>
+                    <SwitchCamera className="w-4 h-4" /> Câmera (frontal)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
