@@ -52,11 +52,24 @@ function labelFor(cfg: ConfirmConfig): string {
  * Tecla de confirmação é configurável (Tab, Espaço, Enter ou letra personalizada).
  * Setas ↑/↓ navegam entre as sugestões.
  */
-export function SmartSuggestions({ text, onApply }: Props) {
+export const SmartSuggestions = memo(function SmartSuggestions({ text, onApply }: Props) {
   const { suggestions } = useMemo(() => getSuggestions(text), [text]);
   const [selected, setSelected] = useState(0);
   const [config, setConfig] = useState<ConfirmConfig>(() => readConfig());
+  const [menuOpen, setMenuOpen] = useState(false);
   const charInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Refs estáveis para o keydown handler — evita re-anexar o listener a cada render
+  const suggestionsRef = useRef(suggestions);
+  const selectedRef = useRef(selected);
+  const textRef = useRef(text);
+  const onApplyRef = useRef(onApply);
+  const configRef = useRef(config);
+  suggestionsRef.current = suggestions;
+  selectedRef.current = selected;
+  textRef.current = text;
+  onApplyRef.current = onApply;
+  configRef.current = config;
 
   useEffect(() => {
     writeConfig(config);
@@ -67,24 +80,23 @@ export function SmartSuggestions({ text, onApply }: Props) {
   }, [suggestions.map((s) => s.insert).join("|")]);
 
   useEffect(() => {
-    if (suggestions.length === 0) return;
     const handler = (e: KeyboardEvent) => {
+      const sugs = suggestionsRef.current;
+      if (sugs.length === 0) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag !== "TEXTAREA" && tag !== "INPUT") return;
 
       const apply = (appendChar: string = " ") => {
-        const s = suggestions[selected] ?? suggestions[0];
+        const sel = selectedRef.current;
+        const s = sugs[sel] ?? sugs[0];
         if (!s) return;
         e.preventDefault();
-        // applySuggestion já adiciona um espaço no final;
-        // se a tecla de confirmação for outro caractere (ex: ".") usamos ele.
-        const base = applySuggestion(text, s);
+        const base = applySuggestion(textRef.current, s);
         const finalText =
           appendChar === " " ? base : base.replace(/ $/, appendChar);
-        onApply(finalText);
+        onApplyRef.current(finalText);
       };
 
-      // Navegação
       if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelected((i) => Math.max(0, i - 1));
@@ -92,12 +104,12 @@ export function SmartSuggestions({ text, onApply }: Props) {
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelected((i) => Math.min(suggestions.length - 1, i + 1));
+        setSelected((i) => Math.min(sugs.length - 1, i + 1));
         return;
       }
       if (e.key === "ArrowRight" && e.altKey) {
         e.preventDefault();
-        setSelected((i) => Math.min(suggestions.length - 1, i + 1));
+        setSelected((i) => Math.min(sugs.length - 1, i + 1));
         return;
       }
       if (e.key === "ArrowLeft" && e.altKey) {
@@ -106,25 +118,24 @@ export function SmartSuggestions({ text, onApply }: Props) {
         return;
       }
 
-      // Tecla de confirmação configurada
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      if (config.mode === "tab" && e.key === "Tab") return apply(" ");
-      if (config.mode === "space" && e.key === " ") return apply(" ");
-      if (config.mode === "enter" && e.key === "Enter" && !e.shiftKey)
+      const cfg = configRef.current;
+      if (cfg.mode === "tab" && e.key === "Tab") return apply(" ");
+      if (cfg.mode === "space" && e.key === " ") return apply(" ");
+      if (cfg.mode === "enter" && e.key === "Enter" && !e.shiftKey)
         return apply(" ");
       if (
-        config.mode === "char" &&
-        config.char &&
-        e.key.toLowerCase() === config.char.toLowerCase() &&
+        cfg.mode === "char" &&
+        cfg.char &&
+        e.key.toLowerCase() === cfg.char.toLowerCase() &&
         e.key.length === 1
       ) {
-        return apply(config.char);
+        return apply(cfg.char);
       }
     };
     document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
-  }, [suggestions, selected, text, onApply, config]);
+  }, []);
 
   // Sempre renderiza o painel (mesmo vazio) para ficar permanentemente visível.
 
