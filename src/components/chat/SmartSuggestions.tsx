@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { getSuggestions, applySuggestion, type Suggestion } from "@/lib/ptSuggestions";
 import { Sparkles, Check, MoreVertical, Keyboard, ArrowDownToLine, CornerDownLeft, Space as SpaceIcon, Type } from "lucide-react";
 import {
