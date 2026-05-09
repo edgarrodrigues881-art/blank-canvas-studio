@@ -208,31 +208,37 @@ export function SmartSuggestions({ text, onApply }: Props) {
       </DropdownMenu>
 
       <div className="flex-1 flex flex-wrap items-center gap-1.5 min-h-[28px]">
-        {suggestions.map((s: Suggestion, i) => {
-          const isCorrection = s.kind === "correction";
-          const isSelected = i === selected;
-          return (
-            <button
-              key={`${s.insert}-${i}`}
-              type="button"
-              onClick={() => onApply(applySuggestion(text, s))}
-              className={[
-                "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
-                "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
-                isCorrection
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
-                  : "bg-muted/60 border-border text-foreground hover:bg-muted",
-                isSelected
-                  ? "ring-2 ring-[hsl(var(--chat-accent))]/60 scale-[1.03]"
-                  : "",
-              ].join(" ")}
-              title={`Confirmar com ${triggerLabel}`}
-            >
-              {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
-              <span className="max-w-[260px] truncate">{s.label}</span>
-            </button>
-          );
-        })}
+        {suggestions.length === 0 ? (
+          <span className="text-[11px] text-muted-foreground/60 italic px-1">
+            Comece a digitar para ver sugestões…
+          </span>
+        ) : (
+          suggestions.map((s: Suggestion, i) => {
+            const isCorrection = s.kind === "correction";
+            const isSelected = i === selected;
+            return (
+              <button
+                key={`${s.insert}-${i}`}
+                type="button"
+                onClick={() => onApply(applySuggestion(text, s))}
+                className={[
+                  "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
+                  "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
+                  isCorrection
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
+                    : "bg-muted/60 border-border text-foreground hover:bg-muted",
+                  isSelected
+                    ? "ring-2 ring-[hsl(var(--chat-accent))]/60 scale-[1.03]"
+                    : "",
+                ].join(" ")}
+                title={`Confirmar com ${triggerLabel}`}
+              >
+                {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
+                <span className="max-w-[260px] truncate">{s.label}</span>
+              </button>
+            );
+          })
+        )}
       </div>
     </div>
   );
