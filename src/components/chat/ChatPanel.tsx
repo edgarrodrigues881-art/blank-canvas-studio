@@ -750,30 +750,31 @@ export function ChatPanel({
             </Button>
           </div>
         ) : (
-          <div className="flex items-end gap-2">
-            <EmojiPicker onEmojiSelect={(emoji) => {
-              setInput((prev) => prev + emoji);
-              textareaRef.current?.focus();
-            }} />
+          <div className="flex flex-col gap-1.5">
+            {/* Linha superior: emoji + anexo + sugestões (sempre visível) */}
+            <div className="flex items-center gap-2">
+              <EmojiPicker onEmojiSelect={(emoji) => {
+                setInput((prev) => prev + emoji);
+                textareaRef.current?.focus();
+              }} />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-muted-foreground hover:text-foreground mb-0.5">
-                  <Paperclip className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start">
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
-                  <ImageIcon className="w-4 h-4" /> Imagem
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                  <FileText className="w-4 h-4" /> Arquivo
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0 text-muted-foreground hover:text-foreground">
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
+                    <ImageIcon className="w-4 h-4" /> Imagem
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                    <FileText className="w-4 h-4" /> Arquivo
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            <div className="flex-1 relative">
-              <div className="absolute -top-9 left-0 right-0">
+              <div className="flex-1 min-w-0">
                 <SmartSuggestions
                   text={input}
                   onApply={(newText) => {
@@ -782,28 +783,34 @@ export function ChatPanel({
                   }}
                 />
               </div>
-              <textarea
-                ref={textareaRef}
-                placeholder="Digite / para respostas rápidas..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                rows={1}
-                className="w-full resize-none rounded-xl bg-background dark:bg-card border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--chat-accent))]/25 focus:border-[hsl(var(--chat-accent))]/40 shadow-sm transition-all duration-200"
-                style={{ minHeight: "40px", maxHeight: "120px" }}
-              />
             </div>
 
-            {input.trim() ? (
-              <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-[hsl(var(--chat-accent))] text-white hover:bg-[hsl(var(--chat-accent))]/90 shadow-md shadow-[hsl(var(--chat-accent))]/25 mb-0.5 transition-all duration-150" onClick={handleSend}>
-                <Send className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button size="icon" variant="ghost" className="w-9 h-9 shrink-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 mb-0.5" onClick={startRecording}>
-                <Mic className="w-4 h-4" />
-              </Button>
-            )}
+            {/* Linha inferior: textarea + enviar/gravar */}
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  placeholder="Digite / para respostas rápidas..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  rows={1}
+                  className="w-full resize-none rounded-xl bg-background dark:bg-card border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/80 dark:placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--chat-accent))]/25 focus:border-[hsl(var(--chat-accent))]/40 shadow-sm transition-all duration-200"
+                  style={{ minHeight: "40px", maxHeight: "120px" }}
+                />
+              </div>
+
+              {input.trim() ? (
+                <Button size="icon" className="w-10 h-10 shrink-0 rounded-xl bg-[hsl(var(--chat-accent))] text-white hover:bg-[hsl(var(--chat-accent))]/90 shadow-md shadow-[hsl(var(--chat-accent))]/25 mb-0.5 transition-all duration-150" onClick={handleSend}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button size="icon" variant="ghost" className="w-9 h-9 shrink-0 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 mb-0.5" onClick={startRecording}>
+                  <Mic className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
