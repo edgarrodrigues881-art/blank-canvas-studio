@@ -8,14 +8,14 @@ import {
   ChevronDown, Star, Lock, UsersRound, MessageCircle, ShieldCheck, Megaphone, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo-new.png";
-import heroCrmMobile from "@/assets/hero-crm-mobile.png";
-import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.png";
-import howtoStep1 from "@/assets/howto-step-1.png";
-import howtoStep2 from "@/assets/howto-step-2.png";
-import howtoStep3 from "@/assets/howto-step-3.png";
-import howtoStep4 from "@/assets/howto-step-4.png";
-import howtoStep5 from "@/assets/howto-step-5.png";
+import logo from "@/assets/logo-new.webp";
+import heroCrmMobile from "@/assets/hero-crm-mobile.webp";
+import heroInstancesPanel from "@/assets/hero-instances-panel-real-v2.webp";
+import howtoStep1 from "@/assets/howto-step-1.webp";
+import howtoStep2 from "@/assets/howto-step-2.webp";
+import howtoStep3 from "@/assets/howto-step-3.webp";
+import howtoStep4 from "@/assets/howto-step-4.webp";
+import howtoStep5 from "@/assets/howto-step-5.webp";
 import HeroDataViz from "@/components/landing/HeroDataViz";
 import { HERO_METRICS, HERO_BAR_SERIES } from "@/components/landing/heroMetrics";
 import { TiltCard } from "@/components/ui/tilt-card";
@@ -89,7 +89,7 @@ const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={goToApp} className="hidden sm:inline-flex text-[13px] font-medium text-white/65 hover:text-white hover:bg-white/[0.04] h-8 px-3">
+            <Button variant="ghost" size="sm" onClick={goToApp} className="inline-flex text-[13px] font-medium text-white/70 hover:text-white hover:bg-white/[0.04] h-8 px-3">
               {session ? "Ir para o app" : "Entrar"}
             </Button>
             {!session && !heroCtaVisible && (
@@ -577,9 +577,8 @@ const BrowserMockupStatic = ({ src, alt }: { src: string; alt: string }) => (
       <img
         src={src}
         alt={alt}
-        loading="eager"
+        loading="lazy"
         decoding="async"
-        fetchPriority="high"
         className="block w-full h-auto"
       />
     </div>
