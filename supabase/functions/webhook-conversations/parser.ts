@@ -139,6 +139,67 @@ function parseTimestamp(...values: unknown[]): string {
   return new Date().toISOString();
 }
 
+/**
+ * Detect the WhatsApp/Baileys sub-message kind for events whose primary
+ * content/media couldn't be extracted. Returns a friendly label like
+ * "[reação] 👍" or "[mensagem revogada]" so the UI can show the *reason*
+ * instead of a generic "[mensagem]".
+ *
+ * Returns null if nothing recognizable was found.
+ */
+export function detectSpecialMessageLabel(body: JsonObject, messageNodes: JsonObject[]): string | null {
+  const all: JsonObject[] = [body, ...(messageNodes || [])];
+
+  // Walk a few levels deep to find Baileys-style fields
+  const seen = new Set<unknown>();
+  const queue: any[] = [...all];
+  const found: any = {};
+  while (queue.length) {
+    const cur = queue.shift();
+    if (!cur || typeof cur !== "object" || seen.has(cur)) continue;
+    seen.add(cur);
+    for (const k of Object.keys(cur)) {
+      const v = (cur as any)[k];
+      if (k === "reactionMessage" && v) found.reaction = v;
+      if (k === "pollCreationMessage" && v) found.poll = v;
+      if (k === "pollUpdateMessage" && v) found.pollVote = v;
+      if (k === "protocolMessage" && v) found.protocol = v;
+      if (k === "viewOnceMessage" && v) found.viewOnce = v;
+      if (k === "viewOnceMessageV2" && v) found.viewOnce = v;
+      if (k === "ephemeralMessage" && v) found.ephemeral = v;
+      if (k === "stickerMessage" && v) found.sticker = v;
+      if (k === "liveLocationMessage" && v) found.liveLocation = v;
+      if (k === "groupInviteMessage" && v) found.groupInvite = v;
+      if (k === "callLogMesssage" && v) found.call = v;
+      if (k === "call" && (cur as any).callType) found.call = cur;
+      if (v && typeof v === "object") queue.push(v);
+    }
+  }
+
+  if (found.reaction) {
+    const emoji = String(found.reaction.text || found.reaction.emoji || "").trim();
+    return emoji ? `[reação] ${emoji}` : "[reação removida]";
+  }
+  if (found.protocol) {
+    const t = Number(found.protocol.type);
+    // 0=REVOKE, 14=MESSAGE_EDIT (Baileys enum)
+    if (t === 0) return "[mensagem apagada]";
+    if (t === 14 || found.protocol.editedMessage) return "[mensagem editada]";
+    if (t === 3 || t === 4) return "[configuração de mensagens temporárias]";
+    return "[evento do WhatsApp]";
+  }
+  if (found.poll) return "[enquete]";
+  if (found.pollVote) return "[voto em enquete]";
+  if (found.viewOnce) return "[mensagem de visualização única]";
+  if (found.ephemeral) return "[mensagem temporária]";
+  if (found.sticker) return "[figurinha]";
+  if (found.liveLocation) return "[localização ao vivo]";
+  if (found.groupInvite) return "[convite de grupo]";
+  if (found.call) return "[chamada]";
+
+  return null;
+}
+
 export function isApiSentMessage(body: JsonObject): boolean {
   const payload = body.data && typeof body.data === "object" ? body.data : {};
   const nestedMessage = body.message && typeof body.message === "object"
@@ -624,6 +685,13 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     }
   }
 
+  // If no text and no media, try to detect a special sub-type so the UI
+  // can show *why* the bubble is empty instead of a generic "[mensagem]".
+  let specialLabel: string | null = null;
+  if (!content && !mediaType) {
+    specialLabel = detectSpecialMessageLabel(body, messageNodes);
+  }
+
   return {
     remoteJid,
     phone,
@@ -644,5 +712,6 @@ export function extractConversationEvent(body: JsonObject): ParsedConversationEv
     buttonResponseId,
     isForwarded,
     forwardingScore,
+    specialLabel,
   };
 }
