@@ -522,7 +522,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
     if (isViewOnce && msg.type === "received") {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <div className="flex items-center gap-2 py-1">
             <Eye className="w-4 h-4 shrink-0 text-muted-foreground/70" />
             <span className="text-[13px] italic text-muted-foreground/80">
@@ -546,7 +546,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
     if (isAudio && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <AudioPlayer src={msg.mediaUrl} duration={msg.audioDuration} isSent={msg.type === "sent"} />
           <MsgFooter msg={msg} />
         </div>
@@ -598,7 +598,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
 
       return (
         <div className="w-full">
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <button
             type="button"
             onClick={() => onImageClick?.(msg.mediaUrl!)}
@@ -617,7 +617,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
     if (isVideo && msg.mediaUrl) {
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <VideoPlayer src={msg.mediaUrl} />
           {msg.content && !isMediaPlaceholder(msg.content) && (
             <FormattedText text={msg.content} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words mt-1.5" />
@@ -631,7 +631,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
       const fileName = msg.fileName || msg.mediaUrl.split("/").pop() || "Arquivo";
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <a
             href={msg.mediaUrl}
             target="_blank"
@@ -669,7 +669,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
       const info = iconMap[msg.mediaType!] || { icon: <FileText className="w-5 h-5" />, label: msg.mediaType || "Mídia" };
       return (
         <div>
-          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+          <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
           <div className={cn("flex items-center gap-2.5 py-1", msg.type === "sent" ? "text-primary-foreground/60" : "text-muted-foreground")}>
             {info.icon}
             <span className="text-[12px] font-medium">{info.label}</span>
@@ -688,7 +688,7 @@ function MessageBubbleInner({ msg, getQuotedMessage, showDeviceLabel, onReply, o
     
     return (
       <>
-        <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} allMessages={allMessages} />
+        <QuotedBlock msg={msg} onScrollToQuoted={onScrollToQuoted} getQuotedMessage={getQuotedMessage} />
         {textIsShort ? (
           <div className="flex items-end gap-0">
             <FormattedText text={displayText || ""} className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" />
