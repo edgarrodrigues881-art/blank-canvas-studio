@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSuggestions, applySuggestion, type Suggestion } from "@/lib/ptSuggestions";
-import { Sparkles, Check, Settings2 } from "lucide-react";
+import { Sparkles, Check, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,42 +133,16 @@ export function SmartSuggestions({ text, onApply }: Props) {
   const triggerLabel = labelFor(config);
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 flex-nowrap overflow-visible">
-      {suggestions.map((s: Suggestion, i) => {
-        const isCorrection = s.kind === "correction";
-        const isSelected = i === selected;
-        return (
-          <button
-            key={`${s.insert}-${i}`}
-            type="button"
-            onClick={() => onApply(applySuggestion(text, s))}
-            className={[
-              "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
-              "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
-              isCorrection
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
-                : "bg-muted/60 border-border text-foreground hover:bg-muted",
-              isSelected
-                ? "ring-2 ring-[hsl(var(--chat-accent))]/60 scale-[1.03]"
-                : "",
-            ].join(" ")}
-            title={`Confirmar com ${triggerLabel}`}
-          >
-            {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
-            <span className="max-w-[260px] truncate">{s.label}</span>
-          </button>
-        );
-      })}
-
+    <div className="w-full rounded-md border border-border bg-background/95 dark:bg-card/95 backdrop-blur shadow-sm px-2 py-1.5 flex items-start gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md border border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition"
             title="Configurações de sugestões"
             onMouseDown={(e) => e.preventDefault()}
           >
-            <Settings2 className="w-3 h-3" />
+            <MoreVertical className="w-4 h-4" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="top" className="w-72">
@@ -228,10 +202,38 @@ export function SmartSuggestions({ text, onApply }: Props) {
           <DropdownMenuSeparator />
           <div className="px-2 py-1.5 text-[11px] text-muted-foreground leading-snug">
             A tecla escolhida confirma a sugestão selecionada e adiciona um
-            espaço (ou o próprio caractere). Use ↑/↓ para escolher.
+            espaço. Use ↑/↓ para escolher.
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <div className="flex-1 flex flex-wrap items-center gap-1.5 min-h-[28px]">
+        {suggestions.map((s: Suggestion, i) => {
+          const isCorrection = s.kind === "correction";
+          const isSelected = i === selected;
+          return (
+            <button
+              key={`${s.insert}-${i}`}
+              type="button"
+              onClick={() => onApply(applySuggestion(text, s))}
+              className={[
+                "shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs",
+                "border transition-all duration-150 hover:scale-[1.02] active:scale-95",
+                isCorrection
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15"
+                  : "bg-muted/60 border-border text-foreground hover:bg-muted",
+                isSelected
+                  ? "ring-2 ring-[hsl(var(--chat-accent))]/60 scale-[1.03]"
+                  : "",
+              ].join(" ")}
+              title={`Confirmar com ${triggerLabel}`}
+            >
+              {isCorrection ? <Check className="w-3 h-3" /> : <Sparkles className="w-3 h-3 opacity-60" />}
+              <span className="max-w-[260px] truncate">{s.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
