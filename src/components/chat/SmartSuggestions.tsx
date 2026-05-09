@@ -164,7 +164,7 @@ export function SmartSuggestions({ text, onApply }: Props) {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full border border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted transition"
+            className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md border border-border bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted transition"
             title="Configurações de sugestões"
             onMouseDown={(e) => e.preventDefault()}
           >
