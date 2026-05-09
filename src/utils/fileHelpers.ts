@@ -92,9 +92,27 @@ export function getMessagePreview(msg: string | undefined | null): { icon: strin
     "👤 contato": { icon: "👤", text: "Contato" },
     "📍 localização": { icon: "📍", text: "Localização" },
     "📍 localizacao": { icon: "📍", text: "Localização" },
-    "[mensagem]": { icon: "💬", text: "Mensagem" },
+    "[mensagem]": { icon: "💬", text: "Mensagem (não suportada por este app)" },
+    "[mensagem apagada]": { icon: "🚫", text: "Mensagem apagada" },
+    "[mensagem editada]": { icon: "✏️", text: "Mensagem editada" },
+    "[mensagem temporária]": { icon: "⏳", text: "Mensagem temporária" },
+    "[mensagem de visualização única]": { icon: "👁️", text: "Visualização única" },
+    "[evento do whatsapp]": { icon: "ℹ️", text: "Evento do WhatsApp" },
+    "[configuração de mensagens temporárias]": { icon: "⏱️", text: "Mensagens temporárias ativadas" },
+    "[enquete]": { icon: "📊", text: "Enquete" },
+    "[voto em enquete]": { icon: "🗳️", text: "Voto em enquete" },
+    "[reação removida]": { icon: "💔", text: "Reação removida" },
+    "[localização ao vivo]": { icon: "📍", text: "Localização ao vivo" },
+    "[convite de grupo]": { icon: "👥", text: "Convite de grupo" },
+    "[chamada]": { icon: "📞", text: "Chamada" },
   };
   if (emojiPlaceholders[lower]) return emojiPlaceholders[lower];
+
+  // Reaction with emoji: "[reação] 👍" → show the emoji as the icon
+  const reactionMatch = lower.match(/^\[rea[cç]ão\]\s*(.+)$/);
+  if (reactionMatch) {
+    return { icon: reactionMatch[1].trim() || "❤️", text: "Reagiu à mensagem" };
+  }
 
   if (lower === "[image]" || lower === "[foto]" || lower === "image" || lower === "foto")
     return { icon: "📷", text: "Foto" };
