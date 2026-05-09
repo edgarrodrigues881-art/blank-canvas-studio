@@ -71,6 +71,7 @@ const Conversations = () => {
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean } | null>(null);
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<Array<{ id: string; conversationId: string; whatsappMessageId?: string; isSent: boolean }> | null>(null);
   const [editTarget, setEditTarget] = useState<{ id: string; conversationId: string; whatsappMessageId?: string; content: string } | null>(null);
   const [editText, setEditText] = useState("");
 
@@ -426,6 +427,35 @@ const Conversations = () => {
     [deleteTarget, deleteMessage]
   );
 
+  const handleBulkDeleteMessages = useCallback((msgs: any[]) => {
+    if (!msgs?.length) return;
+    setBulkDeleteTarget(
+      msgs.map((m) => ({
+        id: m.id,
+        conversationId: m.conversationId,
+        whatsappMessageId: m.whatsappMessageId,
+        isSent: m.type === "sent",
+      }))
+    );
+  }, []);
+
+  const confirmBulkDelete = useCallback(
+    async (forEveryone: boolean) => {
+      if (!bulkDeleteTarget?.length) return;
+      const targets = bulkDeleteTarget;
+      setBulkDeleteTarget(null);
+      // Fire sequentially to avoid hammering UAZAPI; ignore individual errors
+      for (const t of targets) {
+        try {
+          // "Apagar para todos" só vale para enviadas; para recebidas força "para mim"
+          const mode = forEveryone && t.isSent;
+          await Promise.resolve(deleteMessage(t.id, t.conversationId, t.whatsappMessageId, mode));
+        } catch { /* silent */ }
+      }
+    },
+    [bulkDeleteTarget, deleteMessage]
+  );
+
   const handleEditMessage = useCallback(
     (msg: any) => {
       setEditTarget({
@@ -641,6 +671,7 @@ const Conversations = () => {
                 onSendFile={handleSendFile}
                 onRetryMessage={handleRetryMessage}
                 onDeleteMessage={handleDeleteMessage}
+                onBulkDeleteMessages={handleBulkDeleteMessages}
                 onEditMessage={handleEditMessage}
                 currentUserId={user?.id}
                 onAssign={assignConversation}
