@@ -43,10 +43,7 @@ type StatusTab = "all" | "mine" | "new" | "attending" | "waiting" | "archived";
 
 const statusTabs: { key: StatusTab; label: string }[] = [
   { key: "all", label: "Todas" },
-  { key: "mine", label: "Minhas" },
-  { key: "new", label: "Novas" },
-  { key: "attending", label: "Em Atendimento" },
-  { key: "waiting", label: "Aguardando" },
+  { key: "new", label: "Não lidas" },
   { key: "archived", label: "Arquivadas" },
 ];
 
