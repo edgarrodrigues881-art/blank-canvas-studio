@@ -73,6 +73,11 @@ export function useConversationActions({
     ]);
     if (conversationUpdate.error) console.error("Error clearing unread count:", conversationUpdate.error);
     if (messageUpdate.error) console.error("Error marking messages as read:", messageUpdate.error);
+
+    // Marca como lida no WhatsApp (UAZAPI) — fire and forget
+    supabase.functions.invoke("chat-send", {
+      body: { action: "mark_read", conversation_id: convId },
+    }).catch((e) => console.error("[markRead] WhatsApp sync error:", e));
   }, [getConversationIdsForSameContact, setConversations, setMessages]);
 
   const updateStatus = useCallback(async (convId: string, newStatus: string) => {
