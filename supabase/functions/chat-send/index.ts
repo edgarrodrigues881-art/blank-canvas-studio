@@ -249,6 +249,75 @@ async function handleEditMessage(
   return json({ edited: true, editedOnWhatsApp });
 }
 
+async function handleMarkRead(
+  admin: any,
+  userId: string,
+  body: any,
+  fallbackBaseUrl: string,
+  fallbackToken: string,
+) {
+  const conversationId = String(body?.conversation_id || "").trim();
+  if (!conversationId) return json({ error: "conversation_id obrigatório" }, 400);
+
+  const { data: convData, error: convErr } = await admin
+    .from("conversations")
+    .select("id, user_id, remote_jid, device_id, devices!conversations_device_id_fkey(uazapi_token, uazapi_base_url)")
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .single();
+
+  const conv: any = convData;
+  if (convErr || !conv) return json({ error: "Conversa não encontrada" }, 404);
+
+  const deviceConfig = Array.isArray(conv.devices) ? conv.devices[0] : conv.devices;
+  const baseUrl = String(deviceConfig?.uazapi_base_url || fallbackBaseUrl || "").replace(/\/+$/, "");
+  const token = String(deviceConfig?.uazapi_token || fallbackToken || "").trim();
+  const number = String(conv.remote_jid || "").replace(/@.*/, "");
+
+  if (!baseUrl || !token || !number) {
+    return json({ markedOnWhatsApp: false, reason: "missing_config" });
+  }
+
+  // Buscar últimas mensagens recebidas para marcar
+  const { data: msgs } = await admin
+    .from("conversation_messages")
+    .select("whatsapp_message_id")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "received")
+    .not("whatsapp_message_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const messageIds = (msgs || []).map((m: any) => m.whatsapp_message_id).filter(Boolean);
+
+  const attempts: Array<{ path: string; body: any }> = [
+    { path: "/chat/markChatUnread", body: { number, unread: false } },
+    { path: "/message/markread", body: { number, read: true } },
+  ];
+  if (messageIds.length > 0) {
+    attempts.push({ path: "/message/markread", body: { messageid: messageIds, read: true } });
+    attempts.push({ path: "/message/markread", body: { id: messageIds[0], read: true } });
+  }
+
+  let marked = false;
+  for (const a of attempts) {
+    try {
+      const res = await fetch(`${baseUrl}${a.path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token },
+        body: JSON.stringify(a.body),
+      });
+      const raw = await res.text();
+      console.log(`[chat-send] markRead ${a.path} → ${res.status}`, raw.substring(0, 200));
+      if (res.ok) { marked = true; break; }
+    } catch (e: any) {
+      console.error("[chat-send] markRead error:", e.message);
+    }
+  }
+
+  return json({ markedOnWhatsApp: marked });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -280,6 +349,10 @@ Deno.serve(async (req) => {
 
     if (body?.action === "edit") {
       return handleEditMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
+    }
+
+    if (body?.action === "mark_read") {
+      return handleMarkRead(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
 
     const conversationId = String(body?.conversation_id || "").trim();
