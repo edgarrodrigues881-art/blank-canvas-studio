@@ -351,6 +351,10 @@ Deno.serve(async (req) => {
       return handleEditMessage(admin, user.id, body, fallbackBaseUrl, fallbackToken);
     }
 
+    if (body?.action === "mark_read") {
+      return handleMarkRead(admin, user.id, body, fallbackBaseUrl, fallbackToken);
+    }
+
     const conversationId = String(body?.conversation_id || "").trim();
     const content = String(body?.content || "").trim();
     const messageId = body?.message_id ? String(body.message_id) : null;
