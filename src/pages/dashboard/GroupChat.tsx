@@ -11,11 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X } from "lucide-react";
+import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { GroupChatComposer, type GroupReplyTo } from "@/components/group-chat/GroupChatComposer";
 
 interface DeviceRow { id: string; name: string; created_at: string }
 interface GroupRow {
@@ -58,8 +59,7 @@ const GroupChat = () => {
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<GroupReplyTo | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Load devices (creation-order) ──
@@ -208,25 +208,81 @@ const GroupChat = () => {
     return list;
   }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
-  // ── Send ──
-  const handleSend = async () => {
-    if (!selected || !draft.trim() || sending) return;
-    const text = draft.trim();
-    setSending(true);
+  // ── Send helpers ──
+  const callSend = useCallback(async (payload: Record<string, any>) => {
+    const { data, error } = await supabase.functions.invoke("group-chat-send", { body: payload });
+    if (error || (data as any)?.error) {
+      throw new Error((data as any)?.error || error?.message || "Falha ao enviar");
+    }
+  }, []);
+
+  const uploadMedia = useCallback(async (file: Blob, ext: string, folder: string) => {
+    if (!user?.id) throw new Error("não autenticado");
+    const path = `${user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("media").upload(path, file, {
+      contentType: (file as any).type || "application/octet-stream",
+      upsert: false,
+    });
+    if (upErr) throw new Error("Upload falhou: " + upErr.message);
+    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    return data.publicUrl;
+  }, [user?.id]);
+
+  const sendText = useCallback(async (text: string, reply: GroupReplyTo | null) => {
+    if (!selected) return;
     try {
-      const { data, error } = await supabase.functions.invoke("group-chat-send", {
-        body: { device_id: selected.device_id, group_jid: selected.jid, type: "text", content: text },
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: "text",
+        content: text,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Falha ao enviar");
-      }
-      setDraft("");
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar mensagem");
-    } finally {
-      setSending(false);
+      throw e;
     }
-  };
+  }, [selected, callSend]);
+
+  const sendFile = useCallback(async (file: File, caption: string | undefined, reply: GroupReplyTo | null) => {
+    if (!selected) return;
+    try {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      const url = await uploadMedia(file, ext, "group-chat-files");
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: isImage ? "image" : isVideo ? "video" : "document",
+        content: url,
+        file_name: file.name,
+        caption,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
+      });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enviar arquivo");
+      throw e;
+    }
+  }, [selected, callSend, uploadMedia]);
+
+  const sendAudio = useCallback(async (blob: Blob, _duration: number, reply: GroupReplyTo | null) => {
+    if (!selected) return;
+    try {
+      const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
+      const url = await uploadMedia(blob, ext, "group-chat-audio");
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: "audio",
+        content: url,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
+      });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enviar áudio");
+      throw e;
+    }
+  }, [selected, callSend, uploadMedia]);
 
   const formatGroupTime = (iso?: string) => {
     if (!iso) return "";
@@ -355,15 +411,16 @@ const GroupChat = () => {
                   <li key={g.id}>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        setReplyTo(null);
                         setSelected({
                           jid: g.jid,
                           device_id: g.device_id,
                           name: g.name || g.jid,
                           participants_count: g.participants_count || 0,
                           device_name: g.deviceName,
-                        })
-                      }
+                        });
+                      }}
                       className={cn(
                         "w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-3 transition-colors",
                         isActive ? "bg-primary/10" : "hover:bg-muted/50"
@@ -454,7 +511,22 @@ const GroupChat = () => {
                           </span>
                         </div>
                       )}
-                      <div className={cn("flex", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
+                      <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
+                        {sent && (
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo({
+                              whatsappMessageId: m.whatsapp_message_id,
+                              content: m.content,
+                              senderName: "Você",
+                              mediaType: m.media_type,
+                            })}
+                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                            title="Responder"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <div
                           className={cn(
                             "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
@@ -487,6 +559,21 @@ const GroupChat = () => {
                             {format(new Date(m.sent_at), "HH:mm")}
                           </div>
                         </div>
+                        {!sent && (
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo({
+                              whatsappMessageId: m.whatsapp_message_id,
+                              content: m.content,
+                              senderName: m.sender_name || "Membro",
+                              mediaType: m.media_type,
+                            })}
+                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                            title="Responder"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -494,27 +581,15 @@ const GroupChat = () => {
               )}
             </div>
 
-            <footer className="shrink-0 border-t border-border/30 px-4 py-3 bg-card/40">
-              <div className="flex items-end gap-2">
-                <Input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Digite uma mensagem para o grupo..."
-                  className="flex-1"
-                  disabled={sending}
-                />
-                <Button onClick={handleSend} disabled={!draft.trim() || sending} className="gap-2">
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Enviar
-                </Button>
-              </div>
-            </footer>
+            <GroupChatComposer
+              disabled={!selected}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+              onSendText={sendText}
+              onSendFile={sendFile}
+              onSendAudio={sendAudio}
+            />
+
           </>
         )}
       </main>

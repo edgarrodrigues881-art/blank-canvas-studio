@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildAttempts, getDestination, type SendAttempt } from "../chat-send/send-utils.ts";
+import { buildAttempts, getDestination, type SendAttempt } from "./send-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
     const content = String(body?.content || "").trim();
     const fileName = body?.file_name ? String(body.file_name) : undefined;
     const caption = body?.caption ? String(body.caption) : undefined;
+    const quotedMessageId = body?.quoted_message_id ? String(body.quoted_message_id) : undefined;
 
     if (!deviceId || !groupJid || !content) {
       return json({ error: "device_id, group_jid e content são obrigatórios" }, 400);
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
     await reserveSlot(admin, deviceId);
 
     const dest = getDestination(groupJid);
-    const attempts = buildAttempts(type, dest, content, fileName, undefined, caption);
+    const attempts = buildAttempts(type, dest, content, fileName, quotedMessageId, caption);
     const result = await executeAttempts(baseUrl, token, attempts);
 
     if (!result.ok) {
