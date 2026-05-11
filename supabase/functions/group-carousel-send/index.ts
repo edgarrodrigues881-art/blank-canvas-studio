@@ -1492,6 +1492,29 @@ Deno.serve(async (req) => {
     const groupName = "";
     const isRestricted = false;
 
+    // Persist sent template into group_messages so it appears in the chat feed.
+    const persistTemplateMessage = async (summary: string, mediaType: string | null = null, mediaUrl: string | null = null) => {
+      try {
+        const waId = `local-tpl-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+        await admin.from("group_messages").insert({
+          user_id: user.id,
+          device_id: deviceId,
+          group_jid: groupJid,
+          sender_jid: null,
+          sender_name: "Você",
+          content: summary,
+          media_type: mediaType,
+          media_url: mediaUrl,
+          mime_type: null,
+          direction: "sent",
+          whatsapp_message_id: waId,
+          sent_at: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.error("[group-carousel] persist error:", e);
+      }
+    };
+
     // Helper: dispatch without ever changing group permissions.
     // Restricted/private groups must keep their own settings untouched.
     const wrapSend = async (fn: () => Promise<void>) => {
@@ -1550,6 +1573,8 @@ Deno.serve(async (req) => {
           await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
         }
       });
+      const carouselSummary = `🎠 Carrossel${headerText ? ": " + headerText : ""} (${normalizedCarouselCards.length} card(s))`;
+      await persistTemplateMessage(carouselSummary);
       return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
@@ -1624,6 +1649,7 @@ Deno.serve(async (req) => {
             }
           });
 
+          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
           return json({ ok: true, mode: "buttons_mention", isRestricted, groupName });
         } catch (mentionBtnErr) {
           console.warn(`[group-carousel] buttons+mentions failed, sending buttons only: ${mentionBtnErr instanceof Error ? mentionBtnErr.message : String(mentionBtnErr)}`);
@@ -1641,6 +1667,7 @@ Deno.serve(async (req) => {
             }
           });
 
+          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
           return json({ ok: true, mode: "buttons_mention_fallback", isRestricted, groupName });
         }
       }
@@ -1669,10 +1696,13 @@ Deno.serve(async (req) => {
             await sendWithFallbacks(buttonAttempts, headers, groupJid);
           }
         });
-        return json({ ok: true, mode: mediaType === "audio" ? "buttons_audio" : "buttons_media", isRestricted, groupName });
+        const finalMode = mediaType === "audio" ? "buttons_audio" : "buttons_media";
+        await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, mediaType, inspectedMedia.normalizedUrl);
+        return json({ ok: true, mode: finalMode, isRestricted, groupName });
       }
 
       await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
+      await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`);
       return json({ ok: true, mode: "buttons", isRestricted, groupName });
     }
 

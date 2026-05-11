@@ -59,6 +59,7 @@ const GroupChat = () => {
   const [lastByGroup, setLastByGroup] = useState<Record<string, MessageRow | undefined>>({});
   const [openDeviceIds, setOpenDeviceIds] = useState<string[]>([]);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
+  const [tabsHydrated, setTabsHydrated] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
   const [messages, setMessages] = useState<PendingGroupMessage[]>([]);
@@ -89,6 +90,36 @@ const GroupChat = () => {
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  // Hydrate open tabs from localStorage once devices are loaded
+  useEffect(() => {
+    if (!user?.id || tabsHydrated || devices.length === 0) return;
+    try {
+      const raw = window.localStorage.getItem(`group-chat-tabs:${user.id}`);
+      if (raw) {
+        const saved = JSON.parse(raw) as { open: string[]; active: string | null };
+        const validIds = new Set(devices.map((d) => d.id));
+        const open = (saved.open || []).filter((id) => validIds.has(id));
+        const active = saved.active && validIds.has(saved.active) ? saved.active : (open[open.length - 1] || null);
+        if (open.length > 0) {
+          setOpenDeviceIds(open);
+          setActiveDeviceId(active);
+        }
+      }
+    } catch { /* ignore */ }
+    setTabsHydrated(true);
+  }, [user?.id, devices, tabsHydrated]);
+
+  // Persist open tabs to localStorage
+  useEffect(() => {
+    if (!user?.id || !tabsHydrated) return;
+    try {
+      window.localStorage.setItem(
+        `group-chat-tabs:${user.id}`,
+        JSON.stringify({ open: openDeviceIds, active: activeDeviceId }),
+      );
+    } catch { /* ignore */ }
+  }, [user?.id, tabsHydrated, openDeviceIds, activeDeviceId]);
 
   // ── Load templates (buttons + carousel) for "/" command ──
   useEffect(() => {

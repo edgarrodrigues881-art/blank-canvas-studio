@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { CameraCapture } from "@/components/chat/CameraCapture";
+import { SmartSuggestions } from "@/components/chat/SmartSuggestions";
 import { formatDuration, formatFileSize } from "@/utils/formatters";
 import { getFileIcon } from "@/utils/fileHelpers";
 import { cn } from "@/lib/utils";
@@ -398,6 +399,16 @@ export function GroupChatComposer({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <div className="flex-1 min-w-0">
+                <SmartSuggestions
+                  text={input}
+                  onApply={(newText) => {
+                    setInput(newText);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                />
+              </div>
             </div>
 
             <div className="flex items-end gap-2">
