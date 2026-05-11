@@ -1696,10 +1696,13 @@ Deno.serve(async (req) => {
             await sendWithFallbacks(buttonAttempts, headers, groupJid);
           }
         });
-        return json({ ok: true, mode: mediaType === "audio" ? "buttons_audio" : "buttons_media", isRestricted, groupName });
+        const finalMode = mediaType === "audio" ? "buttons_audio" : "buttons_media";
+        await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, mediaType, inspectedMedia.normalizedUrl);
+        return json({ ok: true, mode: finalMode, isRestricted, groupName });
       }
 
       await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
+      await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`);
       return json({ ok: true, mode: "buttons", isRestricted, groupName });
     }
 
