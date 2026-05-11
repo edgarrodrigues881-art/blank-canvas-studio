@@ -341,9 +341,13 @@ const GroupChat = () => {
         </div>
 
         <ScrollArea className="flex-1">
-          {decoratedGroups.length === 0 ? (
+          {!activeDeviceId ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
-              Nenhum grupo encontrado. Sincronize seus grupos no menu Disparo em Grupo.
+              Abra uma instância nas abas acima para ver seus grupos.
+            </div>
+          ) : decoratedGroups.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              Nenhum grupo encontrado nesta instância. Sincronize seus grupos no menu Disparo em Grupo.
             </div>
           ) : (
             <ul className="p-1">
