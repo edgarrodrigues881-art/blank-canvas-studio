@@ -458,6 +458,7 @@ const GroupChat = () => {
                           name: g.name || g.jid,
                           participants_count: g.participants_count || 0,
                           device_name: g.deviceName,
+                          image_url: g.image_url || null,
                         });
                       }}
                       className={cn(
@@ -466,6 +467,7 @@ const GroupChat = () => {
                       )}
                     >
                       <Avatar className="w-10 h-10 shrink-0">
+                        {g.image_url ? <AvatarImage src={g.image_url} alt={g.name || ""} /> : null}
                         <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
                           {(g.name || "G").substring(0, 2).toUpperCase()}
                         </AvatarFallback>
