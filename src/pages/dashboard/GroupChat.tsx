@@ -413,15 +413,16 @@ const GroupChat = () => {
                   <li key={g.id}>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        setReplyTo(null);
                         setSelected({
                           jid: g.jid,
                           device_id: g.device_id,
                           name: g.name || g.jid,
                           participants_count: g.participants_count || 0,
                           device_name: g.deviceName,
-                        })
-                      }
+                        });
+                      }}
                       className={cn(
                         "w-full text-left px-3 py-2.5 rounded-lg flex items-start gap-3 transition-colors",
                         isActive ? "bg-primary/10" : "hover:bg-muted/50"
