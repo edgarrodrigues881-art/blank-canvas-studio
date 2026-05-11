@@ -210,25 +210,81 @@ const GroupChat = () => {
     return list;
   }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
-  // ── Send ──
-  const handleSend = async () => {
-    if (!selected || !draft.trim() || sending) return;
-    const text = draft.trim();
-    setSending(true);
+  // ── Send helpers ──
+  const callSend = useCallback(async (payload: Record<string, any>) => {
+    const { data, error } = await supabase.functions.invoke("group-chat-send", { body: payload });
+    if (error || (data as any)?.error) {
+      throw new Error((data as any)?.error || error?.message || "Falha ao enviar");
+    }
+  }, []);
+
+  const uploadMedia = useCallback(async (file: Blob, ext: string, folder: string) => {
+    if (!user?.id) throw new Error("não autenticado");
+    const path = `${user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("media").upload(path, file, {
+      contentType: (file as any).type || "application/octet-stream",
+      upsert: false,
+    });
+    if (upErr) throw new Error("Upload falhou: " + upErr.message);
+    const { data } = supabase.storage.from("media").getPublicUrl(path);
+    return data.publicUrl;
+  }, [user?.id]);
+
+  const sendText = useCallback(async (text: string, reply: GroupReplyTo | null) => {
+    if (!selected) return;
     try {
-      const { data, error } = await supabase.functions.invoke("group-chat-send", {
-        body: { device_id: selected.device_id, group_jid: selected.jid, type: "text", content: text },
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: "text",
+        content: text,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
       });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "Falha ao enviar");
-      }
-      setDraft("");
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar mensagem");
-    } finally {
-      setSending(false);
+      throw e;
     }
-  };
+  }, [selected, callSend]);
+
+  const sendFile = useCallback(async (file: File, caption: string | undefined, reply: GroupReplyTo | null) => {
+    if (!selected) return;
+    try {
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      const url = await uploadMedia(file, ext, "group-chat-files");
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: isImage ? "image" : isVideo ? "video" : "document",
+        content: url,
+        file_name: file.name,
+        caption,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
+      });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enviar arquivo");
+      throw e;
+    }
+  }, [selected, callSend, uploadMedia]);
+
+  const sendAudio = useCallback(async (blob: Blob, _duration: number, reply: GroupReplyTo | null) => {
+    if (!selected) return;
+    try {
+      const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
+      const url = await uploadMedia(blob, ext, "group-chat-audio");
+      await callSend({
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        type: "audio",
+        content: url,
+        quoted_message_id: reply?.whatsappMessageId || undefined,
+      });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enviar áudio");
+      throw e;
+    }
+  }, [selected, callSend, uploadMedia]);
 
   const formatGroupTime = (iso?: string) => {
     if (!iso) return "";
