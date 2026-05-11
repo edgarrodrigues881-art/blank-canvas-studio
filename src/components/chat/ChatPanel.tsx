@@ -621,7 +621,7 @@ export function ChatPanel({
                 }
 
                 return (
-                  <div key={msg.id} id={`msg-${msg.id}`} className={cn("transition-all duration-500 ease-out", directionChanged && !showDate && "mt-3", highlightedMsgId === msg.id && "quoted-highlight rounded-xl")}>
+                  <div key={msg.id} id={`msg-${msg.id}`} className={cn("transition-all duration-500 ease-out", !showDate && prevMsg && (directionChanged ? "mt-5" : "mt-1.5"), highlightedMsgId === msg.id && "quoted-highlight rounded-xl")}>
                     {showDate && (
                       <div className="flex justify-center my-4">
                         <span className="text-[10px] font-medium text-muted-foreground/60 bg-muted/40 dark:bg-muted/20 px-3 py-1 rounded-full select-none">
