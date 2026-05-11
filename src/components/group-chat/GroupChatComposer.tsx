@@ -36,7 +36,48 @@ export function GroupChatComposer({
 }: Props) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // detect "@..." token at caret to show suggestion popup
+  const detectMention = useCallback((value: string, caret: number) => {
+    const before = value.slice(0, caret);
+    const m = before.match(/(?:^|\s)@([a-zA-Z]*)$/);
+    if (m) {
+      setMentionQuery(m[1].toLowerCase());
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  }, []);
+
+  const mentionSuggestions = (() => {
+    if (mentionQuery === null) return [] as { token: string; label: string }[];
+    const all = [
+      { token: "todos", label: "@todos · marca todos do grupo" },
+      { token: "all", label: "@all · marca todos do grupo" },
+    ];
+    if (!mentionQuery) return all;
+    return all.filter((s) => s.token.startsWith(mentionQuery));
+  })();
+
+  const applyMention = useCallback((token: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const caret = ta.selectionStart ?? input.length;
+    const before = input.slice(0, caret);
+    const after = input.slice(caret);
+    const newBefore = before.replace(/@([a-zA-Z]*)$/, `@${token} `);
+    const newValue = newBefore + after;
+    setInput(newValue);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      const pos = newBefore.length;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  }, [input]);
 
   // file
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -107,7 +148,17 @@ export function GroupChatComposer({
     } finally { setSending(false); }
   }, [sending, pendingFile, input, replyTo, onSendFile, onSendText, cancelPendingFile, onCancelReply]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null && mentionSuggestions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(mentionSuggestions.length - 1, i + 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setMentionIndex((i) => Math.max(0, i - 1)); return; }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        applyMention(mentionSuggestions[mentionIndex]?.token || "todos");
+        return;
+      }
+      if (e.key === "Escape") { e.preventDefault(); setMentionQuery(null); return; }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       doSend();
@@ -282,15 +333,52 @@ export function GroupChatComposer({
 
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
+                {mentionQuery !== null && mentionSuggestions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-20 w-64 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30">
+                      Marcar membros
+                    </div>
+                    {mentionSuggestions.map((s, i) => (
+                      <button
+                        key={s.token}
+                        type="button"
+                        onMouseEnter={() => setMentionIndex(i)}
+                        onClick={() => applyMention(s.token)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors",
+                          i === mentionIndex ? "bg-primary/10 text-foreground" : "hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="text-emerald-600 font-semibold">@{s.token}</span>
+                        <span className="text-xs text-muted-foreground truncate">marca todos do grupo</span>
+                      </button>
+                    ))}
+                    <div className="px-3 py-1 text-[9px] text-muted-foreground/70 bg-muted/20 border-t border-border/40">
+                      ↑↓ navegar · Enter para inserir · Esc cancela
+                    </div>
+                  </div>
+                )}
                 <textarea
                   ref={textareaRef}
                   spellCheck
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    detectMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+                  }}
+                  onKeyUp={(e) => {
+                    const ta = e.currentTarget;
+                    detectMention(ta.value, ta.selectionStart ?? ta.value.length);
+                  }}
+                  onClick={(e) => {
+                    const ta = e.currentTarget;
+                    detectMention(ta.value, ta.selectionStart ?? ta.value.length);
+                  }}
+                  onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   rows={1}
-                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite uma mensagem para o grupo..."}
+                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite @todos para marcar o grupo..."}
                   disabled={disabled || sending}
                   className={cn(
                     "w-full resize-none rounded-xl bg-background border border-border px-4 py-2.5 text-sm",
