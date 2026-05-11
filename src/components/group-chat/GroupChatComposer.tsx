@@ -129,12 +129,7 @@ export function GroupChatComposer({
     if (!onSendTemplate) return;
     setSlashQuery(null);
     setInput("");
-    setSending(true);
-    try {
-      await onSendTemplate(tpl);
-    } finally {
-      setSending(false);
-    }
+    await onSendTemplate(tpl);
   }, [onSendTemplate]);
 
   // file
