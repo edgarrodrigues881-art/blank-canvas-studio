@@ -61,6 +61,7 @@ const GroupChat = () => {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<GroupReplyTo | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Load devices (creation-order) ──
