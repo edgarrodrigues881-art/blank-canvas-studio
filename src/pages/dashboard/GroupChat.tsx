@@ -749,6 +749,9 @@ const GroupChat = () => {
               onSendText={sendText}
               onSendFile={sendFile}
               onSendAudio={sendAudio}
+              buttonTemplates={buttonTemplates}
+              carouselTemplates={carouselTemplates}
+              onSendTemplate={sendTemplate}
             />
 
           </>
