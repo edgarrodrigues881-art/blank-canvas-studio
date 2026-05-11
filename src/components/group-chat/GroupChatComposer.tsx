@@ -399,6 +399,16 @@ export function GroupChatComposer({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <div className="flex-1 min-w-0">
+                <SmartSuggestions
+                  text={input}
+                  onApply={(newText) => {
+                    setInput(newText);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                />
+              </div>
             </div>
 
             <div className="flex items-end gap-2">
