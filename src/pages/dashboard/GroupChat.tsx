@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2 } from "lucide-react";
+import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -53,7 +53,8 @@ const GroupChat = () => {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [lastByGroup, setLastByGroup] = useState<Record<string, MessageRow | undefined>>({});
-  const [filterDeviceIds, setFilterDeviceIds] = useState<string[]>([]);
+  const [openDeviceIds, setOpenDeviceIds] = useState<string[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
@@ -186,8 +187,10 @@ const GroupChat = () => {
         last,
       };
     });
-    if (filterDeviceIds.length > 0) {
-      list = list.filter((g) => filterDeviceIds.includes(g.device_id));
+    if (activeDeviceId) {
+      list = list.filter((g) => g.device_id === activeDeviceId);
+    } else {
+      list = [];
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -201,7 +204,7 @@ const GroupChat = () => {
       return (a.name || "").localeCompare(b.name || "");
     });
     return list;
-  }, [groups, deviceById, lastByGroup, filterDeviceIds, search]);
+  }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
   // ── Send ──
   const handleSend = async () => {
@@ -237,63 +240,93 @@ const GroupChat = () => {
     return format(d, "dd 'de' MMMM", { locale: ptBR });
   };
 
+  const availableToOpen = devices.filter((d) => !openDeviceIds.includes(d.id));
+  const openInstance = (id: string) => {
+    setOpenDeviceIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setActiveDeviceId(id);
+    setSelected(null);
+  };
+  const closeInstance = (id: string) => {
+    setOpenDeviceIds((prev) => prev.filter((x) => x !== id));
+    if (activeDeviceId === id) {
+      const remaining = openDeviceIds.filter((x) => x !== id);
+      setActiveDeviceId(remaining[remaining.length - 1] || null);
+      setSelected(null);
+    }
+  };
+
   return (
-    <div className="flex h-[calc(100vh-3rem)] bg-background">
-      {/* Left: groups list */}
-      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col bg-card/40">
-        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <MessagesSquare className="w-4 h-4 text-emerald-500" />
-            <h2 className="text-[15px] font-bold tracking-tight">Chat de Grupos</h2>
-          </div>
-          {devices.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative w-8 h-8 text-muted-foreground hover:text-foreground"
-                  title="Filtrar por instância"
-                >
-                  <Smartphone className="w-4 h-4" />
-                  {filterDeviceIds.length > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
-                      {filterDeviceIds.length}
-                    </span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[180px]">
+    <div className="flex flex-col h-[calc(100vh-3rem)] bg-background">
+      {/* Top: instance tabs */}
+      <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-border/40 bg-card/30 overflow-x-auto">
+        <div className="flex items-center gap-2 pr-3 mr-1 border-r border-border/40 shrink-0">
+          <MessagesSquare className="w-4 h-4 text-emerald-500" />
+          <h2 className="text-[14px] font-bold tracking-tight whitespace-nowrap">Chat de Grupos</h2>
+        </div>
+        {openDeviceIds.length === 0 && (
+          <span className="text-[11px] text-muted-foreground px-2">
+            Abra uma instância para começar →
+          </span>
+        )}
+        {openDeviceIds.map((id) => {
+          const dev = deviceById.get(id);
+          if (!dev) return null;
+          const isActive = activeDeviceId === id;
+          return (
+            <div
+              key={id}
+              className={cn(
+                "group flex items-center gap-2 px-3 py-1.5 rounded-t-md text-[12px] font-medium border-x border-t cursor-pointer transition-colors shrink-0",
+                isActive
+                  ? "bg-background border-border/60 text-foreground -mb-px"
+                  : "bg-muted/40 border-transparent text-muted-foreground hover:bg-muted/70"
+              )}
+              onClick={() => { setActiveDeviceId(id); setSelected(null); }}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="whitespace-nowrap">{dev.name}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); closeInstance(id); }}
+                className="opacity-60 hover:opacity-100 hover:text-destructive"
+                title="Fechar instância"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          );
+        })}
+        {availableToOpen.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Abrir instância
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[200px] max-h-[320px] overflow-y-auto">
+              {availableToOpen.map((d) => (
                 <DropdownMenuItem
-                  onSelect={(e) => { e.preventDefault(); setFilterDeviceIds([]); }}
+                  key={d.id}
+                  onSelect={(e) => { e.preventDefault(); openInstance(d.id); }}
                   className="gap-2 text-xs cursor-pointer"
                 >
-                  <Check className={`w-3.5 h-3.5 ${filterDeviceIds.length === 0 ? "opacity-100" : "opacity-0"}`} />
-                  Todas
+                  <Smartphone className="w-3.5 h-3.5 text-muted-foreground" />
+                  {d.name}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {devices.map((d) => {
-                  const active = filterDeviceIds.includes(d.id);
-                  return (
-                    <DropdownMenuItem
-                      key={d.id}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setFilterDeviceIds((prev) =>
-                          prev.includes(d.id) ? prev.filter((x) => x !== d.id) : [...prev, d.id]
-                        );
-                      }}
-                      className="gap-2 text-xs cursor-pointer"
-                    >
-                      <Check className={`w-3.5 h-3.5 ${active ? "opacity-100" : "opacity-0"}`} />
-                      {d.name}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      <div className="flex flex-1 min-h-0">
+      {/* Left: groups list */}
+      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col bg-card/40">
 
         <div className="px-3 py-2 border-b border-border/20">
           <div className="relative">
@@ -308,9 +341,13 @@ const GroupChat = () => {
         </div>
 
         <ScrollArea className="flex-1">
-          {decoratedGroups.length === 0 ? (
+          {!activeDeviceId ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
-              Nenhum grupo encontrado. Sincronize seus grupos no menu Disparo em Grupo.
+              Abra uma instância nas abas acima para ver seus grupos.
+            </div>
+          ) : decoratedGroups.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">
+              Nenhum grupo encontrado nesta instância. Sincronize seus grupos no menu Disparo em Grupo.
             </div>
           ) : (
             <ul className="p-1">
@@ -484,6 +521,7 @@ const GroupChat = () => {
           </>
         )}
       </main>
+      </div>
     </div>
   );
 };
