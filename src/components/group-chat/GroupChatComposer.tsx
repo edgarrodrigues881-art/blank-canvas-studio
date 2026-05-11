@@ -23,6 +23,24 @@ export interface GroupReplyTo {
   mediaType?: string | null;
 }
 
+export interface ButtonTemplateItem {
+  id: string;
+  name: string;
+  content: string;
+  media_url?: string | null;
+  type?: string | null;
+  buttons: any[];
+}
+export interface CarouselTemplateItem {
+  id: string;
+  name: string;
+  message?: string | null;
+  cards: any[];
+}
+export type GroupTemplate =
+  | { kind: "buttons"; tpl: ButtonTemplateItem }
+  | { kind: "carousel"; tpl: CarouselTemplateItem };
+
 interface Props {
   disabled?: boolean;
   replyTo: GroupReplyTo | null;
@@ -30,10 +48,14 @@ interface Props {
   onSendText: (text: string, replyTo: GroupReplyTo | null) => Promise<void> | void;
   onSendFile: (file: File, caption: string | undefined, replyTo: GroupReplyTo | null) => Promise<void> | void;
   onSendAudio: (blob: Blob, duration: number, replyTo: GroupReplyTo | null) => Promise<void> | void;
+  buttonTemplates?: ButtonTemplateItem[];
+  carouselTemplates?: CarouselTemplateItem[];
+  onSendTemplate?: (tpl: GroupTemplate) => Promise<void> | void;
 }
 
 export function GroupChatComposer({
   disabled, replyTo, onCancelReply, onSendText, onSendFile, onSendAudio,
+  buttonTemplates = [], carouselTemplates = [], onSendTemplate,
 }: Props) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
