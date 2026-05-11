@@ -54,10 +54,16 @@ interface SelectedGroup {
 
 const GroupChat = () => {
   const { user } = useAuth();
+  const TABS_STORAGE_KEY = user?.id ? `group-chat-open-tabs:${user.id}` : "";
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [lastByGroup, setLastByGroup] = useState<Record<string, MessageRow | undefined>>({});
-  const [openDeviceIds, setOpenDeviceIds] = useState<string[]>([]);
+  const [openDeviceIds, setOpenDeviceIds] = useState<string[]>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("group-chat-open-tabs:bootstrap") : null;
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch { return []; }
+  });
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
