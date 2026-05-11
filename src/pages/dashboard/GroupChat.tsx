@@ -685,7 +685,7 @@ const GroupChat = () => {
                         </div>
                       )}
                       <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
-                        {sent && (
+                        {sent && !m.pending && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
@@ -725,7 +725,7 @@ const GroupChat = () => {
                           className={cn(
                             "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
                             sent
-                              ? "bg-emerald-600 text-white rounded-br-sm"
+                              ? cn("bg-emerald-600 text-white rounded-br-sm", m.pending && "opacity-75")
                               : "bg-muted text-foreground rounded-bl-sm"
                           )}
                         >
@@ -750,7 +750,7 @@ const GroupChat = () => {
                           )}
                           {m.content && <div className="whitespace-pre-wrap break-words">{m.content}</div>}
                           <div className={cn("text-[10px] mt-1 text-right", sent ? "text-white/70" : "text-muted-foreground")}>
-                            {format(new Date(m.sent_at), "HH:mm")}
+                            {m.pending ? "enviando..." : format(new Date(m.sent_at), "HH:mm")}
                           </div>
                         </div>
                         {!sent && (
