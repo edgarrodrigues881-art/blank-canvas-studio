@@ -11,11 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X } from "lucide-react";
+import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { GroupChatComposer, type GroupReplyTo } from "@/components/group-chat/GroupChatComposer";
 
 interface DeviceRow { id: string; name: string; created_at: string }
 interface GroupRow {
