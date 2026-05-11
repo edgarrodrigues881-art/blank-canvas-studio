@@ -324,7 +324,7 @@ const GroupChat = () => {
 
       <div className="flex flex-1 min-h-0">
       {/* Left: groups list */}
-      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col bg-card/40">
+      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col min-h-0 bg-card/40">
 
         <div className="px-3 py-2 border-b border-border/20">
           <div className="relative">
@@ -404,14 +404,14 @@ const GroupChat = () => {
       </aside>
 
       {/* Right: chat panel */}
-      <main className="flex-1 flex flex-col bg-background min-w-0">
+      <main className="flex-1 flex flex-col bg-background min-w-0 min-h-0">
         {!selected ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
             Selecione um grupo à esquerda para conversar.
           </div>
         ) : (
           <>
-            <header className="flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
+            <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="w-9 h-9 shrink-0">
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
@@ -431,7 +431,7 @@ const GroupChat = () => {
               </div>
             </header>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2">
               {loadingMsgs ? (
                 <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" /> Carregando mensagens...
@@ -495,7 +495,7 @@ const GroupChat = () => {
               )}
             </div>
 
-            <footer className="border-t border-border/30 px-4 py-3 bg-card/40">
+            <footer className="shrink-0 border-t border-border/30 px-4 py-3 bg-card/40">
               <div className="flex items-end gap-2">
                 <Input
                   value={draft}
