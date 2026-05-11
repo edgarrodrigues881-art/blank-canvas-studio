@@ -41,6 +41,8 @@ interface MessageRow {
   sent_at: string;
 }
 
+type PendingGroupMessage = MessageRow & { pending?: boolean };
+
 interface SelectedGroup {
   jid: string;
   device_id: string;
@@ -59,7 +61,7 @@ const GroupChat = () => {
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
-  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [messages, setMessages] = useState<PendingGroupMessage[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupReplyTo | null>(null);
   const [buttonTemplates, setButtonTemplates] = useState<ButtonTemplateItem[]>([]);
