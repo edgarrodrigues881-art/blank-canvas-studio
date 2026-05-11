@@ -822,6 +822,21 @@ const GroupChat = () => {
                             </a>
                           )}
                           {m.content && <div className="whitespace-pre-wrap break-words">{m.content}</div>}
+                          {Array.isArray(m.buttons) && m.buttons.length > 0 && (
+                            <div className={cn("mt-2 -mx-1 pt-2 border-t flex flex-col gap-1", sent ? "border-white/20" : "border-border")}>
+                              {m.buttons.map((b, i) => (
+                                <div
+                                  key={b.id || i}
+                                  className={cn(
+                                    "text-[12px] font-medium text-center py-1.5 px-2 rounded-md",
+                                    sent ? "bg-white/15 text-white" : "bg-background text-primary border border-border"
+                                  )}
+                                >
+                                  {b.label || b.valor || "Botão"}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className={cn("text-[10px] mt-1 text-right", sent ? "text-white/70" : "text-muted-foreground")}>
                             {m.pending ? "enviando..." : format(new Date(m.sent_at), "HH:mm")}
                           </div>
