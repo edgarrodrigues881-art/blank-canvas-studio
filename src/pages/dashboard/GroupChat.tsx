@@ -187,8 +187,10 @@ const GroupChat = () => {
         last,
       };
     });
-    if (filterDeviceIds.length > 0) {
-      list = list.filter((g) => filterDeviceIds.includes(g.device_id));
+    if (activeDeviceId) {
+      list = list.filter((g) => g.device_id === activeDeviceId);
+    } else {
+      list = [];
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -202,7 +204,7 @@ const GroupChat = () => {
       return (a.name || "").localeCompare(b.name || "");
     });
     return list;
-  }, [groups, deviceById, lastByGroup, filterDeviceIds, search]);
+  }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
   // ── Send ──
   const handleSend = async () => {
