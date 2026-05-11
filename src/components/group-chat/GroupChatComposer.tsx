@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Paperclip, Send, Image as ImageIcon, FileText, Camera, Mic, Trash2, Loader2, X,
+  Video, LayoutGrid, MousePointerClick,
 } from "lucide-react";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { CameraCapture } from "@/components/chat/CameraCapture";
