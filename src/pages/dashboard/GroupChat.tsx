@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply } from "lucide-react";
+import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -25,6 +25,7 @@ interface GroupRow {
   jid: string;
   name: string | null;
   participants_count: number | null;
+  image_url?: string | null;
 }
 interface MessageRow {
   id: string;
@@ -46,6 +47,7 @@ interface SelectedGroup {
   name: string;
   participants_count: number;
   device_name: string;
+  image_url?: string | null;
 }
 
 const GroupChat = () => {
@@ -86,7 +88,7 @@ const GroupChat = () => {
     if (!user?.id) return;
     const { data } = await supabase
       .from("device_groups_cache")
-      .select("id, device_id, jid, name, participants_count")
+      .select("id, device_id, jid, name, participants_count, image_url")
       .eq("user_id", user.id)
       .order("name", { ascending: true })
       .limit(2000);
@@ -94,6 +96,21 @@ const GroupChat = () => {
   }, [user?.id]);
 
   useEffect(() => { loadGroups(); }, [loadGroups]);
+
+  // ── Fetch group profile pictures for the active device (background) ──
+  useEffect(() => {
+    if (!user?.id || !activeDeviceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabase.functions.invoke("group-chat-fetch-images", {
+          body: { device_id: activeDeviceId },
+        });
+        if (!cancelled) await loadGroups();
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, activeDeviceId, loadGroups]);
 
   // ── Last message per group (single query, group by jid client-side) ──
   const refreshLastByGroup = useCallback(async () => {
@@ -143,26 +160,31 @@ const GroupChat = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, selected]);
 
-  // ── Load messages when group selected ──
-  useEffect(() => {
+  // ── Load messages when group selected + periodic sync fallback ──
+  const loadMessages = useCallback(async (showLoading = false) => {
     if (!user?.id || !selected) return;
-    let cancelled = false;
-    setLoadingMsgs(true);
-    (async () => {
-      const { data } = await supabase
-        .from("group_messages")
-        .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at")
-        .eq("user_id", user.id)
-        .eq("group_jid", selected.jid)
-        .eq("device_id", selected.device_id)
-        .order("sent_at", { ascending: true })
-        .limit(500);
-      if (cancelled) return;
-      setMessages((data as MessageRow[]) || []);
-      setLoadingMsgs(false);
-    })();
-    return () => { cancelled = true; };
+    if (showLoading) setLoadingMsgs(true);
+    const { data } = await supabase
+      .from("group_messages")
+      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at")
+      .eq("user_id", user.id)
+      .eq("group_jid", selected.jid)
+      .eq("device_id", selected.device_id)
+      .is("deleted_at", null)
+      .order("sent_at", { ascending: true })
+      .limit(500);
+    setMessages((data as MessageRow[]) || []);
+    if (showLoading) setLoadingMsgs(false);
   }, [user?.id, selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadMessages(true);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadMessages(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [selected, loadMessages]);
 
   // ── Auto-scroll on new messages ──
   useEffect(() => {
@@ -283,6 +305,23 @@ const GroupChat = () => {
       throw e;
     }
   }, [selected, callSend, uploadMedia]);
+
+  const handleDeleteForEveryone = useCallback(async (msgId: string) => {
+    const prev = messages;
+    setMessages((arr) => arr.filter((x) => x.id !== msgId));
+    try {
+      const { data, error } = await supabase.functions.invoke("group-chat-delete", {
+        body: { message_id: msgId },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Falha ao apagar");
+      }
+      toast.success("Mensagem apagada para todos");
+    } catch (e: any) {
+      setMessages(prev);
+      toast.error(e?.message || "Erro ao apagar mensagem");
+    }
+  }, [messages]);
 
   const formatGroupTime = (iso?: string) => {
     if (!iso) return "";
@@ -419,6 +458,7 @@ const GroupChat = () => {
                           name: g.name || g.jid,
                           participants_count: g.participants_count || 0,
                           device_name: g.deviceName,
+                          image_url: g.image_url || null,
                         });
                       }}
                       className={cn(
@@ -427,6 +467,7 @@ const GroupChat = () => {
                       )}
                     >
                       <Avatar className="w-10 h-10 shrink-0">
+                        {g.image_url ? <AvatarImage src={g.image_url} alt={g.name || ""} /> : null}
                         <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
                           {(g.name || "G").substring(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -470,6 +511,7 @@ const GroupChat = () => {
             <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="w-9 h-9 shrink-0">
+                  {selected.image_url ? <AvatarImage src={selected.image_url} alt={selected.name} /> : null}
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
                     {selected.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -513,19 +555,40 @@ const GroupChat = () => {
                       )}
                       <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
                         {sent && (
-                          <button
-                            type="button"
-                            onClick={() => setReplyTo({
-                              whatsappMessageId: m.whatsapp_message_id,
-                              content: m.content,
-                              senderName: "Você",
-                              mediaType: m.media_type,
-                            })}
-                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
-                            title="Responder"
-                          >
-                            <Reply className="w-3.5 h-3.5" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                                title="Mais"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setReplyTo({
+                                    whatsappMessageId: m.whatsapp_message_id,
+                                    content: m.content,
+                                    senderName: "Você",
+                                    mediaType: m.media_type,
+                                  });
+                                }}
+                                className="gap-2 text-xs cursor-pointer"
+                              >
+                                <Reply className="w-3.5 h-3.5" /> Responder
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={(e) => { e.preventDefault(); handleDeleteForEveryone(m.id); }}
+                                className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Apagar para todos
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                         <div
                           className={cn(

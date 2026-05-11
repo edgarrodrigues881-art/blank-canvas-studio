@@ -3696,6 +3696,8 @@ export type Database = {
           created_at: string
           device_id: string
           id: string
+          image_synced_at: string | null
+          image_url: string | null
           jid: string
           last_synced_at: string
           name: string
@@ -3707,6 +3709,8 @@ export type Database = {
           created_at?: string
           device_id: string
           id?: string
+          image_synced_at?: string | null
+          image_url?: string | null
           jid: string
           last_synced_at?: string
           name?: string
@@ -3718,6 +3722,8 @@ export type Database = {
           created_at?: string
           device_id?: string
           id?: string
+          image_synced_at?: string | null
+          image_url?: string | null
           jid?: string
           last_synced_at?: string
           name?: string
@@ -4368,6 +4374,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          deleted_at: string | null
           device_id: string | null
           direction: string
           group_jid: string
@@ -4384,6 +4391,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          deleted_at?: string | null
           device_id?: string | null
           direction?: string
           group_jid: string
@@ -4400,6 +4408,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
+          deleted_at?: string | null
           device_id?: string | null
           direction?: string
           group_jid?: string
