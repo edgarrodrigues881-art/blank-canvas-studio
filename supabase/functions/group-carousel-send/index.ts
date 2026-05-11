@@ -816,6 +816,24 @@ function renderCarouselAsTextFallback(headerText: string | undefined, cards: Car
   return parts.filter(Boolean).join("\n\n");
 }
 
+function buildPersistedCarouselCards(cards: CarouselCard[]) {
+  return normalizeCarouselCards(cards).map((card, index) => ({
+    kind: "carousel_card",
+    id: card.id || `card-${index + 1}`,
+    position: index,
+    text: card.text,
+    mediaUrl: card.mediaUrl || null,
+    mediaType: card.mediaUrl ? "image" : null,
+    buttons: card.buttons.map((button, buttonIndex) => ({
+      id: button.value || button.text || `btn-${buttonIndex + 1}`,
+      type: button.type || "reply",
+      text: button.text,
+      label: button.text,
+      value: button.value || "",
+    })),
+  }));
+}
+
 function extractProviderError(raw: string) {
   try {
     const parsed = JSON.parse(raw);
@@ -1580,7 +1598,12 @@ Deno.serve(async (req) => {
         }
       });
       const carouselSummary = `🎠 Carrossel${headerText ? ": " + headerText : ""} (${normalizedCarouselCards.length} card(s))`;
-      await persistTemplateMessage(carouselSummary);
+      await persistTemplateMessage(
+        carouselSummary,
+        null,
+        null,
+        buildPersistedCarouselCards(normalizedCarouselCards),
+      );
       return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
