@@ -392,6 +392,9 @@ export function GroupChatComposer({
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
                     <ImageIcon className="w-4 h-4" /> Imagem
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => videoInputRef.current?.click()}>
+                    <Video className="w-4 h-4" /> Vídeo
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <FileText className="w-4 h-4" /> Arquivo
                   </DropdownMenuItem>
