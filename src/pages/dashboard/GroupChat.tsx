@@ -233,8 +233,29 @@ const GroupChat = () => {
   // ── Send helpers ──
   const callSend = useCallback(async (payload: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke("group-chat-send", { body: payload });
-    if (error || (data as any)?.error) {
-      throw new Error((data as any)?.error || error?.message || "Falha ao enviar");
+    // supabase.functions.invoke surfaces a FunctionsHttpError on non-2xx and hides the JSON body.
+    // Try to read the response body to surface the real PT-BR message.
+    if (error) {
+      let msg = error.message || "Falha ao enviar";
+      try {
+        const ctx: any = (error as any).context;
+        if (ctx?.json) {
+          const parsed = await ctx.json();
+          if (parsed?.error) msg = parsed.error;
+        } else if (ctx?.text) {
+          const txt = await ctx.text();
+          try { const j = JSON.parse(txt); if (j?.error) msg = j.error; } catch { if (txt) msg = txt; }
+        }
+      } catch { /* keep generic */ }
+      if (/disconnected/i.test(msg) && /not reconnectable/i.test(msg)) {
+        msg = "Instância desconectada. Reconecte o WhatsApp (QR Code) para enviar mensagens neste grupo.";
+      } else if (/sem credenciais/i.test(msg)) {
+        msg = "Esta instância não tem credenciais válidas. Reconecte o WhatsApp.";
+      }
+      throw new Error(msg);
+    }
+    if ((data as any)?.error) {
+      throw new Error((data as any).error);
     }
   }, []);
 
