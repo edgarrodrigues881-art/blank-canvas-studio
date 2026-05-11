@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     await reserveSlot(admin, deviceId);
 
     const dest = getDestination(groupJid);
-    const attempts = buildAttempts(type, dest, content, fileName, undefined, caption);
+    const attempts = buildAttempts(type, dest, content, fileName, quotedMessageId, caption);
     const result = await executeAttempts(baseUrl, token, attempts);
 
     if (!result.ok) {
