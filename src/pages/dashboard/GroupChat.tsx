@@ -512,7 +512,22 @@ const GroupChat = () => {
                           </span>
                         </div>
                       )}
-                      <div className={cn("flex", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
+                      <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
+                        {sent && (
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo({
+                              whatsappMessageId: m.whatsapp_message_id,
+                              content: m.content,
+                              senderName: "Você",
+                              mediaType: m.media_type,
+                            })}
+                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                            title="Responder"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <div
                           className={cn(
                             "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
@@ -545,6 +560,21 @@ const GroupChat = () => {
                             {format(new Date(m.sent_at), "HH:mm")}
                           </div>
                         </div>
+                        {!sent && (
+                          <button
+                            type="button"
+                            onClick={() => setReplyTo({
+                              whatsappMessageId: m.whatsapp_message_id,
+                              content: m.content,
+                              senderName: m.sender_name || "Membro",
+                              mediaType: m.media_type,
+                            })}
+                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                            title="Responder"
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -552,27 +582,15 @@ const GroupChat = () => {
               )}
             </div>
 
-            <footer className="shrink-0 border-t border-border/30 px-4 py-3 bg-card/40">
-              <div className="flex items-end gap-2">
-                <Input
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Digite uma mensagem para o grupo..."
-                  className="flex-1"
-                  disabled={sending}
-                />
-                <Button onClick={handleSend} disabled={!draft.trim() || sending} className="gap-2">
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Enviar
-                </Button>
-              </div>
-            </footer>
+            <GroupChatComposer
+              disabled={sending}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+              onSendText={sendText}
+              onSendFile={sendFile}
+              onSendAudio={sendAudio}
+            />
+
           </>
         )}
       </main>
