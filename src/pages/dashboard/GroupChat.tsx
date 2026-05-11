@@ -74,7 +74,10 @@ const GroupChat = () => {
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
       if (cancelled || !data) return;
-      setDevices(data as DeviceRow[]);
+      const filtered = (data as DeviceRow[]).filter(
+        (d) => !/^relat[oó]rio/i.test((d.name || "").trim())
+      );
+      setDevices(filtered);
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
