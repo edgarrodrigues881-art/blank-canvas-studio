@@ -27,6 +27,30 @@ interface GroupRow {
   participants_count: number | null;
   image_url?: string | null;
 }
+interface GroupMessageButtonPayload {
+  id?: string | number;
+  label?: string;
+  text?: string;
+  type?: string;
+  valor?: string;
+  value?: string;
+  url?: string;
+  phone?: string;
+  copyCode?: string;
+}
+
+interface GroupCarouselCardPayload {
+  kind?: "carousel_card";
+  id?: string;
+  position?: number;
+  text?: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+  buttons?: GroupMessageButtonPayload[];
+}
+
+type GroupMessageActionPayload = GroupMessageButtonPayload | GroupCarouselCardPayload;
+
 interface MessageRow {
   id: string;
   device_id: string | null;
@@ -39,7 +63,7 @@ interface MessageRow {
   direction: "sent" | "received";
   whatsapp_message_id: string | null;
   sent_at: string;
-  buttons?: Array<{ id?: string; label?: string; type?: string; valor?: string; url?: string; phone?: string; copyCode?: string }> | null;
+  buttons?: GroupMessageActionPayload[] | null;
 }
 
 type PendingGroupMessage = MessageRow & { pending?: boolean };
@@ -52,6 +76,43 @@ interface SelectedGroup {
   device_name: string;
   image_url?: string | null;
 }
+
+const getButtonLabel = (button: GroupMessageButtonPayload) => {
+  const raw = button.label || button.text || button.valor || button.value || button.copyCode || "Botão";
+  return String(raw).trim() || "Botão";
+};
+
+const isCarouselCardPayload = (item: GroupMessageActionPayload): item is GroupCarouselCardPayload => {
+  return (item as GroupCarouselCardPayload)?.kind === "carousel_card";
+};
+
+const normalizeCarouselCardsForChat = (cards: any[] = []): GroupCarouselCardPayload[] => {
+  return cards
+    .map((card, index) => ({
+      kind: "carousel_card" as const,
+      id: typeof card?.id === "string" ? card.id : `card-${index + 1}`,
+      position: typeof card?.position === "number" ? card.position : index,
+      text: typeof card?.text === "string" ? card.text.trim() : "",
+      mediaUrl: typeof card?.mediaUrl === "string" ? card.mediaUrl.trim() : null,
+      mediaType: typeof card?.mediaType === "string" ? card.mediaType : (card?.mediaUrl ? "image" : null),
+      buttons: Array.isArray(card?.buttons)
+        ? card.buttons
+            .map((button: any, buttonIndex: number) => ({
+              id: button?.id || button?.value || button?.text || `btn-${buttonIndex + 1}`,
+              type: button?.type || "reply",
+              text: button?.text || button?.label || "",
+              label: button?.label || button?.text || "",
+              value: button?.value || button?.valor || "",
+              url: button?.url,
+              phone: button?.phone,
+              copyCode: button?.copyCode,
+            }))
+            .filter((button: GroupMessageButtonPayload) => getButtonLabel(button) !== "Botão")
+        : [],
+    }))
+    .filter((card) => card.text || card.mediaUrl || (card.buttons?.length || 0) > 0)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+};
 
 const GroupChat = () => {
   const { user } = useAuth();
