@@ -317,7 +317,6 @@ const GroupChat = () => {
       });
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar mensagem");
-      throw e;
     }
   }, [selected, callSend]);
 
@@ -339,7 +338,6 @@ const GroupChat = () => {
       });
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar arquivo");
-      throw e;
     }
   }, [selected, callSend, uploadMedia]);
 
@@ -357,7 +355,6 @@ const GroupChat = () => {
       });
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar áudio");
-      throw e;
     }
   }, [selected, callSend, uploadMedia]);
 
@@ -400,7 +397,6 @@ const GroupChat = () => {
       toast.success(tpl.kind === "buttons" ? "Template de botões enviado" : "Carrossel enviado");
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar template");
-      throw e;
     }
   }, [selected]);
 
