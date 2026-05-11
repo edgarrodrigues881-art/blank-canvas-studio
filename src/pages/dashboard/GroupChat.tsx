@@ -517,7 +517,9 @@ const GroupChat = () => {
           </>
         )}
       </main>
+      </div>
     </div>
+  );
   );
 };
 
