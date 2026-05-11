@@ -308,7 +308,12 @@ const Conversations = () => {
         if (!existing.some((e) => e.name === d.name)) map.set(d.id, d);
       });
     }
-    return Array.from(map.values());
+    // Sort by device creation order (userDevices is already ordered by created_at asc)
+    const orderIndex = new Map<string, number>();
+    userDevices.forEach((d, idx) => orderIndex.set(d.id, idx));
+    return Array.from(map.values()).sort(
+      (a, b) => (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
   }, [activeRealConvs, userDevices]);
 
   const filteredConversations = useMemo(() => {
