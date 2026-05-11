@@ -431,7 +431,7 @@ const GroupChat = () => {
               </div>
             </header>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2">
               {loadingMsgs ? (
                 <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" /> Carregando mensagens...
