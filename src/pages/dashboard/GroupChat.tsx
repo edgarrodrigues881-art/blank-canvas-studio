@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -338,7 +337,7 @@ const GroupChat = () => {
           </div>
         </div>
 
-        <ScrollArea className="min-h-0 flex-1 overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {!activeDeviceId ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
               Abra uma instância nas abas acima para ver seus grupos.
@@ -400,7 +399,7 @@ const GroupChat = () => {
               })}
             </ul>
           )}
-        </ScrollArea>
+        </div>
       </aside>
 
       {/* Right: chat panel */}
