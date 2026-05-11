@@ -39,6 +39,7 @@ interface MessageRow {
   direction: "sent" | "received";
   whatsapp_message_id: string | null;
   sent_at: string;
+  buttons?: Array<{ id?: string; label?: string; type?: string; valor?: string; url?: string; phone?: string; copyCode?: string }> | null;
 }
 
 type PendingGroupMessage = MessageRow & { pending?: boolean };
