@@ -278,8 +278,9 @@ const Conversations = () => {
     (async () => {
       const { data } = await supabase
         .from("devices")
-        .select("id, name, phone_number")
-        .eq("user_id", user.id);
+        .select("id, name, phone_number, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
       if (cancelled || !data) return;
       setUserDevices(
         data.map((d: any) => ({ id: d.id, name: d.name || d.id.slice(0, 8), number: d.phone_number || "" }))
