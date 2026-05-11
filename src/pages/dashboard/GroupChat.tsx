@@ -266,11 +266,6 @@ const GroupChat = () => {
           <MessagesSquare className="w-4 h-4 text-emerald-500" />
           <h2 className="text-[14px] font-bold tracking-tight whitespace-nowrap">Chat de Grupos</h2>
         </div>
-        {openDeviceIds.length === 0 && (
-          <span className="text-[11px] text-muted-foreground px-2">
-            Abra uma instância para começar →
-          </span>
-        )}
         {openDeviceIds.map((id) => {
           const dev = deviceById.get(id);
           if (!dev) return null;
