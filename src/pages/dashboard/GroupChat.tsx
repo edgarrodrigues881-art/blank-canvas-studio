@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -259,7 +258,7 @@ const GroupChat = () => {
   };
 
   return (
-    <div className="flow-builder-fullscreen flex flex-col h-full bg-background overflow-hidden">
+    <div className="flow-builder-fullscreen flex h-[calc(100dvh-2.75rem)] w-full min-w-0 flex-col overflow-hidden bg-background sm:h-[calc(100dvh-3.5rem)]">
       {/* Top: instance tabs */}
       <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-border/40 bg-card/30 overflow-x-auto">
         <div className="flex items-center gap-2 pr-3 mr-1 border-r border-border/40 shrink-0">
@@ -322,11 +321,11 @@ const GroupChat = () => {
         )}
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
       {/* Left: groups list */}
-      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col min-h-0 bg-card/40">
+      <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-r border-border/40 bg-card/40">
 
-        <div className="px-3 py-2 border-b border-border/20">
+        <div className="shrink-0 px-3 py-2 border-b border-border/20">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
@@ -338,7 +337,7 @@ const GroupChat = () => {
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {!activeDeviceId ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
               Abra uma instância nas abas acima para ver seus grupos.
@@ -400,7 +399,7 @@ const GroupChat = () => {
               })}
             </ul>
           )}
-        </ScrollArea>
+        </div>
       </aside>
 
       {/* Right: chat panel */}
@@ -431,7 +430,7 @@ const GroupChat = () => {
               </div>
             </header>
 
-            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-2">
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-hidden px-5 py-4 space-y-2">
               {loadingMsgs ? (
                 <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" /> Carregando mensagens...
