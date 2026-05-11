@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { CameraCapture } from "@/components/chat/CameraCapture";
+import { SmartSuggestions } from "@/components/chat/SmartSuggestions";
 import { formatDuration, formatFileSize } from "@/utils/formatters";
 import { getFileIcon } from "@/utils/fileHelpers";
 import { cn } from "@/lib/utils";
