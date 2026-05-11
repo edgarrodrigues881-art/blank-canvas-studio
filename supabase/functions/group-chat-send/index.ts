@@ -51,6 +51,95 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
   return { ok: false, error: lastErr };
 }
 
+// ── Mention everyone (@todos / @all) helpers ──
+const MENTION_ALL_RE = /@(todos|all|everyone)\b/gi;
+
+function normalizePhone(raw: unknown): string {
+  const v = String(raw || "").trim();
+  if (!v || v.endsWith("@g.us")) return "";
+  const digits = v.replace(/@.*$/, "").replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? digits : "";
+}
+
+function collectParticipants(value: any, out: Set<string>) {
+  if (!value) return;
+  if (Array.isArray(value)) { value.forEach((v) => collectParticipants(v, out)); return; }
+  if (typeof value === "object") {
+    const nested = [
+      value.participants, value.members, value.users,
+      value.data?.participants, value.group?.participants, value.data?.group?.participants,
+    ].filter(Boolean);
+    nested.forEach((n) => collectParticipants(n, out));
+    const phone = normalizePhone(value.id ?? value.jid ?? value.phone ?? value.number ?? value.user);
+    if (phone) out.add(phone);
+    return;
+  }
+  const phone = normalizePhone(value);
+  if (phone) out.add(phone);
+}
+
+async function fetchGroupParticipants(baseUrl: string, token: string, groupJid: string): Promise<string[]> {
+  const attempts: { url: string; method: "POST" | "GET"; body?: any }[] = [
+    { url: `${baseUrl}/group/info`, method: "POST", body: { groupjid: groupJid } },
+    { url: `${baseUrl}/group/info`, method: "POST", body: { groupJid: groupJid } },
+    { url: `${baseUrl}/group/participants`, method: "POST", body: { groupjid: groupJid } },
+    { url: `${baseUrl}/group/info?groupjid=${encodeURIComponent(groupJid)}`, method: "GET" },
+  ];
+  for (const a of attempts) {
+    try {
+      const res = await fetch(a.url, {
+        method: a.method,
+        headers: { "Content-Type": "application/json", Accept: "application/json", token },
+        body: a.body ? JSON.stringify(a.body) : undefined,
+      });
+      if (!res.ok) continue;
+      const raw = await res.text();
+      let parsed: any = {};
+      try { parsed = raw ? JSON.parse(raw) : {}; } catch {}
+      const out = new Set<string>();
+      collectParticipants(parsed, out);
+      if (out.size > 0) return Array.from(out);
+    } catch { /* try next */ }
+  }
+  return [];
+}
+
+function buildMentionAttempts(groupJid: string, text: string, phones: string[], quotedMessageId?: string): SendAttempt[] {
+  const cleanText = text.replace(MENTION_ALL_RE, "").replace(/\s+\n/g, "\n").trim();
+  const tokens = phones.map((p) => `@${p}`).join(" ");
+  const finalText = tokens ? `${cleanText}${cleanText ? "\n\n" : ""}${tokens}` : cleanText;
+  const jids = phones.map((p) => `${p}@s.whatsapp.net`);
+  const replyFields = quotedMessageId ? { replyid: quotedMessageId } : {};
+
+  return [
+    {
+      path: "/send/text",
+      body: {
+        number: groupJid,
+        text: finalText,
+        mentioned: jids,
+        mentionedJid: jids,
+        mentionedJidList: jids,
+        mentionsEveryOne: true,
+        ...replyFields,
+      },
+      expectedChatId: groupJid,
+    },
+    {
+      path: "/send/text",
+      body: {
+        number: groupJid,
+        text: finalText,
+        mentions: phones.join(","),
+        mentionedJid: jids,
+        ...replyFields,
+      },
+      expectedChatId: groupJid,
+    },
+  ];
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
