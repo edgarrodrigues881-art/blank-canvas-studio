@@ -325,12 +325,14 @@ const GroupChat = () => {
     void callSend(payload)
       .then(() => {
         if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+        void loadMessages(false);
+        void refreshLastByGroup();
       })
       .catch((e: any) => {
         if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
         toast.error(e?.message || "Erro ao enviar mensagem");
       });
-  }, [callSend, createPendingMessage]);
+  }, [callSend, createPendingMessage, loadMessages, refreshLastByGroup]);
 
   const uploadMedia = useCallback(async (file: Blob, ext: string, folder: string) => {
     if (!user?.id) throw new Error("não autenticado");
