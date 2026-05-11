@@ -188,7 +188,24 @@ Deno.serve(async (req) => {
     await reserveSlot(admin, deviceId);
 
     const dest = getDestination(groupJid);
-    const attempts = buildAttempts(type, dest, content, fileName, quotedMessageId, caption);
+    const isText = !type || type === "text";
+    const wantsMentionAll = isText && MENTION_ALL_RE.test(content);
+    // reset regex (global flag is stateful)
+    MENTION_ALL_RE.lastIndex = 0;
+
+    let attempts: SendAttempt[];
+    if (wantsMentionAll) {
+      const phones = await fetchGroupParticipants(baseUrl, token, groupJid);
+      if (phones.length === 0) {
+        // Fallback: send as plain text without mentions
+        const stripped = content.replace(MENTION_ALL_RE, "@todos").trim();
+        attempts = buildAttempts(type, dest, stripped, fileName, quotedMessageId, caption);
+      } else {
+        attempts = buildMentionAttempts(groupJid, content, phones, quotedMessageId);
+      }
+    } else {
+      attempts = buildAttempts(type, dest, content, fileName, quotedMessageId, caption);
+    }
     const result = await executeAttempts(baseUrl, token, attempts);
 
     if (!result.ok) {
