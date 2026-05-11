@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { extractConversationEvent, isApiSentMessage } from "./parser.ts";
+import { extractGroupConversationEvent } from "./group-parser.ts";
 import { persistIncomingMedia } from "./media.ts";
 import { buildEquivalentChatIds } from "../_shared/phone-variants.ts";
 
@@ -224,6 +225,46 @@ Deno.serve(async (req) => {
     const eventType = (body.event || body.EventType || body.type || "").toString().toLowerCase();
     if (eventType.includes("status") || eventType.includes("ack") || eventType.includes("receipt") || eventType.includes("presence")) {
       return json({ ok: true, skipped: "status_event" });
+    }
+
+    // ── Group messages: persist to dedicated table and exit (no autoreply / no CRM) ──
+    const groupParsed = extractGroupConversationEvent(body);
+    if (groupParsed) {
+      try {
+        const normalizedWaId = groupParsed.waId && groupParsed.waId.includes(":")
+          ? groupParsed.waId.split(":").pop()!
+          : groupParsed.waId;
+
+        // De-dupe per group + waId
+        const { data: dup } = await admin
+          .from("group_messages")
+          .select("id")
+          .eq("user_id", device.user_id)
+          .eq("group_jid", groupParsed.groupJid)
+          .eq("whatsapp_message_id", normalizedWaId)
+          .maybeSingle();
+
+        if (dup) return json({ ok: true, skipped: "group_duplicate" });
+
+        const { error: gErr } = await admin.from("group_messages").insert({
+          user_id: device.user_id,
+          device_id: device.id,
+          group_jid: groupParsed.groupJid,
+          sender_jid: groupParsed.senderJid,
+          sender_name: groupParsed.senderName,
+          content: (groupParsed.content || "").substring(0, 5000),
+          media_type: groupParsed.mediaType,
+          media_url: groupParsed.mediaUrl,
+          mime_type: groupParsed.mimeType,
+          direction: groupParsed.fromMe ? "sent" : "received",
+          whatsapp_message_id: normalizedWaId,
+          sent_at: groupParsed.timestamp,
+        });
+        if (gErr) console.error("Group message insert error:", gErr);
+      } catch (e) {
+        console.error("Group branch error:", e);
+      }
+      return json({ ok: true, group: true });
     }
 
     const parsed = extractConversationEvent(body);
