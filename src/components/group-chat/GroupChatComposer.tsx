@@ -61,6 +61,8 @@ export function GroupChatComposer({
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // detect "@..." token at caret to show suggestion popup
@@ -73,6 +75,14 @@ export function GroupChatComposer({
     } else {
       setMentionQuery(null);
     }
+    // detect "/" command — only when textarea starts with "/"
+    const s = value.match(/^\/([^\n]*)$/);
+    if (s) {
+      setSlashQuery(s[1].toLowerCase());
+      setSlashIndex(0);
+    } else {
+      setSlashQuery(null);
+    }
   }, []);
 
   const mentionSuggestions = (() => {
@@ -83,6 +93,19 @@ export function GroupChatComposer({
     ];
     if (!mentionQuery) return all;
     return all.filter((s) => s.token.startsWith(mentionQuery));
+  })();
+
+  // Build flat slash-suggestion list: BUTTONS first, then CAROUSEL
+  const slashSuggestions = (() => {
+    if (slashQuery === null) return [] as GroupTemplate[];
+    const q = slashQuery.trim().toLowerCase();
+    const btn: GroupTemplate[] = buttonTemplates
+      .filter((t) => !q || (t.name || "").toLowerCase().includes(q))
+      .map((tpl) => ({ kind: "buttons" as const, tpl }));
+    const car: GroupTemplate[] = carouselTemplates
+      .filter((t) => !q || (t.name || "").toLowerCase().includes(q))
+      .map((tpl) => ({ kind: "carousel" as const, tpl }));
+    return [...btn, ...car];
   })();
 
   const applyMention = useCallback((token: string) => {
@@ -102,10 +125,23 @@ export function GroupChatComposer({
     });
   }, [input]);
 
+  const applyTemplate = useCallback(async (tpl: GroupTemplate) => {
+    if (!onSendTemplate) return;
+    setSlashQuery(null);
+    setInput("");
+    setSending(true);
+    try {
+      await onSendTemplate(tpl);
+    } finally {
+      setSending(false);
+    }
+  }, [onSendTemplate]);
+
   // file
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // camera
