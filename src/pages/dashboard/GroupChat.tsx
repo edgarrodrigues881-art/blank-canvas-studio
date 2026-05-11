@@ -270,6 +270,25 @@ const GroupChat = () => {
   }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
   // ── Send helpers ──
+  const createPendingMessage = useCallback((payload: Record<string, any>, fallbackContent?: string): PendingGroupMessage | null => {
+    if (!selected) return null;
+    const mediaType = payload.type && payload.type !== "text" ? String(payload.type) : null;
+    return {
+      id: `pending-${crypto.randomUUID()}`,
+      device_id: selected.device_id,
+      group_jid: selected.jid,
+      sender_jid: null,
+      sender_name: "Você",
+      content: mediaType ? (payload.caption || "") : (fallbackContent || payload.content || ""),
+      media_type: mediaType,
+      media_url: mediaType ? payload.content : null,
+      direction: "sent",
+      whatsapp_message_id: null,
+      sent_at: new Date().toISOString(),
+      pending: true,
+    };
+  }, [selected]);
+
   const callSend = useCallback(async (payload: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke("group-chat-send", { body: payload });
     // supabase.functions.invoke surfaces a FunctionsHttpError on non-2xx and hides the JSON body.
@@ -299,6 +318,19 @@ const GroupChat = () => {
       throw new Error((data as any).error);
     }
   }, []);
+
+  const sendOptimistic = useCallback((payload: Record<string, any>, fallbackContent?: string) => {
+    const pending = createPendingMessage(payload, fallbackContent);
+    if (pending) setMessages((prev) => [...prev, pending]);
+    void callSend(payload)
+      .then(() => {
+        if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+      })
+      .catch((e: any) => {
+        if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+        toast.error(e?.message || "Erro ao enviar mensagem");
+      });
+  }, [callSend, createPendingMessage]);
 
   const uploadMedia = useCallback(async (file: Blob, ext: string, folder: string) => {
     if (!user?.id) throw new Error("não autenticado");
