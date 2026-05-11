@@ -116,6 +116,8 @@ const GroupChat = () => {
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  // ── Load groups ──
   const loadGroups = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await supabase
