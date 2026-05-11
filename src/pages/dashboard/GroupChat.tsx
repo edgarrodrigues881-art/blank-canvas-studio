@@ -511,6 +511,7 @@ const GroupChat = () => {
             <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="w-9 h-9 shrink-0">
+                  {selected.image_url ? <AvatarImage src={selected.image_url} alt={selected.name} /> : null}
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
                     {selected.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
