@@ -160,26 +160,31 @@ const GroupChat = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, selected]);
 
-  // ── Load messages when group selected ──
-  useEffect(() => {
+  // ── Load messages when group selected + periodic sync fallback ──
+  const loadMessages = useCallback(async (showLoading = false) => {
     if (!user?.id || !selected) return;
-    let cancelled = false;
-    setLoadingMsgs(true);
-    (async () => {
-      const { data } = await supabase
-        .from("group_messages")
-        .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at")
-        .eq("user_id", user.id)
-        .eq("group_jid", selected.jid)
-        .eq("device_id", selected.device_id)
-        .order("sent_at", { ascending: true })
-        .limit(500);
-      if (cancelled) return;
-      setMessages((data as MessageRow[]) || []);
-      setLoadingMsgs(false);
-    })();
-    return () => { cancelled = true; };
+    if (showLoading) setLoadingMsgs(true);
+    const { data } = await supabase
+      .from("group_messages")
+      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at")
+      .eq("user_id", user.id)
+      .eq("group_jid", selected.jid)
+      .eq("device_id", selected.device_id)
+      .is("deleted_at", null)
+      .order("sent_at", { ascending: true })
+      .limit(500);
+    setMessages((data as MessageRow[]) || []);
+    if (showLoading) setLoadingMsgs(false);
   }, [user?.id, selected]);
+
+  useEffect(() => {
+    if (!selected) return;
+    loadMessages(true);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadMessages(false);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [selected, loadMessages]);
 
   // ── Auto-scroll on new messages ──
   useEffect(() => {
