@@ -495,7 +495,7 @@ const GroupChat = () => {
               )}
             </div>
 
-            <footer className="border-t border-border/30 px-4 py-3 bg-card/40">
+            <footer className="shrink-0 border-t border-border/30 px-4 py-3 bg-card/40">
               <div className="flex items-end gap-2">
                 <Input
                   value={draft}
