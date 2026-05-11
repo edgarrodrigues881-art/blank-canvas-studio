@@ -285,6 +285,8 @@ const GroupChat = () => {
         msg = "Instância desconectada. Reconecte o WhatsApp (QR Code) para enviar mensagens neste grupo.";
       } else if (/sem credenciais/i.test(msg)) {
         msg = "Esta instância não tem credenciais válidas. Reconecte o WhatsApp.";
+      } else if (msg === "true" || msg === "{\"error\":true}") {
+        msg = "A instância do WhatsApp recusou o envio. Reconecte o QR Code e tente novamente.";
       }
       throw new Error(msg);
     }
