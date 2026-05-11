@@ -1649,6 +1649,7 @@ Deno.serve(async (req) => {
             }
           });
 
+          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
           return json({ ok: true, mode: "buttons_mention", isRestricted, groupName });
         } catch (mentionBtnErr) {
           console.warn(`[group-carousel] buttons+mentions failed, sending buttons only: ${mentionBtnErr instanceof Error ? mentionBtnErr.message : String(mentionBtnErr)}`);
