@@ -399,6 +399,20 @@ const GroupChat = () => {
     if (!selected) return;
     try {
       let body: Record<string, any>;
+      const pending: PendingGroupMessage = {
+        id: `pending-template-${crypto.randomUUID()}`,
+        device_id: selected.device_id,
+        group_jid: selected.jid,
+        sender_jid: null,
+        sender_name: "Você",
+        content: tpl.kind === "buttons" ? `Template de botões: ${tpl.tpl.name}` : `Carrossel: ${tpl.tpl.name}`,
+        media_type: null,
+        media_url: null,
+        direction: "sent",
+        whatsapp_message_id: null,
+        sent_at: new Date().toISOString(),
+        pending: true,
+      };
       if (tpl.kind === "buttons") {
         const t = tpl.tpl;
         const hasMedia = !!t.media_url;
@@ -420,22 +434,32 @@ const GroupChat = () => {
           cards: t.cards || [],
         };
       }
-      const { data, error } = await supabase.functions.invoke("group-carousel-send", { body });
-      if (error) {
-        let msg = error.message || "Falha ao enviar template";
-        try {
-          const ctx: any = (error as any).context;
-          if (ctx?.json) { const p = await ctx.json(); if (p?.error) msg = p.error; }
-          else if (ctx?.text) { const txt = await ctx.text(); try { const j = JSON.parse(txt); if (j?.error) msg = j.error; } catch { if (txt) msg = txt; } }
-        } catch {}
-        throw new Error(msg);
-      }
-      if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(tpl.kind === "buttons" ? "Template de botões enviado" : "Carrossel enviado");
+      setMessages((prev) => [...prev, pending]);
+      toast.success(tpl.kind === "buttons" ? "Template de botões em envio" : "Carrossel em envio");
+      void supabase.functions.invoke("group-carousel-send", { body })
+        .then(async ({ data, error }) => {
+          if (error) {
+            let msg = error.message || "Falha ao enviar template";
+            try {
+              const ctx: any = (error as any).context;
+              if (ctx?.json) { const p = await ctx.json(); if (p?.error) msg = p.error; }
+              else if (ctx?.text) { const txt = await ctx.text(); try { const j = JSON.parse(txt); if (j?.error) msg = j.error; } catch { if (txt) msg = txt; } }
+            } catch {}
+            throw new Error(msg);
+          }
+          if ((data as any)?.error) throw new Error((data as any).error);
+          setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+          void loadMessages(false);
+          void refreshLastByGroup();
+        })
+        .catch((e: any) => {
+          setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+          toast.error(e?.message || "Erro ao enviar template");
+        });
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar template");
     }
-  }, [selected]);
+  }, [selected, loadMessages, refreshLastByGroup]);
 
   const handleDeleteForEveryone = useCallback(async (msgId: string) => {
     const prev = messages;
