@@ -208,6 +208,17 @@ export function GroupChatComposer({
   }, [sending, pendingFile, input, replyTo, onSendFile, onSendText, cancelPendingFile, onCancelReply]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashQuery !== null && slashSuggestions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setSlashIndex((i) => Math.min(slashSuggestions.length - 1, i + 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setSlashIndex((i) => Math.max(0, i - 1)); return; }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const pick = slashSuggestions[slashIndex];
+        if (pick) applyTemplate(pick);
+        return;
+      }
+      if (e.key === "Escape") { e.preventDefault(); setSlashQuery(null); return; }
+    }
     if (mentionQuery !== null && mentionSuggestions.length > 0) {
       if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(mentionSuggestions.length - 1, i + 1)); return; }
       if (e.key === "ArrowUp") { e.preventDefault(); setMentionIndex((i) => Math.max(0, i - 1)); return; }
