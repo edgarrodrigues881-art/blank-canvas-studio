@@ -458,6 +458,7 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className={cn("space-y-[1px]", collapsed ? "px-0 flex flex-col items-center" : "px-2.5")}>
                   {renderNavItem({ title: "Dashboard", url: "/dashboard/group-crm", icon: LayoutDashboard, exact: true })}
+                  {renderNavItem({ title: "Chat de Grupos", url: "/dashboard/group-crm/chat", icon: MessagesSquare })}
                   {renderNavItem({ title: "Disparo em Grupo", url: "/dashboard/group-crm/group-send", icon: Layers })}
                   {renderNavItem({ title: "Disparo Agendado", url: "/dashboard/group-crm/schedule", icon: CalendarClock })}
                   {renderNavItem({ title: "Templates", url: "/dashboard/group-crm/templates", icon: FileText })}
