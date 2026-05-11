@@ -446,13 +446,14 @@ const GroupChat = () => {
       };
       if (tpl.kind === "buttons") {
         const t = tpl.tpl;
-        const hasMedia = !!t.media_url;
+        const mediaUrl = (t.media_url || "").trim();
+        const hasValidMedia = /^https?:\/\//i.test(mediaUrl);
         body = {
           deviceId: selected.device_id,
           groupJid: selected.jid,
-          type: hasMedia ? "image" : "text",
-          content: hasMedia ? t.media_url : (t.content || ""),
-          caption: hasMedia ? (t.content || "") : undefined,
+          type: "buttons",
+          content: t.content || "",
+          mediaUrl: hasValidMedia ? mediaUrl : undefined,
           buttons: t.buttons || [],
         };
       } else {
