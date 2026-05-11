@@ -3,7 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply } from "lucide-react";
+import { Search, Send, Smartphone, Users, Check, MessagesSquare, Loader2, Plus, X, Reply, MoreVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
@@ -25,6 +25,7 @@ interface GroupRow {
   jid: string;
   name: string | null;
   participants_count: number | null;
+  image_url?: string | null;
 }
 interface MessageRow {
   id: string;
@@ -46,6 +47,7 @@ interface SelectedGroup {
   name: string;
   participants_count: number;
   device_name: string;
+  image_url?: string | null;
 }
 
 const GroupChat = () => {
@@ -86,7 +88,7 @@ const GroupChat = () => {
     if (!user?.id) return;
     const { data } = await supabase
       .from("device_groups_cache")
-      .select("id, device_id, jid, name, participants_count")
+      .select("id, device_id, jid, name, participants_count, image_url")
       .eq("user_id", user.id)
       .order("name", { ascending: true })
       .limit(2000);
@@ -94,6 +96,21 @@ const GroupChat = () => {
   }, [user?.id]);
 
   useEffect(() => { loadGroups(); }, [loadGroups]);
+
+  // ── Fetch group profile pictures for the active device (background) ──
+  useEffect(() => {
+    if (!user?.id || !activeDeviceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabase.functions.invoke("group-chat-fetch-images", {
+          body: { device_id: activeDeviceId },
+        });
+        if (!cancelled) await loadGroups();
+      } catch { /* silent */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, activeDeviceId, loadGroups]);
 
   // ── Last message per group (single query, group by jid client-side) ──
   const refreshLastByGroup = useCallback(async () => {
