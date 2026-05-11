@@ -324,7 +324,7 @@ const GroupChat = () => {
 
       <div className="flex flex-1 min-h-0">
       {/* Left: groups list */}
-      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col bg-card/40">
+      <aside className="w-[360px] shrink-0 border-r border-border/40 flex flex-col min-h-0 bg-card/40">
 
         <div className="px-3 py-2 border-b border-border/20">
           <div className="relative">
