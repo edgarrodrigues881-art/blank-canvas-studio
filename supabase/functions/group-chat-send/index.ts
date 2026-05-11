@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { buildAttempts, getDestination, type SendAttempt } from "../chat-send/send-utils.ts";
+import { buildAttempts, getDestination, type SendAttempt } from "./send-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
