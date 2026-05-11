@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.notify-event]
 verify_jwt = false
+
+[functions.group-chat-send]
+static_files = ["./functions/chat-send/send-utils.ts", "./functions/_shared/phone-variants.ts"]
