@@ -346,18 +346,14 @@ const GroupChat = () => {
 
   const sendText = useCallback(async (text: string, reply: GroupReplyTo | null) => {
     if (!selected) return;
-    try {
-      await callSend({
-        device_id: selected.device_id,
-        group_jid: selected.jid,
-        type: "text",
-        content: text,
-        quoted_message_id: reply?.whatsappMessageId || undefined,
-      });
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao enviar mensagem");
-    }
-  }, [selected, callSend]);
+    sendOptimistic({
+      device_id: selected.device_id,
+      group_jid: selected.jid,
+      type: "text",
+      content: text,
+      quoted_message_id: reply?.whatsappMessageId || undefined,
+    }, text);
+  }, [selected, sendOptimistic]);
 
   const sendFile = useCallback(async (file: File, caption: string | undefined, reply: GroupReplyTo | null) => {
     if (!selected) return;
@@ -366,7 +362,7 @@ const GroupChat = () => {
       const isVideo = file.type.startsWith("video/");
       const ext = (file.name.split(".").pop() || "bin").toLowerCase();
       const url = await uploadMedia(file, ext, "group-chat-files");
-      await callSend({
+      sendOptimistic({
         device_id: selected.device_id,
         group_jid: selected.jid,
         type: isImage ? "image" : isVideo ? "video" : "document",
@@ -378,14 +374,14 @@ const GroupChat = () => {
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar arquivo");
     }
-  }, [selected, callSend, uploadMedia]);
+  }, [selected, sendOptimistic, uploadMedia]);
 
   const sendAudio = useCallback(async (blob: Blob, _duration: number, reply: GroupReplyTo | null) => {
     if (!selected) return;
     try {
       const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
       const url = await uploadMedia(blob, ext, "group-chat-audio");
-      await callSend({
+      sendOptimistic({
         device_id: selected.device_id,
         group_jid: selected.jid,
         type: "audio",
@@ -395,7 +391,7 @@ const GroupChat = () => {
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar áudio");
     }
-  }, [selected, callSend, uploadMedia]);
+  }, [selected, sendOptimistic, uploadMedia]);
 
   const sendTemplate = useCallback(async (tpl: GroupTemplate) => {
     if (!selected) return;
