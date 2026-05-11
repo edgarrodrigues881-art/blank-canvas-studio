@@ -1573,6 +1573,8 @@ Deno.serve(async (req) => {
           await sendWithFallbacks(allAttempts, headers, groupJid, mentionPhones);
         }
       });
+      const carouselSummary = `🎠 Carrossel${headerText ? ": " + headerText : ""} (${normalizedCarouselCards.length} card(s))`;
+      await persistTemplateMessage(carouselSummary);
       return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
