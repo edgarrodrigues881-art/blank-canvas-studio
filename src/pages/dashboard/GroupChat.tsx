@@ -520,7 +520,6 @@ const GroupChat = () => {
       </div>
     </div>
   );
-  );
 };
 
 export default GroupChat;
