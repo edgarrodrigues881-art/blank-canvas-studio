@@ -511,11 +511,11 @@ export function GroupChatComposer({
                     const ta = e.currentTarget;
                     detectMention(ta.value, ta.selectionStart ?? ta.value.length);
                   }}
-                  onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
+                  onBlur={() => setTimeout(() => { setMentionQuery(null); setSlashQuery(null); }, 150)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   rows={1}
-                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite @todos para marcar o grupo..."}
+                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite / para templates · @todos para marcar o grupo..."}
                   disabled={disabled || sending}
                   className={cn(
                     "w-full resize-none rounded-xl bg-background border border-border px-4 py-2.5 text-sm",
