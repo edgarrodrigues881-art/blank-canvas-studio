@@ -53,7 +53,8 @@ const GroupChat = () => {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [lastByGroup, setLastByGroup] = useState<Record<string, MessageRow | undefined>>({});
-  const [filterDeviceIds, setFilterDeviceIds] = useState<string[]>([]);
+  const [openDeviceIds, setOpenDeviceIds] = useState<string[]>([]);
+  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
