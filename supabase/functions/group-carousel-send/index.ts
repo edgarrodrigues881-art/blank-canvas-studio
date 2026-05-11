@@ -1667,6 +1667,7 @@ Deno.serve(async (req) => {
             }
           });
 
+          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
           return json({ ok: true, mode: "buttons_mention_fallback", isRestricted, groupName });
         }
       }
