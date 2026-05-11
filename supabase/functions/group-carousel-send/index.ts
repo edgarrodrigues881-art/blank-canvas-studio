@@ -1655,7 +1655,7 @@ Deno.serve(async (req) => {
             }
           });
 
-          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
+          await persistTemplateMessage(normalizedTextContent, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null, normalizedButtons);
           return json({ ok: true, mode: "buttons_mention", isRestricted, groupName });
         } catch (mentionBtnErr) {
           console.warn(`[group-carousel] buttons+mentions failed, sending buttons only: ${mentionBtnErr instanceof Error ? mentionBtnErr.message : String(mentionBtnErr)}`);
@@ -1673,7 +1673,7 @@ Deno.serve(async (req) => {
             }
           });
 
-          await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null);
+          await persistTemplateMessage(normalizedTextContent, trimmedMediaUrl ? "image" : null, trimmedMediaUrl || null, normalizedButtons);
           return json({ ok: true, mode: "buttons_mention_fallback", isRestricted, groupName });
         }
       }
@@ -1703,12 +1703,12 @@ Deno.serve(async (req) => {
           }
         });
         const finalMode = mediaType === "audio" ? "buttons_audio" : "buttons_media";
-        await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`, mediaType, inspectedMedia.normalizedUrl);
+        await persistTemplateMessage(normalizedTextContent, mediaType, inspectedMedia.normalizedUrl, normalizedButtons);
         return json({ ok: true, mode: finalMode, isRestricted, groupName });
       }
 
       await wrapSend(() => sendWithFallbacks(buttonAttempts, headers, groupJid));
-      await persistTemplateMessage(`🔘 ${normalizedTextContent} · [${normalizedButtons.length} botão(ões)]`);
+      await persistTemplateMessage(normalizedTextContent, null, null, normalizedButtons);
       return json({ ok: true, mode: "buttons", isRestricted, groupName });
     }
 
