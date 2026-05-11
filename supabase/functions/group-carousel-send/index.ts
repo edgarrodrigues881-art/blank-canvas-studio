@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const API_TIMEOUT_MS = 25_000;
+const API_TIMEOUT_MS = 12_000;
 const mediaExtensions = {
   image: ["jpg", "jpeg", "png", "gif"],
   video: ["mp4", "mov", "webm", "3gp"],
@@ -329,10 +329,7 @@ function buildMessageAttempts(
 
   const safeText = content.trim();
   return [
-    { endpoint: `${baseUrl}/chat/send-text`, body: { chatId: groupJid, text: safeText, body: safeText } },
-    { endpoint: `${baseUrl}/message/sendText`, body: { chatId: groupJid, text: safeText } },
     { endpoint: `${baseUrl}/send/text`, body: { ...targetFields, text: safeText } },
-    { endpoint: `${baseUrl}/message/sendText`, body: { to: groupJid, text: safeText } },
   ];
 }
 
