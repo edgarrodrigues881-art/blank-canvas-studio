@@ -36,7 +36,48 @@ export function GroupChatComposer({
 }: Props) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // detect "@..." token at caret to show suggestion popup
+  const detectMention = useCallback((value: string, caret: number) => {
+    const before = value.slice(0, caret);
+    const m = before.match(/(?:^|\s)@([a-zA-Z]*)$/);
+    if (m) {
+      setMentionQuery(m[1].toLowerCase());
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+    }
+  }, []);
+
+  const mentionSuggestions = (() => {
+    if (mentionQuery === null) return [] as { token: string; label: string }[];
+    const all = [
+      { token: "todos", label: "@todos · marca todos do grupo" },
+      { token: "all", label: "@all · marca todos do grupo" },
+    ];
+    if (!mentionQuery) return all;
+    return all.filter((s) => s.token.startsWith(mentionQuery));
+  })();
+
+  const applyMention = useCallback((token: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const caret = ta.selectionStart ?? input.length;
+    const before = input.slice(0, caret);
+    const after = input.slice(caret);
+    const newBefore = before.replace(/@([a-zA-Z]*)$/, `@${token} `);
+    const newValue = newBefore + after;
+    setInput(newValue);
+    setMentionQuery(null);
+    requestAnimationFrame(() => {
+      const pos = newBefore.length;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+    });
+  }, [input]);
 
   // file
   const [pendingFile, setPendingFile] = useState<File | null>(null);
