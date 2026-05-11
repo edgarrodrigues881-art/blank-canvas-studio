@@ -404,14 +404,14 @@ const GroupChat = () => {
       </aside>
 
       {/* Right: chat panel */}
-      <main className="flex-1 flex flex-col bg-background min-w-0">
+      <main className="flex-1 flex flex-col bg-background min-w-0 min-h-0">
         {!selected ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
             Selecione um grupo à esquerda para conversar.
           </div>
         ) : (
           <>
-            <header className="flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
+            <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
               <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="w-9 h-9 shrink-0">
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
