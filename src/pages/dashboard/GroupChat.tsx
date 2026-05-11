@@ -172,7 +172,7 @@ const GroupChat = () => {
       .eq("device_id", selected.device_id)
       .is("deleted_at", null)
       .order("sent_at", { ascending: true })
-      .limit(500);
+      .limit(1000);
     setMessages((data as MessageRow[]) || []);
     if (showLoading) setLoadingMsgs(false);
   }, [user?.id, selected]);
