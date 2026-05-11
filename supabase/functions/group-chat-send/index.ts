@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
     const content = String(body?.content || "").trim();
     const fileName = body?.file_name ? String(body.file_name) : undefined;
     const caption = body?.caption ? String(body.caption) : undefined;
+    const quotedMessageId = body?.quoted_message_id ? String(body.quoted_message_id) : undefined;
 
     if (!deviceId || !groupJid || !content) {
       return json({ error: "device_id, group_jid e content são obrigatórios" }, 400);
