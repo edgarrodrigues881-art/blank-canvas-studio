@@ -1598,7 +1598,12 @@ Deno.serve(async (req) => {
         }
       });
       const carouselSummary = `🎠 Carrossel${headerText ? ": " + headerText : ""} (${normalizedCarouselCards.length} card(s))`;
-      await persistTemplateMessage(carouselSummary);
+      await persistTemplateMessage(
+        carouselSummary,
+        null,
+        null,
+        buildPersistedCarouselCards(normalizedCarouselCards),
+      );
       return json({ ok: true, mode: "carousel", mentionMode, isRestricted, groupName });
     }
 
