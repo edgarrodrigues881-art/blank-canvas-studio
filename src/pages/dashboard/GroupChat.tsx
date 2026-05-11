@@ -237,7 +237,7 @@ const GroupChat = () => {
     if (showLoading) setLoadingMsgs(true);
     const { data } = await supabase
       .from("group_messages")
-      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at")
+      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at, buttons")
       .eq("user_id", user.id)
       .eq("group_jid", selected.jid)
       .eq("device_id", selected.device_id)
