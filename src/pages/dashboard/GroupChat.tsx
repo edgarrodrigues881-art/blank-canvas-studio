@@ -306,6 +306,23 @@ const GroupChat = () => {
     }
   }, [selected, callSend, uploadMedia]);
 
+  const handleDeleteForEveryone = useCallback(async (msgId: string) => {
+    const prev = messages;
+    setMessages((arr) => arr.filter((x) => x.id !== msgId));
+    try {
+      const { data, error } = await supabase.functions.invoke("group-chat-delete", {
+        body: { message_id: msgId },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "Falha ao apagar");
+      }
+      toast.success("Mensagem apagada para todos");
+    } catch (e: any) {
+      setMessages(prev);
+      toast.error(e?.message || "Erro ao apagar mensagem");
+    }
+  }, [messages]);
+
   const formatGroupTime = (iso?: string) => {
     if (!iso) return "";
     const d = new Date(iso);
