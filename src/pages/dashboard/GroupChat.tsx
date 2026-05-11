@@ -85,7 +85,37 @@ const GroupChat = () => {
     return () => { cancelled = true; };
   }, [user?.id]);
 
-  // ── Load groups ──
+  // ── Load templates (buttons + carousel) for "/" command ──
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: tpl }, { data: car }] = await Promise.all([
+        supabase
+          .from("templates")
+          .select("id, name, content, media_url, type, buttons")
+          .eq("user_id", user.id)
+          .order("name", { ascending: true })
+          .limit(500),
+        supabase
+          .from("carousel_templates")
+          .select("id, name, message, cards")
+          .eq("user_id", user.id)
+          .order("name", { ascending: true })
+          .limit(500),
+      ]);
+      if (cancelled) return;
+      const btns = ((tpl as any[]) || [])
+        .map((t) => ({ ...t, buttons: Array.isArray(t.buttons) ? t.buttons : [] }))
+        .filter((t) => t.buttons.length > 0) as ButtonTemplateItem[];
+      const cars = ((car as any[]) || [])
+        .map((c) => ({ ...c, cards: Array.isArray(c.cards) ? c.cards : [] }))
+        .filter((c) => c.cards.length > 0) as CarouselTemplateItem[];
+      setButtonTemplates(btns);
+      setCarouselTemplates(cars);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const loadGroups = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await supabase
