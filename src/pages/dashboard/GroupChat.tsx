@@ -582,7 +582,7 @@ const GroupChat = () => {
             </div>
 
             <GroupChatComposer
-              disabled={sending}
+              disabled={!selected}
               replyTo={replyTo}
               onCancelReply={() => setReplyTo(null)}
               onSendText={sendText}
