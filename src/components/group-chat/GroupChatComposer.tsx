@@ -407,6 +407,69 @@ export function GroupChatComposer({
 
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
+                {slashQuery !== null && slashSuggestions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-30 w-80 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                    {(() => {
+                      const btns = slashSuggestions.filter((s) => s.kind === "buttons");
+                      const cars = slashSuggestions.filter((s) => s.kind === "carousel");
+                      let runningIdx = 0;
+                      const renderItem = (s: GroupTemplate) => {
+                        const i = runningIdx++;
+                        const isCarousel = s.kind === "carousel";
+                        const name = isCarousel ? s.tpl.name : s.tpl.name;
+                        const subtitle = isCarousel
+                          ? `${(s.tpl.cards?.length || 0)} card(s) · carrossel`
+                          : `${(s.tpl.buttons?.length || 0)} botão(ões)${s.tpl.media_url ? " · com mídia" : ""}`;
+                        return (
+                          <button
+                            key={`${s.kind}-${s.tpl.id}`}
+                            type="button"
+                            onMouseEnter={() => setSlashIndex(i)}
+                            onClick={() => applyTemplate(s)}
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm flex items-start gap-2 transition-colors",
+                              i === slashIndex ? "bg-primary/10 text-foreground" : "hover:bg-muted/50"
+                            )}
+                          >
+                            {isCarousel ? <LayoutGrid className="w-4 h-4 mt-0.5 text-purple-500 shrink-0" /> : <MousePointerClick className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" />}
+                            <span className="flex-1 min-w-0">
+                              <span className="font-semibold block truncate">{name}</span>
+                              <span className="text-[11px] text-muted-foreground truncate block">{subtitle}</span>
+                            </span>
+                          </button>
+                        );
+                      };
+                      return (
+                        <>
+                          {btns.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30 sticky top-0">
+                                Botões
+                              </div>
+                              {btns.map(renderItem)}
+                            </>
+                          )}
+                          {cars.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-y border-border/40 bg-muted/30 sticky top-0">
+                                Carrossel
+                              </div>
+                              {cars.map(renderItem)}
+                            </>
+                          )}
+                          <div className="px-3 py-1 text-[9px] text-muted-foreground/70 bg-muted/20 border-t border-border/40 sticky bottom-0">
+                            ↑↓ navegar · Enter para enviar · Esc cancela
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+                {slashQuery !== null && slashSuggestions.length === 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-30 w-72 rounded-lg border border-border bg-popover shadow-lg px-3 py-3 text-xs text-muted-foreground">
+                    Nenhum template encontrado. Crie em <span className="font-semibold text-foreground">Templates</span> ou <span className="font-semibold text-foreground">Carrossel</span>.
+                  </div>
+                )}
                 {mentionQuery !== null && mentionSuggestions.length > 0 && (
                   <div className="absolute bottom-full left-0 mb-1 z-20 w-64 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
                     <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30">
