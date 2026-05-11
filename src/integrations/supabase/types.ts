@@ -4364,6 +4364,57 @@ export type Database = {
           },
         ]
       }
+      group_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          device_id: string | null
+          direction: string
+          group_jid: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          mime_type: string | null
+          sender_jid: string | null
+          sender_name: string | null
+          sent_at: string
+          user_id: string
+          whatsapp_message_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          device_id?: string | null
+          direction?: string
+          group_jid: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          mime_type?: string | null
+          sender_jid?: string | null
+          sender_name?: string | null
+          sent_at?: string
+          user_id: string
+          whatsapp_message_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          device_id?: string | null
+          direction?: string
+          group_jid?: string
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          mime_type?: string | null
+          sender_jid?: string | null
+          sender_name?: string | null
+          sent_at?: string
+          user_id?: string
+          whatsapp_message_id?: string | null
+        }
+        Relationships: []
+      }
       invite_extract_campaigns: {
         Row: {
           created_at: string
