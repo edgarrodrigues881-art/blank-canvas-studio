@@ -41,6 +41,8 @@ interface MessageRow {
   sent_at: string;
 }
 
+type PendingGroupMessage = MessageRow & { pending?: boolean };
+
 interface SelectedGroup {
   jid: string;
   device_id: string;
@@ -59,7 +61,7 @@ const GroupChat = () => {
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedGroup | null>(null);
-  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [messages, setMessages] = useState<PendingGroupMessage[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupReplyTo | null>(null);
   const [buttonTemplates, setButtonTemplates] = useState<ButtonTemplateItem[]>([]);
@@ -268,6 +270,25 @@ const GroupChat = () => {
   }, [groups, deviceById, lastByGroup, activeDeviceId, search]);
 
   // ── Send helpers ──
+  const createPendingMessage = useCallback((payload: Record<string, any>, fallbackContent?: string): PendingGroupMessage | null => {
+    if (!selected) return null;
+    const mediaType = payload.type && payload.type !== "text" ? String(payload.type) : null;
+    return {
+      id: `pending-${crypto.randomUUID()}`,
+      device_id: selected.device_id,
+      group_jid: selected.jid,
+      sender_jid: null,
+      sender_name: "Você",
+      content: mediaType ? (payload.caption || "") : (fallbackContent || payload.content || ""),
+      media_type: mediaType,
+      media_url: mediaType ? payload.content : null,
+      direction: "sent",
+      whatsapp_message_id: null,
+      sent_at: new Date().toISOString(),
+      pending: true,
+    };
+  }, [selected]);
+
   const callSend = useCallback(async (payload: Record<string, any>) => {
     const { data, error } = await supabase.functions.invoke("group-chat-send", { body: payload });
     // supabase.functions.invoke surfaces a FunctionsHttpError on non-2xx and hides the JSON body.
@@ -298,6 +319,21 @@ const GroupChat = () => {
     }
   }, []);
 
+  const sendOptimistic = useCallback((payload: Record<string, any>, fallbackContent?: string) => {
+    const pending = createPendingMessage(payload, fallbackContent);
+    if (pending) setMessages((prev) => [...prev, pending]);
+    void callSend(payload)
+      .then(() => {
+        if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+        void loadMessages(false);
+        void refreshLastByGroup();
+      })
+      .catch((e: any) => {
+        if (pending) setMessages((prev) => prev.filter((m) => m.id !== pending.id));
+        toast.error(e?.message || "Erro ao enviar mensagem");
+      });
+  }, [callSend, createPendingMessage, loadMessages, refreshLastByGroup]);
+
   const uploadMedia = useCallback(async (file: Blob, ext: string, folder: string) => {
     if (!user?.id) throw new Error("não autenticado");
     const path = `${user.id}/${folder}/${crypto.randomUUID()}.${ext}`;
@@ -312,18 +348,14 @@ const GroupChat = () => {
 
   const sendText = useCallback(async (text: string, reply: GroupReplyTo | null) => {
     if (!selected) return;
-    try {
-      await callSend({
-        device_id: selected.device_id,
-        group_jid: selected.jid,
-        type: "text",
-        content: text,
-        quoted_message_id: reply?.whatsappMessageId || undefined,
-      });
-    } catch (e: any) {
-      toast.error(e?.message || "Erro ao enviar mensagem");
-    }
-  }, [selected, callSend]);
+    sendOptimistic({
+      device_id: selected.device_id,
+      group_jid: selected.jid,
+      type: "text",
+      content: text,
+      quoted_message_id: reply?.whatsappMessageId || undefined,
+    }, text);
+  }, [selected, sendOptimistic]);
 
   const sendFile = useCallback(async (file: File, caption: string | undefined, reply: GroupReplyTo | null) => {
     if (!selected) return;
@@ -332,7 +364,7 @@ const GroupChat = () => {
       const isVideo = file.type.startsWith("video/");
       const ext = (file.name.split(".").pop() || "bin").toLowerCase();
       const url = await uploadMedia(file, ext, "group-chat-files");
-      await callSend({
+      sendOptimistic({
         device_id: selected.device_id,
         group_jid: selected.jid,
         type: isImage ? "image" : isVideo ? "video" : "document",
@@ -344,14 +376,14 @@ const GroupChat = () => {
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar arquivo");
     }
-  }, [selected, callSend, uploadMedia]);
+  }, [selected, sendOptimistic, uploadMedia]);
 
   const sendAudio = useCallback(async (blob: Blob, _duration: number, reply: GroupReplyTo | null) => {
     if (!selected) return;
     try {
       const ext = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
       const url = await uploadMedia(blob, ext, "group-chat-audio");
-      await callSend({
+      sendOptimistic({
         device_id: selected.device_id,
         group_jid: selected.jid,
         type: "audio",
@@ -361,7 +393,7 @@ const GroupChat = () => {
     } catch (e: any) {
       toast.error(e?.message || "Erro ao enviar áudio");
     }
-  }, [selected, callSend, uploadMedia]);
+  }, [selected, sendOptimistic, uploadMedia]);
 
   const sendTemplate = useCallback(async (tpl: GroupTemplate) => {
     if (!selected) return;
@@ -653,7 +685,7 @@ const GroupChat = () => {
                         </div>
                       )}
                       <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
-                        {sent && (
+                        {sent && !m.pending && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
@@ -693,7 +725,7 @@ const GroupChat = () => {
                           className={cn(
                             "max-w-[70%] rounded-2xl px-3.5 py-2 text-sm shadow-sm",
                             sent
-                              ? "bg-emerald-600 text-white rounded-br-sm"
+                              ? cn("bg-emerald-600 text-white rounded-br-sm", m.pending && "opacity-75")
                               : "bg-muted text-foreground rounded-bl-sm"
                           )}
                         >
@@ -718,7 +750,7 @@ const GroupChat = () => {
                           )}
                           {m.content && <div className="whitespace-pre-wrap break-words">{m.content}</div>}
                           <div className={cn("text-[10px] mt-1 text-right", sent ? "text-white/70" : "text-muted-foreground")}>
-                            {format(new Date(m.sent_at), "HH:mm")}
+                            {m.pending ? "enviando..." : format(new Date(m.sent_at), "HH:mm")}
                           </div>
                         </div>
                         {!sent && (

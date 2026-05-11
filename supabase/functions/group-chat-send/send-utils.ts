@@ -100,7 +100,6 @@ export function buildAttempts(
 
   if (destination.group) {
     return [
-      { path: "/chat/send-text", body: { chatId: targetChatId, text: safeText, body: safeText, ...quoteFields }, expectedChatId: targetChatId },
       { path: "/send/text", body: { number: targetChatId, text: safeText, ...quoteFields }, expectedChatId: targetChatId },
     ];
   }
