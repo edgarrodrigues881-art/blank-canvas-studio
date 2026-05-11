@@ -1488,10 +1488,9 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Fetch group name for enrichment
-    const groupInfo = await fetchGroupDeliveryMode(baseUrl, headers, groupJid);
-    const groupName = groupInfo.groupName || "";
-    const isRestricted = groupInfo.mode === "restricted";
+    // Keep template sending fast: do not inspect/toggle group settings before every send.
+    const groupName = "";
+    const isRestricted = false;
 
     // Helper: dispatch without ever changing group permissions.
     // Restricted/private groups must keep their own settings untouched.
