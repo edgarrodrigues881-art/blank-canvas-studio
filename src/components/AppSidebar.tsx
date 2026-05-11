@@ -35,6 +35,7 @@ import {
   Building2,
   Headset,
   MessageSquare,
+  MessagesSquare,
   CalendarClock,
   GitBranch,
   History,
