@@ -278,8 +278,9 @@ const Conversations = () => {
     (async () => {
       const { data } = await supabase
         .from("devices")
-        .select("id, name, phone_number")
-        .eq("user_id", user.id);
+        .select("id, name, phone_number, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
       if (cancelled || !data) return;
       setUserDevices(
         data.map((d: any) => ({ id: d.id, name: d.name || d.id.slice(0, 8), number: d.phone_number || "" }))
@@ -307,7 +308,12 @@ const Conversations = () => {
         if (!existing.some((e) => e.name === d.name)) map.set(d.id, d);
       });
     }
-    return Array.from(map.values());
+    // Sort by device creation order (userDevices is already ordered by created_at asc)
+    const orderIndex = new Map<string, number>();
+    userDevices.forEach((d, idx) => orderIndex.set(d.id, idx));
+    return Array.from(map.values()).sort(
+      (a, b) => (orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
   }, [activeRealConvs, userDevices]);
 
   const filteredConversations = useMemo(() => {
