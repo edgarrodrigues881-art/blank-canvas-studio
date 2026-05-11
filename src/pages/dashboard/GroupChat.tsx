@@ -522,6 +522,7 @@ const GroupChat = () => {
         };
       } else {
         const t = tpl.tpl;
+        const cardsForChat = normalizeCarouselCardsForChat(t.cards || []);
         body = {
           deviceId: selected.device_id,
           groupJid: selected.jid,
@@ -535,13 +536,14 @@ const GroupChat = () => {
           group_jid: selected.jid,
           sender_jid: null,
           sender_name: "Você",
-          content: `🎠 Carrossel: ${t.name || ""}`,
+          content: t.message || `🎠 Carrossel: ${t.name || ""}`,
           media_type: null,
           media_url: null,
           direction: "sent",
           whatsapp_message_id: null,
           sent_at: new Date().toISOString(),
           pending: true,
+          buttons: cardsForChat,
         };
       }
       setMessages((prev) => [...prev, pending]);
@@ -809,6 +811,9 @@ const GroupChat = () => {
                   const showDate = !prev || format(new Date(prev.sent_at), "yyyy-MM-dd") !== format(new Date(m.sent_at), "yyyy-MM-dd");
                   const directionChanged = prev && prev.direction !== m.direction;
                   const sent = m.direction === "sent";
+                  const actionItems = Array.isArray(m.buttons) ? m.buttons : [];
+                  const carouselCards = actionItems.filter(isCarouselCardPayload);
+                  const messageButtons = actionItems.filter((item) => !isCarouselCardPayload(item)) as GroupMessageButtonPayload[];
                   return (
                     <div key={m.id}>
                       {showDate && (
@@ -883,9 +888,47 @@ const GroupChat = () => {
                             </a>
                           )}
                           {m.content && <div className="whitespace-pre-wrap break-words">{m.content}</div>}
-                          {Array.isArray(m.buttons) && m.buttons.length > 0 && (
+                          {carouselCards.length > 0 && (
+                            <div className="mt-2 flex max-w-full gap-2 overflow-x-auto pb-1">
+                              {carouselCards.map((card, cardIndex) => (
+                                <div
+                                  key={card.id || cardIndex}
+                                  className={cn(
+                                    "w-[220px] shrink-0 overflow-hidden rounded-lg border text-xs",
+                                    sent ? "border-primary-foreground/20 bg-primary-foreground/10" : "border-border bg-background"
+                                  )}
+                                >
+                                  {card.mediaUrl && (
+                                    <img
+                                      src={card.mediaUrl}
+                                      alt=""
+                                      className="h-28 w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  )}
+                                  {card.text && <div className="whitespace-pre-wrap break-words px-2.5 py-2">{card.text}</div>}
+                                  {Array.isArray(card.buttons) && card.buttons.length > 0 && (
+                                    <div className={cn("border-t", sent ? "border-primary-foreground/20" : "border-border")}>
+                                      {card.buttons.map((button, buttonIndex) => (
+                                        <div
+                                          key={button.id || buttonIndex}
+                                          className={cn(
+                                            "px-2.5 py-2 text-center text-[12px] font-semibold",
+                                            sent ? "text-primary-foreground" : "text-primary"
+                                          )}
+                                        >
+                                          {getButtonLabel(button)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {messageButtons.length > 0 && (
                             <div className={cn("mt-2 -mx-1 pt-2 border-t flex flex-col gap-1", sent ? "border-white/20" : "border-border")}>
-                              {m.buttons.map((b, i) => (
+                              {messageButtons.map((b, i) => (
                                 <div
                                   key={b.id || i}
                                   className={cn(
@@ -893,7 +936,7 @@ const GroupChat = () => {
                                     sent ? "bg-white/15 text-white" : "bg-background text-primary border border-border"
                                   )}
                                 >
-                                  {b.label || b.valor || "Botão"}
+                                  {getButtonLabel(b)}
                                 </div>
                               ))}
                             </div>
