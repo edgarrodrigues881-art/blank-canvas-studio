@@ -43,12 +43,26 @@ async function executeAttempts(baseUrl: string, token: string, attempts: SendAtt
         const waId = parsed?.id || parsed?.messageid || parsed?.message?.key?.id || parsed?.key?.id || null;
         return { ok: true, waId, raw: parsed };
       }
-      lastErr = parsed?.error || raw.substring(0, 200) || `HTTP ${res.status}`;
+      lastErr = extractProviderError(raw, parsed) || `HTTP ${res.status}`;
     } catch (e: any) {
       lastErr = e?.message || String(e);
     }
   }
   return { ok: false, error: lastErr };
+}
+
+function extractProviderError(raw: string, parsed: any = {}) {
+  const message =
+    (typeof parsed?.message === "string" && parsed.message.trim()) ||
+    (typeof parsed?.error === "string" && parsed.error.trim()) ||
+    (typeof parsed?.details === "string" && parsed.details.trim()) ||
+    "";
+
+  if (message) return message;
+  if (parsed?.error === true && typeof parsed?.message !== "string") {
+    return "A instância do WhatsApp recusou o envio. Reconecte o QR Code e tente novamente.";
+  }
+  return raw.trim();
 }
 
 // ── Mention everyone (@todos / @all) helpers ──
