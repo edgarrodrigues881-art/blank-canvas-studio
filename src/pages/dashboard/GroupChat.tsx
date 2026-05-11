@@ -73,12 +73,15 @@ const GroupChat = () => {
     (async () => {
       const { data } = await supabase
         .from("devices")
-        .select("id, name, created_at")
+        .select("id, name, created_at, status")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
       if (cancelled || !data) return;
-      const filtered = (data as DeviceRow[]).filter(
-        (d) => !/^relat[oó]rio/i.test((d.name || "").trim())
+      const CONNECTED = ["Ready", "Connected", "authenticated", "open", "active"];
+      const filtered = (data as (DeviceRow & { status?: string })[]).filter(
+        (d) =>
+          !/^relat[oó]rio/i.test((d.name || "").trim()) &&
+          CONNECTED.includes((d.status || "").trim())
       );
       setDevices(filtered);
     })();
