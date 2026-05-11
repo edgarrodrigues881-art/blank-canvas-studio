@@ -4372,6 +4372,7 @@ export type Database = {
       }
       group_messages: {
         Row: {
+          buttons: Json | null
           content: string | null
           created_at: string
           deleted_at: string | null
@@ -4389,6 +4390,7 @@ export type Database = {
           whatsapp_message_id: string | null
         }
         Insert: {
+          buttons?: Json | null
           content?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -4406,6 +4408,7 @@ export type Database = {
           whatsapp_message_id?: string | null
         }
         Update: {
+          buttons?: Json | null
           content?: string | null
           created_at?: string
           deleted_at?: string | null

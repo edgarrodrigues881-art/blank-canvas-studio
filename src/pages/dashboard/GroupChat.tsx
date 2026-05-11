@@ -39,6 +39,7 @@ interface MessageRow {
   direction: "sent" | "received";
   whatsapp_message_id: string | null;
   sent_at: string;
+  buttons?: Array<{ id?: string; label?: string; type?: string; valor?: string; url?: string; phone?: string; copyCode?: string }> | null;
 }
 
 type PendingGroupMessage = MessageRow & { pending?: boolean };
@@ -187,7 +188,7 @@ const GroupChat = () => {
     if (!user?.id) return;
     const { data } = await supabase
       .from("group_messages")
-      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at")
+      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, buttons")
       .eq("user_id", user.id)
       .order("sent_at", { ascending: false })
       .limit(1000);
@@ -236,7 +237,7 @@ const GroupChat = () => {
     if (showLoading) setLoadingMsgs(true);
     const { data } = await supabase
       .from("group_messages")
-      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at")
+      .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, deleted_at, buttons")
       .eq("user_id", user.id)
       .eq("group_jid", selected.jid)
       .eq("device_id", selected.device_id)
@@ -430,20 +431,7 @@ const GroupChat = () => {
     if (!selected) return;
     try {
       let body: Record<string, any>;
-      const pending: PendingGroupMessage = {
-        id: `pending-template-${crypto.randomUUID()}`,
-        device_id: selected.device_id,
-        group_jid: selected.jid,
-        sender_jid: null,
-        sender_name: "Você",
-        content: tpl.kind === "buttons" ? `Template de botões: ${tpl.tpl.name}` : `Carrossel: ${tpl.tpl.name}`,
-        media_type: null,
-        media_url: null,
-        direction: "sent",
-        whatsapp_message_id: null,
-        sent_at: new Date().toISOString(),
-        pending: true,
-      };
+      let pending: PendingGroupMessage;
       if (tpl.kind === "buttons") {
         const t = tpl.tpl;
         const mediaUrl = (t.media_url || "").trim();
@@ -456,6 +444,21 @@ const GroupChat = () => {
           mediaUrl: hasValidMedia ? mediaUrl : undefined,
           buttons: t.buttons || [],
         };
+        pending = {
+          id: `pending-template-${crypto.randomUUID()}`,
+          device_id: selected.device_id,
+          group_jid: selected.jid,
+          sender_jid: null,
+          sender_name: "Você",
+          content: t.content || "",
+          media_type: hasValidMedia ? "image" : null,
+          media_url: hasValidMedia ? mediaUrl : null,
+          direction: "sent",
+          whatsapp_message_id: null,
+          sent_at: new Date().toISOString(),
+          pending: true,
+          buttons: (t.buttons || []) as any,
+        };
       } else {
         const t = tpl.tpl;
         body = {
@@ -464,6 +467,20 @@ const GroupChat = () => {
           type: "text",
           headerText: t.message || "",
           cards: t.cards || [],
+        };
+        pending = {
+          id: `pending-template-${crypto.randomUUID()}`,
+          device_id: selected.device_id,
+          group_jid: selected.jid,
+          sender_jid: null,
+          sender_name: "Você",
+          content: `🎠 Carrossel: ${t.name || ""}`,
+          media_type: null,
+          media_url: null,
+          direction: "sent",
+          whatsapp_message_id: null,
+          sent_at: new Date().toISOString(),
+          pending: true,
         };
       }
       setMessages((prev) => [...prev, pending]);
@@ -805,6 +822,21 @@ const GroupChat = () => {
                             </a>
                           )}
                           {m.content && <div className="whitespace-pre-wrap break-words">{m.content}</div>}
+                          {Array.isArray(m.buttons) && m.buttons.length > 0 && (
+                            <div className={cn("mt-2 -mx-1 pt-2 border-t flex flex-col gap-1", sent ? "border-white/20" : "border-border")}>
+                              {m.buttons.map((b, i) => (
+                                <div
+                                  key={b.id || i}
+                                  className={cn(
+                                    "text-[12px] font-medium text-center py-1.5 px-2 rounded-md",
+                                    sent ? "bg-white/15 text-white" : "bg-background text-primary border border-border"
+                                  )}
+                                >
+                                  {b.label || b.valor || "Botão"}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className={cn("text-[10px] mt-1 text-right", sent ? "text-white/70" : "text-muted-foreground")}>
                             {m.pending ? "enviando..." : format(new Date(m.sent_at), "HH:mm")}
                           </div>
