@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { GroupChatComposer, type GroupReplyTo } from "@/components/group-chat/GroupChatComposer";
+import { GroupChatComposer, type GroupReplyTo, type ButtonTemplateItem, type CarouselTemplateItem, type GroupTemplate } from "@/components/group-chat/GroupChatComposer";
 
 interface DeviceRow { id: string; name: string; created_at: string }
 interface GroupRow {
@@ -62,6 +62,8 @@ const GroupChat = () => {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [replyTo, setReplyTo] = useState<GroupReplyTo | null>(null);
+  const [buttonTemplates, setButtonTemplates] = useState<ButtonTemplateItem[]>([]);
+  const [carouselTemplates, setCarouselTemplates] = useState<CarouselTemplateItem[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Load devices (creation-order) ──
@@ -79,6 +81,38 @@ const GroupChat = () => {
         (d) => !/^relat[oó]rio/i.test((d.name || "").trim())
       );
       setDevices(filtered);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // ── Load templates (buttons + carousel) for "/" command ──
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const [{ data: tpl }, { data: car }] = await Promise.all([
+        supabase
+          .from("templates")
+          .select("id, name, content, media_url, type, buttons")
+          .eq("user_id", user.id)
+          .order("name", { ascending: true })
+          .limit(500),
+        supabase
+          .from("carousel_templates")
+          .select("id, name, message, cards")
+          .eq("user_id", user.id)
+          .order("name", { ascending: true })
+          .limit(500),
+      ]);
+      if (cancelled) return;
+      const btns = ((tpl as any[]) || [])
+        .map((t) => ({ ...t, buttons: Array.isArray(t.buttons) ? t.buttons : [] }))
+        .filter((t) => t.buttons.length > 0) as ButtonTemplateItem[];
+      const cars = ((car as any[]) || [])
+        .map((c) => ({ ...c, cards: Array.isArray(c.cards) ? c.cards : [] }))
+        .filter((c) => c.cards.length > 0) as CarouselTemplateItem[];
+      setButtonTemplates(btns);
+      setCarouselTemplates(cars);
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
@@ -326,6 +360,49 @@ const GroupChat = () => {
       throw e;
     }
   }, [selected, callSend, uploadMedia]);
+
+  const sendTemplate = useCallback(async (tpl: GroupTemplate) => {
+    if (!selected) return;
+    try {
+      let body: Record<string, any>;
+      if (tpl.kind === "buttons") {
+        const t = tpl.tpl;
+        const hasMedia = !!t.media_url;
+        body = {
+          deviceId: selected.device_id,
+          groupJid: selected.jid,
+          type: hasMedia ? "image" : "text",
+          content: hasMedia ? t.media_url : (t.content || ""),
+          caption: hasMedia ? (t.content || "") : undefined,
+          buttons: t.buttons || [],
+        };
+      } else {
+        const t = tpl.tpl;
+        body = {
+          deviceId: selected.device_id,
+          groupJid: selected.jid,
+          type: "text",
+          headerText: t.message || "",
+          cards: t.cards || [],
+        };
+      }
+      const { data, error } = await supabase.functions.invoke("group-carousel-send", { body });
+      if (error) {
+        let msg = error.message || "Falha ao enviar template";
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) { const p = await ctx.json(); if (p?.error) msg = p.error; }
+          else if (ctx?.text) { const txt = await ctx.text(); try { const j = JSON.parse(txt); if (j?.error) msg = j.error; } catch { if (txt) msg = txt; } }
+        } catch {}
+        throw new Error(msg);
+      }
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(tpl.kind === "buttons" ? "Template de botões enviado" : "Carrossel enviado");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao enviar template");
+      throw e;
+    }
+  }, [selected]);
 
   const handleDeleteForEveryone = useCallback(async (msgId: string) => {
     const prev = messages;
@@ -672,6 +749,9 @@ const GroupChat = () => {
               onSendText={sendText}
               onSendFile={sendFile}
               onSendAudio={sendAudio}
+              buttonTemplates={buttonTemplates}
+              carouselTemplates={carouselTemplates}
+              onSendTemplate={sendTemplate}
             />
 
           </>

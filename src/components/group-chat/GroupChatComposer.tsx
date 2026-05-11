@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Paperclip, Send, Image as ImageIcon, FileText, Camera, Mic, Trash2, Loader2, X,
+  Video, LayoutGrid, MousePointerClick,
 } from "lucide-react";
 import { EmojiPicker } from "@/components/chat/EmojiPicker";
 import { CameraCapture } from "@/components/chat/CameraCapture";
@@ -22,6 +23,24 @@ export interface GroupReplyTo {
   mediaType?: string | null;
 }
 
+export interface ButtonTemplateItem {
+  id: string;
+  name: string;
+  content: string;
+  media_url?: string | null;
+  type?: string | null;
+  buttons: any[];
+}
+export interface CarouselTemplateItem {
+  id: string;
+  name: string;
+  message?: string | null;
+  cards: any[];
+}
+export type GroupTemplate =
+  | { kind: "buttons"; tpl: ButtonTemplateItem }
+  | { kind: "carousel"; tpl: CarouselTemplateItem };
+
 interface Props {
   disabled?: boolean;
   replyTo: GroupReplyTo | null;
@@ -29,15 +48,21 @@ interface Props {
   onSendText: (text: string, replyTo: GroupReplyTo | null) => Promise<void> | void;
   onSendFile: (file: File, caption: string | undefined, replyTo: GroupReplyTo | null) => Promise<void> | void;
   onSendAudio: (blob: Blob, duration: number, replyTo: GroupReplyTo | null) => Promise<void> | void;
+  buttonTemplates?: ButtonTemplateItem[];
+  carouselTemplates?: CarouselTemplateItem[];
+  onSendTemplate?: (tpl: GroupTemplate) => Promise<void> | void;
 }
 
 export function GroupChatComposer({
   disabled, replyTo, onCancelReply, onSendText, onSendFile, onSendAudio,
+  buttonTemplates = [], carouselTemplates = [], onSendTemplate,
 }: Props) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // detect "@..." token at caret to show suggestion popup
@@ -50,6 +75,14 @@ export function GroupChatComposer({
     } else {
       setMentionQuery(null);
     }
+    // detect "/" command — only when textarea starts with "/"
+    const s = value.match(/^\/([^\n]*)$/);
+    if (s) {
+      setSlashQuery(s[1].toLowerCase());
+      setSlashIndex(0);
+    } else {
+      setSlashQuery(null);
+    }
   }, []);
 
   const mentionSuggestions = (() => {
@@ -60,6 +93,19 @@ export function GroupChatComposer({
     ];
     if (!mentionQuery) return all;
     return all.filter((s) => s.token.startsWith(mentionQuery));
+  })();
+
+  // Build flat slash-suggestion list: BUTTONS first, then CAROUSEL
+  const slashSuggestions = (() => {
+    if (slashQuery === null) return [] as GroupTemplate[];
+    const q = slashQuery.trim().toLowerCase();
+    const btn: GroupTemplate[] = buttonTemplates
+      .filter((t) => !q || (t.name || "").toLowerCase().includes(q))
+      .map((tpl) => ({ kind: "buttons" as const, tpl }));
+    const car: GroupTemplate[] = carouselTemplates
+      .filter((t) => !q || (t.name || "").toLowerCase().includes(q))
+      .map((tpl) => ({ kind: "carousel" as const, tpl }));
+    return [...btn, ...car];
   })();
 
   const applyMention = useCallback((token: string) => {
@@ -79,10 +125,23 @@ export function GroupChatComposer({
     });
   }, [input]);
 
+  const applyTemplate = useCallback(async (tpl: GroupTemplate) => {
+    if (!onSendTemplate) return;
+    setSlashQuery(null);
+    setInput("");
+    setSending(true);
+    try {
+      await onSendTemplate(tpl);
+    } finally {
+      setSending(false);
+    }
+  }, [onSendTemplate]);
+
   // file
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // camera
@@ -149,6 +208,17 @@ export function GroupChatComposer({
   }, [sending, pendingFile, input, replyTo, onSendFile, onSendText, cancelPendingFile, onCancelReply]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashQuery !== null && slashSuggestions.length > 0) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setSlashIndex((i) => Math.min(slashSuggestions.length - 1, i + 1)); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setSlashIndex((i) => Math.max(0, i - 1)); return; }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const pick = slashSuggestions[slashIndex];
+        if (pick) applyTemplate(pick);
+        return;
+      }
+      if (e.key === "Escape") { e.preventDefault(); setSlashQuery(null); return; }
+    }
     if (mentionQuery !== null && mentionSuggestions.length > 0) {
       if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(mentionSuggestions.length - 1, i + 1)); return; }
       if (e.key === "ArrowUp") { e.preventDefault(); setMentionIndex((i) => Math.max(0, i - 1)); return; }
@@ -286,6 +356,7 @@ export function GroupChatComposer({
       )}
 
       <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ""; }} />
+      <input ref={videoInputRef} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ""; }} />
       <input ref={fileInputRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ""; }} />
 
       <div className="border-t border-border/40 bg-card/40 px-3 py-2">
@@ -321,6 +392,9 @@ export function GroupChatComposer({
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
                     <ImageIcon className="w-4 h-4" /> Imagem
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => videoInputRef.current?.click()}>
+                    <Video className="w-4 h-4" /> Vídeo
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <FileText className="w-4 h-4" /> Arquivo
                   </DropdownMenuItem>
@@ -333,6 +407,69 @@ export function GroupChatComposer({
 
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
+                {slashQuery !== null && slashSuggestions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-30 w-80 max-h-80 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
+                    {(() => {
+                      const btns = slashSuggestions.filter((s) => s.kind === "buttons");
+                      const cars = slashSuggestions.filter((s) => s.kind === "carousel");
+                      let runningIdx = 0;
+                      const renderItem = (s: GroupTemplate) => {
+                        const i = runningIdx++;
+                        const isCarousel = s.kind === "carousel";
+                        const name = isCarousel ? s.tpl.name : s.tpl.name;
+                        const subtitle = isCarousel
+                          ? `${(s.tpl.cards?.length || 0)} card(s) · carrossel`
+                          : `${(s.tpl.buttons?.length || 0)} botão(ões)${s.tpl.media_url ? " · com mídia" : ""}`;
+                        return (
+                          <button
+                            key={`${s.kind}-${s.tpl.id}`}
+                            type="button"
+                            onMouseEnter={() => setSlashIndex(i)}
+                            onClick={() => applyTemplate(s)}
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm flex items-start gap-2 transition-colors",
+                              i === slashIndex ? "bg-primary/10 text-foreground" : "hover:bg-muted/50"
+                            )}
+                          >
+                            {isCarousel ? <LayoutGrid className="w-4 h-4 mt-0.5 text-purple-500 shrink-0" /> : <MousePointerClick className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" />}
+                            <span className="flex-1 min-w-0">
+                              <span className="font-semibold block truncate">{name}</span>
+                              <span className="text-[11px] text-muted-foreground truncate block">{subtitle}</span>
+                            </span>
+                          </button>
+                        );
+                      };
+                      return (
+                        <>
+                          {btns.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30 sticky top-0">
+                                Botões
+                              </div>
+                              {btns.map(renderItem)}
+                            </>
+                          )}
+                          {cars.length > 0 && (
+                            <>
+                              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-y border-border/40 bg-muted/30 sticky top-0">
+                                Carrossel
+                              </div>
+                              {cars.map(renderItem)}
+                            </>
+                          )}
+                          <div className="px-3 py-1 text-[9px] text-muted-foreground/70 bg-muted/20 border-t border-border/40 sticky bottom-0">
+                            ↑↓ navegar · Enter para enviar · Esc cancela
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+                {slashQuery !== null && slashSuggestions.length === 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-30 w-72 rounded-lg border border-border bg-popover shadow-lg px-3 py-3 text-xs text-muted-foreground">
+                    Nenhum template encontrado. Crie em <span className="font-semibold text-foreground">Templates</span> ou <span className="font-semibold text-foreground">Carrossel</span>.
+                  </div>
+                )}
                 {mentionQuery !== null && mentionSuggestions.length > 0 && (
                   <div className="absolute bottom-full left-0 mb-1 z-20 w-64 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
                     <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30">
@@ -374,11 +511,11 @@ export function GroupChatComposer({
                     const ta = e.currentTarget;
                     detectMention(ta.value, ta.selectionStart ?? ta.value.length);
                   }}
-                  onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
+                  onBlur={() => setTimeout(() => { setMentionQuery(null); setSlashQuery(null); }, 150)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   rows={1}
-                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite @todos para marcar o grupo..."}
+                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite / para templates · @todos para marcar o grupo..."}
                   disabled={disabled || sending}
                   className={cn(
                     "w-full resize-none rounded-xl bg-background border border-border px-4 py-2.5 text-sm",
