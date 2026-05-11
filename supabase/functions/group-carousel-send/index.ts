@@ -1493,7 +1493,12 @@ Deno.serve(async (req) => {
     const isRestricted = false;
 
     // Persist sent template into group_messages so it appears in the chat feed.
-    const persistTemplateMessage = async (summary: string, mediaType: string | null = null, mediaUrl: string | null = null) => {
+    const persistTemplateMessage = async (
+      summary: string,
+      mediaType: string | null = null,
+      mediaUrl: string | null = null,
+      buttonsToPersist: Array<Record<string, unknown>> | null = null,
+    ) => {
       try {
         const waId = `local-tpl-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
         await admin.from("group_messages").insert({
@@ -1509,6 +1514,7 @@ Deno.serve(async (req) => {
           direction: "sent",
           whatsapp_message_id: waId,
           sent_at: new Date().toISOString(),
+          buttons: buttonsToPersist && buttonsToPersist.length > 0 ? buttonsToPersist : null,
         });
       } catch (e) {
         console.error("[group-carousel] persist error:", e);
