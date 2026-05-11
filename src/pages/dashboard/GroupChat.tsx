@@ -555,19 +555,40 @@ const GroupChat = () => {
                       )}
                       <div className={cn("group/msg flex items-end gap-1.5", sent ? "justify-end" : "justify-start", directionChanged && !showDate && "mt-6")}>
                         {sent && (
-                          <button
-                            type="button"
-                            onClick={() => setReplyTo({
-                              whatsappMessageId: m.whatsapp_message_id,
-                              content: m.content,
-                              senderName: "Você",
-                              mediaType: m.media_type,
-                            })}
-                            className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
-                            title="Responder"
-                          >
-                            <Reply className="w-3.5 h-3.5" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="opacity-0 group-hover/msg:opacity-100 transition-opacity p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                                title="Mais"
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setReplyTo({
+                                    whatsappMessageId: m.whatsapp_message_id,
+                                    content: m.content,
+                                    senderName: "Você",
+                                    mediaType: m.media_type,
+                                  });
+                                }}
+                                className="gap-2 text-xs cursor-pointer"
+                              >
+                                <Reply className="w-3.5 h-3.5" /> Responder
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={(e) => { e.preventDefault(); handleDeleteForEveryone(m.id); }}
+                                className="gap-2 text-xs cursor-pointer text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Apagar para todos
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                         <div
                           className={cn(
