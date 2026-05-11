@@ -431,20 +431,7 @@ const GroupChat = () => {
     if (!selected) return;
     try {
       let body: Record<string, any>;
-      const pending: PendingGroupMessage = {
-        id: `pending-template-${crypto.randomUUID()}`,
-        device_id: selected.device_id,
-        group_jid: selected.jid,
-        sender_jid: null,
-        sender_name: "Você",
-        content: tpl.kind === "buttons" ? `Template de botões: ${tpl.tpl.name}` : `Carrossel: ${tpl.tpl.name}`,
-        media_type: null,
-        media_url: null,
-        direction: "sent",
-        whatsapp_message_id: null,
-        sent_at: new Date().toISOString(),
-        pending: true,
-      };
+      let pending: PendingGroupMessage;
       if (tpl.kind === "buttons") {
         const t = tpl.tpl;
         const mediaUrl = (t.media_url || "").trim();
@@ -457,6 +444,21 @@ const GroupChat = () => {
           mediaUrl: hasValidMedia ? mediaUrl : undefined,
           buttons: t.buttons || [],
         };
+        pending = {
+          id: `pending-template-${crypto.randomUUID()}`,
+          device_id: selected.device_id,
+          group_jid: selected.jid,
+          sender_jid: null,
+          sender_name: "Você",
+          content: t.content || "",
+          media_type: hasValidMedia ? "image" : null,
+          media_url: hasValidMedia ? mediaUrl : null,
+          direction: "sent",
+          whatsapp_message_id: null,
+          sent_at: new Date().toISOString(),
+          pending: true,
+          buttons: (t.buttons || []) as any,
+        };
       } else {
         const t = tpl.tpl;
         body = {
@@ -465,6 +467,20 @@ const GroupChat = () => {
           type: "text",
           headerText: t.message || "",
           cards: t.cards || [],
+        };
+        pending = {
+          id: `pending-template-${crypto.randomUUID()}`,
+          device_id: selected.device_id,
+          group_jid: selected.jid,
+          sender_jid: null,
+          sender_name: "Você",
+          content: `🎠 Carrossel: ${t.name || ""}`,
+          media_type: null,
+          media_url: null,
+          direction: "sent",
+          whatsapp_message_id: null,
+          sent_at: new Date().toISOString(),
+          pending: true,
         };
       }
       setMessages((prev) => [...prev, pending]);
