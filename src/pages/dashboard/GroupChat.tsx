@@ -256,7 +256,7 @@ const GroupChat = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3rem)] bg-background">
+    <div className="flow-builder-fullscreen flex flex-col h-full bg-background overflow-hidden">
       {/* Top: instance tabs */}
       <div className="flex items-center gap-1 px-3 pt-2 pb-0 border-b border-border/40 bg-card/30 overflow-x-auto">
         <div className="flex items-center gap-2 pr-3 mr-1 border-r border-border/40 shrink-0">
