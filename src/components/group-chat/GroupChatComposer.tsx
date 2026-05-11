@@ -333,15 +333,52 @@ export function GroupChatComposer({
 
             <div className="flex items-end gap-2">
               <div className="flex-1 relative">
+                {mentionQuery !== null && mentionSuggestions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1 z-20 w-64 rounded-lg border border-border bg-popover shadow-lg overflow-hidden">
+                    <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground border-b border-border/40 bg-muted/30">
+                      Marcar membros
+                    </div>
+                    {mentionSuggestions.map((s, i) => (
+                      <button
+                        key={s.token}
+                        type="button"
+                        onMouseEnter={() => setMentionIndex(i)}
+                        onClick={() => applyMention(s.token)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors",
+                          i === mentionIndex ? "bg-primary/10 text-foreground" : "hover:bg-muted/50"
+                        )}
+                      >
+                        <span className="text-emerald-600 font-semibold">@{s.token}</span>
+                        <span className="text-xs text-muted-foreground truncate">marca todos do grupo</span>
+                      </button>
+                    ))}
+                    <div className="px-3 py-1 text-[9px] text-muted-foreground/70 bg-muted/20 border-t border-border/40">
+                      ↑↓ navegar · Enter para inserir · Esc cancela
+                    </div>
+                  </div>
+                )}
                 <textarea
                   ref={textareaRef}
                   spellCheck
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    detectMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+                  }}
+                  onKeyUp={(e) => {
+                    const ta = e.currentTarget;
+                    detectMention(ta.value, ta.selectionStart ?? ta.value.length);
+                  }}
+                  onClick={(e) => {
+                    const ta = e.currentTarget;
+                    detectMention(ta.value, ta.selectionStart ?? ta.value.length);
+                  }}
+                  onBlur={() => setTimeout(() => setMentionQuery(null), 150)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
                   rows={1}
-                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite uma mensagem para o grupo..."}
+                  placeholder={pendingFile ? "Adicione uma legenda (opcional)..." : "Digite @todos para marcar o grupo..."}
                   disabled={disabled || sending}
                   className={cn(
                     "w-full resize-none rounded-xl bg-background border border-border px-4 py-2.5 text-sm",
