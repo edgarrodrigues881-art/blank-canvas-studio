@@ -18,8 +18,8 @@ async function openCameraStream(mode: "user" | "environment"): Promise<MediaStre
     return await get({
       video: {
         facingMode: { exact: mode },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       },
       audio: false,
     });
@@ -27,7 +27,7 @@ async function openCameraStream(mode: "user" | "environment"): Promise<MediaStre
   // 2) ideal
   try {
     return await get({
-      video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
   } catch { /* fall through */ }
@@ -198,9 +198,9 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
     }
 
     setShooting(true);
+    // Show preview immediately from current frame so user perceives instant capture
     try {
-      // Cap to 1600px on the longest edge — keeps quality, much faster encode/upload
-      const MAX = 1600;
+      const MAX = 1280;
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       const scale = Math.min(1, MAX / Math.max(vw, vh));
@@ -219,14 +219,19 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
       }
       ctx.drawImage(video, 0, 0, cw, ch);
 
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85)
-      );
-      if (!blob) { setShooting(false); return; }
-      setPreviewBlob(blob);
-      setPreview(URL.createObjectURL(blob));
+      // Stop stream right away to free the camera (frame already drawn)
       stopStream();
-    } finally {
+
+      // Show preview from canvas synchronously via dataURL-like quick path
+      const quickUrl = canvas.toDataURL("image/jpeg", 0.7);
+      setPreview(quickUrl);
+      setShooting(false);
+
+      // Encode the high-quality blob in the background for upload
+      canvas.toBlob((b) => {
+        if (b) setPreviewBlob(b);
+      }, "image/jpeg", 0.8);
+    } catch {
       setShooting(false);
     }
   }, [facing, shooting, stopStream]);
@@ -238,11 +243,17 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
     startStream(facing);
   };
 
-  const handleConfirm = () => {
-    if (!previewBlob) return;
-    const file = new File([previewBlob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
+  const handleConfirm = async () => {
+    // Wait briefly for the background blob if not ready yet
+    let blob = previewBlob;
+    for (let i = 0; i < 40 && !blob; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      blob = previewBlob;
+    }
+    if (!blob) return;
+    const file = new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
     onCapture(file);
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview(null);
     setPreviewBlob(null);
     onClose();
