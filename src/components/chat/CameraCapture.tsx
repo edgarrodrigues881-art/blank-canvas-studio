@@ -198,9 +198,9 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
     }
 
     setShooting(true);
+    // Show preview immediately from current frame so user perceives instant capture
     try {
-      // Cap to 1600px on the longest edge — keeps quality, much faster encode/upload
-      const MAX = 1600;
+      const MAX = 1280;
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       const scale = Math.min(1, MAX / Math.max(vw, vh));
@@ -219,14 +219,19 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
       }
       ctx.drawImage(video, 0, 0, cw, ch);
 
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85)
-      );
-      if (!blob) { setShooting(false); return; }
-      setPreviewBlob(blob);
-      setPreview(URL.createObjectURL(blob));
+      // Stop stream right away to free the camera (frame already drawn)
       stopStream();
-    } finally {
+
+      // Show preview from canvas synchronously via dataURL-like quick path
+      const quickUrl = canvas.toDataURL("image/jpeg", 0.7);
+      setPreview(quickUrl);
+      setShooting(false);
+
+      // Encode the high-quality blob in the background for upload
+      canvas.toBlob((b) => {
+        if (b) setPreviewBlob(b);
+      }, "image/jpeg", 0.8);
+    } catch {
       setShooting(false);
     }
   }, [facing, shooting, stopStream]);
