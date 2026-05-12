@@ -18,8 +18,8 @@ async function openCameraStream(mode: "user" | "environment"): Promise<MediaStre
     return await get({
       video: {
         facingMode: { exact: mode },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       },
       audio: false,
     });
@@ -27,7 +27,7 @@ async function openCameraStream(mode: "user" | "environment"): Promise<MediaStre
   // 2) ideal
   try {
     return await get({
-      video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false,
     });
   } catch { /* fall through */ }
