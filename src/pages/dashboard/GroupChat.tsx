@@ -244,7 +244,9 @@ const GroupChat = () => {
     return () => { cancelled = true; };
   }, [user?.id, activeDeviceId, loadGroups]);
 
-  // ── Last message per group (single query, group by jid client-side) ──
+  // ── Last message per (device_id + group_jid) — separates same group across instances ──
+  const lastKey = (deviceId: string | null | undefined, jid: string) => `${deviceId || ""}::${jid}`;
+
   const refreshLastByGroup = useCallback(async () => {
     if (!user?.id) return;
     const { data } = await supabase
@@ -256,7 +258,8 @@ const GroupChat = () => {
     if (!data) return;
     const map: Record<string, MessageRow> = {};
     for (const m of data as MessageRow[]) {
-      if (!map[m.group_jid]) map[m.group_jid] = m;
+      const k = lastKey(m.device_id, m.group_jid);
+      if (!map[k]) map[k] = m;
     }
     setLastByGroup(map);
   }, [user?.id]);
@@ -274,9 +277,10 @@ const GroupChat = () => {
         (payload) => {
           const m = payload.new as MessageRow;
           setLastByGroup((prev) => {
-            const cur = prev[m.group_jid];
+            const k = lastKey(m.device_id, m.group_jid);
+            const cur = prev[k];
             if (!cur || new Date(m.sent_at) > new Date(cur.sent_at)) {
-              return { ...prev, [m.group_jid]: m };
+              return { ...prev, [k]: m };
             }
             return prev;
           });
@@ -335,7 +339,7 @@ const GroupChat = () => {
   const decoratedGroups = useMemo(() => {
     let list = groups.map((g) => {
       const dev = deviceById.get(g.device_id);
-      const last = lastByGroup[g.jid];
+      const last = lastByGroup[lastKey(g.device_id, g.jid)];
       return {
         ...g,
         deviceName: dev?.name || g.device_id.slice(0, 8),
