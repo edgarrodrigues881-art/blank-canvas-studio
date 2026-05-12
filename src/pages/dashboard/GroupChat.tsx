@@ -685,7 +685,10 @@ const GroupChat = () => {
 
       <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
       {/* Left: groups list */}
-      <aside className="flex h-full min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-r border-border/40 bg-card/40">
+      <aside className={cn(
+        "flex h-full min-h-0 w-full md:w-[360px] shrink-0 flex-col overflow-hidden border-r border-border/40 bg-card/40",
+        selected ? "hidden md:flex" : "flex"
+      )}>
 
         <div className="shrink-0 px-3 py-2 border-b border-border/20">
           <div className="relative">
