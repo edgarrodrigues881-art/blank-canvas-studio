@@ -243,11 +243,17 @@ export function CameraCapture({ open, initialFacing = "environment", onClose, on
     startStream(facing);
   };
 
-  const handleConfirm = () => {
-    if (!previewBlob) return;
-    const file = new File([previewBlob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
+  const handleConfirm = async () => {
+    // Wait briefly for the background blob if not ready yet
+    let blob = previewBlob;
+    for (let i = 0; i < 40 && !blob; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      blob = previewBlob;
+    }
+    if (!blob) return;
+    const file = new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
     onCapture(file);
-    if (preview) URL.revokeObjectURL(preview);
+    if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     setPreview(null);
     setPreviewBlob(null);
     onClose();
