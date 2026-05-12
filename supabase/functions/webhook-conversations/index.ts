@@ -662,7 +662,7 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
       url: webhookUrl,
       enabled: true,
       events: ["messages"],
-      excludeMessages: ["isGroupYes"],
+      excludeMessages: [],
       addUrlEvents: true,
       addUrlTypesMessages: true,
       fromMe: true,
@@ -679,12 +679,15 @@ async function handleSetupWebhooks(req: Request, admin: any, _body: any) {
       if (!Array.isArray(existing)) existing = [];
 
       const ours = existing.find((w: any) => w.url?.includes("webhook-conversations"));
+      const exclude = Array.isArray(ours?.excludeMessages) ? ours.excludeMessages : (Array.isArray(ours?.exclude_messages) ? ours.exclude_messages : []);
+      const groupsAllowed = !exclude.includes("isGroupYes");
       const alreadyConfigured = !!ours
         && ours.url === webhookUrl
         && ours.enabled === true
         && (Array.isArray(ours.events) ? ours.events.includes("messages") : true)
         && (ours.addUrlEvents === true || ours.add_url_events === true)
-        && (ours.addUrlTypesMessages === true || ours.add_url_types_messages === true);
+        && (ours.addUrlTypesMessages === true || ours.add_url_types_messages === true)
+        && groupsAllowed;
 
       if (alreadyConfigured) {
         console.log(`[${dev.name}] Already configured`);
