@@ -771,15 +771,27 @@ const GroupChat = () => {
       </aside>
 
       {/* Right: chat panel */}
-      <main className="flex-1 flex flex-col bg-background min-w-0 min-h-0">
+      <main className={cn(
+        "flex-1 flex-col bg-background min-w-0 min-h-0",
+        selected ? "flex" : "hidden md:flex"
+      )}>
         {!selected ? (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm px-6 text-center">
             Selecione um grupo à esquerda para conversar.
           </div>
         ) : (
           <>
-            <header className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/30 bg-card/40">
-              <div className="flex items-center gap-3 min-w-0">
+            <header className="shrink-0 flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border/30 bg-card/40">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden h-8 w-8 shrink-0 -ml-1"
+                  onClick={() => setSelected(null)}
+                  aria-label="Voltar"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
                 <Avatar className="w-9 h-9 shrink-0">
                   {selected.image_url ? <AvatarImage src={selected.image_url} alt={selected.name} /> : null}
                   <AvatarFallback className="bg-emerald-500/15 text-emerald-600 text-xs font-bold">
@@ -788,12 +800,12 @@ const GroupChat = () => {
                 </Avatar>
                 <div className="min-w-0">
                   <div className="text-sm font-bold truncate">{selected.name}</div>
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                    <Users className="w-3 h-3" />
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 truncate">
+                    <Users className="w-3 h-3 shrink-0" />
                     {selected.participants_count} membros
                     <span>·</span>
-                    <Smartphone className="w-3 h-3" />
-                    {selected.device_name}
+                    <Smartphone className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{selected.device_name}</span>
                   </div>
                 </div>
               </div>
