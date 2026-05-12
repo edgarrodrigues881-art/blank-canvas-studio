@@ -339,7 +339,7 @@ const GroupChat = () => {
   const decoratedGroups = useMemo(() => {
     let list = groups.map((g) => {
       const dev = deviceById.get(g.device_id);
-      const last = lastByGroup[g.jid];
+      const last = lastByGroup[lastKey(g.device_id, g.jid)];
       return {
         ...g,
         deviceName: dev?.name || g.device_id.slice(0, 8),
