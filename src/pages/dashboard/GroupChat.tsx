@@ -252,7 +252,7 @@ const GroupChat = () => {
       .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, buttons")
       .eq("user_id", user.id)
       .order("sent_at", { ascending: false })
-      .limit(1000);
+      .limit(300);
     if (!data) return;
     const map: Record<string, MessageRow> = {};
     for (const m of data as MessageRow[]) {
@@ -304,7 +304,7 @@ const GroupChat = () => {
       .eq("device_id", selected.device_id)
       .is("deleted_at", null)
       .order("sent_at", { ascending: true })
-      .limit(1000);
+      .limit(300);
     setMessages((data as MessageRow[]) || []);
     if (showLoading) setLoadingMsgs(false);
   }, [user?.id, selected]);
@@ -314,7 +314,7 @@ const GroupChat = () => {
     loadMessages(true);
     const interval = setInterval(() => {
       if (!document.hidden) loadMessages(false);
-    }, 8000);
+    }, 20000);
     return () => clearInterval(interval);
   }, [selected, loadMessages]);
 
