@@ -153,6 +153,17 @@ const GroupChat = () => {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  // Ensure UAZAPI webhooks are configured to deliver group messages (once per session).
+  useEffect(() => {
+    if (!user?.id) return;
+    const flagKey = `gc-webhook-setup:${user.id}`;
+    if (sessionStorage.getItem(flagKey)) return;
+    sessionStorage.setItem(flagKey, "1");
+    void supabase.functions
+      .invoke("webhook-conversations", { body: { action: "setup_all_webhooks" } })
+      .catch(() => { /* silent */ });
+  }, [user?.id]);
+
   // Hydrate open tabs from localStorage once devices are loaded
   useEffect(() => {
     if (!user?.id || tabsHydrated || devices.length === 0) return;
