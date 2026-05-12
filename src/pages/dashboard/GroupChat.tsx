@@ -252,7 +252,7 @@ const GroupChat = () => {
       .select("id, device_id, group_jid, sender_jid, sender_name, content, media_type, media_url, direction, whatsapp_message_id, sent_at, buttons")
       .eq("user_id", user.id)
       .order("sent_at", { ascending: false })
-      .limit(1000);
+      .limit(300);
     if (!data) return;
     const map: Record<string, MessageRow> = {};
     for (const m of data as MessageRow[]) {
