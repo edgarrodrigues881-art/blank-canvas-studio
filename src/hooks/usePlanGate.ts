@@ -55,18 +55,25 @@ export function usePlanGate() {
     staleTime: 60_000,
   });
 
-  const hasLegacyRestoredAccess = useMemo(() => (profile?.instance_override ?? 0) > 0, [profile]);
+  const instanceOverride = profile?.instance_override ?? 0;
+  const hasLegacyRestoredAccess = useMemo(() => instanceOverride > 0, [instanceOverride]);
 
   const effectiveSubscription = useMemo(() => {
-    if (subscription) return subscription;
+    if (subscription) {
+      // Soma o override de instâncias ao limite do plano ativo
+      return {
+        ...subscription,
+        max_instances: (subscription.max_instances ?? 0) + instanceOverride,
+      };
+    }
     if (!hasLegacyRestoredAccess) return null;
     return {
       plan_name: "Acesso restaurado",
       plan_price: 0,
-      max_instances: profile?.instance_override ?? 0,
+      max_instances: instanceOverride,
       expires_at: "2999-12-31T23:59:59.000Z",
     };
-  }, [subscription, hasLegacyRestoredAccess, profile]);
+  }, [subscription, hasLegacyRestoredAccess, instanceOverride]);
 
   const planState: PlanState = useMemo(() => {
     if (profile?.status === "suspended" || profile?.status === "cancelled") return "suspended";

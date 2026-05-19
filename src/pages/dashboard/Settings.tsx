@@ -63,18 +63,32 @@ const Settings = () => {
         setDeviceCount(count || 0);
       });
 
-    supabase
-      .from("subscriptions")
-      .select("plan_name, plan_price, max_instances, expires_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          setPlanInfo(data);
-        }
-      });
+    Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("plan_name, plan_price, max_instances, expires_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("instance_override")
+        .eq("id", user.id)
+        .maybeSingle(),
+    ]).then(([{ data: sub }, { data: prof }]) => {
+      const override = prof?.instance_override ?? 0;
+      if (sub) {
+        setPlanInfo({ ...sub, max_instances: (sub.max_instances ?? 0) + override });
+      } else if (override > 0) {
+        setPlanInfo({
+          plan_name: "Acesso restaurado",
+          plan_price: 0,
+          max_instances: override,
+          expires_at: "2999-12-31T23:59:59.000Z",
+        });
+      }
+    });
   }, [user]);
 
   const startEdit = (field: string, currentValue: string) => {
