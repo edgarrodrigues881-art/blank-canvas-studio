@@ -43,7 +43,8 @@ const ClientDevicesTab = ({ client, detail }: Props) => {
   const devices = allDevices.filter((d: any) => d.login_type !== "report_wa");
   const reportDevices = allDevices.filter((d: any) => d.login_type === "report_wa");
   const subscription = detail?.subscription;
-  const maxInstances = subscription?.max_instances ?? 0;
+  const instanceOverride = detail?.profile?.instance_override ?? (client as any)?.instance_override ?? 0;
+  const maxInstances = (subscription?.max_instances ?? 0) + instanceOverride;
   const currentPlan = subscription?.plan_name || "Sem plano";
   const hasActivePlan = !!subscription && currentPlan !== "Sem plano";
   const [showCreate, setShowCreate] = useState(false);
