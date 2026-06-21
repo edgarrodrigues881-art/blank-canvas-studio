@@ -474,6 +474,12 @@ Deno.serve(async (req) => {
       const ADMIN_BASE_URL = (Deno.env.get("UAZAPI_BASE_URL") || "").replace(/\/+$/, "");
       const ADMIN_TOKEN = Deno.env.get("UAZAPI_TOKEN") || "";
 
+      // Consider instance_override (extra instances granted by admin) on top of plan limit
+      const { data: profileForLimit } = await adminClient.from("profiles")
+        .select("instance_override").eq("id", target_user_id).maybeSingle();
+      const overrideExtra = profileForLimit?.instance_override || 0;
+      const effectiveLimit = (max_instances || 0) + overrideExtra;
+
       // Get all tokens for this user
       const { data: allTokens } = await adminClient.from("user_api_tokens")
         .select("id, status, label")
@@ -484,20 +490,20 @@ Deno.serve(async (req) => {
       let provisionResult = { created: 0, blocked: 0, unblocked: 0, errors: [] as string[] };
 
       // DOWNGRADE: block excess tokens (only available ones, don't touch in_use)
-      if (max_instances < totalTokens) {
+      if (effectiveLimit < totalTokens) {
         const availableTokens = (allTokens || []).filter((t: any) => t.status === "available");
-        const excessCount = totalTokens - max_instances;
+        const excessCount = totalTokens - effectiveLimit;
         const toBlock = availableTokens.slice(-excessCount); // block last ones
         for (const t of toBlock) {
           await adminClient.from("user_api_tokens").update({ status: "blocked" }).eq("id", t.id);
           provisionResult.blocked++;
         }
         await logAction(adminClient, user.id, target_user_id, "tokens-blocked",
-          `${provisionResult.blocked} token(s) bloqueado(s) por downgrade (limite: ${max_instances})`);
+          `${provisionResult.blocked} token(s) bloqueado(s) por downgrade (limite efetivo: ${effectiveLimit} = ${max_instances} plano + ${overrideExtra} extras)`);
       }
 
       // UPGRADE or SAME: unblock previously blocked tokens up to limit, then create missing
-      if (max_instances >= totalTokens) {
+      if (effectiveLimit >= totalTokens) {
         // First unblock any blocked tokens
         const { data: blockedTokens } = await adminClient.from("user_api_tokens")
           .select("id").eq("user_id", target_user_id).eq("status", "blocked");
