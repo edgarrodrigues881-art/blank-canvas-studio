@@ -32,7 +32,10 @@ function getDaysLeft(expiresAt: string | null): number | null {
 
 const AdminClientDetail = ({ client, onBack }: Props) => {
   const { data: detail, isLoading } = useClientDetail(client.id);
-  const daysLeft = getDaysLeft(client.plan_expires_at);
+  // Prefer fresh subscription data from detail; fallback to list-cached client values
+  const freshExpiresAt = (detail as any)?.subscription?.expires_at ?? client.plan_expires_at;
+  const freshPlanName = (detail as any)?.subscription?.plan_name ?? client.plan_name;
+  const daysLeft = getDaysLeft(freshExpiresAt);
   const isExpired = daysLeft !== null && daysLeft <= 0;
   const isExpiring = daysLeft !== null && daysLeft > 0 && daysLeft <= 3;
 
