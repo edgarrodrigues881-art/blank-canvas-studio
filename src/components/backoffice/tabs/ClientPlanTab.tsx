@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -27,13 +27,33 @@ const PLANS: Record<string, { price: number; max_instances: number; defaultDays?
 };
 
 function addDays(dateStr: string, days: number) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split("T")[0];
 }
 
+function toBrtStartIso(dateStr: string) {
+  return `${dateStr}T03:00:00.000Z`;
+}
+
+function toBrtEndIso(dateStr: string) {
+  return new Date(new Date(toBrtStartIso(dateStr)).getTime() + 86400000 - 1).toISOString();
+}
+
+function toBrtDateInput(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 function toLocalDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR");
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 interface Props { client: AdminUser; detail: any; }
@@ -88,6 +108,14 @@ const ClientPlanTab = ({ client, detail }: Props) => {
   const [provisioning, setProvisioning] = useState(false);
   const loading = isPending || provisioning;
 
+  useEffect(() => {
+    if (!sub) return;
+    setPlanName(sub.plan_name || client.plan_name || "Start");
+    if (sub.started_at) setStartedAt(toBrtDateInput(sub.started_at));
+    if (sub.expires_at) setManualExpires(toBrtDateInput(sub.expires_at));
+    if (sub.plan_price != null) setManualPrice(Number(sub.plan_price).toFixed(2));
+  }, [sub?.id, sub?.plan_name, sub?.plan_price, sub?.started_at, sub?.expires_at, client.plan_name]);
+
   // Auto-provision tokens via API
   const handleAutoProvision = (quantity: number) => {
     setProvisioning(true);
@@ -134,8 +162,8 @@ const ClientPlanTab = ({ client, detail }: Props) => {
       return;
     }
 
-    const cycleStart = new Date(startedAt).toISOString();
-    const cycleEnd = new Date(expiresAt).toISOString();
+    const cycleStart = toBrtStartIso(startedAt);
+    const cycleEnd = toBrtEndIso(expiresAt);
 
     setProvisioning(true);
     mutate({
@@ -194,9 +222,11 @@ const ClientPlanTab = ({ client, detail }: Props) => {
   };
 
   const handleRenew = () => {
-    const currentExpiry = sub?.expires_at ? sub.expires_at.split("T")[0] : expiresAt;
+    const currentExpiry = sub?.expires_at ? toBrtDateInput(sub.expires_at) : expiresAt;
     const newStart = currentExpiry;
     const newEnd = addDays(currentExpiry, 30);
+    const cycleStart = toBrtStartIso(newStart);
+    const cycleEnd = toBrtEndIso(newEnd);
 
     mutate({
       action: "create-cycle",
@@ -204,11 +234,17 @@ const ClientPlanTab = ({ client, detail }: Props) => {
         target_user_id: client.id,
         plan_name: sub?.plan_name || planName,
         cycle_amount: sub?.plan_price || planConfig.price,
-        cycle_start: new Date(newStart).toISOString(),
-        cycle_end: new Date(newEnd).toISOString(),
+        cycle_start: cycleStart,
+        cycle_end: cycleEnd,
       },
     }, {
-      onSuccess: () => toast({ title: "Ciclo renovado +30 dias" }),
+      onSuccess: () => {
+        setStartedAt(newStart);
+        setManualExpires(newEnd);
+        toast({ title: "Ciclo renovado +30 dias" });
+        invalidateClient(client.id);
+        invalidateDashboard();
+      },
       onError: (e) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
     });
   };
