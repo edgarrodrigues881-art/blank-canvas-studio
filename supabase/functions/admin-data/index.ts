@@ -92,7 +92,21 @@ Deno.serve(async (req) => {
         adminLogsRes,
         costsRes,
       ] = await Promise.all([
-        adminClient.auth.admin.listUsers(),
+        (async () => {
+          // Paginate listUsers (default 50 per page) to get ALL users
+          const all: any[] = [];
+          let page = 1;
+          const perPage = 1000;
+          // Safety cap to avoid infinite loops
+          while (page <= 50) {
+            const res = await adminClient.auth.admin.listUsers({ page, perPage });
+            const batch = res.data?.users || [];
+            all.push(...batch);
+            if (batch.length < perPage) break;
+            page++;
+          }
+          return { data: { users: all } };
+        })(),
         adminClient.from("profiles").select("id, full_name, company, phone, document, avatar_url, status, instance_override, client_type, notificacao_liberada, whatsapp_monitor_token, signup_ip, created_at, updated_at"),
         adminClient.from("user_roles").select("id, user_id, role"),
         adminClient.from("devices").select("id, user_id, name, number, status, instance_type, login_type, proxy_id, created_at"),
