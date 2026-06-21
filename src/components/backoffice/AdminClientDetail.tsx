@@ -32,7 +32,10 @@ function getDaysLeft(expiresAt: string | null): number | null {
 
 const AdminClientDetail = ({ client, onBack }: Props) => {
   const { data: detail, isLoading } = useClientDetail(client.id);
-  const daysLeft = getDaysLeft(client.plan_expires_at);
+  // Prefer fresh subscription data from detail; fallback to list-cached client values
+  const freshExpiresAt = (detail as any)?.subscription?.expires_at ?? client.plan_expires_at;
+  const freshPlanName = (detail as any)?.subscription?.plan_name ?? client.plan_name;
+  const daysLeft = getDaysLeft(freshExpiresAt);
   const isExpired = daysLeft !== null && daysLeft <= 0;
   const isExpiring = daysLeft !== null && daysLeft > 0 && daysLeft <= 3;
 
@@ -50,17 +53,17 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
             <span>{client.email}</span>
             <span>·</span>
             <span>Status: <span className={`font-medium ${statusColors[client.status] || ""}`}>{statusLabels[client.status] || client.status}</span></span>
-            {client.plan_name && (
+            {freshPlanName && (
               <>
                 <span>·</span>
-                <span>Plano: <span className={`font-medium ${planColors[client.plan_name] || ""}`}>{client.plan_name}</span></span>
+                <span>Plano: <span className={`font-medium ${planColors[freshPlanName] || ""}`}>{freshPlanName}</span></span>
               </>
             )}
             {daysLeft !== null && (
               <>
                 <span>·</span>
                 <span>Vence em: <span className={`font-medium ${isExpired ? "text-destructive" : isExpiring ? "text-yellow-500" : ""}`}>
-                  {client.plan_expires_at ? new Date(client.plan_expires_at).toLocaleDateString("pt-BR") : "—"}
+                  {freshExpiresAt ? new Date(freshExpiresAt).toLocaleDateString("pt-BR") : "—"}
                   {isExpired ? " (vencido)" : ` (${daysLeft}d)`}
                 </span></span>
               </>
@@ -73,17 +76,17 @@ const AdminClientDetail = ({ client, onBack }: Props) => {
             <p className="truncate">{client.email}</p>
             <div className="flex items-center gap-2 flex-wrap">
               <span>Status: <span className={`font-medium ${statusColors[client.status] || ""}`}>{statusLabels[client.status] || client.status}</span></span>
-              {client.plan_name && (
+              {freshPlanName && (
                 <>
                   <span>·</span>
-                  <span>Plano: <span className={`font-medium ${planColors[client.plan_name] || ""}`}>{client.plan_name}</span></span>
+                  <span>Plano: <span className={`font-medium ${planColors[freshPlanName] || ""}`}>{freshPlanName}</span></span>
                 </>
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {daysLeft !== null && (
                 <span>Vence: <span className={`font-medium ${isExpired ? "text-destructive" : isExpiring ? "text-yellow-500" : ""}`}>
-                  {client.plan_expires_at ? new Date(client.plan_expires_at).toLocaleDateString("pt-BR") : "—"}
+                  {freshExpiresAt ? new Date(freshExpiresAt).toLocaleDateString("pt-BR") : "—"}
                   {isExpired ? " (vencido)" : ` (${daysLeft}d)`}
                 </span></span>
               )}
