@@ -82,14 +82,26 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
     return;
   }
 
-  const minDelay = campaign.min_delay_seconds || 5;
-  const maxDelay = campaign.max_delay_seconds || 15;
-  const pauseEveryMin = campaign.pause_every_min || 0;
-  const pauseEveryMax = campaign.pause_every_max || 0;
-  const pauseDurationMin = campaign.pause_duration_min || 0;
-  const pauseDurationMax = campaign.pause_duration_max || 0;
+  // Sanitize delay config (guarantee min<=max and non-negative)
+  const clamp = (n: any, floor: number) => {
+    const v = Number(n);
+    return Number.isFinite(v) && v >= floor ? v : floor;
+  };
+  let minDelay = clamp(campaign.min_delay_seconds, 1);
+  let maxDelay = clamp(campaign.max_delay_seconds, minDelay);
+  if (maxDelay < minDelay) maxDelay = minDelay;
 
-  const pauseEvery = pauseEveryMin > 0 ? rand(pauseEveryMin, pauseEveryMax) : 0;
+  let pauseEveryMin = clamp(campaign.pause_every_min, 0);
+  let pauseEveryMax = clamp(campaign.pause_every_max, pauseEveryMin);
+  if (pauseEveryMax < pauseEveryMin) pauseEveryMax = pauseEveryMin;
+
+  let pauseDurationMin = clamp(campaign.pause_duration_min, 0);
+  let pauseDurationMax = clamp(campaign.pause_duration_max, pauseDurationMin);
+  if (pauseDurationMax < pauseDurationMin) pauseDurationMax = pauseDurationMin;
+
+  // Re-drawn after each block pause so the interval varies (anti-ban)
+  const nextPauseEvery = () => (pauseEveryMin > 0 ? rand(pauseEveryMin, pauseEveryMax) : 0);
+  let pauseEvery = nextPauseEvery();
 
   const dispatchType: "buttons" | "carousel" | "text" =
     campaign.message_type === "carousel" ? "carousel"
@@ -118,21 +130,25 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
     const target = targets[i];
     const gid = target.phone;
 
-    // Inter-message delay
+    // Wait BEFORE each send (except the first): either a long block-pause OR a short inter-message delay, never both.
     if (i > 0) {
-      const result = await waitWithCheck(sb, campaignId, rand(minDelay, maxDelay) * 1000);
-      if (result === "stop") break;
-    }
+      const triggerPause = pauseEvery > 0 && sinceLastPause >= pauseEvery;
+      const waitMs = triggerPause
+        ? rand(pauseDurationMin, pauseDurationMax) * 1000
+        : rand(minDelay, maxDelay) * 1000;
 
-    // Block pause
-    sinceLastPause++;
-    if (pauseEvery > 0 && sinceLastPause >= pauseEvery && i < targets.length - 1) {
-      const p = rand(pauseDurationMin, pauseDurationMax) * 1000;
-      console.log(`[process-group-dispatch] Block pause ${p}ms for ${campaignId}`);
-      const result = await waitWithCheck(sb, campaignId, p);
-      if (result === "stop") break;
-      sinceLastPause = 0;
+      if (waitMs > 0) {
+        console.log(`[process-group-dispatch] ${triggerPause ? "Block pause" : "Delay"} ${waitMs}ms (i=${i}) for ${campaignId}`);
+        const result = await waitWithCheck(sb, campaignId, waitMs);
+        if (result === "stop") break;
+      }
+
+      if (triggerPause) {
+        sinceLastPause = 0;
+        pauseEvery = nextPauseEvery(); // re-sortear para próximo bloco variar
+      }
     }
+    sinceLastPause++;
 
     // Resolve deviceId: per-target overrides campaign default; supports multi-device (device_ids[])
     const deviceId: string | null =
