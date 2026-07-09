@@ -473,7 +473,7 @@ export function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="icon" className="sidebar-premium">
+    <Sidebar collapsible="offcanvas" className="sidebar-premium">
       {/* Header / Brand */}
       <div className={`relative ${collapsed ? 'flex flex-col items-center py-4 px-2 gap-2.5' : 'flex items-center justify-between gap-2.5 px-4 py-[18px]'}`}>
         <div className="flex items-center gap-2.5 min-w-0">
