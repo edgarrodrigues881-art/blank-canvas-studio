@@ -134,12 +134,28 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       sinceLastPause = 0;
     }
 
+    // Resolve deviceId: per-target overrides campaign default; supports multi-device (device_ids[])
+    const deviceId: string | null =
+      target.device_id ||
+      campaign.device_id ||
+      (Array.isArray(campaign.device_ids) && campaign.device_ids.length > 0 ? campaign.device_ids[0] : null);
+
+    if (!deviceId) {
+      fail++;
+      const msg = "Nenhum dispositivo definido para este grupo.";
+      console.error(`[process-group-dispatch] ${msg} target=${target.id}`);
+      await sb.from("campaign_contacts")
+        .update({ status: "failed", error_message: msg })
+        .eq("id", target.id);
+      continue;
+    }
+
     // Build send body
     const mentionAll = campaign.mention_all === true;
     let body: Record<string, any>;
     if (dispatchType === "buttons" && activeButtons.length > 0) {
       body = {
-        deviceId: campaign.device_id,
+        deviceId,
         groupJid: gid,
         content: baseText,
         type: "buttons",
@@ -149,12 +165,12 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       };
     } else if (dispatchType === "carousel") {
       body = cards.length > 0
-        ? { deviceId: campaign.device_id, groupJid: gid, headerText: baseText || undefined, cards, mentionAll }
-        : { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text", mentionAll };
+        ? { deviceId, groupJid: gid, headerText: baseText || undefined, cards, mentionAll }
+        : { deviceId, groupJid: gid, content: baseText, type: "text", mentionAll };
     } else {
       if (mediaUrl) {
         body = {
-          deviceId: campaign.device_id,
+          deviceId,
           groupJid: gid,
           content: mediaUrl,
           caption: baseText || undefined,
@@ -162,7 +178,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
           mentionAll,
         };
       } else {
-        body = { deviceId: campaign.device_id, groupJid: gid, content: baseText, type: "text", mentionAll };
+        body = { deviceId, groupJid: gid, content: baseText, type: "text", mentionAll };
       }
     }
 
