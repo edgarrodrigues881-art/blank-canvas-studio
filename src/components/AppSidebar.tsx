@@ -233,7 +233,7 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (sidebarCollapsed) {
-      const timeout = window.setTimeout(() => setContentCollapsed(true), 180);
+      const timeout = window.setTimeout(() => setContentCollapsed(true), 240);
       return () => window.clearTimeout(timeout);
     }
 
