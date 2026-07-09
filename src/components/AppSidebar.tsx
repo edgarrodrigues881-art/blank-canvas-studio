@@ -187,12 +187,12 @@ function SidebarToggle() {
           onClick={toggleSidebar}
           aria-label={label}
           className={cn(
-            "group relative flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-[border-color,background-color,color,box-shadow,transform] duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            "group relative flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-[border-color,background-color,color,box-shadow,transform] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           )}
         >
           <PanelLeft
             className={cn(
-              "w-[18px] h-[18px] shrink-0 transition-[transform,color] duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] text-sidebar-foreground/60 group-hover:text-primary",
+              "w-[18px] h-[18px] shrink-0 transition-[transform,color] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] text-sidebar-foreground/60 group-hover:text-primary",
               collapsed && "rotate-180"
             )}
             strokeWidth={1.6}
@@ -334,7 +334,7 @@ export function AppSidebar() {
                     to={planPermBlocked ? "#" : "/dashboard/my-plan"}
                     onClick={planPermBlocked ? (e: React.MouseEvent) => { e.preventDefault(); setMaintenanceModal({ name: "Meu Plano", message: "Você não tem acesso a esta função." }); } : undefined}
                     className={cn(
-                      "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[120ms] ease-out group/plan",
+                      "plan-gold-btn sidebar-nav-item relative flex items-center text-[13px] transition-[color,opacity] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] group/plan",
                       collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 pr-3.5 py-[10px]',
                       planPermBlocked
                         ? 'text-muted-foreground/40 font-medium cursor-not-allowed'
@@ -696,7 +696,7 @@ export function AppSidebar() {
                               to={warmupBlocked ? "#" : "/dashboard/warmup-v2"}
                               onClick={handleWarmupClick}
                              className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative
-                                transition-[background-color,color,opacity] duration-[120ms] ease-out
+                                transition-[background-color,color,opacity] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)]
                                 ${collapsed ? 'gap-0 px-0 py-2.5 justify-center w-10 h-10 mx-auto' : 'gap-[11px] px-3.5 py-[9px]'}
                                 ${warmupBlocked
                                   ? 'text-muted-foreground/40 font-normal cursor-not-allowed'
@@ -754,7 +754,7 @@ export function AppSidebar() {
                               <NavLink
                                 to={folderUrl}
                                 className={`sidebar-nav-item flex items-center rounded-[10px] text-[13px] relative w-full
-                                  transition-[background-color,color,opacity] duration-[120ms] ease-out
+                                  transition-[background-color,color,opacity] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)]
                                   gap-[11px] px-3.5 py-[8px]
                                   text-foreground font-medium hover:brightness-110`}
                                 style={{ backgroundColor: `${folder.color}15` }}
