@@ -14,6 +14,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const STOP_STATUSES = new Set(["paused", "cancelled", "canceled", "failed", "completed"]);
+const ACTIVE_STATUSES = ["pending", "processing", "running", "scheduled"];
 
 function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
