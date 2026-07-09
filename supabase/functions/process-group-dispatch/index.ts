@@ -78,7 +78,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       .from("campaigns")
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", campaignId)
-      .in("status", ["pending", "processing"]);
+      .in("status", ACTIVE_STATUSES);
     return;
   }
 
