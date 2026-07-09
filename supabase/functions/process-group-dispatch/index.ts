@@ -249,12 +249,12 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
 
-    // Mark as processing immediately (only if still pending)
+    // Mark as processing immediately (only if still in a pre-run state)
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     await sb.from("campaigns")
-      .update({ status: "processing" })
+      .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", campaignId)
-      .in("status", ["pending"]);
+      .in("status", ["pending", "scheduled", "running"]);
 
     // Fire-and-forget background processing
     // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
