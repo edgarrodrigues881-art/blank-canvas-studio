@@ -206,12 +206,13 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       .update({
         sent_count: (campaign.sent_count || 0) + ok,
         failed_count: (campaign.failed_count || 0) + fail,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", campaignId)
-      .in("status", ["pending", "processing"]); // don't override paused/cancelled
+      .in("status", ACTIVE_STATUSES); // don't override paused/cancelled
   }
 
-  // Final status — only finalize if still processing
+  // Final status — only finalize if not in a terminal state
   const finalStatus = await getCampaignStatus(sb, campaignId);
   if (finalStatus && !STOP_STATUSES.has(finalStatus)) {
     const { count: pendingLeft } = await sb
@@ -227,7 +228,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
           completed_at: new Date().toISOString(),
         })
         .eq("id", campaignId)
-        .in("status", ["pending", "processing"]);
+        .in("status", ACTIVE_STATUSES);
     }
   }
 
