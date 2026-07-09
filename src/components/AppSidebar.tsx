@@ -13,6 +13,7 @@ import {
   BotMessageSquare,
   ArrowRightLeft,
   ArrowLeft,
+  PanelLeft,
   Heart,
   LogOut,
   LogIn,
