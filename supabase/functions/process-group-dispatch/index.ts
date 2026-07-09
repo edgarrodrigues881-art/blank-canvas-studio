@@ -14,6 +14,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const STOP_STATUSES = new Set(["paused", "cancelled", "canceled", "failed", "completed"]);
+const ACTIVE_STATUSES = ["pending", "processing", "running", "scheduled"];
 
 function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -77,7 +78,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       .from("campaigns")
       .update({ status: "completed", completed_at: new Date().toISOString() })
       .eq("id", campaignId)
-      .in("status", ["pending", "processing"]);
+      .in("status", ACTIVE_STATUSES);
     return;
   }
 
@@ -205,12 +206,13 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
       .update({
         sent_count: (campaign.sent_count || 0) + ok,
         failed_count: (campaign.failed_count || 0) + fail,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", campaignId)
-      .in("status", ["pending", "processing"]); // don't override paused/cancelled
+      .in("status", ACTIVE_STATUSES); // don't override paused/cancelled
   }
 
-  // Final status — only finalize if still processing
+  // Final status — only finalize if not in a terminal state
   const finalStatus = await getCampaignStatus(sb, campaignId);
   if (finalStatus && !STOP_STATUSES.has(finalStatus)) {
     const { count: pendingLeft } = await sb
@@ -226,7 +228,7 @@ async function processCampaign(campaignId: string, authHeader: string | null) {
           completed_at: new Date().toISOString(),
         })
         .eq("id", campaignId)
-        .in("status", ["pending", "processing"]);
+        .in("status", ACTIVE_STATUSES);
     }
   }
 
@@ -247,12 +249,12 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
 
-    // Mark as processing immediately (only if still pending)
+    // Mark as processing immediately (only if still in a pre-run state)
     const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     await sb.from("campaigns")
-      .update({ status: "processing" })
+      .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", campaignId)
-      .in("status", ["pending"]);
+      .in("status", ["pending", "scheduled", "running"]);
 
     // Fire-and-forget background processing
     // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions

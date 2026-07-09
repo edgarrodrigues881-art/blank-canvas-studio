@@ -99,15 +99,17 @@ export async function scheduledCampaignsTick(): Promise<void> {
     }
     if (alreadyLocked) continue;
 
-    // Atomic transition scheduled → running
+    // Atomic transition scheduled → processing (skip 'running' to avoid the
+    // local campaign-worker also picking it up — process-group-dispatch owns
+    // execution for group campaigns).
     const { data: updated } = await db.from("campaigns")
-      .update({ status: "running", started_at: nowIso, updated_at: nowIso })
+      .update({ status: "processing", started_at: nowIso, updated_at: nowIso })
       .eq("id", campaign.id).eq("status", "scheduled")
       .select("id");
 
     if (updated && updated.length > 0) {
       promoted++;
-      log.info(`Campaign ${campaign.id.slice(0, 8)} promoted scheduled → running`);
+      log.info(`Campaign ${campaign.id.slice(0, 8)} promoted scheduled → processing`);
 
       // ── Trigger the group dispatch edge function (handles buttons/carousel/text on groups) ──
       try {
@@ -121,7 +123,7 @@ export async function scheduledCampaignsTick(): Promise<void> {
             "apikey": serviceKey,
           },
           body: JSON.stringify({ campaignId: campaign.id }),
-        }).catch((e) => log.warn(`invoke process-group-dispatch failed (worker may self-recover): ${e?.message || e}`));
+        }).catch((e) => log.warn(`invoke process-group-dispatch failed: ${e?.message || e}`));
         log.info(`Campaign ${campaign.id.slice(0, 8)} → process-group-dispatch invoked`);
       } catch (e: any) {
         log.error(`Failed to invoke process-group-dispatch for ${campaign.id.slice(0, 8)}: ${e?.message || e}`);
