@@ -854,36 +854,11 @@ async function campaignTick() {
     }
   }
 
-  // 3. Trigger scheduled campaigns
-  const { data: campaigns } = await db.from("campaigns")
-    .select("id, user_id, device_id, device_ids, scheduled_at")
-    .eq("status", "scheduled")
-    .lte("scheduled_at", new Date().toISOString());
-
-  for (const campaign of campaigns || []) {
-    const { data: updated } = await db.from("campaigns")
-      .update({ status: "running", started_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq("id", campaign.id)
-      .eq("status", "scheduled")
-      .select("id");
-
-    if (!updated?.length) continue;
-
-    try {
-      await fetch(`${config.supabaseUrl}/functions/v1/process-campaign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", apikey: config.supabaseAnonKey, Authorization: `Bearer ${config.supabaseAnonKey}` },
-        body: JSON.stringify({ action: "continue", campaignId: campaign.id, deviceId: campaign.device_id || undefined }),
-      });
-      log.info(`Triggered scheduled campaign ${campaign.id}`);
-    } catch (err: any) {
-      log.error(`Failed to trigger campaign ${campaign.id}: ${err.message}`);
-      await db.from("campaigns").update({ status: "scheduled", started_at: null }).eq("id", campaign.id).eq("status", "running");
-    }
-  }
-
-  // 4. Group interaction ticks — now handled by dedicated groupInteractionTick worker
-  // (removed Edge Function proxy — runs inline in VPS)
+  // 3. Scheduled campaign promotion is handled exclusively by scheduledCampaignsTick
+  //    (workers/scheduled-campaigns-worker.ts). It invokes process-group-dispatch,
+  //    which correctly handles group targets, buttons, carousel and mention_all.
+  //    Do NOT re-add promotion here — it caused a race that fired the wrong
+  //    edge function and left scheduled group dispatches silent.
 }
 
 // ══════════════════════════════════════════════════════════
