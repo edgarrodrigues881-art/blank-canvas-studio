@@ -98,7 +98,7 @@ const DashboardLayoutInner = ({ children }: DashboardLayoutProps) => {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-h-screen min-w-0">
           <header className="h-11 sm:h-14 border-b border-border bg-card shadow-sm flex items-center px-3 sm:px-4 shrink-0 gap-2 sm:gap-3">
-            <SidebarTrigger className="text-muted-foreground hover:text-foreground w-7 h-7 sm:w-8 sm:h-8" />
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground w-7 h-7 sm:w-8 sm:h-8 md:hidden" />
             <img src={logo} alt="DG Contingência Pro" className="w-6 h-6 rounded-md sm:hidden" />
 
             {/* Spacer */}
