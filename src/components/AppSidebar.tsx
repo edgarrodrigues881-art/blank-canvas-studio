@@ -187,19 +187,18 @@ function SidebarToggle() {
           onClick={toggleSidebar}
           aria-label={label}
           className={cn(
-            "group relative flex items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-all duration-200 hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-            collapsed ? "w-9 h-9" : "w-8 h-8"
+            "group relative flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-[border-color,background-color,color,box-shadow,transform] duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           )}
         >
           <PanelLeft
             className={cn(
-              "w-[18px] h-[18px] shrink-0 transition-all duration-200 text-sidebar-foreground/60 group-hover:text-primary",
+              "w-[18px] h-[18px] shrink-0 transition-[transform,color] duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] text-sidebar-foreground/60 group-hover:text-primary",
               collapsed && "rotate-180"
             )}
             strokeWidth={1.6}
           />
           <span
-            className="absolute -right-1 top-1/2 -translate-y-1/2 h-2.5 w-[3px] rounded-full bg-sidebar-foreground/30 transition-colors duration-200 group-hover:bg-primary"
+            className="absolute -right-1 top-1/2 -translate-y-1/2 h-2.5 w-[3px] rounded-full bg-sidebar-foreground/30 transition-colors duration-[180ms] group-hover:bg-primary"
             aria-hidden="true"
           />
         </button>
@@ -213,7 +212,9 @@ function SidebarToggle() {
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const collapsed = state === "collapsed";
+  const sidebarCollapsed = state === "collapsed";
+  const [contentCollapsed, setContentCollapsed] = useState(sidebarCollapsed);
+  const collapsed = contentCollapsed;
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -229,6 +230,16 @@ export function AppSidebar() {
   const [warmupExpanded, setWarmupExpanded] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<{ id: string; name: string; color: string; tags?: any[] } | null>(null);
+
+  useEffect(() => {
+    if (sidebarCollapsed) {
+      const timeout = window.setTimeout(() => setContentCollapsed(true), 180);
+      return () => window.clearTimeout(timeout);
+    }
+
+    const frame = window.requestAnimationFrame(() => setContentCollapsed(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [sidebarCollapsed]);
 
   // Fetch profile data once — no realtime needed for sidebar display
   useEffect(() => {
