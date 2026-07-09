@@ -176,7 +176,7 @@ const getNavIconColor = (url: string, title: string): string => {
 };
 
 export function AppSidebar() {
-  const { state, toggleSidebar } = useSidebar();
+  const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
   const location = useLocation();
