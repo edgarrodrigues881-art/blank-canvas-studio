@@ -175,6 +175,42 @@ const getNavIconColor = (url: string, title: string): string => {
   return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
 };
 
+function SidebarToggle() {
+  const { state, toggleSidebar } = useSidebar();
+  const collapsed = state === "collapsed";
+  const label = collapsed ? "Expandir sidebar" : "Recolher sidebar";
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          aria-label={label}
+          className={cn(
+            "group relative flex items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-all duration-200 hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            collapsed ? "w-9 h-9" : "w-8 h-8"
+          )}
+        >
+          <PanelLeft
+            className={cn(
+              "w-[18px] h-[18px] shrink-0 transition-all duration-200 text-sidebar-foreground/60 group-hover:text-primary",
+              collapsed && "rotate-180"
+            )}
+            strokeWidth={1.6}
+          />
+          <span
+            className="absolute -right-1 top-1/2 -translate-y-1/2 h-2.5 w-[3px] rounded-full bg-sidebar-foreground/30 transition-colors duration-200 group-hover:bg-primary"
+            aria-hidden="true"
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" align="center" hidden={!collapsed}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
