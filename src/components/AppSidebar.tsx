@@ -176,37 +176,34 @@ const getNavIconColor = (url: string, title: string): string => {
 };
 
 function SidebarToggle() {
-  const { state, toggleSidebar } = useSidebar();
+  const { state, toggleSidebar, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const label = collapsed ? "Expandir sidebar" : "Recolher sidebar";
+  // On mobile the header already has a trigger and the sidebar lives inside a Sheet,
+  // so we don't render an extra toggle (avoids the persistent tooltip + double-tap lag).
+  if (isMobile) return null;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={label}
-          className={cn(
-            "group relative flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-[border-color,background-color,color,box-shadow,transform] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-          )}
-        >
-          <PanelLeft
-            className={cn(
-              "w-[18px] h-[18px] shrink-0 transition-[transform,color] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] text-sidebar-foreground/60 group-hover:text-primary",
-              collapsed && "rotate-180"
-            )}
-            strokeWidth={1.6}
-          />
-          <span
-            className="absolute -right-1 top-1/2 -translate-y-1/2 h-2.5 w-[3px] rounded-full bg-sidebar-foreground/30 transition-colors duration-[180ms] group-hover:bg-primary"
-            aria-hidden="true"
-          />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="right" align="center" hidden={!collapsed}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
+    <button
+      type="button"
+      onClick={toggleSidebar}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "group relative flex h-9 w-9 items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent transition-[border-color,background-color,color,box-shadow,transform] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary/40 hover:bg-sidebar-accent/80 hover:text-primary hover:shadow-[0_0_12px_hsl(var(--primary)_/_0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+      )}
+    >
+      <PanelLeft
+        className={cn(
+          "w-[18px] h-[18px] shrink-0 transition-[transform,color] duration-[320ms] ease-[cubic-bezier(0.32,0.72,0,1)] text-sidebar-foreground/60 group-hover:text-primary",
+          collapsed && "rotate-180"
+        )}
+        strokeWidth={1.6}
+      />
+      <span
+        className="absolute -right-1 top-1/2 -translate-y-1/2 h-2.5 w-[3px] rounded-full bg-sidebar-foreground/30 transition-colors duration-[180ms] group-hover:bg-primary"
+        aria-hidden="true"
+      />
+    </button>
   );
 }
 
