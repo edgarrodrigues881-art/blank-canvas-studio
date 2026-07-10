@@ -211,8 +211,10 @@ function SidebarToggle() {
 }
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const sidebarCollapsed = state === "collapsed";
+  const { state, isMobile } = useSidebar();
+  // On mobile the sidebar renders inside a Sheet (always fully expanded when open),
+  // so we must never treat it as "collapsed" — otherwise it shows icons only.
+  const sidebarCollapsed = !isMobile && state === "collapsed";
   const [contentCollapsed, setContentCollapsed] = useState(sidebarCollapsed);
   const collapsed = contentCollapsed;
   const navigate = useNavigate();
